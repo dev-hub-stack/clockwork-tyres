@@ -7,7 +7,7 @@ use App\Filament\Resources\Settings\CompanyBrandings\Pages\EditCompanyBranding;
 use App\Filament\Resources\Settings\CompanyBrandings\Pages\ListCompanyBrandings;
 use App\Filament\Resources\Settings\CompanyBrandings\Schemas\CompanyBrandingForm;
 use App\Filament\Resources\Settings\CompanyBrandings\Tables\CompanyBrandingsTable;
-use App\Modules\Settings\Models\Settings\CompanyBranding;
+use App\Modules\Settings\Models\CompanyBranding;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,6 +15,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 
 class CompanyBrandingResource extends Resource
 {
@@ -23,6 +24,8 @@ class CompanyBrandingResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $recordTitleAttribute = 'company_name';
+    
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {

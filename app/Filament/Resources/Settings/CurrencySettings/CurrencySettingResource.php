@@ -7,7 +7,7 @@ use App\Filament\Resources\Settings\CurrencySettings\Pages\EditCurrencySetting;
 use App\Filament\Resources\Settings\CurrencySettings\Pages\ListCurrencySettings;
 use App\Filament\Resources\Settings\CurrencySettings\Schemas\CurrencySettingForm;
 use App\Filament\Resources\Settings\CurrencySettings\Tables\CurrencySettingsTable;
-use App\Modules\Settings\Models\Settings\CurrencySetting;
+use App\Modules\Settings\Models\CurrencySetting;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,6 +15,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 
 class CurrencySettingResource extends Resource
 {
@@ -23,6 +24,8 @@ class CurrencySettingResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $recordTitleAttribute = 'currency_name';
+    
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {
