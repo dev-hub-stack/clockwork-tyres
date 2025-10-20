@@ -4,7 +4,7 @@ namespace App\Filament\Resources\CustomerResource\RelationManagers;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Get;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -26,6 +26,9 @@ class ModelPricingRulesRelationManager extends RelationManager
             ->components([
                 Select::make('model_id')
                     ->label('Product Model')
+                    ->relationship('model', 'name')
+                    ->searchable()
+                    ->preload()
                     ->required()
                     ->placeholder('Select a product model')
                     ->helperText('Model pricing has HIGHEST priority - overrides brand discounts'),
@@ -63,8 +66,9 @@ class ModelPricingRulesRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('model_id')
-                    ->label('Model ID')
+                Tables\Columns\TextColumn::make('model.name')
+                    ->label('Model')
+                    ->searchable()
                     ->sortable(),
                 
                 Tables\Columns\BadgeColumn::make('discount_type')

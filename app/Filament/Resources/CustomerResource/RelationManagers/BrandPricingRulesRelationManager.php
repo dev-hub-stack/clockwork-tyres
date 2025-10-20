@@ -4,7 +4,7 @@ namespace App\Filament\Resources\CustomerResource\RelationManagers;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Get;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -26,9 +26,11 @@ class BrandPricingRulesRelationManager extends RelationManager
             ->components([
                 Select::make('brand_id')
                     ->label('Brand')
+                    ->relationship('brand', 'name')
+                    ->searchable()
+                    ->preload()
                     ->required()
-                    ->placeholder('Select a brand')
-                    ->helperText('Brand pricing will be added once Products module is complete'),
+                    ->placeholder('Select a brand'),
                 
                 Select::make('discount_type')
                     ->label('Discount Type')
@@ -63,8 +65,9 @@ class BrandPricingRulesRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('brand_id')
-                    ->label('Brand ID')
+                Tables\Columns\TextColumn::make('brand.name')
+                    ->label('Brand')
+                    ->searchable()
                     ->sortable(),
                 
                 Tables\Columns\BadgeColumn::make('discount_type')

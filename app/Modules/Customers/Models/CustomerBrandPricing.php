@@ -54,10 +54,10 @@ class CustomerBrandPricing extends Model
     }
 
     /**
-     * Relationship: Brand (will be defined when Brands module is created)
+     * Relationship: Brand
      */
-    // public function brand(): BelongsTo
-    // {
-    //     return $this->belongsTo(\App\Modules\Products\Models\Brand::class);
-    // }
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Products\Models\Brand::class);
+    }
 }

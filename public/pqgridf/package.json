@@ -1,0 +1,70 @@
+{
+  "_from": "pqgridf",
+  "_id": "pqgridf@3.5.1",
+  "_inBundle": false,
+  "_integrity": "sha512-72QsB1Z0dYHSzxMcYUT7WO9wP5+J8fDcyxpbaqU6ysn4kl/b4TXAhIPjJIDauRqHEBwgl4KmcJFNx7XlmhgW1w==",
+  "_location": "/pqgridf",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "pqgridf",
+    "name": "pqgridf",
+    "escapedName": "pqgridf",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/pqgridf/-/pqgridf-3.5.1.tgz",
+  "_shasum": "a5b5a499a52ce032526930a048c31dcc6a59d6ab",
+  "_spec": "pqgridf",
+  "_where": "D:\\xampp\\htdocs\\test\\grid-view",
+  "author": {
+    "name": "Paramvir Dhindsa",
+    "url": "http://www.paramquery.com/"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "jQuery grid plugin, also support Angular, Reactjs, Vuejs\r ========================================================\r [ParamQuery Grid](http://paramquery.com)",
+  "devDependencies": {},
+  "files": [
+    "/images",
+    "/localize",
+    "/themes",
+    "GPL-LICENSE.txt",
+    "changelog.txt",
+    "index.js",
+    "pqgrid.dev.js",
+    "pqgrid.min.js",
+    "pqgrid.dev.css",
+    "pqgrid.min.css",
+    "pqgrid.ui.dev.css",
+    "pqgrid.ui.min.css",
+    "readme.md"
+  ],
+  "keywords": [
+    "datagrid",
+    "grid",
+    "angular grid",
+    "jquery grid",
+    "react grid",
+    "vue grid"
+  ],
+  "license": "GNU GPL v3",
+  "main": "index.js",
+  "name": "pqgridf",
+  "peerDependencies": {
+    "jquery": ">=2.2.1",
+    "@types/jquery": ">=2.2.1",
+    "jquery-ui-pack": "^1.12.3",
+    "@types/jqueryui": ">=1.12.1",
+    "jszip": "2.5.0"
+  },
+  "types": "pqgrid.d.ts",
+  "version": "3.5.1"
+}

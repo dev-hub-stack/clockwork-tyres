@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customer_model_pricing', function (Blueprint $table) {
+        Schema::create('customer_brand_pricing', function (Blueprint $table) {
             $table->id();
             
             // Relations
             $table->unsignedBigInteger('customer_id');
-            $table->unsignedBigInteger('model_id')->comment('Product model, not vehicle model');
+            $table->unsignedBigInteger('brand_id');
             
             // Discount Configuration
             $table->enum('discount_type', ['percentage', 'fixed'])->default('percentage');
@@ -27,12 +27,12 @@ return new class extends Migration
             
             // Indexes
             $table->index('customer_id');
-            $table->index('model_id');
-            $table->unique(['customer_id', 'model_id']);
+            $table->index('brand_id');
+            $table->unique(['customer_id', 'brand_id']);
             
             // Foreign Keys
             $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
-            // model_id foreign key will be added after models table is created
+            $table->foreign('brand_id')->references('id')->on('brands')->onDelete('cascade');
         });
     }
 
@@ -41,6 +41,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customer_model_pricing');
+        Schema::dropIfExists('customer_brand_pricing');
     }
 };

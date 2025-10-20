@@ -6,8 +6,6 @@ enum CustomerType: string
 {
     case RETAIL = 'retail';
     case DEALER = 'dealer';
-    case WHOLESALE = 'wholesale';
-    case CORPORATE = 'corporate';
 
     /**
      * Get all values
@@ -24,9 +22,7 @@ enum CustomerType: string
     {
         return [
             self::RETAIL->value => 'Retail Customer',
-            self::DEALER->value => 'Dealer (Activates Pricing)',
-            self::WHOLESALE->value => 'Wholesale',
-            self::CORPORATE->value => 'Corporate',
+            self::DEALER->value => 'Dealer (Wholesaler - Activates Pricing)',
         ];
     }
 
@@ -37,9 +33,7 @@ enum CustomerType: string
     {
         return match($this) {
             self::RETAIL => 'Retail Customer',
-            self::DEALER => 'Dealer',
-            self::WHOLESALE => 'Wholesale',
-            self::CORPORATE => 'Corporate',
+            self::DEALER => 'Dealer (Wholesaler)',
         };
     }
 

@@ -54,10 +54,10 @@ class CustomerModelPricing extends Model
     }
 
     /**
-     * Relationship: Model (will be defined when Products module is created)
+     * Relationship: Model
      */
-    // public function model(): BelongsTo
-    // {
-    //     return $this->belongsTo(\App\Modules\Products\Models\ProductModel::class, 'model_id');
-    // }
+    public function model(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Products\Models\ProductModel::class, 'model_id');
+    }
 }
