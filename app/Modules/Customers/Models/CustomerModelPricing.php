@@ -1,0 +1,63 @@
+<?php
+
+namespace App\Modules\Customers\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class CustomerModelPricing extends Model
+{
+    use HasFactory;
+
+    protected $table = 'customer_model_pricing';
+
+    protected $fillable = [
+        'customer_id',
+        'model_id',
+        'discount_type',
+        'discount_percentage',
+        'discount_value',
+    ];
+
+    protected $casts = [
+        'discount_percentage' => 'decimal:2',
+        'discount_value' => 'decimal:2',
+    ];
+
+    /**
+     * Calculate discount amount
+     */
+    public function calculateDiscount(float $amount): float
+    {
+        if ($this->discount_type === 'percentage') {
+            return $amount * ($this->discount_percentage / 100);
+        }
+        
+        return min($this->discount_value, $amount);
+    }
+
+    /**
+     * Apply discount to amount
+     */
+    public function applyDiscount(float $amount): float
+    {
+        return $amount - $this->calculateDiscount($amount);
+    }
+
+    /**
+     * Relationship: Customer
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Relationship: Model (will be defined when Products module is created)
+     */
+    // public function model(): BelongsTo
+    // {
+    //     return $this->belongsTo(\App\Modules\Products\Models\ProductModel::class, 'model_id');
+    // }
+}
