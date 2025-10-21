@@ -101,13 +101,15 @@ class FinishResource extends Resource
                         TextInput::make('external_id')
                             ->label('External ID')
                             ->maxLength(255)
+                            ->hidden()
                             ->helperText('ID from external system (e.g., old database)'),
                         
                         TextInput::make('external_source')
                             ->label('External Source')
                             ->maxLength(100)
+                            ->hidden()
                             ->helperText('Source system name (e.g., "old_reporting")'),
-                    ])->columns(3),
+                    ])->columns(1),
             ]);
     }
 
