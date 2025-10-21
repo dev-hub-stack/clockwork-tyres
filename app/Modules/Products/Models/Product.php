@@ -6,52 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
-        'sku',
         'name',
+        'sku',
+        'price',
         'brand_id',
         'model_id',
         'finish_id',
-        'description',
-        'base_price',
-        'retail_price',
-        'dealer_price',
-        'cost',
-        'weight',
-        'dimensions',
-        'specifications',
-        'features',
-        'warranty',
+        'images',
+        'construction',
         'status',
-        'is_featured',
-        'sort_order',
-        'meta_title',
-        'meta_description',
-        'meta_keywords',
-        'external_id',
-        'external_source',
-        'sync_status',
-        'synced_at',
     ];
 
     protected $casts = [
-        'base_price' => 'decimal:2',
-        'retail_price' => 'decimal:2',
-        'dealer_price' => 'decimal:2',
-        'cost' => 'decimal:2',
-        'weight' => 'decimal:2',
-        'status' => 'integer',
-        'is_featured' => 'boolean',
-        'sort_order' => 'integer',
-        'specifications' => 'array',
-        'features' => 'array',
-        'synced_at' => 'datetime',
+        'price' => 'decimal:2',
+        'status' => 'boolean',
     ];
 
     /**

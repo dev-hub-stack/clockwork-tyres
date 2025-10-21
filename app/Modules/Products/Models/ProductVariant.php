@@ -5,47 +5,41 @@ namespace App\Modules\Products\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductVariant extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'product_id',
         'sku',
-        'name',
+        'finish_id',
+        'size',
+        'bolt_pattern',
+        'hub_bore',
+        'offset',
+        'weight',
+        'backspacing',
+        'lipsize',
+        'finish',
+        'max_wheel_load',
         'rim_diameter',
         'rim_width',
-        'bolt_pattern',
-        'offset',
-        'bore_size',
-        'load_rating',
-        'finish_type',
-        'color',
-        'retail_price',
-        'dealer_price',
         'cost',
-        'weight',
-        'stock_quantity',
-        'low_stock_threshold',
-        'status',
-        'external_id',
-        'external_source',
+        'price',
+        'us_retail_price',
+        'uae_retail_price',
+        'sale_price',
+        'clearance_corner',
+        'image',
+        'supplier_stock',
     ];
 
     protected $casts = [
-        'rim_diameter' => 'decimal:2',
-        'rim_width' => 'decimal:2',
-        'offset' => 'decimal:2',
-        'bore_size' => 'decimal:2',
-        'retail_price' => 'decimal:2',
-        'dealer_price' => 'decimal:2',
-        'cost' => 'decimal:2',
-        'weight' => 'decimal:2',
-        'stock_quantity' => 'integer',
-        'low_stock_threshold' => 'integer',
-        'status' => 'integer',
+        'us_retail_price' => 'decimal:2',
+        'uae_retail_price' => 'decimal:2',
+        'clearance_corner' => 'boolean',
+        'supplier_stock' => 'integer',
     ];
 
     /**
@@ -54,6 +48,14 @@ class ProductVariant extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Relationship: Finish
+     */
+    public function finish(): BelongsTo
+    {
+        return $this->belongsTo(Finish::class);
     }
 
     /**

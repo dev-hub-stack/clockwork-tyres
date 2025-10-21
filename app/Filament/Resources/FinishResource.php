@@ -50,65 +50,12 @@ class FinishResource extends Resource
             ->components([
                 Section::make('Finish Information')
                     ->schema([
-                        TextInput::make('name')
+                        TextInput::make('finish')
                             ->label('Finish Name')
                             ->required()
                             ->maxLength(255)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn ($state, callable $set) => 
-                                $set('slug', Str::slug($state))
-                            )
-                            ->helperText('e.g., Chrome, Matte Black, Gloss White'),
-                        
-                        TextInput::make('slug')
-                            ->label('Slug')
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(Finish::class, 'slug', ignoreRecord: true)
-                            ->helperText('URL-friendly version of the name'),
-                        
-                        ColorPicker::make('color_code')
-                            ->label('Color')
-                            ->helperText('Select the primary color for this finish'),
-                        
-                        Textarea::make('description')
-                            ->label('Description')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ])->columns(2),
-
-                Section::make('Finish Image')
-                    ->schema([
-                        FileUpload::make('image_path')
-                            ->label('Finish Sample Image')
-                            ->image()
-                            ->directory('finishes')
-                            ->maxSize(2048)
-                            ->helperText('Upload a sample image of the finish (max 2MB)'),
-                    ]),
-
-                Section::make('Status & External Data')
-                    ->schema([
-                        Select::make('status')
-                            ->label('Status')
-                            ->options([
-                                1 => 'Active',
-                                0 => 'Inactive',
-                            ])
-                            ->default(1)
-                            ->required(),
-                        
-                        TextInput::make('external_id')
-                            ->label('External ID')
-                            ->maxLength(255)
-                            ->hidden()
-                            ->helperText('ID from external system (e.g., old database)'),
-                        
-                        TextInput::make('external_source')
-                            ->label('External Source')
-                            ->maxLength(100)
-                            ->hidden()
-                            ->helperText('Source system name (e.g., "old_reporting")'),
+                            ->unique(Finish::class, 'finish', ignoreRecord: true)
+                            ->helperText('e.g., Chrome, Matte Black, Gloss White, Bronze'),
                     ])->columns(1),
             ]);
     }
@@ -117,37 +64,26 @@ class FinishResource extends Resource
     {
         return $table
             ->columns([
-                ImageColumn::make('image_path')
-                    ->label('Sample')
-                    ->square()
-                    ->defaultImageUrl(url('/images/placeholder-finish.png')),
-                
-                ColorColumn::make('color_code')
-                    ->label('Color')
-                    ->sortable(),
-                
-                TextColumn::make('name')
+                TextColumn::make('finish')
                     ->label('Finish Name')
                     ->searchable()
                     ->sortable(),
-                
-                TextColumn::make('slug')
-                    ->label('Slug')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('products_count')
                     ->label('Products')
                     ->counts('products')
                     ->sortable(),
                 
-                BadgeColumn::make('status')
-                    ->label('Status')
-                    ->formatStateUsing(fn (int $state): string => $state === 1 ? 'Active' : 'Inactive')
-                    ->colors([
-                        'success' => 1,
-                        'danger' => 0,
-                    ]),
+                TextColumn::make('productVariants_count')
+                    ->label('Variants')
+                    ->counts('productVariants')
+                    ->sortable(),
+                
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('external_id')
                     ->label('External ID')
@@ -166,27 +102,16 @@ class FinishResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label('Status')
-                    ->options([
-                        1 => 'Active',
-                        0 => 'Inactive',
-                    ]),
-                
-                TrashedFilter::make(),
+                // No filters needed for simple finish
             ])
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),
-                RestoreBulkAction::make(),
-                ForceDeleteBulkAction::make(),
             ])
-            ->defaultSort('name');
+            ->defaultSort('finish');
     }
 
     public static function getRelations(): array
@@ -203,13 +128,5 @@ class FinishResource extends Resource
             'create' => Pages\CreateFinish::route('/create'),
             'edit' => Pages\EditFinish::route('/{record}/edit'),
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
     }
 }

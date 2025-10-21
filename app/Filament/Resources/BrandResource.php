@@ -123,11 +123,6 @@ class BrandResource extends Resource
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 
-                TextColumn::make('productModels_count')
-                    ->label('Models')
-                    ->counts('productModels')
-                    ->sortable(),
-                
                 TextColumn::make('products_count')
                     ->label('Products')
                     ->counts('products')

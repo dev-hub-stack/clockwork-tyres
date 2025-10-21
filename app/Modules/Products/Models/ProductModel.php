@@ -6,22 +6,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductModel extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'models';
 
     protected $fillable = [
-        'brand_id',
         'name',
-        'slug',
-        'description',
-        'status',
-        'external_id',
-        'external_source',
+        'image',
     ];
 
     protected $casts = [

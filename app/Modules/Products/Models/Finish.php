@@ -5,21 +5,13 @@ namespace App\Modules\Products\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Finish extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
-        'name',
-        'slug',
-        'hex_color',
-        'image_path',
-        'description',
-        'status',
-        'external_id',
-        'external_source',
+        'finish',
     ];
 
     protected $casts = [
@@ -32,6 +24,14 @@ class Finish extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Relationship: Product Variants
+     */
+    public function productVariants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class);
     }
 
     /**

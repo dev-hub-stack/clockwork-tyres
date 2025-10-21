@@ -26,14 +26,6 @@ class Brand extends Model
     ];
 
     /**
-     * Relationship: Product Models
-     */
-    public function productModels(): HasMany
-    {
-        return $this->hasMany(ProductModel::class);
-    }
-
-    /**
      * Relationship: Products
      */
     public function products(): HasMany

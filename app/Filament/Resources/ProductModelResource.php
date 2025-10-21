@@ -7,12 +7,14 @@ use App\Modules\Products\Models\ProductModel;
 use App\Modules\Products\Models\Brand;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -51,58 +53,19 @@ class ProductModelResource extends Resource
             ->components([
                 Section::make('Model Information')
                     ->schema([
-                        Select::make('brand_id')
-                            ->label('Brand')
-                            ->relationship('brand', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->helperText('Select the brand for this model'),
-                        
                         TextInput::make('name')
                             ->label('Model Name')
                             ->required()
                             ->maxLength(255)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn ($state, callable $set) => 
-                                $set('slug', Str::slug($state))
-                            ),
+                            ->unique(ProductModel::class, 'name', ignoreRecord: true)
+                            ->helperText('Unique model name (e.g., "D554", "Force F01")'),
                         
-                        TextInput::make('slug')
-                            ->label('Slug')
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(ProductModel::class, 'slug', ignoreRecord: true)
-                            ->helperText('URL-friendly version of the name'),
-                        
-                        Textarea::make('description')
-                            ->label('Description')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ])->columns(2),
-
-                Section::make('Status & External Data')
-                    ->schema([
-                        Select::make('status')
-                            ->label('Status')
-                            ->options([
-                                1 => 'Active',
-                                0 => 'Inactive',
-                            ])
-                            ->default(1)
-                            ->required(),
-                        
-                        TextInput::make('external_id')
-                            ->label('External ID')
-                            ->maxLength(255)
-                            ->hidden()
-                            ->helperText('ID from external system (e.g., old database)'),
-                        
-                        TextInput::make('external_source')
-                            ->label('External Source')
-                            ->maxLength(100)
-                            ->hidden()
-                            ->helperText('Source system name (e.g., "old_reporting")'),
+                        FileUpload::make('image')
+                            ->label('Model Image')
+                            ->image()
+                            ->directory('models/images')
+                            ->maxSize(2048)
+                            ->helperText('Upload model image (max 2MB)'),
                     ])->columns(1),
             ]);
     }
@@ -111,37 +74,20 @@ class ProductModelResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('brand.name')
-                    ->label('Brand')
-                    ->searchable()
-                    ->sortable(),
+                ImageColumn::make('image')
+                    ->label('Image')
+                    ->circular()
+                    ->defaultImageUrl(url('/images/placeholder-model.png')),
                 
                 TextColumn::make('name')
                     ->label('Model Name')
                     ->searchable()
                     ->sortable(),
                 
-                TextColumn::make('slug')
-                    ->label('Slug')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                
                 TextColumn::make('products_count')
                     ->label('Products')
                     ->counts('products')
                     ->sortable(),
-                
-                BadgeColumn::make('status')
-                    ->label('Status')
-                    ->formatStateUsing(fn (int $state): string => $state === 1 ? 'Active' : 'Inactive')
-                    ->colors([
-                        'success' => 1,
-                        'danger' => 0,
-                    ]),
-                
-                TextColumn::make('external_id')
-                    ->label('External ID')
-                    ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -156,31 +102,14 @@ class ProductModelResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('brand_id')
-                    ->label('Brand')
-                    ->relationship('brand', 'name')
-                    ->searchable()
-                    ->preload(),
-                
-                SelectFilter::make('status')
-                    ->label('Status')
-                    ->options([
-                        1 => 'Active',
-                        0 => 'Inactive',
-                    ]),
-                
-                TrashedFilter::make(),
+                // No filters needed for simple model
             ])
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),
-                RestoreBulkAction::make(),
-                ForceDeleteBulkAction::make(),
             ])
             ->defaultSort('name');
     }
@@ -199,13 +128,5 @@ class ProductModelResource extends Resource
             'create' => Pages\CreateProductModel::route('/create'),
             'edit' => Pages\EditProductModel::route('/{record}/edit'),
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
     }
 }
