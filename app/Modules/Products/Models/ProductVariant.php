@@ -31,8 +31,7 @@ class ProductVariant extends Model
         'uae_retail_price',
         'sale_price',
         'clearance_corner',
-        'image',
-        'images', // CRITICAL: For bulk image upload with comma-separated S3 URLs
+        'image', // Tunerstop uses 'image' (singular) not 'images'
         'supplier_stock',
         'construction',
     ];

@@ -50,7 +50,7 @@ class ProductVariantGridController extends Controller
                     'uae_retail_price' => $variant->uae_retail_price,
                     'sale_price' => $variant->sale_price,
                     'clearance_corner' => $variant->clearance_corner ? 1 : 0,
-                    'images' => $variant->images ?? '', // Images stored in product_variants table
+                    'images' => $variant->image ?? '', // Column name is 'image' in database
                 ];
             });
 
@@ -370,12 +370,26 @@ class ProductVariantGridController extends Controller
                                 'supplier_stock' => !empty($rowData['supplier stock']) ? (int)$rowData['supplier stock'] : 0,
                             ];
                             
+                            // CRITICAL: Collect image filenames from image1-image9 columns
+                            $images = [];
+                            for ($i = 1; $i <= 9; $i++) {
+                                $imageKey = 'image' . $i;
+                                if (!empty($rowData[$imageKey])) {
+                                    $images[] = trim($rowData[$imageKey]);
+                                }
+                            }
+                            // Store as comma-separated string in 'image' column (singular, like Tunerstop)
+                            if (!empty($images)) {
+                                $variantData['image'] = implode(',', $images);
+                            }
+                            
                             if (isset($existingVariants[$sku])) {
                                 ProductVariant::where('id', $existingVariants[$sku])->update($variantData);
                             } else {
                                 $variant = ProductVariant::create(array_merge(['sku' => $sku], $variantData));
                                 $existingVariants[$sku] = $variant->id;
                             }
+                            
                             
                         } catch (\Exception $e) {
                             $errors[] = "Row " . ($globalIndex + 2) . ": " . $e->getMessage();
