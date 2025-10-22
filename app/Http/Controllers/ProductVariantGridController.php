@@ -176,6 +176,14 @@ class ProductVariantGridController extends Controller
             
             DB::commit();
             
+            // Auto-sync product images after save (Tunerstop pattern)
+            try {
+                \Artisan::call('products:sync-images');
+                \Log::info('Product images synced automatically after batch save');
+            } catch (\Exception $e) {
+                \Log::error('Auto-sync images failed: ' . $e->getMessage());
+            }
+            
             return response()->json($results);
             
         } catch (\Exception $e) {
@@ -408,6 +416,15 @@ class ProductVariantGridController extends Controller
             $message = "✅ Successfully processed {$total} products! ({$imported} new, {$updated} updated from {$totalRows} rows)";
             if (!empty($errors)) {
                 $message .= " ⚠️ " . count($errors) . " errors occurred.";
+            }
+            
+            // Auto-sync product images after bulk import (Tunerstop pattern)
+            try {
+                \Artisan::call('products:sync-images');
+                \Log::info('Product images synced automatically after bulk import');
+                $message .= " 🖼️ Product images synced!";
+            } catch (\Exception $e) {
+                \Log::error('Auto-sync images failed: ' . $e->getMessage());
             }
             
             return redirect()->back()
