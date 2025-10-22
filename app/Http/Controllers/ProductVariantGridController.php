@@ -50,7 +50,7 @@ class ProductVariantGridController extends Controller
                     'uae_retail_price' => $variant->uae_retail_price,
                     'sale_price' => $variant->sale_price,
                     'clearance_corner' => $variant->clearance_corner ? 1 : 0,
-                    'images' => $variant->product ? $variant->product->images : '',
+                    'images' => $variant->images ?? '', // Images stored in product_variants table
                 ];
             });
 

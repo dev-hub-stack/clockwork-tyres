@@ -32,7 +32,9 @@ class ProductVariant extends Model
         'sale_price',
         'clearance_corner',
         'image',
+        'images', // CRITICAL: For bulk image upload with comma-separated S3 URLs
         'supplier_stock',
+        'construction',
     ];
 
     protected $casts = [
