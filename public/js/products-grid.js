@@ -249,42 +249,48 @@ $(document).ready(function () {
             width: 100, 
             dataType: "string", 
             align: "center", 
-            dataIndx: "weight"
+            dataIndx: "weight",
+            filter: { crules: [{ condition: 'equal' }] }
         },
         {
             title: "Lipsize", 
             width: 80, 
             dataType: "string", 
             align: "center", 
-            dataIndx: "lipsize"
+            dataIndx: "lipsize",
+            filter: { crules: [{ condition: 'equal' }] }
         },
         {
             title: "US Retail Price", 
             width: 80, 
             dataType: "float", 
             align: "center", 
-            dataIndx: "us_retail_price"
+            dataIndx: "us_retail_price",
+            filter: { crules: [{ condition: 'equal' }] }
         },
         {
             title: "UAE Retail Price", 
             width: 80, 
             dataType: "float", 
             align: "center", 
-            dataIndx: "uae_retail_price"
+            dataIndx: "uae_retail_price",
+            filter: { crules: [{ condition: 'equal' }] }
         },
         {
             title: "Sale Price", 
             width: 80, 
             dataType: "float", 
             align: "center", 
-            dataIndx: "sale_price"
+            dataIndx: "sale_price",
+            filter: { crules: [{ condition: 'equal' }] }
         },
         {
             title: "Images", 
             width: 200, 
             dataType: "string", 
             align: "center", 
-            dataIndx: "images"
+            dataIndx: "images",
+            filter: { crules: [{ condition: 'begin' }] }
         }
     ];
     
@@ -350,70 +356,13 @@ $(document).ready(function () {
                     this.editFirstCellInRow({rowIndx: rowIndx});
                 }
             },
+            {type: 'separator'},
             {
                 type: 'button',
                 icon: '',
                 label: 'Save Changes',
                 cls: 'changes voyager-save grid-save-btn',
                 listener: saveChanges,
-                options: {disabled: true}
-            },
-            {type: 'separator'},
-            {
-                type: 'button', 
-                label: 'Cut', 
-                cls: 'voyager-cut', 
-                listener: function () {
-                    this.cut();
-                }
-            },
-            {
-                type: 'button', 
-                label: 'Copy', 
-                cls: 'voyager-copy', 
-                listener: function () {
-                    this.copy({header: 0});
-                }
-            },
-            {
-                type: 'button', 
-                label: 'Paste', 
-                cls: 'voyager-paste', 
-                listener: function () {
-                    this.paste();
-                }
-            },
-            {type: 'separator'},
-            {
-                type: 'button',
-                icon: '',
-                label: ' Reject Changes',
-                cls: 'changes voyager-trash',
-                listener: function () {
-                    this.rollback();
-                    this.history({method: 'resetUndo'});
-                },
-                options: {disabled: true}
-            },
-            {type: 'separator'},
-            {
-                type: 'button', 
-                icon: '', 
-                label: 'Undo', 
-                cls: 'changes voyager-undo', 
-                listener: function () {
-                    this.history({method: 'undo'});
-                }, 
-                options: {disabled: true}
-            },
-            {
-                type: 'button', 
-                icon: '', 
-                label: 'Redo', 
-                cls: 'voyager-redo', 
-                listener: function () {
-                    this.history({method: 'redo'});
-                }, 
                 options: {disabled: true}
             },
             {type: 'separator'},
@@ -512,14 +461,34 @@ $(document).ready(function () {
             }
         },
         
-        postRenderInterval: -1 // Call postRender synchronously
+        postRenderInterval: -1, // Call postRender synchronously
+        
+        load: function (evt, ui) {
+            var grid = this,
+            data = grid.option('dataModel').data;
+            // Validate the whole data
+            grid.isValid({ data: data });
+        }
     };
     
-    // Initialize grid
-    grid = pq.grid("#productsGrid", obj);
-    grid.refreshDataAndView();
-    
-    console.log('Products grid initialized successfully');
+    // Initialize grid with setTimeout like Tunerstop
+    setTimeout(function () {
+        grid = pq.grid("#productsGrid", obj);
+        
+        console.log('✅ Grid initialized');
+        console.log('✅ Loaded ' + data.length + ' product variants');
+        console.log('📋 FilterModel config:', grid.option('filterModel'));
+        
+        // Check if filter header row exists in DOM
+        setTimeout(function() {
+            var filterRow = $('.pq-grid-header-search-row');
+            console.log('🔍 Filter row found:', filterRow.length > 0);
+            console.log('🔍 Filter row HTML:', filterRow.html());
+            
+            $('.pq-grid-hd-search-field').attr('placeholder', 'Search');
+            console.log('🔍 Search fields found:', $('.pq-grid-hd-search-field').length);
+        }, 200);
+    }, 500);
     
     // Optional: Auto-save interval (uncomment if needed)
     // interval = setInterval(saveChanges, 2000);

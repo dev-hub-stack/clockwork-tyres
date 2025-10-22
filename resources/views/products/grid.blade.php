@@ -174,6 +174,28 @@
         .delete_btn:hover {
             background-color: #c82333;
         }
+        
+        /* Grid column headers */
+        .pq-grid-col, .pq-grid-number-cell {
+            border-color: #e5e7eb !important;
+            background-color: #f3f4f6 !important;
+        }
+        
+        .pq-grid-title-row .pq-grid-number-cell,
+        .pq-grid-header-search-row .pq-grid-number-cell,
+        .pq-grid-title-row .ui-state-default {
+            background-color: #374151 !important;
+            color: #fff !important;
+        }
+        
+        /* Grid rows */
+        .pq-grid-row.pq-striped {
+            background: #f9fafb;
+        }
+        
+        .pq-cont-inner > .pq-table > .pq-grid-row {
+            border-bottom-color: #e5e7eb;
+        }
     </style>
 </head>
 <body>
