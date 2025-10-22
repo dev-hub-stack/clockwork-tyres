@@ -164,6 +164,13 @@ $(document).ready(function () {
             filter: { crules: [{ condition: 'equal' }] }  
         },
         {
+            title: "Supplier Stock", 
+            width: 120, 
+            dataType: "integer", 
+            align: "right", 
+            dataIndx: "supplier_stock"
+        },
+        {
             title: "Finish", 
             width: 130, 
             dataType: "string", 
@@ -173,19 +180,19 @@ $(document).ready(function () {
             filter: { crules: [{ condition: 'equal' }] } 
         },
         {
-            title: "Rim Width", 
-            width: 80, 
-            dataType: "float", 
-            align: "center", 
-            dataIndx: "rim_width", 
-            filter: { crules: [{ condition: 'equal' }] } 
-        },
-        {
             title: "Construction", 
             width: 100, 
             dataType: "string", 
             align: "center", 
             dataIndx: "construction", 
+            filter: { crules: [{ condition: 'equal' }] } 
+        },
+        {
+            title: "Rim Width", 
+            width: 80, 
+            dataType: "float", 
+            align: "center", 
+            dataIndx: "rim_width", 
             filter: { crules: [{ condition: 'equal' }] } 
         },
         {
@@ -266,11 +273,27 @@ $(document).ready(function () {
             dataIndx: "us_retail_price"
         },
         {
+            title: "UAE Retail Price", 
+            width: 80, 
+            dataType: "float", 
+            align: "center", 
+            dataIndx: "uae_retail_price"
+        },
+        {
             title: "Sale Price", 
             width: 80, 
             dataType: "float", 
             align: "center", 
             dataIndx: "sale_price"
+        },
+        {
+            title: "Clearance Corner", 
+            width: 100, 
+            dataType: "integer", 
+            align: "center", 
+            type: "checkbox", 
+            dataIndx: "clearance_corner", 
+            cb: { check: 1, uncheck: 0 }
         },
         {
             title: "Images", 

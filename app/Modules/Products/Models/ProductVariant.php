@@ -51,7 +51,17 @@ class ProductVariant extends Model
     }
 
     /**
-     * Relationship: Finish
+     * Relationship: Finish (via finish_id)
+     * Note: Named 'finishRelation' to avoid conflict with 'finish' column
+     */
+    public function finishRelation(): BelongsTo
+    {
+        return $this->belongsTo(Finish::class, 'finish_id');
+    }
+
+    /**
+     * Relationship: Finish (deprecated - use finishRelation)
+     * Kept for backward compatibility
      */
     public function finish(): BelongsTo
     {

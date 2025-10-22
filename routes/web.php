@@ -19,4 +19,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('products.grid.save-batch');
     Route::post('products/grid/delete-batch', [ProductVariantGridController::class, 'deleteBatch'])
         ->name('products.grid.delete-batch');
+    
+    // Bulk upload operations
+    Route::post('products/bulk/import', [ProductVariantGridController::class, 'bulkImport'])
+        ->name('products.bulk.import');
+    Route::post('products/bulk/images', [ProductVariantGridController::class, 'bulkImages'])
+        ->name('products.bulk.images');
 });

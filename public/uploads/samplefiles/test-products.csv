@@ -1,0 +1,6 @@
+SKU,Brand,Model,Finish,Construction,Rim Width,Rim Diameter,Size,Bolt Pattern,Hub Bore,Offset,Warranty,Max Wheel Load,Weight,Lipsize,US Retail Price,UAE Retail Price,Sale Price,Clearance Corner,Supplier Stock
+TEST-20x9-001,Test Brand,Test Model,Chrome,Cast,9,20,20x9,6x135,87.1,+12,1 Year,2000,32,3.5,250.00,300.00,225.00,0,45
+TEST-20x10-002,Test Brand,Test Model,Matte Black,Cast,10,20,20x10,6x135,87.1,+18,1 Year,2200,35,4.0,280.00,330.00,255.00,0,30
+TEST-22x9-003,Premium Wheels,Sport Model,Gloss Black,Forged,9,22,22x9,6x5.5,78.1,-12,2 Years,2500,28,3.0,450.00,520.00,420.00,1,20
+TEST-22x10-004,Premium Wheels,Sport Model,Bronze,Forged,10,22,22x10,6x5.5,78.1,-6,2 Years,2600,30,3.5,480.00,550.00,450.00,0,15
+TEST-24x12-005,Luxury Brand,Elite Model,Chrome,Cast,12,24,24x12,8x170,125.2,-44,1 Year,3000,45,5.0,550.00,650.00,500.00,1,10

@@ -19,7 +19,7 @@ class ProductVariantGridController extends Controller
     public function index()
     {
         // Load ALL product variants with relationships
-        $variants = ProductVariant::with(['product.brand', 'product.model', 'finish'])
+        $variants = ProductVariant::with(['product.brand', 'product.model', 'finishRelation'])
             ->get()
             ->map(function($variant) {
                 return [
@@ -33,7 +33,7 @@ class ProductVariantGridController extends Controller
                     'model' => $variant->product && $variant->product->model ? $variant->product->model->name : '',
                     'model_id' => $variant->product ? $variant->product->model_id : null,
                     'supplier_stock' => $variant->supplier_stock ?? 0,
-                    'finish' => $variant->finish ? $variant->finish->name : '',
+                    'finish' => $variant->finishRelation ? $variant->finishRelation->finish : ($variant->finish ?? ''),
                     'finish_id' => $variant->finish_id,
                     'construction' => $variant->product ? $variant->product->construction : '',
                     'rim_width' => $variant->rim_width,
@@ -78,8 +78,10 @@ class ProductVariantGridController extends Controller
             $parts[] = $variant->size;
         }
         
-        if ($variant->finish) {
-            $parts[] = $variant->finish->name;
+        if ($variant->finishRelation) {
+            $parts[] = $variant->finishRelation->finish;
+        } elseif ($variant->finish) {
+            $parts[] = $variant->finish;
         }
         
         return implode(' ', $parts);
@@ -216,6 +218,287 @@ class ProductVariantGridController extends Controller
                 'success' => false,
                 'message' => 'Bulk delete failed: ' . $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Bulk import products from Excel/CSV
+     * Optimized for large imports (5000+ products)
+     */
+    public function bulkImport(Request $request)
+    {
+        $request->validate([
+            'importFile' => 'required|file|mimes:csv,xlsx,xls|max:51200' // 50MB max
+        ]);
+        
+        try {
+            // Increase limits for large imports
+            ini_set('memory_limit', '1024M'); // 1GB memory
+            ini_set('max_execution_time', '600'); // 10 minutes
+            set_time_limit(600);
+            
+            $file = $request->file('importFile');
+            $data = \Maatwebsite\Excel\Facades\Excel::toArray([], $file);
+            
+            if (empty($data) || empty($data[0])) {
+                return redirect()->back()->with('error', 'File is empty or invalid format');
+            }
+            
+            $rows = $data[0];
+            $headers = array_shift($rows); // Remove header row
+            
+            // Normalize headers (lowercase, trim)
+            $headers = array_map(function($h) {
+                return strtolower(trim($h));
+            }, $headers);
+            
+            $totalRows = count($rows);
+            $imported = 0;
+            $updated = 0;
+            $errors = [];
+            $chunkSize = 500; // Process 500 at a time
+            
+            // Pre-load existing data to reduce queries
+            $existingBrands = Brand::pluck('id', 'name')->toArray();
+            $existingModels = ProductModel::pluck('id', 'name')->toArray();
+            $existingFinishes = Finish::pluck('id', 'finish')->toArray();
+            $existingProducts = Product::pluck('id', 'sku')->toArray();
+            $existingVariants = ProductVariant::pluck('id', 'sku')->toArray();
+            
+            // Process in chunks
+            $chunks = array_chunk($rows, $chunkSize);
+            
+            foreach ($chunks as $chunkIndex => $chunk) {
+                DB::beginTransaction();
+                
+                try {
+                    foreach ($chunk as $index => $row) {
+                        $globalIndex = ($chunkIndex * $chunkSize) + $index;
+                        
+                        try {
+                            // Skip empty rows
+                            if (empty(array_filter($row))) continue;
+                            
+                            // Map row to associative array
+                            $rowData = array_combine($headers, $row);
+                            
+                            // Validate required fields
+                            if (empty($rowData['sku'])) {
+                                $errors[] = "Row " . ($globalIndex + 2) . ": SKU is required";
+                                continue;
+                            }
+                            
+                            // Find or create Brand (use cache)
+                            $brandId = null;
+                            if (!empty($rowData['brand'])) {
+                                $brandName = trim($rowData['brand']);
+                                if (!isset($existingBrands[$brandName])) {
+                                    $brand = Brand::create([
+                                        'name' => $brandName,
+                                        'slug' => Str::slug($brandName)
+                                    ]);
+                                    $existingBrands[$brandName] = $brand->id;
+                                }
+                                $brandId = $existingBrands[$brandName];
+                            }
+                            
+                            // Find or create Model (use cache)
+                            $modelId = null;
+                            if (!empty($rowData['model'])) {
+                                $modelName = trim($rowData['model']);
+                                if (!isset($existingModels[$modelName])) {
+                                    $model = ProductModel::create(['name' => $modelName]);
+                                    $existingModels[$modelName] = $model->id;
+                                }
+                                $modelId = $existingModels[$modelName];
+                            }
+                            
+                            // Find or create Finish (use cache)
+                            $finishId = null;
+                            if (!empty($rowData['finish'])) {
+                                $finishName = trim($rowData['finish']);
+                                if (!isset($existingFinishes[$finishName])) {
+                                    $finish = Finish::create(['finish' => $finishName]);
+                                    $existingFinishes[$finishName] = $finish->id;
+                                }
+                                $finishId = $existingFinishes[$finishName];
+                            }
+                            
+                            $sku = trim($rowData['sku']);
+                            
+                            // Find or create Product
+                            $productData = [
+                                'name' => $sku,
+                                'brand_id' => $brandId,
+                                'model_id' => $modelId,
+                                'finish_id' => $finishId,
+                                'construction' => $rowData['construction'] ?? null,
+                                'price' => $rowData['us retail price'] ?? 0,
+                                'status' => 1,
+                            ];
+                            
+                            if (isset($existingProducts[$sku])) {
+                                Product::where('id', $existingProducts[$sku])->update($productData);
+                                $productId = $existingProducts[$sku];
+                                $updated++;
+                            } else {
+                                $product = Product::create(array_merge(['sku' => $sku], $productData));
+                                $existingProducts[$sku] = $product->id;
+                                $productId = $product->id;
+                                $imported++;
+                            }
+                            
+                            // Create or update ProductVariant
+                            $variantData = [
+                                'product_id' => $productId,
+                                'finish_id' => $finishId,
+                                'finish' => $rowData['finish'] ?? null,
+                                'rim_width' => !empty($rowData['rim width']) ? (float)$rowData['rim width'] : null,
+                                'rim_diameter' => !empty($rowData['rim diameter']) ? (float)$rowData['rim diameter'] : null,
+                                'size' => $rowData['size'] ?? null,
+                                'bolt_pattern' => $rowData['bolt pattern'] ?? null,
+                                'hub_bore' => !empty($rowData['hub bore']) ? (float)$rowData['hub bore'] : null,
+                                'offset' => $rowData['offset'] ?? null,
+                                'backspacing' => $rowData['warranty'] ?? null,
+                                'max_wheel_load' => $rowData['max wheel load'] ?? null,
+                                'weight' => $rowData['weight'] ?? null,
+                                'lipsize' => $rowData['lipsize'] ?? null,
+                                'us_retail_price' => !empty($rowData['us retail price']) ? (float)$rowData['us retail price'] : 0,
+                                'uae_retail_price' => !empty($rowData['uae retail price']) ? (float)$rowData['uae retail price'] : 0,
+                                'sale_price' => !empty($rowData['sale price']) ? (float)$rowData['sale price'] : 0,
+                                'clearance_corner' => !empty($rowData['clearance corner']) ? (int)$rowData['clearance corner'] : 0,
+                                'supplier_stock' => !empty($rowData['supplier stock']) ? (int)$rowData['supplier stock'] : 0,
+                            ];
+                            
+                            if (isset($existingVariants[$sku])) {
+                                ProductVariant::where('id', $existingVariants[$sku])->update($variantData);
+                            } else {
+                                $variant = ProductVariant::create(array_merge(['sku' => $sku], $variantData));
+                                $existingVariants[$sku] = $variant->id;
+                            }
+                            
+                        } catch (\Exception $e) {
+                            $errors[] = "Row " . ($globalIndex + 2) . ": " . $e->getMessage();
+                        }
+                    }
+                    
+                    DB::commit();
+                    
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $errors[] = "Chunk " . ($chunkIndex + 1) . " failed: " . $e->getMessage();
+                }
+            }
+            
+            $total = $imported + $updated;
+            $message = "✅ Successfully processed {$total} products! ({$imported} new, {$updated} updated from {$totalRows} rows)";
+            if (!empty($errors)) {
+                $message .= " ⚠️ " . count($errors) . " errors occurred.";
+            }
+            
+            return redirect()->back()
+                ->with('success', $message)
+                ->with('import_errors', array_slice($errors, 0, 100)); // Show first 100 errors
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Bulk upload product images from ZIP
+     */
+    public function bulkImages(Request $request)
+    {
+        $request->validate([
+            'imagesZip' => 'required|file|mimes:zip|max:102400' // 100MB max
+        ]);
+        
+        try {
+            $zipFile = $request->file('imagesZip');
+            $zip = new \ZipArchive;
+            
+            if ($zip->open($zipFile->getPathname()) !== true) {
+                return redirect()->back()->with('error', 'Failed to open ZIP file');
+            }
+            
+            // Create uploads directory if not exists
+            $uploadsPath = storage_path('app/public/products');
+            if (!file_exists($uploadsPath)) {
+                mkdir($uploadsPath, 0755, true);
+            }
+            
+            $matched = 0;
+            $unmatched = [];
+            $uploaded = [];
+            
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $filename = $zip->getNameIndex($i);
+                
+                // Skip directories and hidden files
+                if (substr($filename, -1) == '/' || strpos($filename, '__MACOSX') !== false) {
+                    continue;
+                }
+                
+                // Extract just the filename without path
+                $basename = basename($filename);
+                
+                // Skip if not an image
+                $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+                if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
+                    continue;
+                }
+                
+                // Extract SKU from filename (remove extension)
+                $sku = pathinfo($basename, PATHINFO_FILENAME);
+                
+                // Find product variant by SKU
+                $variant = ProductVariant::where('sku', $sku)->first();
+                
+                if ($variant) {
+                    // Extract file
+                    $tempPath = $uploadsPath . '/' . $basename;
+                    copy("zip://" . $zipFile->getPathname() . "#" . $filename, $tempPath);
+                    
+                    // Generate URL path
+                    $imagePath = 'products/' . $basename;
+                    
+                    // Update product images field
+                    if ($variant->product) {
+                        $currentImages = $variant->product->images;
+                        $imagesArray = $currentImages ? explode(',', $currentImages) : [];
+                        
+                        // Add new image if not already present
+                        if (!in_array($imagePath, $imagesArray)) {
+                            $imagesArray[] = $imagePath;
+                            $variant->product->images = implode(',', $imagesArray);
+                            $variant->product->save();
+                        }
+                    }
+                    
+                    // Also update variant image field (single image)
+                    $variant->image = $imagePath;
+                    $variant->save();
+                    
+                    $matched++;
+                    $uploaded[] = $basename;
+                } else {
+                    $unmatched[] = $basename . " (SKU: {$sku})";
+                }
+            }
+            
+            $zip->close();
+            
+            $message = "Successfully uploaded {$matched} images";
+            if (!empty($unmatched)) {
+                $message .= ". " . count($unmatched) . " images did not match any SKU.";
+            }
+            
+            return redirect()->back()->with('success', $message);
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Image upload failed: ' . $e->getMessage());
         }
     }
 }
