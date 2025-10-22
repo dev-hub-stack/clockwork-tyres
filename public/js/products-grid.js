@@ -350,6 +350,72 @@ $(document).ready(function () {
                     this.editFirstCellInRow({rowIndx: rowIndx});
                 }
             },
+            {
+                type: 'button',
+                icon: '',
+                label: 'Save Changes',
+                cls: 'changes voyager-save grid-save-btn',
+                listener: saveChanges,
+                options: {disabled: true}
+            },
+            {type: 'separator'},
+            {
+                type: 'button', 
+                label: 'Cut', 
+                cls: 'voyager-cut', 
+                listener: function () {
+                    this.cut();
+                }
+            },
+            {
+                type: 'button', 
+                label: 'Copy', 
+                cls: 'voyager-copy', 
+                listener: function () {
+                    this.copy({header: 0});
+                }
+            },
+            {
+                type: 'button', 
+                label: 'Paste', 
+                cls: 'voyager-paste', 
+                listener: function () {
+                    this.paste();
+                }
+            },
+            {type: 'separator'},
+            {
+                type: 'button',
+                icon: '',
+                label: ' Reject Changes',
+                cls: 'changes voyager-trash',
+                listener: function () {
+                    this.rollback();
+                    this.history({method: 'resetUndo'});
+                },
+                options: {disabled: true}
+            },
+            {type: 'separator'},
+            {
+                type: 'button', 
+                icon: '', 
+                label: 'Undo', 
+                cls: 'changes voyager-undo', 
+                listener: function () {
+                    this.history({method: 'undo'});
+                }, 
+                options: {disabled: true}
+            },
+            {
+                type: 'button', 
+                icon: '', 
+                label: 'Redo', 
+                cls: 'voyager-redo', 
+                listener: function () {
+                    this.history({method: 'redo'});
+                }, 
+                options: {disabled: true}
+            },
             {type: 'separator'},
             {
                 type: 'button', 
@@ -357,10 +423,18 @@ $(document).ready(function () {
                 label: 'Bulk Delete', 
                 cls: 'voyager-delete', 
                 listener: function () {
-                    var selection = this.SelectRow().getSelection();
-                    var ids = selection.map(function(item){
-                        return item.rowData.id;
-                    });
+                    // Get all checked rows
+                    var checkedRows = this.getColModel()[0]; // checkbox column
+                    var allData = this.option('dataModel.data');
+                    var ids = [];
+                    
+                    // Find all rows where checkbox is checked
+                    for (var i = 0; i < allData.length; i++) {
+                        if (allData[i].state === true || allData[i].state === 1) {
+                            ids.push(allData[i].id);
+                        }
+                    }
+                    
                     if (ids.length > 0) {
                         if (confirm('Are you sure you want to delete ' + ids.length + ' product(s)?')) {
                             bulkDelete(ids);
@@ -411,7 +485,34 @@ $(document).ready(function () {
         // Editing
         editable: true,
         editor: { select: true },
-        clicksToEdit: 2
+        clicksToEdit: 2,
+        
+        // Event handlers - CRITICAL for auto-save
+        history: function (evt, ui) {
+            var $tb = this.toolbar();
+            if (ui.canUndo != null) {
+                $("button.changes", $tb).button("option", {disabled: !ui.canUndo});
+            }
+            if (ui.canRedo != null) {
+                $("button:contains('Redo')", $tb).button("option", "disabled", !ui.canRedo);
+            }
+            $("button:contains('Undo')", $tb).button("option", {label: 'Undo (' + ui.num_undo + ')'});
+            $("button:contains('Redo')", $tb).button("option", {label: 'Redo (' + ui.num_redo + ')'});
+        },
+        
+        change: function (evt, ui) {
+            // Auto-save changes (add, update, delete) to server
+            saveChanges();
+        },
+        
+        destroy: function () {
+            // Clear any intervals upon destroy
+            if (typeof interval !== 'undefined') {
+                clearInterval(interval);
+            }
+        },
+        
+        postRenderInterval: -1 // Call postRender synchronously
     };
     
     // Initialize grid
