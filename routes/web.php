@@ -10,11 +10,11 @@ Route::get('/', function () {
 
 // Product Variants Grid Routes (Tunerstop-style implementation)
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Main grid view with all data embedded
+    // Main grid view
     Route::get('products/grid', [ProductVariantGridController::class, 'index'])
         ->name('products.grid');
     
-    // Batch operations
+    // Batch operations (AJAX endpoints for pqGrid)
     Route::post('products/grid/save-batch', [ProductVariantGridController::class, 'saveBatch'])
         ->name('products.grid.save-batch');
     Route::post('products/grid/delete-batch', [ProductVariantGridController::class, 'deleteBatch'])

@@ -159,6 +159,21 @@
         #productsGrid {
             min-height: 500px;
         }
+        
+        /* Delete button styling */
+        .delete_btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .delete_btn:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 <body>

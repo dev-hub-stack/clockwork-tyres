@@ -102,30 +102,11 @@ $(document).ready(function () {
     
     // Column definitions - EXACT TUNERSTOP STRUCTURE
     var colModel = [
-        // Action column with delete button
-        { 
-            title: "", 
-            editable: false,
-            skipExport: true, 
-            minWidth: 85, 
-            sortable: false, 
-            align: "center",
-            render: function (ui) {
-                return "<button type='button' class='delete_btn icon-add'></button>";
-            },
-            postRender: function (ui) {
-                var grid = this,
-                    $cell = grid.getCell(ui);
-                $cell.find(".delete_btn").bind("click", function (evt) {
-                    grid.deleteRow({ rowIndx: ui.rowIndx });
-                });
-            }
-        },
         // Checkbox column with "Select All"
         { 
             dataIndx: "state",
             align: "center",
-            title: "<label><input type='checkbox' /></label>",
+            title: "<label><input type='checkbox' />&nbsp;Select All</label>",
             cb: { header: true, select: true, all: true },
             type: 'checkbox',
             cls: 'ui-state-default', 
@@ -134,6 +115,25 @@ $(document).ready(function () {
             editor: false,
             width: 10, 
             sortable: false
+        },
+        // Action column with delete button
+        { 
+            title: "Action", 
+            editable: false,
+            skipExport: true, 
+            minWidth: 85, 
+            sortable: false, 
+            align: "center",
+            render: function (ui) {
+                return "<button type='button' class='delete_btn'>Delete</button>";
+            },
+            postRender: function (ui) {
+                var grid = this,
+                    $cell = grid.getCell(ui);
+                $cell.find(".delete_btn").bind("click", function (evt) {
+                    grid.deleteRow({ rowIndx: ui.rowIndx });
+                });
+            }
         },
         // Data columns
         {
@@ -162,13 +162,6 @@ $(document).ready(function () {
             dataIndx: "model", 
             validations: [{type: 'nonEmpty', msg: "Model is required."}], 
             filter: { crules: [{ condition: 'equal' }] }  
-        },
-        {
-            title: "Supplier Stock", 
-            width: 120, 
-            dataType: "integer", 
-            align: "right", 
-            dataIndx: "supplier_stock"
         },
         {
             title: "Finish", 
@@ -287,15 +280,6 @@ $(document).ready(function () {
             dataIndx: "sale_price"
         },
         {
-            title: "Clearance Corner", 
-            width: 100, 
-            dataType: "integer", 
-            align: "center", 
-            type: "checkbox", 
-            dataIndx: "clearance_corner", 
-            cb: { check: 1, uncheck: 0 }
-        },
-        {
             title: "Images", 
             width: 200, 
             dataType: "string", 
@@ -373,10 +357,17 @@ $(document).ready(function () {
                 label: 'Bulk Delete', 
                 cls: 'voyager-delete', 
                 listener: function () {
-                    var ids = this.SelectRow().getSelection().map(function(rowList){
-                        return rowList.rowData.id;
-                    })
-                    bulkDelete(ids);
+                    var selection = this.SelectRow().getSelection();
+                    var ids = selection.map(function(item){
+                        return item.rowData.id;
+                    });
+                    if (ids.length > 0) {
+                        if (confirm('Are you sure you want to delete ' + ids.length + ' product(s)?')) {
+                            bulkDelete(ids);
+                        }
+                    } else {
+                        alert('Please select products to delete');
+                    }
                 }
             }
         ]
