@@ -477,16 +477,22 @@ $(document).ready(function () {
         
         console.log('✅ Grid initialized');
         console.log('✅ Loaded ' + data.length + ' product variants');
-        console.log('📋 FilterModel config:', grid.option('filterModel'));
         
-        // Check if filter header row exists in DOM
+        // CRITICAL: Explicitly enable filter header after grid creation
+        grid.option('filterModel', { header: true, type: 'local', on: true, mode: "AND" });
+        grid.refresh();
+        
+        // Set placeholder text for search fields after render
         setTimeout(function() {
-            var filterRow = $('.pq-grid-header-search-row');
-            console.log('🔍 Filter row found:', filterRow.length > 0);
-            console.log('🔍 Filter row HTML:', filterRow.html());
-            
             $('.pq-grid-hd-search-field').attr('placeholder', 'Search');
             console.log('🔍 Search fields found:', $('.pq-grid-hd-search-field').length);
+            
+            // If still 0, manually trigger filter creation
+            if ($('.pq-grid-hd-search-field').length === 0) {
+                console.log('⚠️ Trying to force filter creation...');
+                grid.refreshHeader();
+                grid.refreshDataAndView();
+            }
         }, 200);
     }, 500);
     

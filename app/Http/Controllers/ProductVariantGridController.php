@@ -407,12 +407,12 @@ class ProductVariantGridController extends Controller
     }
     
     /**
-     * Bulk upload product images from ZIP
+     * Bulk upload product images from ZIP to S3
      */
     public function bulkImages(Request $request)
     {
         $request->validate([
-            'imagesZip' => 'required|file|mimes:zip|max:102400' // 100MB max
+            'imagesZip' => 'required|file|mimes:zip|max:512000' // 500MB max
         ]);
         
         try {
@@ -420,24 +420,19 @@ class ProductVariantGridController extends Controller
             $zip = new \ZipArchive;
             
             if ($zip->open($zipFile->getPathname()) !== true) {
-                return redirect()->back()->with('error', 'Failed to open ZIP file');
-            }
-            
-            // Create uploads directory if not exists
-            $uploadsPath = storage_path('app/public/products');
-            if (!file_exists($uploadsPath)) {
-                mkdir($uploadsPath, 0755, true);
+                return response()->json(['success' => false, 'error' => 'Failed to open ZIP file'], 400);
             }
             
             $matched = 0;
             $unmatched = [];
             $uploaded = [];
+            $errors = [];
             
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $filename = $zip->getNameIndex($i);
                 
                 // Skip directories and hidden files
-                if (substr($filename, -1) == '/' || strpos($filename, '__MACOSX') !== false) {
+                if (substr($filename, -1) == '/' || strpos($filename, '__MACOSX') !== false || strpos($filename, '.DS_Store') !== false) {
                     continue;
                 }
                 
@@ -450,55 +445,84 @@ class ProductVariantGridController extends Controller
                     continue;
                 }
                 
-                // Extract SKU from filename (remove extension)
+                // Extract SKU from filename (remove extension and any suffix like -1, -2)
                 $sku = pathinfo($basename, PATHINFO_FILENAME);
+                // Remove trailing numbers like -1, -2, etc. to match SKU
+                $sku = preg_replace('/-\d+$/', '', $sku);
                 
                 // Find product variant by SKU
-                $variant = ProductVariant::where('sku', $sku)->first();
+                $variant = ProductVariant::with('product.brand', 'product.model')->where('sku', $sku)->first();
                 
                 if ($variant) {
-                    // Extract file
-                    $tempPath = $uploadsPath . '/' . $basename;
-                    copy("zip://" . $zipFile->getPathname() . "#" . $filename, $tempPath);
-                    
-                    // Generate URL path
-                    $imagePath = 'products/' . $basename;
-                    
-                    // Update product images field
-                    if ($variant->product) {
-                        $currentImages = $variant->product->images;
+                    try {
+                        // Extract file content from ZIP
+                        $fileContent = $zip->getFromIndex($i);
+                        
+                        if ($fileContent === false) {
+                            $errors[] = "Failed to extract {$basename} from ZIP";
+                            continue;
+                        }
+                        
+                        // Generate S3 path: products/{brand}/{model}/{sku}/{filename}
+                        $brand = $variant->product && $variant->product->brand ? Str::slug($variant->product->brand->name) : 'unknown-brand';
+                        $model = $variant->product && $variant->product->model ? Str::slug($variant->product->model->name) : 'unknown-model';
+                        $s3Path = "products/{$brand}/{$model}/{$sku}/{$basename}";
+                        
+                        // Upload to S3
+                        \Storage::disk('s3')->put($s3Path, $fileContent, 'public');
+                        
+                        // Get full S3 URL
+                        $s3Url = \Storage::disk('s3')->url($s3Path);
+                        
+                        // Update product variant images field (comma-separated URLs)
+                        $currentImages = $variant->images ?? '';
                         $imagesArray = $currentImages ? explode(',', $currentImages) : [];
                         
-                        // Add new image if not already present
-                        if (!in_array($imagePath, $imagesArray)) {
-                            $imagesArray[] = $imagePath;
-                            $variant->product->images = implode(',', $imagesArray);
-                            $variant->product->save();
+                        // Add new image URL if not already present
+                        if (!in_array($s3Url, $imagesArray)) {
+                            $imagesArray[] = $s3Url;
+                            $variant->images = implode(',', array_filter($imagesArray));
+                            $variant->save();
                         }
+                        
+                        $matched++;
+                        $uploaded[] = [
+                            'filename' => $basename,
+                            'sku' => $sku,
+                            'url' => $s3Url
+                        ];
+                        
+                    } catch (\Exception $e) {
+                        $errors[] = "Error uploading {$basename}: " . $e->getMessage();
                     }
                     
-                    // Also update variant image field (single image)
-                    $variant->image = $imagePath;
-                    $variant->save();
-                    
-                    $matched++;
-                    $uploaded[] = $basename;
                 } else {
-                    $unmatched[] = $basename . " (SKU: {$sku})";
+                    $unmatched[] = [
+                        'filename' => $basename,
+                        'sku' => $sku,
+                        'reason' => 'No product variant found with this SKU'
+                    ];
                 }
             }
             
             $zip->close();
             
-            $message = "Successfully uploaded {$matched} images";
-            if (!empty($unmatched)) {
-                $message .= ". " . count($unmatched) . " images did not match any SKU.";
-            }
-            
-            return redirect()->back()->with('success', $message);
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully uploaded {$matched} images to S3",
+                'matched' => $matched,
+                'unmatched_count' => count($unmatched),
+                'errors_count' => count($errors),
+                'uploaded' => $uploaded,
+                'unmatched' => $unmatched,
+                'errors' => $errors
+            ]);
             
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Image upload failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Image upload failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -12,9 +12,9 @@
     <!-- jQuery UI CSS -->
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     
-    <!-- pqGrid CSS - LOCAL -->
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
+    <!-- pqGrid CSS - Try DEV version -->
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.dev.css') }}">
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.dev.css') }}">
     
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -394,8 +394,8 @@
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- pqGrid JS - LOCAL -->
-    <script src="{{ asset('pqgridf/pqgrid.min.js') }}"></script>
+    <!-- pqGrid JS - Try DEV version for full features including filter headers -->
+    <script src="{{ asset('pqgridf/pqgrid.dev.js') }}"></script>
     
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -420,6 +420,74 @@
                 toggleIcon.className = 'bi bi-x-lg';
             }
         }
+    </script>
+    
+    <!-- Bulk Image Upload Handler -->
+    <script>
+        $(document).ready(function() {
+            // Handle bulk images form submission via AJAX
+            $('#bulkImagesModal form').on('submit', function(e) {
+                e.preventDefault();
+                
+                var formData = new FormData(this);
+                var $submitBtn = $(this).find('button[type="submit"]');
+                var $modal = $('#bulkImagesModal');
+                
+                // Disable submit button and show loading
+                $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Uploading to S3...');
+                
+                $.ajax({
+                    url: "{{ route('admin.products.bulk.images') }}",
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        console.log('Upload response:', response);
+                        
+                        if (response.success) {
+                            // Show success message with details
+                            var message = response.message + '<br>';
+                            message += '<strong>Matched & Uploaded:</strong> ' + response.matched + '<br>';
+                            
+                            if (response.unmatched_count > 0) {
+                                message += '<strong>Unmatched:</strong> ' + response.unmatched_count + '<br>';
+                            }
+                            
+                            if (response.errors_count > 0) {
+                                message += '<strong>Errors:</strong> ' + response.errors_count;
+                            }
+                            
+                            // Show success alert
+                            alert('SUCCESS!\n\n' + message.replace(/<br>/g, '\n').replace(/<\/?strong>/g, ''));
+                            
+                            // Close modal and reload page to update grid
+                            $modal.modal('hide');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + (response.error || 'Unknown error occurred'));
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Upload error:', xhr.responseText);
+                        var errorMsg = 'Upload failed: ' + error;
+                        
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = 'Upload failed: ' + response.error;
+                            }
+                        } catch (e) {}
+                        
+                        alert(errorMsg);
+                    },
+                    complete: function() {
+                        // Re-enable submit button
+                        $submitBtn.prop('disabled', false).html('<i class="bi bi-upload"></i> Upload Images');
+                    }
+                });
+            });
+        });
     </script>
     
     <!-- Products Grid JavaScript -->
