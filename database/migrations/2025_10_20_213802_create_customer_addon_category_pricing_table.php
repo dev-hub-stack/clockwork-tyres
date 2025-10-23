@@ -30,9 +30,7 @@ return new class extends Migration
             $table->index('add_on_category_id');
             $table->unique(['customer_id', 'add_on_category_id'], 'customer_addon_cat_pricing_unique');
             
-            // Foreign Keys
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
-            // add_on_category_id foreign key will be added after add_on_categories table is created
+            // Note: Foreign keys will be added later in add_foreign_keys_to_customer_pricing_tables migration
         });
     }
 

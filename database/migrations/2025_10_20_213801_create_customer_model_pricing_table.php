@@ -30,9 +30,7 @@ return new class extends Migration
             $table->index('model_id');
             $table->unique(['customer_id', 'model_id']);
             
-            // Foreign Keys
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
-            $table->foreign('model_id')->references('id')->on('models')->onDelete('cascade');
+            // Note: Foreign keys will be added later in add_foreign_keys_to_customer_pricing_tables migration
         });
     }
 

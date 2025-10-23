@@ -36,6 +36,8 @@ return new class extends Migration
             if (!$this->foreignKeyExists('customer_addon_category_pricing', 'customer_addon_category_pricing_customer_id_foreign')) {
                 $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
             }
+            // NOTE: add_on_category_id foreign key will be added after addon_categories table is created
+            // This happens in a later migration (2025_10_24_000001)
         });
     }
 
@@ -73,6 +75,7 @@ return new class extends Migration
 
         Schema::table('customer_addon_category_pricing', function (Blueprint $table) {
             $table->dropForeign(['customer_id']);
+            $table->dropForeign(['add_on_category_id']);
         });
     }
 };
