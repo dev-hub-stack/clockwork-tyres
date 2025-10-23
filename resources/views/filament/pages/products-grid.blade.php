@@ -50,6 +50,37 @@
             width: 16px;
             height: 16px;
         }
+        
+        /* CRITICAL: Force filter header row to show */
+        .pq-grid-header-search-row {
+            display: table-row !important;
+            visibility: visible !important;
+            background-color: #f8f9fa !important;
+        }
+        
+        /* Filter input fields */
+        .pq-grid-hd-search-field {
+            display: block !important;
+            width: 100% !important;
+            padding: 6px 10px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 4px !important;
+            font-size: 13px !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+        }
+        
+        .pq-grid-hd-search-field:focus {
+            outline: none !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        .pq-grid-header-search-row .pq-grid-col {
+            padding: 5px !important;
+            background: #f8f9fa !important;
+            border-color: #e5e7eb !important;
+        }
     </style>
     
     <!-- Success/Error Messages -->
