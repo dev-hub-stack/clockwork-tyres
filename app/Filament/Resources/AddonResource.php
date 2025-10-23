@@ -5,40 +5,49 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AddonResource\Pages;
 use App\Models\Addon;
 use App\Models\AddonCategory;
-use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\TextInput;
+use Filament\Textarea;
+use Filament\FileUpload;
+use Filament\Select;
+use Filament\Toggle;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Get;
+use Filament\Schemas\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use BackedEnum;
+use UnitEnum;
 
 class AddonResource extends Resource
 {
     protected static ?string $model = Addon::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
+    protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-puzzle-piece';
 
-    protected static ?string $navigationGroup = 'Products';
+    protected static UnitEnum|string|null $navigationGroup = 'Products';
 
     protected static ?int $navigationSort = 6;
 
     protected static ?string $navigationLabel = 'Add Ons';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
-                Forms\Components\Section::make('Category Information')
+        return $schema
+            ->components([
+                Section::make('Category Information')
                     ->schema([
-                        Forms\Components\Select::make('addon_category_id')
+                        Select::make('addon_category_id')
                             ->label('Category')
                             ->relationship('category', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 // Auto-generate part number prefix based on category
                                 if ($state) {
                                     $category = AddonCategory::find($state);
@@ -50,49 +59,49 @@ class AddonResource extends Resource
                             }),
                     ]),
 
-                Forms\Components\Section::make('Product Details')
+                Section::make('Product Details')
                     ->schema([
-                        Forms\Components\TextInput::make('title')
+                        TextInput::make('title')
                             ->label('Title')
                             ->required()
                             ->maxLength(180)
                             ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('part_number')
+                        TextInput::make('part_number')
                             ->label('Part Number')
                             ->maxLength(255)
                             ->unique(ignoreRecord: true),
 
-                        Forms\Components\Textarea::make('description')
+                        Textarea::make('description')
                             ->label('Description')
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('Pricing')
+                Section::make('Pricing')
                     ->schema([
-                        Forms\Components\TextInput::make('price')
+                        TextInput::make('price')
                             ->label('Retail Price')
                             ->numeric()
                             ->prefix('$')
                             ->required()
                             ->default(0),
 
-                        Forms\Components\TextInput::make('wholesale_price')
+                        TextInput::make('wholesale_price')
                             ->label('Wholesale Price')
                             ->numeric()
                             ->prefix('$'),
 
-                        Forms\Components\Toggle::make('tax_inclusive')
+                        Toggle::make('tax_inclusive')
                             ->label('Tax Inclusive')
                             ->default(false),
                     ])
                     ->columns(3),
 
-                Forms\Components\Section::make('Images')
+                Section::make('Images')
                     ->schema([
-                        Forms\Components\FileUpload::make('image_1')
+                        FileUpload::make('image_1')
                             ->label('Image 1')
                             ->image()
                             ->disk('s3')
@@ -100,7 +109,7 @@ class AddonResource extends Resource
                             ->visibility('public')
                             ->maxSize(2048),
 
-                        Forms\Components\FileUpload::make('image_2')
+                        FileUpload::make('image_2')
                             ->label('Image 2')
                             ->image()
                             ->disk('s3')
@@ -110,9 +119,9 @@ class AddonResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('Inventory')
+                Section::make('Inventory')
                     ->schema([
-                        Forms\Components\Select::make('stock_status')
+                        Select::make('stock_status')
                             ->label('Stock Status')
                             ->options([
                                 1 => 'In Stock',
@@ -123,7 +132,7 @@ class AddonResource extends Resource
                             ->default(1)
                             ->required(),
 
-                        Forms\Components\TextInput::make('total_quantity')
+                        TextInput::make('total_quantity')
                             ->label('Total Quantity')
                             ->numeric()
                             ->default(0)
@@ -131,60 +140,60 @@ class AddonResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('Category-Specific Fields')
+                Section::make('Category-Specific Fields')
                     ->schema([
                         // Lug Nuts / Lug Bolts
-                        Forms\Components\TextInput::make('thread_size')
+                        TextInput::make('thread_size')
                             ->label('Thread Size')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => in_array($get('addon_category_id'), [2, 3])), // Lug Nuts, Lug Bolts
+                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [2, 3])), // Lug Nuts, Lug Bolts
 
-                        Forms\Components\TextInput::make('color')
+                        TextInput::make('color')
                             ->label('Color')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => in_array($get('addon_category_id'), [2, 3])),
+                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [2, 3])),
 
-                        Forms\Components\TextInput::make('lug_nut_length')
+                        TextInput::make('lug_nut_length')
                             ->label('Lug Nut Length')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 2),
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 2),
 
-                        Forms\Components\TextInput::make('lug_nut_diameter')
+                        TextInput::make('lug_nut_diameter')
                             ->label('Lug Nut Diameter')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 2),
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 2),
 
-                        Forms\Components\TextInput::make('thread_length')
+                        TextInput::make('thread_length')
                             ->label('Thread Length')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 3), // Lug Bolts
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 3), // Lug Bolts
 
-                        Forms\Components\TextInput::make('lug_bolt_diameter')
+                        TextInput::make('lug_bolt_diameter')
                             ->label('Lug Bolt Diameter')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 3),
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 3),
 
                         // Hub Rings
-                        Forms\Components\TextInput::make('ext_center_bore')
+                        TextInput::make('ext_center_bore')
                             ->label('External Center Bore')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 4), // Hub Rings
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 4), // Hub Rings
 
-                        Forms\Components\TextInput::make('center_bore')
+                        TextInput::make('center_bore')
                             ->label('Center Bore')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => in_array($get('addon_category_id'), [4, 5])), // Hub Rings, Spacers
+                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [4, 5])), // Hub Rings, Spacers
 
                         // Spacers
-                        Forms\Components\TextInput::make('bolt_pattern')
+                        TextInput::make('bolt_pattern')
                             ->label('Bolt Pattern')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 5), // Spacers
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 5), // Spacers
 
-                        Forms\Components\TextInput::make('width')
+                        TextInput::make('width')
                             ->label('Width')
                             ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('addon_category_id') == 5),
+                            ->visible(fn (Get $get) => $get('addon_category_id') == 5),
                     ])
                     ->columns(2),
             ]);
