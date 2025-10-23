@@ -30,26 +30,37 @@ The inventory grid provides an Excel-like interface for managing stock across mu
 
 ### Grid Layout Structure
 
+**Based on old system:** Each warehouse gets **3 columns** (Quantity, ETA Date, Inbound Qty)
+
 ```
-┌──────────────────────┬────────────────┬────────────────┬────────────────┬──────────┐
-│ Product/Variant/Addon│  Main WH (US)  │  EU Warehouse  │  Asia WH       │  Total   │
-├──────────────────────┼────────────────┼────────────────┼────────────────┼──────────┤
-│ RSE 18x8.5 Gloss BLK │    [  25  ]    │    [  10  ]    │    [   5  ]    │    40    │
-│ BLQ 19x9.0 Matte BLK │    [  15  ]    │    [   0  ]    │    [  20  ]    │    35    │
-│ Chrome Lug Nuts Set  │    [ 100  ]    │    [  50  ]    │    [  75  ]    │   225    │
-│ Hub Rings 72.6-66.1  │    [  80  ]    │    [  40  ]    │    [  60  ]    │   180    │
-└──────────────────────┴────────────────┴────────────────┴────────────────┴──────────┘
-           ↑                    ↑                 ↑                ↑            ↑
-    Product Info     Editable Quantity    Editable Quantity  Editable Qty  Auto Sum
+┌──────────────────────┬─────────────┬─────────────┬─────────────┬─────────────┬──────────┐
+│ Product/Variant/Addon│ Main WH QTY │ Main ETA    │ Main Inbound│ EU WH QTY   │  Total   │
+├──────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼──────────┤
+│ RSE 18x8.5 Gloss BLK │  [  25  ]   │ 2025-12-01  │  [  50  ]   │  [  10  ]   │   85*    │
+│ BLQ 19x9.0 Matte BLK │  [  15  ]   │             │  [   0  ]   │  [   0  ]   │   15     │
+│ Chrome Lug Nuts Set  │  [ 100  ]   │ Q4 2025     │  [ 200  ]   │  [  50  ]   │  350*    │
+└──────────────────────┴─────────────┴─────────────┴─────────────┴─────────────┴──────────┘
+           ↑                  ↑             ↑            ↑             ↑           ↑
+    Product Info      Current Stock    ETA Date    Inbound Stock  Other WH   Total Available
+                                                                              (Current+Inbound)
 ```
+
+**Column Pattern per Warehouse:**
+1. **Quantity Column** - Current stock on hand (editable number input)
+2. **ETA Column** - Expected arrival date (editable text/date input)
+3. **Inbound Column** - Quantity expected to arrive (editable number input)
+
+**Total Column:**
+- Shows sum of ALL current stock + ALL inbound stock across all warehouses
+- Visual indicator if includes inbound stock (e.g., "85*" with asterisk or tooltip)
 
 ### Key Features
 
 #### 1. **Dynamic Warehouse Columns**
-- Columns automatically generated based on active warehouses
-- Each warehouse gets its own column
+- Each active warehouse gets 3 columns (Qty, ETA, Inbound)
 - Column headers show warehouse name and code
-- Hide inactive warehouses
+- Columns can be hidden/shown per user preference
+- Hide inactive warehouses by default
 
 #### 2. **Product Rows**
 Three types of inventory rows:
@@ -58,14 +69,18 @@ Three types of inventory rows:
 - **AddOns**: Lug nuts, hub rings, spacers, TPMS
 
 #### 3. **Inline Editing**
-- Click any quantity cell to edit
-- Auto-save on blur or Enter key
-- Visual feedback (loading spinner, success checkmark)
-- Validation (negative numbers not allowed)
-- Color coding:
+- **Quantity cells**: Number input, auto-save on blur
+- **ETA cells**: Text/date input for flexible formats ("2025-12-01", "Q4 2025", "Late Dec")
+- **Inbound cells**: Number input for incoming stock
+- Visual feedback (loading spinner, success checkmark, error highlight)
+- Validation:
+  - Negative numbers not allowed for quantity/inbound
+  - ETA can be empty or any text format
+- Color coding for quantity cells:
   - 🟢 Green: Stock > 50
   - 🟡 Yellow: Stock 1-50
   - 🔴 Red: Stock = 0
+  - 🔵 Blue: Stock = 0 but has inbound (ETA set)
 
 #### 4. **Bulk Operations**
 
@@ -443,6 +458,8 @@ CREATE TABLE warehouses (
 
 ### 2. Product Inventories Table
 
+**CRITICAL:** Based on old Reporting system at `C:\Users\Dell\Documents\Reporting\`
+
 ```sql
 CREATE TABLE product_inventories (
     id BIGSERIAL PRIMARY KEY,
@@ -453,18 +470,15 @@ CREATE TABLE product_inventories (
     product_variant_id BIGINT REFERENCES product_variants(id) ON DELETE CASCADE,
     add_on_id BIGINT REFERENCES addons(id) ON DELETE CASCADE,
     
-    -- Inventory Data (REFERENCE ONLY)
-    quantity INTEGER DEFAULT 0,
-    eta DATE,  -- Expected arrival date for out-of-stock items
-    
-    -- Sync metadata
-    last_synced_at TIMESTAMP,
-    sync_source VARCHAR(50),  -- 'external_api', 'manual', 'consignment_return'
+    -- Inventory Data
+    quantity INTEGER DEFAULT 0 NOT NULL,  -- Current stock quantity
+    eta VARCHAR(15) NULL,  -- Expected arrival date (VARCHAR for flexibility: "2025-12-01" or "Q4 2025")
+    eta_qty INTEGER DEFAULT 0,  -- Quantity expected to arrive on ETA date (inbound stock)
     
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     
-    -- Constraints
+    -- Constraints: Only one of product_id, product_variant_id, or add_on_id can be set
     CONSTRAINT check_inventory_item CHECK (
         (product_id IS NOT NULL AND product_variant_id IS NULL AND add_on_id IS NULL) OR
         (product_id IS NULL AND product_variant_id IS NOT NULL AND add_on_id IS NULL) OR
@@ -472,9 +486,9 @@ CREATE TABLE product_inventories (
     ),
     
     -- Unique constraint: one inventory record per item per warehouse
-    UNIQUE (warehouse_id, product_id),
-    UNIQUE (warehouse_id, product_variant_id),
-    UNIQUE (warehouse_id, add_on_id),
+    UNIQUE KEY unique_warehouse_product (warehouse_id, product_id) WHERE product_variant_id IS NULL AND add_on_id IS NULL,
+    UNIQUE KEY unique_warehouse_variant (warehouse_id, product_variant_id) WHERE add_on_id IS NULL,
+    UNIQUE KEY unique_warehouse_addon (warehouse_id, add_on_id),
     
     -- Indexes
     INDEX idx_product_inventories_warehouse (warehouse_id),
@@ -487,10 +501,23 @@ CREATE TABLE product_inventories (
 
 **Key Features:**
 - **Polymorphic relationship** - Can track Products, Variants, or AddOns
-- **Reference-only quantities** - Not the source of truth
-- **ETA tracking** for out-of-stock items
-- **Sync metadata** to track where data came from
+- **quantity** - Current stock on hand
+- **eta** - VARCHAR(15) for flexible date formats ("2025-12-01", "Q4 2025", "Late December")
+- **eta_qty** - Quantity expected to arrive (inbound stock)
 - **Unique constraint** prevents duplicate inventory records
+- **Foreign keys** with cascade delete
+
+**Excel Import Pattern (from old system):**
+Each warehouse gets 3 columns in Excel:
+- `WH-MAIN` - Current quantity
+- `WH-MAIN_eta` - Expected arrival date
+- `WH-MAIN_quantity_inbound` - Inbound quantity
+
+Example:
+```
+SKU          | WH-MAIN | WH-MAIN_eta | WH-MAIN_quantity_inbound | WH-EU | WH-EU_eta | WH-EU_quantity_inbound
+RSE-18X8.5   | 25      | 2025-12-01  | 50                       | 10    |           | 0
+```
 
 ### 3. Inventory Logs Table
 
@@ -664,6 +691,8 @@ use App\Models\Addon;
 
 class ProductInventory extends Model
 {
+    protected $table = 'product_inventories';
+    
     protected $fillable = [
         'warehouse_id',
         'product_id',
@@ -671,14 +700,13 @@ class ProductInventory extends Model
         'add_on_id',
         'quantity',
         'eta',
-        'last_synced_at',
-        'sync_source',
+        'eta_qty',  // IMPORTANT: Inbound quantity expected
     ];
     
     protected $casts = [
         'quantity' => 'integer',
-        'eta' => 'date',
-        'last_synced_at' => 'datetime',
+        'eta_qty' => 'integer',
+        // Note: eta is VARCHAR for flexibility ("2025-12-01", "Q4 2025", "Late Dec")
     ];
     
     /**
@@ -698,6 +726,125 @@ class ProductInventory extends Model
     }
     
     /**
+     * Relationship: Product Variant
+     */
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
+    
+    /**
+     * Relationship: AddOn
+     */
+    public function addon(): BelongsTo
+    {
+        return $this->belongsTo(Addon::class, 'add_on_id');
+    }
+    
+    /**
+     * Scope: Filter by product
+     */
+    public function scopeByProduct($query, $productId)
+    {
+        return $query->where('product_id', $productId);
+    }
+    
+    /**
+     * Scope: Filter by variant
+     */
+    public function scopeByVariant($query, $variantId)
+    {
+        return $query->where('product_variant_id', $variantId);
+    }
+    
+    /**
+     * Scope: Filter by addon
+     */
+    public function scopeByAddon($query, $addonId)
+    {
+        return $query->where('add_on_id', $addonId);
+    }
+    
+    /**
+     * Scope: Filter by warehouse
+     */
+    public function scopeByWarehouse($query, $warehouseId)
+    {
+        return $query->where('warehouse_id', $warehouseId);
+    }
+    
+    /**
+     * Scope: Exclude zero quantity
+     */
+    public function scopeExcludeZeroQuantity($query)
+    {
+        return $query->where('quantity', '>', 0);
+    }
+    
+    /**
+     * Scope: Low stock (less than 50)
+     */
+    public function scopeLowStock($query)
+    {
+        return $query->where('quantity', '>', 0)
+            ->where('quantity', '<', 50);
+    }
+    
+    /**
+     * Scope: With warehouse ordered by distance
+     */
+    public function scopeWithWarehouseOrderedByDistance($query, $lat, $lng)
+    {
+        return $query->with(['warehouse' => function ($query) use ($lat, $lng) {
+            $query->orderByDistance($lat, $lng);
+        }]);
+    }
+    
+    /**
+     * Get total available quantity (current + inbound)
+     */
+    public function getTotalAvailableAttribute(): int
+    {
+        return ($this->quantity ?? 0) + ($this->eta_qty ?? 0);
+    }
+    
+    /**
+     * Check if item has incoming stock
+     */
+    public function hasInboundStockAttribute(): bool
+    {
+        return !empty($this->eta) && ($this->eta_qty ?? 0) > 0;
+    }
+    
+    /**
+     * Import method: Create inventory records for all warehouses
+     * Used when new product/variant/addon created
+     */
+    public static function import($itemType, $itemId)
+    {
+        $warehouses = Warehouse::where('is_active', true)->get();
+        
+        foreach ($warehouses as $warehouse) {
+            $data = [
+                'warehouse_id' => $warehouse->id,
+                $itemType . '_id' => $itemId,
+                'quantity' => 0,
+                'eta' => null,
+                'eta_qty' => 0,
+            ];
+            
+            // Only create if doesn't exist
+            self::firstOrCreate(
+                [
+                    'warehouse_id' => $warehouse->id,
+                    $itemType . '_id' => $itemId,
+                ],
+                $data
+            );
+        }
+    }
+}
+```
      * Relationship: Variant
      */
     public function variant(): BelongsTo
