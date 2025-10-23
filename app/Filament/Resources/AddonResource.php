@@ -12,11 +12,16 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Schemas\Get;
-use Filament\Schemas\Set;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use BackedEnum;
@@ -47,7 +52,7 @@ class AddonResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            ->afterStateUpdated(function ($state, $set, $get) {
                                 // Auto-generate part number prefix based on category
                                 if ($state) {
                                     $category = AddonCategory::find($state);
@@ -146,54 +151,54 @@ class AddonResource extends Resource
                         TextInput::make('thread_size')
                             ->label('Thread Size')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [2, 3])), // Lug Nuts, Lug Bolts
+                            ->visible(fn ($get) => in_array($get('addon_category_id'), [2, 3])), // Lug Nuts, Lug Bolts
 
                         TextInput::make('color')
                             ->label('Color')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [2, 3])),
+                            ->visible(fn ($get) => in_array($get('addon_category_id'), [2, 3])),
 
                         TextInput::make('lug_nut_length')
                             ->label('Lug Nut Length')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 2),
+                            ->visible(fn ($get) => $get('addon_category_id') == 2),
 
                         TextInput::make('lug_nut_diameter')
                             ->label('Lug Nut Diameter')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 2),
+                            ->visible(fn ($get) => $get('addon_category_id') == 2),
 
                         TextInput::make('thread_length')
                             ->label('Thread Length')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 3), // Lug Bolts
+                            ->visible(fn ($get) => $get('addon_category_id') == 3), // Lug Bolts
 
                         TextInput::make('lug_bolt_diameter')
                             ->label('Lug Bolt Diameter')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 3),
+                            ->visible(fn ($get) => $get('addon_category_id') == 3),
 
                         // Hub Rings
                         TextInput::make('ext_center_bore')
                             ->label('External Center Bore')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 4), // Hub Rings
+                            ->visible(fn ($get) => $get('addon_category_id') == 4), // Hub Rings
 
                         TextInput::make('center_bore')
                             ->label('Center Bore')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => in_array($get('addon_category_id'), [4, 5])), // Hub Rings, Spacers
+                            ->visible(fn ($get) => in_array($get('addon_category_id'), [4, 5])), // Hub Rings, Spacers
 
                         // Spacers
                         TextInput::make('bolt_pattern')
                             ->label('Bolt Pattern')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 5), // Spacers
+                            ->visible(fn ($get) => $get('addon_category_id') == 5), // Spacers
 
                         TextInput::make('width')
                             ->label('Width')
                             ->maxLength(255)
-                            ->visible(fn (Get $get) => $get('addon_category_id') == 5),
+                            ->visible(fn ($get) => $get('addon_category_id') == 5),
                     ])
                     ->columns(2),
             ]);
@@ -203,13 +208,13 @@ class AddonResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('image_1')
+                ImageColumn::make('image_1')
                     ->label('Image')
                     ->disk('s3')
                     ->circular()
                     ->defaultImageUrl(url('/images/placeholder.png')),
 
-                Tables\Columns\TextColumn::make('full_details')
+                TextColumn::make('full_details')
                     ->label('Product Details')
                     ->searchable(['title', 'part_number', 'description'])
                     ->html()
@@ -226,36 +231,36 @@ class AddonResource extends Resource
                     })
                     ->wrap(),
 
-                Tables\Columns\TextColumn::make('wh2_california')
+                TextColumn::make('wh2_california')
                     ->label('WH-2 California')
                     ->default(500)
                     ->alignCenter()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('wh1_chicago')
+                TextColumn::make('wh1_chicago')
                     ->label('WH-1 Chicago')
                     ->default(0)
                     ->alignCenter()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('category.name')
+                TextColumn::make('category.name')
                     ->badge()
                     ->searchable()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('price')
+                TextColumn::make('price')
                     ->money('USD')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('total_quantity')
+                TextColumn::make('total_quantity')
                     ->label('Qty')
                     ->alignCenter()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('stock_status')
+                TextColumn::make('stock_status')
                     ->badge()
                     ->color(fn (int $state): string => match ($state) {
                         1 => 'success',
@@ -274,12 +279,12 @@ class AddonResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('addon_category_id')
+                SelectFilter::make('addon_category_id')
                     ->label('Category')
                     ->relationship('category', 'name')
                     ->preload(),
 
-                Tables\Filters\SelectFilter::make('stock_status')
+                SelectFilter::make('stock_status')
                     ->options([
                         1 => 'In Stock',
                         2 => 'Out of Stock',
@@ -287,27 +292,25 @@ class AddonResource extends Resource
                         4 => 'Discontinued',
                     ]),
 
-                Tables\Filters\TernaryFilter::make('tax_inclusive')
+                TernaryFilter::make('tax_inclusive')
                     ->label('Tax Inclusive'),
             ])
-            ->actions([
-                Tables\Actions\Action::make('view')
+            ->recordActions([
+                Action::make('view')
                     ->label('View')
                     ->icon('heroicon-o-eye')
                     ->color('info')
                     ->url(fn (Addon $record): string => route('filament.admin.resources.addons.view', $record)),
                 
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->label('Edit')
                     ->icon('heroicon-o-pencil'),
                 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->label('Delete'),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+            ->toolbarActions([
+                DeleteBulkAction::make(),
             ])
             ->defaultSort('created_at', 'desc')
             ->poll('30s');

@@ -7,7 +7,7 @@ use App\Models\Addon;
 use App\Models\AddonCategory;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Tabs\Tab;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListAddons extends ListRecords
