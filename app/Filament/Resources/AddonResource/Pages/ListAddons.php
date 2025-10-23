@@ -58,7 +58,7 @@ class ListAddons extends ListRecords
 
     public function getTabs(): array
     {
-        $categories = AddonCategory::sorted()->get();
+        $categories = AddonCategory::get();
         
         $tabs = [
             'all' => Tab::make('All Addons')
