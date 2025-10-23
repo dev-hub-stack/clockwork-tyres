@@ -70,6 +70,14 @@ class ProductVariant extends Model
     }
 
     /**
+     * Relationship: Inventory records across all warehouses
+     */
+    public function inventories()
+    {
+        return $this->hasMany(\App\Modules\Inventory\Models\ProductInventory::class);
+    }
+
+    /**
      * Scope: Active variants
      */
     public function scopeActive($query)

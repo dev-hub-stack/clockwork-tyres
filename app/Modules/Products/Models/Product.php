@@ -61,6 +61,14 @@ class Product extends Model
     }
 
     /**
+     * Relationship: Inventory records across all warehouses
+     */
+    public function inventories(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Inventory\Models\ProductInventory::class);
+    }
+
+    /**
      * Scope: Active products
      */
     public function scopeActive($query)

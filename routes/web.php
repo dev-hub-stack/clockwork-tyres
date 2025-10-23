@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ProductVariantGridController;
 use App\Http\Controllers\ProductImageController;
+use App\Http\Controllers\Admin\InventoryController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -11,9 +12,8 @@ Route::get('/', function () {
 
 // Product Variants Grid Routes (Tunerstop-style implementation)
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Main grid view
-    Route::get('products/grid', [ProductVariantGridController::class, 'index'])
-        ->name('products.grid');
+    // NOTE: Main grid view is now handled by Filament page at /admin/products-grid
+    // Removed: Route::get('products/grid', ...) to avoid conflict
     
     // Batch operations (AJAX endpoints for pqGrid)
     Route::post('products/grid/save-batch', [ProductVariantGridController::class, 'saveBatch'])
@@ -26,6 +26,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('products.bulk.import');
     Route::post('products/bulk/images', [ProductVariantGridController::class, 'bulkImages'])
         ->name('products.bulk.images');
+    
+    // Inventory Grid Routes (pqGrid matching old Reporting system)
+    Route::post('inventory/save-batch', [InventoryController::class, 'saveBatch'])
+        ->name('inventory.save-batch');
+    Route::post('inventory/import', [InventoryController::class, 'import'])
+        ->name('inventory.import');
     
     // Product Images Routes (Tunerstop pattern)
     Route::get('products/images', [ProductImageController::class, 'index'])

@@ -62,9 +62,9 @@ class Addon extends Model
     /**
      * Get the inventory records for this addon
      */
-    public function inventory()
+    public function inventories()
     {
-        return $this->hasMany(ProductInventory::class, 'addon_id');
+        return $this->hasMany(\App\Modules\Inventory\Models\ProductInventory::class, 'add_on_id');
     }
 
     /**

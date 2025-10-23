@@ -1,0 +1,509 @@
+<x-filament-panels::page>
+    <!-- CSRF Token for AJAX requests -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+    <!-- jQuery (required by pqGrid) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- jQuery UI CSS & JS -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    
+    <!-- pqGrid CSS - LOCAL (matching old Reporting system) -->
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
+    
+    <!-- Bootstrap 5 for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .page-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        #grid_json_inventory {
+            min-height: 600px;
+        }
+
+        /* Warehouse column styling (matching old system) */
+        .inventory-info-inner {
+            background-color: #e8f5e9 !important;
+            font-weight: 600;
+        }
+
+        .inventory-info-inner-eta {
+            background-color: #fff3e0 !important;
+        }
+
+        .inventory-info-inner-eta_qty {
+            background-color: #e3f2fd !important;
+        }
+
+        /* Filter header row */
+        .pq-grid-header-search-row {
+            display: table-row !important;
+            visibility: visible !important;
+            background-color: #f8f9fa !important;
+        }
+
+        .pq-grid-hd-search-field {
+            display: block !important;
+            width: 100% !important;
+            padding: 6px 10px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 4px !important;
+            font-size: 13px !important;
+        }
+
+        /* Toolbar styling */
+        .pq-toolbar-export {
+            background: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        /* Grid save button */
+        .grid-save-btn {
+            background: #0d6efd !important;
+            color: white !important;
+            padding: 6px 16px !important;
+            border-radius: 4px !important;
+        }
+
+        .grid-save-btn:hover {
+            background: #0b5ed7 !important;
+        }
+    </style>
+
+    <div class="page-content">
+        <!-- Action Buttons -->
+        <div class="action-buttons mb-4">
+            <button type="button" class="btn btn-primary" id="import-inv-btn">
+                <i class="bi bi-cloud-download"></i> Import Inventory
+            </button>
+            <button type="button" class="btn btn-success" id="save-changes-btn">
+                <i class="bi bi-save"></i> Save Changes
+            </button>
+        </div>
+
+        <!-- Success/Error Messages -->
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <!-- pqGrid Container -->
+        <div id="grid_json_inventory"></div>
+    </div>
+
+    <!-- Import Modal (matching old system) -->
+    <div class="modal" id="import-product-inventory" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Inventory</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ route('admin.inventory.import') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="row justify-content-center">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="file" class="form-label">Drop File Here</label>
+                                    <input type="file" name="importFile" class="form-control" 
+                                           accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+                                           required/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Sample File</label><br/>
+                                    <a href="{{ asset('uploads/samplefiles/product-inventory.xlsx') }}" 
+                                       download="product-inventory.xlsx" 
+                                       class="btn btn-warning">
+                                        <i class="bi bi-download"></i> Download Sample
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Import</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- pqGrid JS - LOCAL (matching old Reporting system) -->
+    <script src="{{ asset('pqgridf/pqgrid.min.js') }}"></script>
+    
+    <!-- FileSaver.js for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <!-- Embed data (EXACT structure from old Reporting system) -->
+    <script>
+        var api_data = @json($this->products_data);
+        var allWarehouses = @json($this->warehouses);
+        console.log('✅ Loaded ' + api_data.length + ' product variants');
+        console.log('✅ Loaded ' + allWarehouses.length + ' warehouses');
+    </script>
+
+    <!-- Inventory Grid JavaScript (MATCHING old Reporting system) -->
+    <script type="text/javascript">
+        var interval;
+        var grid;
+
+        // Setup CSRF token
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        /**
+         * Save changes to server (matching old system)
+         */
+        function saveChanges() {
+            console.log('🔄 Save changes called');
+            
+            if (typeof grid === 'undefined' || !grid) {
+                console.error('❌ Grid is not initialized!');
+                alert('❌ Error: Grid is not ready. Please wait for the page to fully load.');
+                return false;
+            }
+            
+            console.log('✅ Grid object exists');
+            
+            if (grid.saveEditCell() === false) {
+                console.log('❌ Failed to save edit cell');
+                return false;
+            }
+
+            console.log('✅ Edit cell saved');
+            console.log('Active AJAX:', $.active);
+            console.log('Is Dirty:', grid.isDirty());
+            
+            var validationResult = grid.isValidChange({ allowInvalid: true });
+            console.log('Validation:', validationResult);
+
+            if (!$.active && grid.isDirty() && validationResult.valid) {
+                var gridChanges = grid.getChanges({ format: 'byVal' });
+                console.log('📦 Grid changes:', gridChanges);
+
+                $.ajax({
+                    dataType: "json",
+                    type: "POST",
+                    async: true,
+                    beforeSend: function (jqXHR, settings) {
+                        console.log('🚀 Sending AJAX request...');
+                        grid.option("strLoading", "Saving..");
+                        grid.showLoading();
+                    },
+                    url: "/admin/inventory/save-batch",
+                    data: { list: gridChanges },
+                    success: function (changes) {
+                        console.log('✅ AJAX Success:', changes);
+                        grid.history({method: 'reset'});
+                        grid.commit({ type: 'add', rows: changes.addList });
+                        grid.commit({ type: 'update', rows: changes.updateList });
+                        grid.commit({ type: 'delete', rows: changes.deleteList });
+                        
+                        console.log('✅ Inventory saved successfully!');
+                        // Removed alert for auto-save (too intrusive)
+                    },
+                    complete: function (resp) {
+                        console.log('🏁 AJAX Complete');
+                        grid.hideLoading();
+                        grid.option("strLoading", $.paramquery.pqGrid.defaults.strLoading);
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.error('❌ AJAX Error:', {
+                            status: jqXHR.status,
+                            textStatus: textStatus,
+                            errorThrown: errorThrown,
+                            response: jqXHR.responseText
+                        });
+                        
+                        var errorMessage = "Failed to save inventory.";
+                        if (jqXHR.responseJSON && jqXHR.responseJSON.errors) {
+                            errorMessage = jqXHR.responseJSON.errors.join("\n");
+                        } else if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                            errorMessage = jqXHR.responseJSON.message;
+                        }
+                        
+                        alert('❌ Error: ' + errorMessage);
+                    }
+                });
+            } else {
+                console.log('⚠️ No changes or validation failed');
+                if ($.active) {
+                    alert('⏳ An AJAX request is already in progress. Please wait...');
+                } else if (!grid.isDirty()) {
+                    alert('ℹ️ No changes to save.');
+                } else {
+                    alert('❌ Validation errors exist. Please fix them before saving.');
+                }
+            }
+        }
+
+        $(document).ready(function () {
+            // Prepare data - EXACT structure from old Reporting system (lines 269-274)
+            var data = [];
+            api_data.forEach(function(element, index) {
+                element.inventory.forEach(function (el, ind){
+                    element['qty'+el.warehouse_id] = el.quantity;
+                    element['eta'+el.warehouse_id] = el.eta;
+                    element['e_ta_q_ty'+el.warehouse_id] = el.eta_qty;
+                });
+                data[index] = element;
+            });
+
+            // Column definitions - base columns (matching old system lines 276-293)
+            var colModel = [
+                {
+                    title: "SKU", 
+                    width: 250, 
+                    dataType: "string", 
+                    align: "center",
+                    dataIndx: "sku", 
+                    validations: [{type: 'nonEmpty', msg: "SKU is required."}], 
+                    editable: false, 
+                    filter: { crules: [{ condition: 'begin' }] }  
+                },
+                { 
+                    title: "Product Full Name", 
+                    width: 400, 
+                    dataType: "string", 
+                    align: "center", 
+                    dataIndx: "product_full_name", 
+                    validations: [{type: 'nonEmpty', msg: "full name is required."}], 
+                    editable: false, 
+                    filter: { crules: [{ condition: 'begin' }] }  
+                },
+                { 
+                    title: "Size", 
+                    width: 200, 
+                    dataType: "string", 
+                    align: "center", 
+                    dataIndx: "size", 
+                    editable: false, 
+                    filter: { crules: [{ condition: 'equal' }] }  
+                },
+                { 
+                    title: "Bolt Pattern", 
+                    width: 200, 
+                    dataType: "string", 
+                    align: "center", 
+                    dataIndx: "bolt_pattern",  
+                    editable: false, 
+                    filter: { crules: [{ condition: 'equal' }] }  
+                },
+                { 
+                    title: "Offset", 
+                    width: 200, 
+                    dataType: "string", 
+                    align: "center", 
+                    dataIndx: "offset", 
+                    editable: false, 
+                    filter: { crules: [{ condition: 'equal' }] }  
+                }
+            ];
+
+            // DYNAMIC WAREHOUSE COLUMNS - EXACT pattern from old system (lines 295-304)
+            var wj = 5;
+            allWarehouses.forEach(function(warehouse, key) {
+                let qtyWare = "qty"+warehouse.id;
+                let etaWare = "eta"+warehouse.id;
+                let etaWareQty = "e_ta_q_ty"+warehouse.id;
+                
+                // Quantity column
+                let warehouseColumn = {
+                    title: warehouse.code, 
+                    dataIndx: qtyWare, 
+                    width: 150, 
+                    dataType: 'string', 
+                    align: "center", 
+                    cls: 'inventory-info-inner',
+                    editable: true 
+                };
+                colModel[wj] = warehouseColumn;
+                wj = wj+1;
+                
+                // ETA column
+                let warehouseETAColumn = {
+                    title: "ETA "+warehouse.code, 
+                    dataIndx: etaWare, 
+                    width: 150, 
+                    dataType: 'string', 
+                    align: "center", 
+                    cls: 'inventory-info-inner-eta',
+                    editable: true
+                };
+                colModel[wj] = warehouseETAColumn;
+                wj = wj+1;
+                
+                // ETA Qty column
+                let warehouseETAQtyColumn = {
+                    title: "ETA Qty "+warehouse.code, 
+                    dataIndx: etaWareQty, 
+                    width: 150, 
+                    dataType: 'string', 
+                    align: "center", 
+                    cls: 'inventory-info-inner-eta_qty',
+                    editable: true
+                };
+                colModel[wj] = warehouseETAQtyColumn;
+                wj = wj+1;
+            });
+
+            // Toolbar configuration (matching old system)
+            var toolbar = {
+                cls: 'pq-toolbar-export',
+                items: [
+                    {
+                        type: 'select',
+                        label: 'Format: ',
+                        attr: 'id="export_format"',
+                        options: [{xlsx: 'Excel', csv: 'Csv', htm: 'Html'}]
+                    },
+                    {
+                        type: 'button',
+                        label: " Export",
+                        cls: "btn btn-primary",
+                        listener: function () {
+                            var format = $("#export_format").val(),
+                                blob = this.exportData({
+                                    format: format,
+                                    nopqdata: true,
+                                    render: true
+                                });
+                            if (typeof blob === "string") {
+                                blob = new Blob([blob]);
+                            }
+                            saveAs(blob, "Inventory." + format);
+                        }
+                    },
+                    {type: 'separator'},
+                    {
+                        type: 'textbox',
+                        label: "Search: ",
+                        attr: 'placeholder="Enter text"',
+                        listener: {
+                            timeout: function (evt) {
+                                var txt = $(evt.target).val();
+                                var rules = this.getCMPrimary().map(function (colModel) {
+                                    return {
+                                        dataIndx: colModel.dataIndx,
+                                        condition: 'contain',
+                                        value: txt
+                                    }
+                                })
+                                this.filter({
+                                    mode: 'OR',
+                                    rules: rules
+                                })
+                            }
+                        }
+                    }
+                ]
+            };
+
+            // pqGrid configuration object (matching old system structure)
+            var obj = {
+                width: "100%",
+                height: 650,
+                title: "Inventory Grid - " + allWarehouses.length + " Warehouses",
+                scrollModel: { autoFit: true },
+                numberCell: { show: true, title: "#" },
+                colModel: colModel,
+                dataModel: { 
+                    dataType: "JSON",
+                    recIndx: "id",  // Required for change tracking
+                    data: data 
+                },
+                toolbar: toolbar,
+                filterModel: { 
+                    on: true, 
+                    mode: "AND", 
+                    header: true 
+                },
+                editable: true,
+                editor: { select: true },
+                editModel: {
+                    saveKey: $.ui.keyCode.ENTER,
+                    keyUpDown: false,
+                    cellBorderWidth: 0
+                },
+                pageModel: { type: "local", rPP: 100, rPPOptions: [20, 50, 100, 500, 1000] },
+                resizable: true,
+                rowBorders: true,
+                columnBorders: true,
+                freezeCols: 2,  // Freeze SKU and Product Name columns
+                wrap: false,
+                hwrap: false,
+                trackModel: { on: true },  // Track changes for save functionality
+                historyModel: { on: true },
+                track: true,
+                // Enable copy/paste for Excel-like functionality
+                selectionModel: { type: 'cell', mode: 'block' },
+                copyModel: { on: true },
+                change: function (evt, ui) {
+                    console.log('📝 Grid changed:', ui);
+                    
+                    // Debounce save for multiple rapid changes (like paste operations)
+                    clearTimeout(window.gridSaveTimeout);
+                    window.gridSaveTimeout = setTimeout(function() {
+                        saveChanges();
+                    }, 300);
+                }
+            };
+
+            // Initialize pqGrid
+            $("#grid_json_inventory").pqGrid(obj);
+            
+            // Get pqGrid instance
+            grid = $("#grid_json_inventory").pqGrid("instance");
+
+            console.log('✅ pqGrid initialized with ' + data.length + ' rows and ' + colModel.length + ' columns');
+            console.log('✅ Grid instance:', grid);
+
+            // Save Changes button click handler
+            $('#save-changes-btn').on('click', function() {
+                console.log('💾 Save Changes button clicked');
+                saveChanges();
+            });
+
+            // Import button click handler
+            $('#import-inv-btn').on('click', function() {
+                $('#import-product-inventory').modal('show');
+            });
+
+            // Auto-save every 2 minutes (optional - matching old system pattern)
+            // interval = setInterval(saveChanges, 120000);
+        });
+    </script>
+</x-filament-panels::page>
