@@ -642,7 +642,13 @@ class InvoiceResource extends Resource
                 
                 EditAction::make(),
                 DeleteAction::make(),
-            ]);
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('issue_date', 'desc');
     }
 
     public static function getRelations(): array

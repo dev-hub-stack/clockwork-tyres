@@ -185,24 +185,22 @@
                         <td style="font-weight: bold;">Subtotal:</td>
                         <td class="text-right">{{ $currency }} {{ number_format($record->sub_total ?? 0, 2) }}</td>
                     </tr>
-                    @if($record->shipping > 0)
+                    @if(($record->shipping ?? 0) > 0)
                     <tr>
                         <td style="font-weight: bold;">Shipping:</td>
                         <td class="text-right">{{ $currency }} {{ number_format($record->shipping ?? 0, 2) }}</td>
                     </tr>
                     @endif
-                    @if($record->discount > 0)
+                    @if(($record->discount ?? 0) > 0)
                     <tr>
                         <td style="font-weight: bold;">Discount:</td>
                         <td class="text-right">-{{ $currency }} {{ number_format($record->discount ?? 0, 2) }}</td>
                     </tr>
                     @endif
-                    @if($record->vat > 0)
                     <tr>
                         <td style="font-weight: bold;">VAT ({{ $vatRate ?? 5 }}%):</td>
                         <td class="text-right">{{ $currency }} {{ number_format($record->vat ?? 0, 2) }}</td>
                     </tr>
-                    @endif
                     <tr class="total-row">
                         <td>Total:</td>
                         <td class="text-right">{{ $currency }} {{ number_format($record->total ?? 0, 2) }}</td>
