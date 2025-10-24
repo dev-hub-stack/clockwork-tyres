@@ -109,18 +109,21 @@ class OrderService
             $item->brand_name = $variant->product->brand?->name;
             $item->model_name = $variant->product->model?->name;
             
-            // Apply dealer pricing if customer exists
-            if ($order->customer_id) {
+            // Determine base price
+            $basePrice = $itemData['unit_price'] ?? $variant->price ?? $variant->product->retail_price;
+            
+            // Apply dealer pricing if customer exists and base price is set
+            if ($order->customer_id && $basePrice) {
                 $customer = Customer::find($order->customer_id);
                 $pricingResult = $this->dealerPricingService->calculateProductPrice(
                     $customer,
-                    $variant->price,
+                    $basePrice,
                     $variant->product->model_id,
                     $variant->product->brand_id
                 );
                 $item->unit_price = $pricingResult['final_price'];
             } else {
-                $item->unit_price = $itemData['unit_price'] ?? $variant->price;
+                $item->unit_price = $basePrice;
             }
             
         } elseif (isset($itemData['product_id'])) {
@@ -340,6 +343,12 @@ class OrderService
             throw new \Exception('This order cannot be cancelled');
         }
         
+        // Release allocated inventory
+        if ($order->order_status === OrderStatus::PROCESSING) {
+            $fulfillmentService = app(OrderFulfillmentService::class);
+            $fulfillmentService->releaseInventory($order);
+        }
+        
         $order->update([
             'order_status' => OrderStatus::CANCELLED,
             'order_notes' => $order->order_notes . "\n\nCancellation reason: " . $reason,
@@ -365,5 +374,110 @@ class OrderService
         ]);
         
         return true;
+    }
+
+    /**
+     * Confirm order and allocate inventory
+     * 
+     * @param Order $order
+     * @param int|null $warehouseId
+     * @return array Allocation results
+     */
+    public function confirmOrder(Order $order, ?int $warehouseId = null): array
+    {
+        // Validate inventory availability first
+        $fulfillmentService = app(OrderFulfillmentService::class);
+        $validation = $fulfillmentService->validateInventoryAvailability($order);
+        
+        if (!$validation['can_fulfill']) {
+            throw new \Exception('Insufficient inventory to fulfill this order');
+        }
+        
+        // Allocate inventory
+        $results = $fulfillmentService->allocateInventory($order, $warehouseId);
+        
+        // Update order status
+        if (count($results['failed']) === 0) {
+            $this->updateStatus($order, OrderStatus::PROCESSING);
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Ship order (mark items as shipped)
+     * 
+     * @param Order $order
+     * @param array $itemQuantities Optional ['item_id' => quantity]
+     * @param string|null $trackingNumber
+     * @param string|null $carrier
+     * @return bool
+     */
+    public function shipOrder(
+        Order $order, 
+        array $itemQuantities = [], 
+        ?string $trackingNumber = null, 
+        ?string $carrier = null
+    ): bool {
+        $fulfillmentService = app(OrderFulfillmentService::class);
+        
+        // Mark items as shipped
+        $fulfillmentService->markAsShipped($order, $itemQuantities);
+        
+        // Update shipping info if provided
+        $updateData = ['order_status' => OrderStatus::SHIPPED];
+        
+        if ($trackingNumber) {
+            $updateData['tracking_number'] = $trackingNumber;
+        }
+        
+        if ($carrier) {
+            $updateData['shipping_carrier'] = $carrier;
+        }
+        
+        $order->update($updateData);
+        
+        return true;
+    }
+
+    /**
+     * Complete an order
+     * 
+     * @param Order $order
+     * @return bool
+     */
+    public function completeOrder(Order $order): bool
+    {
+        if ($order->order_status !== OrderStatus::SHIPPED) {
+            throw new \Exception('Only shipped orders can be marked as completed');
+        }
+        
+        $this->updateStatus($order, OrderStatus::COMPLETED);
+        
+        return true;
+    }
+
+    /**
+     * Validate inventory before confirming order
+     * 
+     * @param Order $order
+     * @return array
+     */
+    public function validateInventory(Order $order): array
+    {
+        $fulfillmentService = app(OrderFulfillmentService::class);
+        return $fulfillmentService->validateInventoryAvailability($order);
+    }
+
+    /**
+     * Get fulfillment summary for an order
+     * 
+     * @param Order $order
+     * @return array
+     */
+    public function getFulfillmentSummary(Order $order): array
+    {
+        $fulfillmentService = app(OrderFulfillmentService::class);
+        return $fulfillmentService->getFulfillmentSummary($order);
     }
 }

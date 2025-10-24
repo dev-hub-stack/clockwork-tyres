@@ -2,7 +2,7 @@
 
 namespace App\Modules\Orders\Models;
 
-use App\Models\Customer;
+use App\Modules\Customers\Models\Customer;
 use App\Models\User;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Enums\DocumentType;

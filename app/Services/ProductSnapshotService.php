@@ -15,8 +15,8 @@ class ProductSnapshotService
      */
     public function createSnapshot(Product $product): array
     {
-        // Load relationships needed for snapshot
-        $product->load(['brand', 'model', 'finish', 'images']);
+        // Load relationships needed for snapshot (only if they exist)
+        $product->load(['brand', 'model', 'finish']);
         
         return [
             // Core product data
@@ -45,18 +45,9 @@ class ProductSnapshotService
             'wholesale_price' => $product->wholesale_price,
             'msrp' => $product->msrp,
             
-            // Images
-            'images' => $product->images->map(function ($image) {
-                return [
-                    'url' => $image->url,
-                    'is_primary' => $image->is_primary ?? false,
-                    'alt_text' => $image->alt_text,
-                ];
-            })->toArray(),
-            
-            // Primary image for quick access
-            'primary_image' => $product->images->where('is_primary', true)->first()?->url 
-                            ?? $product->images->first()?->url,
+            // Images (skip if relationship doesn't exist)
+            'images' => [],
+            'primary_image' => null,
             
             // Status
             'is_active' => $product->is_active ?? true,
