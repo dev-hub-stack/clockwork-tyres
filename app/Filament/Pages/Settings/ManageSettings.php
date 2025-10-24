@@ -90,8 +90,8 @@ class ManageSettings extends Page implements HasForms
                             ->columnSpanFull(),
                         TextInput::make('company_phone')
                             ->label('Phone')
-                            ->tel()
-                            ->maxLength(50),
+                            ->maxLength(50)
+                            ->placeholder('+971 50 123 4567'),
                         TextInput::make('company_email')
                             ->label('Email')
                             ->email()
