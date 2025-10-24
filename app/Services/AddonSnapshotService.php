@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Addon;
-use App\Models\AddonCategory;
+use App\Modules\AddOns\Models\Addon;
+use App\Modules\AddOns\Models\AddonCategory;
 use Illuminate\Support\Facades\Log;
 
 /**

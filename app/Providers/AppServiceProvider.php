@@ -11,6 +11,8 @@ use App\Modules\Products\Models\ProductVariant;
 use App\Observers\ProductVariantInventoryObserver;
 use App\Models\Addon;
 use App\Observers\AddonInventoryObserver;
+use App\Modules\Orders\Models\Order;
+use App\Observers\OrderObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
         Warehouse::observe(WarehouseObserver::class);
         ProductVariant::observe(ProductVariantInventoryObserver::class);
         Addon::observe(AddonInventoryObserver::class);
+        
+        // Register observer for auto-generating order numbers
+        Order::observe(OrderObserver::class);
 
         // Add custom navigation item for Products Grid
         Filament::serving(function () {
