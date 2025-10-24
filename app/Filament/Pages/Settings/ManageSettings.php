@@ -231,7 +231,7 @@ class ManageSettings extends Page implements HasForms
     public function save(): void
     {
         try {
-            $data = $this->data;
+            $data = $this->form->getState();
 
             // Update or create Company Branding
             $companyBranding = CompanyBranding::getActive() ?? new CompanyBranding();
