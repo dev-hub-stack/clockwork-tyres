@@ -70,7 +70,13 @@ class Order extends Model
         
         // Shipping
         'tracking_number',
+        'tracking_url',
         'shipping_carrier',
+        'shipped_at',
+        
+        // Payment tracking
+        'paid_amount',
+        'outstanding_amount',
         
         // Notes
         'order_notes',
@@ -90,10 +96,13 @@ class Order extends Model
         'shipping' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'outstanding_amount' => 'decimal:2',
         'issue_date' => 'date',
         'valid_until' => 'date',
         'sent_at' => 'datetime',
         'approved_at' => 'datetime',
+        'shipped_at' => 'datetime',
     ];
 
     /**
@@ -139,6 +148,22 @@ class Order extends Model
             'order_id',
             'order_item_id'
         );
+    }
+
+    /**
+     * Get all payments for this order
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get all expenses for this order
+     */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
     }
 
     /**
@@ -260,4 +285,120 @@ class Order extends Model
     {
         return $this->currency . ' ' . number_format($this->total, 2);
     }
+
+    /**
+     * Recalculate payment status based on payments
+     */
+    public function recalculatePaymentStatus(): void
+    {
+        $totalPaid = $this->payments()->completed()->sum('amount');
+        $this->paid_amount = $totalPaid;
+        $this->outstanding_amount = max(0, $this->total - $totalPaid);
+
+        // Update payment status
+        if ($totalPaid >= $this->total) {
+            $this->payment_status = PaymentStatus::PAID;
+        } elseif ($totalPaid > 0) {
+            $this->payment_status = PaymentStatus::PARTIAL;
+        } else {
+            $this->payment_status = PaymentStatus::PENDING;
+        }
+
+        $this->saveQuietly(); // Save without triggering events
+    }
+
+    /**
+     * Get balance (outstanding amount)
+     */
+    public function getBalanceAttribute(): float
+    {
+        return (float) $this->outstanding_amount;
+    }
+
+    /**
+     * Check if fully paid
+     */
+    public function isFullyPaid(): bool
+    {
+        return $this->payment_status === PaymentStatus::PAID;
+    }
+
+    /**
+     * Check if partially paid
+     */
+    public function isPartiallyPaid(): bool
+    {
+        return $this->payment_status === PaymentStatus::PARTIAL;
+    }
+
+    /**
+     * Check if payment is pending
+     */
+    public function isPaymentPending(): bool
+    {
+        return $this->payment_status === PaymentStatus::PENDING;
+    }
+
+    /**
+     * Get total expenses
+     */
+    public function getTotalExpensesAttribute(): float
+    {
+        return (float) $this->expenses()->sum('amount');
+    }
+
+    /**
+     * Get paid expenses
+     */
+    public function getPaidExpensesAttribute(): float
+    {
+        return (float) $this->expenses()->paid()->sum('amount');
+    }
+
+    /**
+     * Get unpaid expenses
+     */
+    public function getUnpaidExpensesAttribute(): float
+    {
+        return (float) $this->expenses()->unpaid()->sum('amount');
+    }
+
+    /**
+     * Check if order is shipped
+     */
+    public function isShipped(): bool
+    {
+        return $this->order_status === OrderStatus::SHIPPED || $this->order_status === OrderStatus::COMPLETED;
+    }
+
+    /**
+     * Check if order is completed
+     */
+    public function isCompleted(): bool
+    {
+        return $this->order_status === OrderStatus::COMPLETED;
+    }
+
+    /**
+     * Mark as shipped
+     */
+    public function markAsShipped(string $trackingNumber, string $carrier, ?string $trackingUrl = null): void
+    {
+        $this->tracking_number = $trackingNumber;
+        $this->shipping_carrier = $carrier;
+        $this->tracking_url = $trackingUrl;
+        $this->shipped_at = now();
+        $this->order_status = OrderStatus::SHIPPED;
+        $this->save();
+    }
+
+    /**
+     * Mark as completed
+     */
+    public function markAsCompleted(): void
+    {
+        $this->order_status = OrderStatus::COMPLETED;
+        $this->save();
+    }
 }
+

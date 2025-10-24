@@ -1,14 +1,27 @@
 @php
-    use App\Modules\Settings\Models\Setting;
+    use App\Modules\Settings\Models\CompanyBranding;
     
-    // Fetch business details from settings
-    $companyName = Setting::get('company_name', 'TunerStop Tyres & Acc. Trading L.L.C');
-    $companyAddress = Setting::get('company_address', 'Warehouse 3, No. 36, Street 4B, Ras Al Khor Industrial 2');
-    $companyCity = Setting::get('company_city', 'United Arab Emirates');
-    $taxRegistration = Setting::get('tax_registration_number', '100479491100003');
-    $companyLogo = Setting::get('company_logo'); // URL to logo
-    $companyPhone = Setting::get('company_phone');
-    $companyEmail = Setting::get('company_email');
+    // Fetch business details from active company branding
+    $branding = CompanyBranding::getActive();
+    
+    if ($branding) {
+        $companyName = $branding->company_name;
+        $companyAddress = $branding->company_address;
+        $companyPhone = $branding->company_phone;
+        $companyEmail = $branding->company_email;
+        $companyWebsite = $branding->company_website;
+        $taxRegistration = $branding->tax_registration_number;
+        $companyLogo = $branding->logo_url; // URL to logo from storage
+    } else {
+        // Fallback values if no branding is set
+        $companyName = 'TunerStop Tyres & Acc. Trading L.L.C';
+        $companyAddress = 'Warehouse 3, No. 36, Street 4B, Ras Al Khor Industrial 2';
+        $companyPhone = null;
+        $companyEmail = null;
+        $companyWebsite = null;
+        $taxRegistration = '100479491100003';
+        $companyLogo = null;
+    }
 @endphp
 
 <div class="space-y-6 p-6">
@@ -25,14 +38,16 @@
             
             <div class="text-sm text-gray-600 space-y-1">
                 <p>{{ $companyAddress }}</p>
-                <p>{{ $companyCity }}</p>
                 @if($companyPhone)
                     <p>Phone: {{ $companyPhone }}</p>
                 @endif
                 @if($companyEmail)
                     <p>Email: {{ $companyEmail }}</p>
                 @endif
-                <p class="font-medium">Tax Registration Number: {{ $taxRegistration }}</p>
+                @if($companyWebsite)
+                    <p>Website: {{ $companyWebsite }}</p>
+                @endif
+                <p class="font-medium mt-2">Tax Registration Number: {{ $taxRegistration }}</p>
             </div>
         </div>
         

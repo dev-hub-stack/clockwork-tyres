@@ -5,30 +5,51 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\QuoteResource\Pages;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Enums\QuoteStatus;
+use App\Modules\Orders\Services\OrderService;
 use App\Modules\Orders\Services\QuoteConversionService;
-use Filament\Forms;
-use Filament\Forms\Form;
+use App\Modules\Customers\Models\Customer;
+use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Settings\Models\CompanyBranding;
+use App\Modules\Settings\Models\TaxSetting;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Set;
+use Filament\Forms\Get;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Actions\Action;
+use Filament\Tables\Filters\Filter;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\ViewAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Number;
+use UnitEnum;
+use BackedEnum;
 
 class QuoteResource extends Resource
 {
     protected static ?string $model = Order::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
     
     protected static ?string $navigationLabel = 'Quotes & Proformas';
     
-    protected static ?string $navigationGroup = 'Sales';
+    protected static string|UnitEnum|null $navigationGroup = 'Sales';
     
     protected static ?int $navigationSort = 1;
     
@@ -47,188 +68,381 @@ class QuoteResource extends Resource
             ->latest('issue_date');
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
-                Forms\Components\Section::make('Quote Information')
+        return $schema
+            ->components([
+                Section::make('Quote Information')
                     ->schema([
-                        Forms\Components\Grid::make(3)
+                        Grid::make(3)
                             ->schema([
-                                Forms\Components\Select::make('customer_id')
+                                Select::make('customer_id')
                                     ->label('Customer')
-                                    ->relationship('customer', 'name')
-                                    ->searchable()
-                                    ->preload()
+                                    ->relationship('customer', 'business_name')
+                                    ->searchable(['business_name', 'first_name', 'last_name', 'email'])
                                     ->required()
+                                    ->preload()
+                                    ->getOptionLabelFromRecordUsing(function ($record) {
+                                        $name = $record->business_name ?? $record->name ?? 'Unknown Customer';
+                                        $type = $record->customer_type ? '(' . ucfirst($record->customer_type) . ')' : '';
+                                        return trim("$name $type");
+                                    })
                                     ->createOptionForm([
-                                        Forms\Components\TextInput::make('name')
-                                            ->required()
-                                            ->maxLength(255),
-                                        Forms\Components\TextInput::make('phone')
-                                            ->tel()
-                                            ->maxLength(255),
-                                        Forms\Components\TextInput::make('email')
-                                            ->email()
-                                            ->maxLength(255),
-                                        Forms\Components\TextInput::make('tax_registration_number')
-                                            ->maxLength(255),
+                                        Select::make('customer_type')
+                                            ->label('Customer Type')
+                                            ->options([
+                                                'retail' => 'Retail',
+                                                'dealer' => 'Dealer',
+                                            ])
+                                            ->default('retail')
+                                            ->required(),
+                                        TextInput::make('business_name')->required(),
+                                        TextInput::make('first_name'),
+                                        TextInput::make('last_name'),
+                                        TextInput::make('email')->email(),
+                                        TextInput::make('phone'),
                                     ])
-                                    ->createOptionModalHeading('Add New Customer')
+                                    ->createOptionUsing(function (array $data) {
+                                        return Customer::create($data)->id;
+                                    })
+                                    ->live()
                                     ->columnSpan(1),
-
-                                Forms\Components\Select::make('warehouse_id')
-                                    ->label('Warehouse')
-                                    ->relationship('warehouse', 'name')
-                                    ->searchable()
+                                
+                                Select::make('representative_id')
+                                    ->label('Sales Representative')
+                                    ->relationship('representative', 'name')
+                                    ->searchable(['name', 'email'])
                                     ->preload()
-                                    ->required()
                                     ->columnSpan(1),
-
-                                Forms\Components\DatePicker::make('issue_date')
-                                    ->label('Quote Date')
-                                    ->default(now())
+                                
+                                Select::make('warehouse_id')
+                                    ->label('Warehouse')
+                                    ->relationship('warehouse', 'warehouse_name')
                                     ->required()
+                                    ->preload()
+                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->warehouse_name ?? $record->code ?? 'Unknown Warehouse')
                                     ->columnSpan(1),
                             ]),
-
-                        Forms\Components\Grid::make(3)
+                        
+                        Grid::make(3)
                             ->schema([
-                                Forms\Components\DatePicker::make('valid_until')
+                                DatePicker::make('issue_date')
+                                    ->label('Issue Date')
+                                    ->required()
+                                    ->default(now())
+                                    ->columnSpan(1),
+                                
+                                DatePicker::make('valid_until')
                                     ->label('Valid Until')
+                                    ->required()
                                     ->default(now()->addDays(30))
                                     ->columnSpan(1),
-
-                                Forms\Components\Select::make('currency')
+                                
+                                Select::make('quote_status')
+                                    ->label('Status')
                                     ->options([
-                                        'AED' => 'AED (د.إ)',
-                                        'USD' => 'USD ($)',
-                                        'EUR' => 'EUR (€)',
+                                        'draft' => 'Draft',
+                                        'sent' => 'Sent',
+                                        'approved' => 'Approved',
+                                        'rejected' => 'Rejected',
+                                        'expired' => 'Expired',
                                     ])
-                                    ->default('AED')
+                                    ->default('draft')
                                     ->required()
                                     ->columnSpan(1),
-
-                                Forms\Components\Radio::make('tax_inclusive')
-                                    ->label('Tax Type')
-                                    ->boolean()
-                                    ->options([
-                                        false => 'VAT on Sales (5%)',
-                                        true => 'Zero rated sales (0%)',
-                                    ])
-                                    ->default(false)
-                                    ->inline()
-                                    ->columnSpan(1),
                             ]),
-                    ])
-                    ->columns(1),
-
-                Forms\Components\Section::make('Line Items')
-                    ->schema([
-                        Forms\Components\Repeater::make('items')
-                            ->relationship('items')
-                            ->schema([
-                                Forms\Components\Grid::make(12)
-                                    ->schema([
-                                        Forms\Components\Select::make('product_variant_id')
-                                            ->label('Product')
-                                            ->options(function () {
-                                                return \App\Modules\Products\Models\ProductVariant::query()
-                                                    ->with(['product.brand', 'product.model', 'product.finish'])
-                                                    ->get()
-                                                    ->mapWithKeys(function ($variant) {
-                                                        $label = trim(sprintf(
-                                                            '%s - %s | %s | %s | Size: %s | Bolt: %s | Offset: %s',
-                                                            $variant->sku ?? 'No SKU',
-                                                            $variant->product->brand->name ?? '',
-                                                            $variant->product->model->name ?? '',
-                                                            $variant->product->finish->name ?? '',
-                                                            $variant->size ?? 'N/A',
-                                                            $variant->bolt_pattern ?? 'N/A',
-                                                            $variant->offset ?? 'N/A'
-                                                        ));
-                                                        return [$variant->id => $label];
-                                                    })
-                                                    ->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->reactive()
-                                            ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                                if ($state) {
-                                                    $variant = \App\Modules\Products\Models\ProductVariant::with('product')->find($state);
-                                                    if ($variant) {
-                                                        $set('unit_price', $variant->product->retail_price ?? 0);
-                                                        $set('quantity', 1);
-                                                    }
-                                                }
-                                            })
-                                            ->columnSpan(5),
-
-                                        Forms\Components\TextInput::make('quantity')
-                                            ->numeric()
-                                            ->default(1)
-                                            ->required()
-                                            ->minValue(1)
-                                            ->reactive()
-                                            ->columnSpan(2),
-
-                                        Forms\Components\TextInput::make('unit_price')
-                                            ->numeric()
-                                            ->prefix(fn (Forms\Get $get) => $get('../../currency') ?? 'AED')
-                                            ->required()
-                                            ->reactive()
-                                            ->columnSpan(2),
-
-                                        Forms\Components\TextInput::make('discount')
-                                            ->numeric()
-                                            ->prefix(fn (Forms\Get $get) => $get('../../currency') ?? 'AED')
-                                            ->default(0)
-                                            ->reactive()
-                                            ->columnSpan(2),
-
-                                        Forms\Components\Placeholder::make('line_total')
-                                            ->label('Total')
-                                            ->content(function (Forms\Get $get) {
-                                                $quantity = (float) ($get('quantity') ?? 0);
-                                                $price = (float) ($get('unit_price') ?? 0);
-                                                $discount = (float) ($get('discount') ?? 0);
-                                                $total = ($quantity * $price) - $discount;
-                                                $currency = $get('../../currency') ?? 'AED';
-                                                return Number::currency($total, $currency);
-                                            })
-                                            ->columnSpan(1),
-                                    ]),
-                            ])
-                            ->addActionLabel('Add Line Item')
-                            ->columns(1)
-                            ->defaultItems(0)
-                            ->reorderable(false)
-                            ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => 
-                                isset($state['product_variant_id']) 
-                                    ? \App\Modules\Products\Models\ProductVariant::find($state['product_variant_id'])?->sku ?? 'New Item'
-                                    : 'New Item'
-                            ),
                     ]),
 
-                Forms\Components\Section::make('Additional Details')
+                Section::make('Vehicle Information')
                     ->schema([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(4)
                             ->schema([
-                                Forms\Components\TextInput::make('shipping')
-                                    ->numeric()
-                                    ->prefix(fn (Forms\Get $get) => $get('currency') ?? 'AED')
-                                    ->default(0)
+                                TextInput::make('vehicle_year')
+                                    ->label('Year')
+                                    ->maxLength(10)
+                                    ->placeholder('2024')
                                     ->columnSpan(1),
-
-                                Forms\Components\Textarea::make('order_notes')
-                                    ->label('Notes')
-                                    ->rows(3)
+                                
+                                TextInput::make('vehicle_make')
+                                    ->label('Make')
+                                    ->maxLength(100)
+                                    ->placeholder('Ford')
+                                    ->columnSpan(1),
+                                
+                                TextInput::make('vehicle_model')
+                                    ->label('Model')
+                                    ->maxLength(100)
+                                    ->placeholder('Ranger')
+                                    ->columnSpan(1),
+                                
+                                TextInput::make('vehicle_sub_model')
+                                    ->label('Sub Model')
+                                    ->maxLength(100)
+                                    ->placeholder('Wildtrak')
                                     ->columnSpan(1),
                             ]),
                     ])
-                    ->collapsed(),
+                    ->collapsible()
+                    ->collapsed(false),
+
+                Section::make('Line Items')
+                    ->schema([
+                        Repeater::make('items')
+                            ->relationship('items')
+                            ->schema([
+                                Select::make('product_variant_id')
+                                    ->label('Product')
+                                    ->searchable()
+                                    ->getSearchResultsUsing(function (string $search) {
+                                        return ProductVariant::query()
+                                            ->with(['product.brand', 'product.model', 'product.finish'])
+                                            ->where(function ($query) use ($search) {
+                                                $query->where('sku', 'like', "%{$search}%")
+                                                    ->orWhereHas('product', function ($q) use ($search) {
+                                                        $q->where('name', 'like', "%{$search}%")
+                                                          ->orWhereHas('brand', fn($b) => $b->where('name', 'like', "%{$search}%"))
+                                                          ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"))
+                                                          ->orWhereHas('finish', fn($f) => $f->where('name', 'like', "%{$search}%"));
+                                                    })
+                                                    ->orWhere('size', 'like', "%{$search}%")
+                                                    ->orWhere('bolt_pattern', 'like', "%{$search}%")
+                                                    ->orWhere('offset', 'like', "%{$search}%");
+                                            })
+                                            ->limit(50)
+                                            ->get()
+                                            ->filter(fn($variant) => $variant->product !== null && $variant->sku !== null)
+                                            ->mapWithKeys(fn($variant) => [
+                                                $variant->id => sprintf(
+                                                    '%s - %s | %s | %s | Size: %s | Bolt: %s | Offset: %s',
+                                                    $variant->sku ?? 'NO-SKU',
+                                                    $variant->product->brand?->name ?? 'N/A',
+                                                    $variant->product->model?->name ?? 'N/A',
+                                                    $variant->product->finish?->name ?? 'N/A',
+                                                    $variant->size ?? 'N/A',
+                                                    $variant->bolt_pattern ?? 'N/A',
+                                                    $variant->offset ?? 'N/A'
+                                                )
+                                            ]);
+                                    })
+                                    ->getOptionLabelUsing(function ($value) {
+                                        if (!$value) return 'Unknown';
+                                        
+                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($value);
+                                        if (!$variant || !$variant->product) return 'Unknown Product';
+                                        
+                                        return sprintf(
+                                            '%s - %s | %s | %s',
+                                            $variant->sku ?? 'NO-SKU',
+                                            $variant->product->brand?->name ?? 'N/A',
+                                            $variant->product->model?->name ?? 'N/A',
+                                            $variant->product->finish?->name ?? 'N/A'
+                                        );
+                                    })
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        if ($state) {
+                                            $variant = ProductVariant::with('product')->find($state);
+                                            if ($variant) {
+                                                // Get customer to check if dealer
+                                                $customerId = $get('../../customer_id');
+                                                $customer = $customerId ? Customer::find($customerId) : null;
+                                                
+                                                // Determine price based on customer type
+                                                $price = 0;
+                                                if ($customer && $customer->isDealer()) {
+                                                    // Dealer: use price (dealer/cost price)
+                                                    $price = floatval($variant->price ?? 0);
+                                                } else {
+                                                    // Retail: use UAE retail price → US retail price → base price
+                                                    $price = floatval($variant->uae_retail_price ?? $variant->us_retail_price ?? $variant->price ?? 0);
+                                                }
+                                                
+                                                $set('unit_price', $price);
+                                                $set('quantity', 1);
+                                            }
+                                        }
+                                    })
+                                    ->live()
+                                    ->required()
+                                    ->columnSpanFull(),
+                                
+                                TextInput::make('quantity')
+                                    ->label('Quantity')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->required()
+                                    ->minValue(1)
+                                    ->live()
+                                    ->reactive(),
+                                
+                                TextInput::make('unit_price')
+                                    ->label('Unit Price')
+                                    ->numeric()
+                                    ->prefix('AED')
+                                    ->required()
+                                    ->live()
+                                    ->reactive(),
+                                
+                                TextInput::make('discount')
+                                    ->label('Discount')
+                                    ->numeric()
+                                    ->prefix('AED')
+                                    ->default(0)
+                                    ->live()
+                                    ->reactive(),
+                                
+                                Placeholder::make('line_total')
+                                    ->label('Line Total')
+                                    ->content(function ($get) {
+                                        $qty = floatval($get('quantity') ?? 0);
+                                        $price = floatval($get('unit_price') ?? 0);
+                                        $discount = floatval($get('discount') ?? 0);
+                                        $total = ($qty * $price) - $discount;
+                                        return Number::currency($total, 'AED');
+                                    }),
+                            ])
+                            ->columns(4)
+                            ->defaultItems(1)
+                            ->addActionLabel('Add Line Item')
+                            ->reorderable()
+                            ->collapsible(),
+                    ]),
+
+                Section::make('Totals & Notes')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                // Left column - Notes
+                                Grid::make(1)
+                                    ->schema([
+                                        Textarea::make('order_notes')
+                                            ->label('Customer Notes')
+                                            ->rows(3),
+                                        
+                                        Textarea::make('internal_notes')
+                                            ->label('Internal Notes')
+                                            ->rows(3),
+                                    ])
+                                    ->columnSpan(1),
+                                
+                                // Right column - Totals  
+                                Grid::make(1)
+                                    ->schema([
+                                        Placeholder::make('sub_total_display')
+                                            ->label('Subtotal')
+                                            ->content(function ($get, $record) {
+                                                // Access items from the record or form state
+                                                $items = $record ? $record->items : ($get('items') ?? []);
+                                                $subtotal = 0;
+                                                
+                                                foreach ($items as $item) {
+                                                    $qty = floatval($item['quantity'] ?? 0);
+                                                    $price = floatval($item['unit_price'] ?? 0);
+                                                    $discount = floatval($item['discount'] ?? 0);
+                                                    $subtotal += ($qty * $price) - $discount;
+                                                }
+                                                
+                                                return 'AED ' . number_format($subtotal, 2);
+                                            }),
+                                        
+                                        Placeholder::make('vat_display')
+                                            ->label(function () {
+                                                $taxSetting = TaxSetting::getDefault();
+                                                $taxName = $taxSetting ? $taxSetting->name : 'VAT';
+                                                $taxRate = $taxSetting ? $taxSetting->rate : 5;
+                                                return "{$taxName} ({$taxRate}%)";
+                                            })
+                                            ->content(function ($get, $record) {
+                                                // Get tax rate from settings
+                                                $taxSetting = TaxSetting::getDefault();
+                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                                
+                                                // Calculate subtotal
+                                                $items = $record ? $record->items : ($get('items') ?? []);
+                                                $subtotal = 0;
+                                                
+                                                foreach ($items as $item) {
+                                                    $qty = floatval($item['quantity'] ?? 0);
+                                                    $price = floatval($item['unit_price'] ?? 0);
+                                                    $discount = floatval($item['discount'] ?? 0);
+                                                    $subtotal += ($qty * $price) - $discount;
+                                                }
+                                                
+                                                // Calculate VAT
+                                                $vat = $subtotal * ($taxRate / 100);
+                                                
+                                                return 'AED ' . number_format($vat, 2);
+                                            }),
+                                        
+                                        Hidden::make('vat')
+                                            ->default(0),
+                                        
+                                        TextInput::make('shipping')
+                                            ->label('Shipping')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->live()
+                                            ->afterStateUpdated(function ($get, $set) {
+                                                // Get tax rate from settings
+                                                $taxSetting = TaxSetting::getDefault();
+                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                                
+                                                // Recalculate total when shipping changes
+                                                $items = $get('items') ?? [];
+                                                $subtotal = 0;
+                                                
+                                                foreach ($items as $item) {
+                                                    $qty = floatval($item['quantity'] ?? 0);
+                                                    $price = floatval($item['unit_price'] ?? 0);
+                                                    $discount = floatval($item['discount'] ?? 0);
+                                                    $subtotal += ($qty * $price) - $discount;
+                                                }
+                                                
+                                                $vat = $subtotal * ($taxRate / 100);
+                                                $shipping = floatval($get('shipping') ?? 0);
+                                                $total = $subtotal + $vat + $shipping;
+                                                
+                                                $set('sub_total', $subtotal);
+                                                $set('vat', $vat);
+                                                $set('total', $total);
+                                            }),
+                                        
+                                        Placeholder::make('total_display')
+                                            ->label('Total')
+                                            ->content(function ($get, $record) {
+                                                // Get tax rate from settings
+                                                $taxSetting = TaxSetting::getDefault();
+                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                                
+                                                // Calculate subtotal
+                                                $items = $record ? $record->items : ($get('items') ?? []);
+                                                $subtotal = 0;
+                                                
+                                                foreach ($items as $item) {
+                                                    $qty = floatval($item['quantity'] ?? 0);
+                                                    $price = floatval($item['unit_price'] ?? 0);
+                                                    $discount = floatval($item['discount'] ?? 0);
+                                                    $subtotal += ($qty * $price) - $discount;
+                                                }
+                                                
+                                                // Calculate VAT and total
+                                                $vat = $subtotal * ($taxRate / 100);
+                                                $shipping = floatval($get('shipping') ?? $record->shipping ?? 0);
+                                                $total = $subtotal + $vat + $shipping;
+                                                
+                                                return 'AED ' . number_format($total, 2);
+                                            })
+                                            ->extraAttributes(['class' => 'font-bold text-lg']),
+                                        
+                                        Hidden::make('sub_total')->default(0),
+                                        Hidden::make('total')->default(0),
+                                    ])
+                                    ->columnSpan(1),
+                            ]),
+                    ]),
+                    
+                Hidden::make('document_type')
+                    ->default('quote'),
             ]);
     }
 
@@ -238,199 +452,148 @@ class QuoteResource extends Resource
             ->columns([
                 TextColumn::make('issue_date')
                     ->label('Date')
-                    ->date('Y-m-d')
-                    ->sortable()
-                    ->searchable(),
-
+                    ->date()
+                    ->sortable(),
+                
                 TextColumn::make('quote_number')
-                    ->label('Number')
+                    ->label('Quote #')
                     ->searchable()
                     ->sortable()
-                    ->copyable()
-                    ->copyMessage('Quote number copied')
-                    ->weight('bold')
-                    ->color('primary'),
-
+                    ->copyable(),
+                
                 TextColumn::make('customer.name')
                     ->label('Customer')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(30)
-                    ->tooltip(function (TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 30) {
-                            return null;
-                        }
-                        return $state;
-                    }),
-
+                    ->searchable(['business_name', 'first_name', 'last_name'])
+                    ->sortable(),
+                
                 BadgeColumn::make('quote_status')
                     ->label('Status')
-                    ->formatStateUsing(fn (QuoteStatus $state): string => $state->label())
                     ->colors([
-                        'secondary' => QuoteStatus::DRAFT->value,
-                        'primary' => QuoteStatus::SENT->value,
-                        'success' => QuoteStatus::APPROVED->value,
-                        'danger' => QuoteStatus::REJECTED->value,
-                        'info' => QuoteStatus::CONVERTED->value,
+                        'secondary' => 'draft',
+                        'primary' => 'sent',
+                        'success' => 'approved',
+                        'danger' => 'rejected',
+                        'warning' => 'expired',
                     ]),
-
+                
                 TextColumn::make('total')
                     ->label('Amount')
-                    ->money(fn (Order $record) => $record->currency ?? 'AED')
-                    ->sortable()
-                    ->weight('bold'),
-
+                    ->money('AED')
+                    ->sortable(),
+                
                 TextColumn::make('valid_until')
                     ->label('Valid Until')
-                    ->date('Y-m-d')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('warehouse.name')
+                    ->date()
+                    ->sortable(),
+                
+                TextColumn::make('warehouse.warehouse_name')
                     ->label('Warehouse')
+                    ->sortable()
+                    ->toggleable(),
+                
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('quote_status')
                     ->label('Status')
                     ->options([
-                        QuoteStatus::DRAFT->value => 'Draft',
-                        QuoteStatus::SENT->value => 'Sent',
-                        QuoteStatus::APPROVED->value => 'Approved',
-                        QuoteStatus::REJECTED->value => 'Rejected',
-                        QuoteStatus::CONVERTED->value => 'Converted',
-                    ])
-                    ->multiple(),
-
-                Filter::make('created_at')
+                        'draft' => 'Draft',
+                        'sent' => 'Sent',
+                        'approved' => 'Approved',
+                        'rejected' => 'Rejected',
+                        'expired' => 'Expired',
+                    ]),
+                
+                SelectFilter::make('customer_id')
+                    ->label('Customer')
+                    ->relationship('customer', 'business_name')
+                    ->searchable()
+                    ->preload()
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer'),
+                
+                Filter::make('issue_date')
                     ->form([
-                        Forms\Components\DatePicker::make('created_from')
-                            ->label('Date From'),
-                        Forms\Components\DatePicker::make('created_until')
-                            ->label('Date Until'),
+                        DatePicker::make('issued_from')
+                            ->label('Issued From'),
+                        DatePicker::make('issued_until')
+                            ->label('Issued Until'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                $data['created_from'],
+                                $data['issued_from'],
                                 fn (Builder $query, $date): Builder => $query->whereDate('issue_date', '>=', $date),
                             )
                             ->when(
-                                $data['created_until'],
+                                $data['issued_until'],
                                 fn (Builder $query, $date): Builder => $query->whereDate('issue_date', '<=', $date),
                             );
                     }),
-
-                SelectFilter::make('customer')
-                    ->relationship('customer', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->multiple(),
             ])
-            ->actions([
-                // Preview action with slide-over
+            ->recordActions([
                 Action::make('preview')
-                    ->label('View')
+                    ->label('Preview')
                     ->icon('heroicon-o-eye')
-                    ->modalContent(fn (Order $record) => view(
-                        'filament.resources.quote-resource.preview',
-                        ['record' => $record]
-                    ))
-                    ->modalWidth('7xl')
                     ->slideOver()
-                    ->modalHeading(fn (Order $record) => "Quote {$record->quote_number}")
-                    ->modalActions([
-                        Action::make('send')
-                            ->label('Send Quote')
-                            ->icon('heroicon-o-paper-airplane')
-                            ->visible(fn (Order $record) => $record->quote_status?->canSend() ?? false)
-                            ->requiresConfirmation()
-                            ->action(function (Order $record) {
-                                // Will implement email sending later
-                                $record->update([
-                                    'quote_status' => QuoteStatus::SENT,
-                                    'sent_at' => now(),
-                                ]);
-                            })
-                            ->successNotificationTitle('Quote sent successfully!'),
-
-                        Action::make('approve')
-                            ->label('Approve Quote')
-                            ->icon('heroicon-o-check-circle')
-                            ->visible(fn (Order $record) => 
-                                $record->quote_status === QuoteStatus::SENT
-                            )
-                            ->requiresConfirmation()
-                            ->action(function (Order $record) {
-                                $record->update([
-                                    'quote_status' => QuoteStatus::APPROVED,
-                                    'approved_at' => now(),
-                                ]);
-                            })
-                            ->successNotificationTitle('Quote approved!'),
-
-                        Action::make('convert')
-                            ->label('Convert to Invoice')
-                            ->icon('heroicon-o-arrow-right-circle')
-                            ->color('success')
-                            ->visible(fn (Order $record) => $record->canConvertToInvoice())
-                            ->requiresConfirmation()
-                            ->modalHeading('Convert Quote to Invoice')
-                            ->modalDescription('This will convert the quote to an invoice. This action cannot be undone.')
-                            ->action(function (Order $record) {
-                                $conversionService = app(QuoteConversionService::class);
-                                $invoice = $conversionService->convertQuoteToInvoice($record);
-                                
-                                return redirect()->route('filament.admin.resources.invoices.view', ['record' => $invoice]);
-                            })
-                            ->successNotificationTitle('Quote converted to invoice successfully!')
-                            ->successNotificationBody(fn (Order $record) => "Invoice #{$record->order_number} created"),
-
-                        Tables\Actions\Action::make('close')
-                            ->label('Close')
-                            ->color('gray')
-                            ->close(),
-                    ]),
-
-                Tables\Actions\EditAction::make(),
+                    ->modalWidth('7xl')
+                    ->modalContent(function ($record) {
+                        // Get settings
+                        $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
+                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        
+                        return view('templates.invoice-preview', [
+                            'record' => $record,
+                            'documentType' => 'quote',
+                            'companyName' => $companyBranding->company_name ?? 'TunerStop LLC',
+                            'companyAddress' => $companyBranding->company_address ?? '',
+                            'companyPhone' => $companyBranding->company_phone ?? '',
+                            'companyEmail' => $companyBranding->company_email ?? '',
+                            'taxNumber' => $companyBranding->tax_registration_number ?? '',
+                            'logo' => $companyBranding ? $companyBranding->logo_url : null,
+                            'currency' => 'AED',
+                            'vatRate' => $taxSetting ? $taxSetting->rate : 5,
+                        ]);
+                    }),
                 
-                Tables\Actions\DeleteAction::make()
-                    ->visible(fn (Order $record) => 
-                        $record->quote_status === QuoteStatus::DRAFT
-                    ),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    
-                    Tables\Actions\BulkAction::make('sendQuotes')
-                        ->label('Send Selected Quotes')
-                        ->icon('heroicon-o-paper-airplane')
-                        ->requiresConfirmation()
-                        ->action(function ($records) {
-                            foreach ($records as $record) {
-                                if ($record->quote_status?->canSend()) {
-                                    $record->update([
-                                        'quote_status' => QuoteStatus::SENT,
-                                        'sent_at' => now(),
-                                    ]);
-                                }
-                            }
-                        })
-                        ->successNotificationTitle('Selected quotes sent successfully!')
-                        ->deselectRecordsAfterCompletion(),
-                ]),
-            ])
-            ->emptyStateHeading('No quotes yet')
-            ->emptyStateDescription('Create your first quote to get started.')
-            ->emptyStateActions([
-                Tables\Actions\CreateAction::make()
-                    ->label('Create Quote')
-                    ->icon('heroicon-o-plus'),
-            ])
-            ->defaultSort('issue_date', 'desc')
-            ->poll('30s'); // Auto-refresh every 30 seconds
+                Action::make('send')
+                    ->label('Send')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('primary')
+                    ->visible(fn($record) => $record->quote_status->value === 'draft')
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        app(OrderService::class)->sendQuote($record);
+                    }),
+                
+                Action::make('approve')
+                    ->label('Approve')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn($record) => $record->quote_status->value === 'sent')
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        app(OrderService::class)->approveQuote($record);
+                    }),
+                
+                Action::make('convert')
+                    ->label('Convert to Invoice')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('warning')
+                    ->visible(fn($record) => $record->canConvertToInvoice())
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        $invoice = app(QuoteConversionService::class)->convertQuoteToInvoice($record);
+                        // Redirect to invoice edit page (will be created)
+                        return redirect()->route('filament.admin.resources.invoices.edit', ['record' => $invoice]);
+                    }),
+                
+                EditAction::make(),
+                DeleteAction::make(),
+            ]);
     }
 
     public static function getRelations(): array
@@ -445,20 +608,8 @@ class QuoteResource extends Resource
         return [
             'index' => Pages\ListQuotes::route('/'),
             'create' => Pages\CreateQuote::route('/create'),
-            'edit' => Pages\EditQuote::route('/{record}/edit'),
             'view' => Pages\ViewQuote::route('/{record}'),
+            'edit' => Pages\EditQuote::route('/{record}/edit'),
         ];
-    }
-    
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::quotes()
-            ->whereIn('quote_status', [QuoteStatus::DRAFT, QuoteStatus::SENT])
-            ->count();
-    }
-    
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'warning';
     }
 }

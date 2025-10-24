@@ -25,6 +25,13 @@ class CompanyBrandingResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'company_name';
     
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
+    
+    protected static ?string $navigationLabel = 'Company Branding';
+    
+    protected static ?int $navigationSort = 1;
+    
+    // Hidden from navigation - using consolidated Settings page instead
     protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema

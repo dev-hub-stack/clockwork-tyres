@@ -6,7 +6,7 @@ use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\TaxSetting;
 use BackedEnum;
-use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -48,8 +48,7 @@ class ManageSettings extends Page implements HasForms
             'company_website' => $companyBranding->company_website,
             'tax_registration_number' => $companyBranding->tax_registration_number,
             'commercial_registration' => $companyBranding->commercial_registration,
-            'primary_color' => $companyBranding->primary_color,
-            'secondary_color' => $companyBranding->secondary_color,
+            'logo_path' => $companyBranding->logo_path,
             'invoice_prefix' => $companyBranding->invoice_prefix,
             'quote_prefix' => $companyBranding->quote_prefix,
             'order_prefix' => $companyBranding->order_prefix,
@@ -111,15 +110,17 @@ class ManageSettings extends Page implements HasForms
                     ->columns(2)
                     ->collapsible(),
                     
-                Section::make('Branding & Colors')
-                    ->description('Customize colors and document branding')
+                Section::make('Logo & Branding')
+                    ->description('Configure company logo and document settings')
                     ->schema([
-                        ColorPicker::make('primary_color')
-                            ->label('Primary Color')
-                            ->default('#1e40af'),
-                        ColorPicker::make('secondary_color')
-                            ->label('Secondary Color')
-                            ->default('#64748b'),
+                        FileUpload::make('logo_path')
+                            ->label('Company Logo')
+                            ->image()
+                            ->maxSize(10240)
+                            ->disk('public')
+                            ->directory('company-logos')
+                            ->helperText('Upload your company logo (max 10MB). Recommended size: 200x200px')
+                            ->columnSpanFull(),
                         TextInput::make('invoice_prefix')
                             ->label('Invoice Prefix')
                             ->default('INV-')
@@ -242,8 +243,7 @@ class ManageSettings extends Page implements HasForms
                 'company_website' => $data['company_website'],
                 'tax_registration_number' => $data['tax_registration_number'],
                 'commercial_registration' => $data['commercial_registration'],
-                'primary_color' => $data['primary_color'],
-                'secondary_color' => $data['secondary_color'],
+                'logo_path' => $data['logo_path'] ?? $companyBranding->logo_path,
                 'invoice_prefix' => $data['invoice_prefix'],
                 'quote_prefix' => $data['quote_prefix'],
                 'order_prefix' => $data['order_prefix'],

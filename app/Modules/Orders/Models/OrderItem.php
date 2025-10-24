@@ -4,13 +4,16 @@ namespace App\Modules\Orders\Models;
 
 use App\Modules\AddOns\Models\Addon;
 use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Orders\Observers\OrderItemObserver;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy([OrderItemObserver::class])]
 class OrderItem extends Model
 {
     use HasFactory;

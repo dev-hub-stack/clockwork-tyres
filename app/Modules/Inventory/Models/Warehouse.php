@@ -66,6 +66,15 @@ class Warehouse extends Model
     }
 
     /**
+     * Accessor for 'name' attribute (maps to warehouse_name)
+     * This allows Filament relationships to work with ->relationship('warehouse', 'name')
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->warehouse_name ?? '';
+    }
+
+    /**
      * Calculate distance between this warehouse and given coordinates using Haversine formula
      * 
      * @param float $latitude
