@@ -3,26 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name                            @if($item->brand_name)
-                                <br><span class="brand-name">{{ $item->brand_name }}</span>
-                            @endif
-                            @if($item->product_description)
-                                <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
-                            @endif
-                            {{-- Warehouse Information --}}
-                            @if($item->warehouse)
-                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                    📦 Warehouse: {{ $item->warehouse->name }}
-                                </small>
-                            @elseif($item->warehouse_id === null || $item->warehouse_id === 'non_stock')
-                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                    ⚡ Non-Stock (Special Order)
-                                </small>
-                            @endif
-                        </td>
-                        <td class="text-center">
-                            <span class="small-text">{{ $item->sku ?? 'N/A' }}</span>
-                        </td>" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} | {{ $record->document_number ?? 'N/A' }}</title>
     <style>

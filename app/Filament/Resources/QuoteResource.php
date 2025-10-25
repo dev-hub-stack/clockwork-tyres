@@ -64,7 +64,7 @@ class QuoteResource extends Resource
     {
         return parent::getEloquentQuery()
             ->quotes() // Uses the scope from Order model
-            ->with(['customer', 'warehouse'])
+            ->with(['customer', 'items.warehouse'])
             ->latest('issue_date');
     }
 
@@ -548,9 +548,24 @@ class QuoteResource extends Resource
                     ->date()
                     ->sortable(),
                 
-                TextColumn::make('warehouse.warehouse_name')
+                TextColumn::make('warehouses')
                     ->label('Warehouse')
-                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        $warehouses = $record->items
+                            ->pluck('warehouse.name')
+                            ->filter()
+                            ->unique()
+                            ->values();
+                        
+                        if ($warehouses->isEmpty()) {
+                            return 'Non-Stock';
+                        }
+                        
+                        return $warehouses->count() > 1 
+                            ? "Multiple ({$warehouses->count()})" 
+                            : $warehouses->first();
+                    })
+                    ->sortable(false)
                     ->toggleable(),
                 
                 TextColumn::make('created_at')
