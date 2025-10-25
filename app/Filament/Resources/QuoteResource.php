@@ -627,14 +627,6 @@ class QuoteResource extends Resource
                     ->modalSubmitAction(false) // Hide Submit button
                     ->modalCancelActionLabel('Close') // Change Cancel to Close
                     ->modalFooterActionsAlignment('end')
-                    ->extraModalFooterActions([
-                        Action::make('download_pdf')
-                            ->label('Download PDF')
-                            ->icon('heroicon-o-arrow-down-tray')
-                            ->color('success')
-                            ->url(fn($record) => route('quote.pdf', ['quote' => $record->id]))
-                            ->openUrlInNewTab(),
-                    ])
                     ->modalContent(function ($record) {
                         // Get settings
                         $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
