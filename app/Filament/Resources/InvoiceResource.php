@@ -418,6 +418,29 @@ class InvoiceResource extends Resource
                     ->color(fn($state) => $state > 0 ? 'danger' : 'success')
                     ->sortable(),
                 
+                TextColumn::make('gross_profit')
+                    ->label('Profit')
+                    ->money('AED')
+                    ->color(fn($state) => $state >= 0 ? 'success' : 'danger')
+                    ->sortable()
+                    ->toggleable()
+                    ->tooltip(fn($record) => $record->hasExpensesRecorded() 
+                        ? "Margin: {$record->profit_margin}% | Expenses: AED " . number_format($record->total_expenses, 2)
+                        : 'Expenses not recorded yet'),
+                
+                TextColumn::make('profit_margin')
+                    ->label('Margin %')
+                    ->suffix('%')
+                    ->color(fn($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger'))
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                
+                TextColumn::make('total_expenses')
+                    ->label('Expenses')
+                    ->money('AED')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                
                 TextColumn::make('valid_until')
                     ->label('Due Date')
                     ->date()
