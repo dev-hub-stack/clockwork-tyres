@@ -143,23 +143,43 @@
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td>
-                            <strong>{{ $item->product_name ?? 'Unknown Product' }}</strong>
-                            @if($item->brand_name)
-                                <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
-                            @endif
-                            @if($item->product_description)
-                                <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
-                            @endif
-                            {{-- Warehouse Information --}}
-                            @if($item->warehouse)
-                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                    📦 Warehouse: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
-                                </small>
-                            @elseif($item->warehouse_id === null)
-                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                    ⚡ Non-Stock (Special Order)
-                                </small>
-                            @endif
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                {{-- Product Image --}}
+                                @php
+                                    $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
+                                    $productImage = $variantData['image'] ?? null;
+                                @endphp
+                                @if($productImage)
+                                    <img src="{{ $productImage }}" 
+                                         alt="{{ $item->product_name }}" 
+                                         style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
+                                @else
+                                    <div style="width: 60px; height: 60px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #999; text-align: center; border: 1px solid #ddd;">
+                                        No<br>Image
+                                    </div>
+                                @endif
+                                
+                                {{-- Product Details --}}
+                                <div style="flex: 1;">
+                                    <strong>{{ $item->product_name ?? 'Unknown Product' }}</strong>
+                                    @if($item->brand_name)
+                                        <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
+                                    @endif
+                                    @if($item->product_description)
+                                        <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
+                                    @endif
+                                    {{-- Warehouse Information --}}
+                                    @if($item->warehouse)
+                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
+                                            📦 Warehouse: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
+                                        </small>
+                                    @elseif($item->warehouse_id === null)
+                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
+                                            ⚡ Non-Stock (Special Order)
+                                        </small>
+                                    @endif
+                                </div>
+                            </div>
                         </td>
                         <td class="text-center">
                             <span class="small-text">{{ $item->sku ?? 'N/A' }}</span>

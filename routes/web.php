@@ -5,9 +5,15 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ProductVariantGridController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\QuotePdfController;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+// PDF Download Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/quote/{quote}/pdf', [QuotePdfController::class, 'download'])->name('quote.pdf');
 });
 
 // Product Variants Grid Routes (Tunerstop-style implementation)

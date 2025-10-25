@@ -257,6 +257,13 @@ class QuoteResource extends Resource
                                     ->required()
                                     ->columnSpanFull(),
                                 
+                                // Product Image Display
+                                \Filament\Forms\Components\ViewField::make('product_image')
+                                    ->label('Product Image')
+                                    ->view('filament.forms.components.product-image-display')
+                                    ->columnSpanFull()
+                                    ->visible(fn ($get) => $get('product_variant_id') !== null),
+                                
                                 Select::make('warehouse_id')
                                     ->label('Warehouse')
                                     ->options(function ($get) {
@@ -617,6 +624,17 @@ class QuoteResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->slideOver()
                     ->modalWidth('7xl')
+                    ->modalSubmitAction(false) // Hide Submit button
+                    ->modalCancelActionLabel('Close') // Change Cancel to Close
+                    ->modalFooterActionsAlignment('end')
+                    ->extraModalFooterActions([
+                        Action::make('download_pdf')
+                            ->label('Download PDF')
+                            ->icon('heroicon-o-arrow-down-tray')
+                            ->color('success')
+                            ->url(fn($record) => route('quote.pdf', ['quote' => $record->id]))
+                            ->openUrlInNewTab(),
+                    ])
                     ->modalContent(function ($record) {
                         // Get settings
                         $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
