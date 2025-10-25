@@ -12,7 +12,7 @@ class WarehouseStockOverview extends BaseWidget
 {
     protected static ?int $sort = 2;
     
-    protected static ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = '30s';
 
     protected function getStats(): array
     {

@@ -7,10 +7,6 @@ use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\QuoteConversionService;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\ViewEntry;
 
 class ViewQuote extends ViewRecord
 {
@@ -69,47 +65,5 @@ class ViewQuote extends ViewRecord
             Actions\DeleteAction::make()
                 ->visible(fn () => $this->record->quote_status === QuoteStatus::DRAFT),
         ];
-    }
-
-    public function infolist(Infolist $infolist): Infolist
-    {
-        return $infolist
-            ->schema([
-                Section::make('Quote Timeline')
-                    ->schema([
-                        ViewEntry::make('timeline')
-                            ->view('filament.components.order-timeline')
-                            ->columnSpanFull(),
-                    ]),
-
-                Section::make('Quote Information')
-                    ->columns(2)
-                    ->schema([
-                        TextEntry::make('quote_number')
-                            ->label('Quote #'),
-                        TextEntry::make('customer.name')
-                            ->label('Customer'),
-                        TextEntry::make('issue_date')
-                            ->label('Issue Date')
-                            ->date(),
-                        TextEntry::make('valid_until')
-                            ->label('Valid Until')
-                            ->date(),
-                        TextEntry::make('quote_status')
-                            ->badge(),
-                    ]),
-
-                Section::make('Amounts')
-                    ->columns(3)
-                    ->schema([
-                        TextEntry::make('sub_total')
-                            ->money('AED'),
-                        TextEntry::make('vat')
-                            ->money('AED'),
-                        TextEntry::make('total')
-                            ->money('AED')
-                            ->weight('bold'),
-                    ]),
-            ]);
     }
 }
