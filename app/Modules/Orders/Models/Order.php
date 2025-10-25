@@ -81,6 +81,20 @@ class Order extends Model
         // Notes
         'order_notes',
         'internal_notes',
+        
+        // Expense fields (matching old Reporting system)
+        'cost_of_goods',
+        'shipping_cost',
+        'duty_amount',
+        'delivery_fee',
+        'installation_cost',
+        'bank_fee',
+        'credit_card_fee',
+        'total_expenses',
+        'gross_profit',
+        'profit_margin',
+        'expenses_recorded_at',
+        'expenses_recorded_by',
     ];
 
     protected $casts = [
@@ -103,6 +117,19 @@ class Order extends Model
         'sent_at' => 'datetime',
         'approved_at' => 'datetime',
         'shipped_at' => 'datetime',
+        
+        // Expense fields
+        'cost_of_goods' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
+        'duty_amount' => 'decimal:2',
+        'delivery_fee' => 'decimal:2',
+        'installation_cost' => 'decimal:2',
+        'bank_fee' => 'decimal:2',
+        'credit_card_fee' => 'decimal:2',
+        'total_expenses' => 'decimal:2',
+        'gross_profit' => 'decimal:2',
+        'profit_margin' => 'decimal:2',
+        'expenses_recorded_at' => 'datetime',
     ];
 
     /**
@@ -399,6 +426,102 @@ class Order extends Model
     {
         $this->order_status = OrderStatus::COMPLETED;
         $this->save();
+    }
+    
+    /**
+     * Record expenses and calculate profit (matching old Reporting system)
+     * 
+     * @param array $expenseData Array with expense field values
+     * @return bool
+     */
+    public function recordExpenses(array $expenseData): bool
+    {
+        $this->cost_of_goods = $expenseData['cost_of_goods'] ?? 0;
+        $this->shipping_cost = $expenseData['shipping_cost'] ?? 0;
+        $this->duty_amount = $expenseData['duty_amount'] ?? 0;
+        $this->delivery_fee = $expenseData['delivery_fee'] ?? 0;
+        $this->installation_cost = $expenseData['installation_cost'] ?? 0;
+        $this->bank_fee = $expenseData['bank_fee'] ?? 0;
+        $this->credit_card_fee = $expenseData['credit_card_fee'] ?? 0;
+        $this->expenses_recorded_at = now();
+        $this->expenses_recorded_by = auth()->id();
+        
+        $this->calculateProfit();
+        $this->save();
+        
+        return true;
+    }
+
+    /**
+     * Calculate profit metrics (matching old Reporting system)
+     * 
+     * @return void
+     */
+    public function calculateProfit(): void
+    {
+        $this->total_expenses = 
+            ($this->cost_of_goods ?? 0) +
+            ($this->shipping_cost ?? 0) +
+            ($this->duty_amount ?? 0) +
+            ($this->delivery_fee ?? 0) +
+            ($this->installation_cost ?? 0) +
+            ($this->bank_fee ?? 0) +
+            ($this->credit_card_fee ?? 0);
+
+        $this->gross_profit = ($this->total ?? 0) - $this->total_expenses;
+        
+        if ($this->total > 0) {
+            $this->profit_margin = ($this->gross_profit / $this->total) * 100;
+        } else {
+            $this->profit_margin = 0;
+        }
+    }
+
+    /**
+     * Get formatted profit data (matching old Reporting system)
+     * 
+     * @return array
+     */
+    public function getProfitData(): array
+    {
+        return [
+            'revenue' => $this->total,
+            'total_expenses' => $this->total_expenses,
+            'gross_profit' => $this->gross_profit,
+            'profit_margin' => round($this->profit_margin, 2),
+            'expense_breakdown' => [
+                'cost_of_goods' => $this->cost_of_goods,
+                'shipping_cost' => $this->shipping_cost,
+                'duty_amount' => $this->duty_amount,
+                'delivery_fee' => $this->delivery_fee,
+                'installation_cost' => $this->installation_cost,
+                'bank_fee' => $this->bank_fee,
+                'credit_card_fee' => $this->credit_card_fee,
+            ],
+            'has_expenses_recorded' => !is_null($this->expenses_recorded_at),
+            'recorded_at' => $this->expenses_recorded_at,
+            'recorded_by' => $this->expenseRecordedBy?->name,
+        ];
+    }
+
+    /**
+     * Check if expenses have been recorded
+     * 
+     * @return bool
+     */
+    public function hasExpensesRecorded(): bool
+    {
+        return !is_null($this->expenses_recorded_at);
+    }
+
+    /**
+     * Relationship to user who recorded expenses
+     * 
+     * @return BelongsTo
+     */
+    public function expenseRecordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'expenses_recorded_by');
     }
 }
 

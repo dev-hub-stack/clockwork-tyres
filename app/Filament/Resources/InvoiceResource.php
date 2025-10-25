@@ -640,75 +640,126 @@ class InvoiceResource extends Resource
                             ->send();
                     }),
                 
-                Action::make('recordExpense')
-                    ->label('Record Expense')
-                    ->icon('heroicon-o-receipt-percent')
+                Action::make('recordExpenses')
+                    ->label('Record Expenses & Calculate Profit')
+                    ->icon('heroicon-o-calculator')
                     ->color('warning')
+                    ->visible(fn($record) => $record->order_status->value === 'completed')
                     ->form([
-                        Select::make('expense_type')
-                            ->label('Expense Type')
-                            ->options(Expense::getExpenseTypes())
-                            ->required(),
-                        
-                        TextInput::make('amount')
-                            ->label('Amount')
-                            ->numeric()
-                            ->prefix('AED')
-                            ->required(),
-                        
-                        DatePicker::make('expense_date')
-                            ->label('Expense Date')
-                            ->default(now())
-                            ->required(),
-                        
-                        TextInput::make('vendor_name')
-                            ->label('Vendor Name')
-                            ->maxLength(255),
-                        
-                        TextInput::make('vendor_reference')
-                            ->label('Vendor Invoice/Receipt #')
-                            ->maxLength(255),
-                        
-                        FileUpload::make('receipt_path')
-                            ->label('Receipt/Invoice')
-                            ->disk('public')
-                            ->directory('expenses')
-                            ->maxSize(10240),
-                        
-                        Textarea::make('description')
-                            ->label('Description')
-                            ->rows(2),
-                        
-                        Select::make('payment_status')
-                            ->label('Payment Status')
-                            ->options([
-                                'unpaid' => 'Unpaid',
-                                'paid' => 'Paid',
-                                'pending' => 'Pending',
-                            ])
-                            ->default('unpaid')
-                            ->required(),
+                        \Filament\Forms\Components\Section::make('Expense Breakdown')
+                            ->description('Enter all expenses related to this order to calculate profit')
+                            ->schema([
+                                \Filament\Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        TextInput::make('cost_of_goods')
+                                            ->label('Cost of Goods')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Direct product costs')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('shipping_cost')
+                                            ->label('Shipping Cost')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Freight and shipping charges')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('duty_amount')
+                                            ->label('Customs Duty')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Import duties and taxes')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('delivery_fee')
+                                            ->label('Delivery Fee')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Last-mile delivery charges')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('installation_cost')
+                                            ->label('Installation Cost')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Setup and installation fees')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('bank_fee')
+                                            ->label('Bank Fee')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Wire transfer and banking fees')
+                                            ->reactive(),
+                                        
+                                        TextInput::make('credit_card_fee')
+                                            ->label('Credit Card Fee')
+                                            ->numeric()
+                                            ->prefix('AED')
+                                            ->default(0)
+                                            ->helperText('Payment processing fees')
+                                            ->reactive(),
+                                    ]),
+                                
+                                \Filament\Forms\Components\Placeholder::make('profit_preview')
+                                    ->label('Profit Preview')
+                                    ->content(function ($get, $record) {
+                                        $revenue = $record->total ?? 0;
+                                        $expenses = 
+                                            floatval($get('cost_of_goods') ?? 0) +
+                                            floatval($get('shipping_cost') ?? 0) +
+                                            floatval($get('duty_amount') ?? 0) +
+                                            floatval($get('delivery_fee') ?? 0) +
+                                            floatval($get('installation_cost') ?? 0) +
+                                            floatval($get('bank_fee') ?? 0) +
+                                            floatval($get('credit_card_fee') ?? 0);
+                                        
+                                        $profit = $revenue - $expenses;
+                                        $margin = $revenue > 0 ? ($profit / $revenue) * 100 : 0;
+                                        
+                                        $color = $profit >= 0 ? 'text-green-600' : 'text-red-600';
+                                        
+                                        return new \Illuminate\Support\HtmlString("
+                                            <div class='p-4 bg-gray-50 dark:bg-gray-800 rounded-lg'>
+                                                <div class='grid grid-cols-3 gap-4'>
+                                                    <div>
+                                                        <p class='text-sm text-gray-600 dark:text-gray-400'>Revenue</p>
+                                                        <p class='text-lg font-semibold'>AED " . number_format($revenue, 2) . "</p>
+                                                    </div>
+                                                    <div>
+                                                        <p class='text-sm text-gray-600 dark:text-gray-400'>Total Expenses</p>
+                                                        <p class='text-lg font-semibold text-red-600'>AED " . number_format($expenses, 2) . "</p>
+                                                    </div>
+                                                    <div>
+                                                        <p class='text-sm text-gray-600 dark:text-gray-400'>Gross Profit</p>
+                                                        <p class='text-xl font-bold {$color}'>AED " . number_format($profit, 2) . "</p>
+                                                        <p class='text-sm {$color}'>" . number_format($margin, 2) . "% Margin</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ");
+                                    })
+                                    ->columnSpanFull(),
+                            ]),
                     ])
                     ->action(function ($record, array $data) {
-                        Expense::create([
-                            'order_id' => $record->id,
-                            'customer_id' => $record->customer_id,
-                            'recorded_by' => auth()->id(),
-                            'expense_type' => $data['expense_type'],
-                            'amount' => $data['amount'],
-                            'expense_date' => $data['expense_date'],
-                            'vendor_name' => $data['vendor_name'] ?? null,
-                            'vendor_reference' => $data['vendor_reference'] ?? null,
-                            'receipt_path' => $data['receipt_path'] ?? null,
-                            'description' => $data['description'] ?? null,
-                            'payment_status' => $data['payment_status'],
-                        ]);
+                        $record->recordExpenses($data);
                         
                         Notification::make()
-                            ->title('Expense Recorded')
+                            ->title('Expenses Recorded Successfully')
+                            ->body("Gross Profit: AED " . number_format($record->gross_profit, 2) . " (" . number_format($record->profit_margin, 2) . "% margin)")
                             ->success()
+                            ->duration(5000)
                             ->send();
-                    }),
+                    })
+                    ->successNotificationTitle('Expenses Recorded'),
                 
                 Action::make('addTracking')
                     ->label('Mark as Shipped')
