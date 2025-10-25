@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\InvoiceResource\Pages;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
-use App\Modules\Orders\Models\Expense;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use App\Modules\Customers\Models\Customer;
@@ -18,9 +17,9 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Set;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -669,10 +668,10 @@ class InvoiceResource extends Resource
                     ->color('warning')
                     ->visible(fn($record) => $record->order_status->value === 'completed')
                     ->form([
-                        \Filament\Forms\Components\Section::make('Expense Breakdown')
+                        Section::make('Expense Breakdown')
                             ->description('Enter all expenses related to this order to calculate profit')
                             ->schema([
-                                \Filament\Forms\Components\Grid::make(2)
+                                Grid::make(2)
                                     ->schema([
                                         TextInput::make('cost_of_goods')
                                             ->label('Cost of Goods')
@@ -731,7 +730,7 @@ class InvoiceResource extends Resource
                                             ->reactive(),
                                     ]),
                                 
-                                \Filament\Forms\Components\Placeholder::make('profit_preview')
+                                Placeholder::make('profit_preview')
                                     ->label('Profit Preview')
                                     ->content(function ($get, $record) {
                                         $revenue = $record->total ?? 0;
