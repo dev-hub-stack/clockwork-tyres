@@ -25,6 +25,7 @@ class OrderItem extends Model
         'product_id',
         'product_variant_id',
         'add_on_id',
+        'warehouse_id',
         
         // JSONB Snapshots
         'product_snapshot',
@@ -63,6 +64,7 @@ class OrderItem extends Model
         'line_total' => 'decimal:2',
         'allocated_quantity' => 'integer',
         'shipped_quantity' => 'integer',
+        'warehouse_id' => 'integer',
     ];
 
     protected $attributes = [
@@ -98,6 +100,11 @@ class OrderItem extends Model
     public function addon(): BelongsTo
     {
         return $this->belongsTo(Addon::class, 'add_on_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function quantities(): HasMany

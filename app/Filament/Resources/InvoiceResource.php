@@ -221,6 +221,75 @@ class InvoiceResource extends Resource
                                     ->required()
                                     ->columnSpanFull(),
                                 
+                                Select::make('warehouse_id')
+                                    ->label('Warehouse')
+                                    ->options(function ($get) {
+                                        $variantId = $get('product_variant_id');
+                                        
+                                        if (!$variantId) {
+                                            return ['' => 'Select product first'];
+                                        }
+                                        
+                                        // Get inventory per warehouse for this variant
+                                        $inventories = \App\Modules\Inventory\Models\ProductInventory::where('product_variant_id', $variantId)
+                                            ->with('warehouse')
+                                            ->get();
+                                        
+                                        $options = [];
+                                        
+                                        foreach ($inventories as $inv) {
+                                            if (!$inv->warehouse) continue;
+                                            
+                                            $warehouse = $inv->warehouse;
+                                            $available = ($inv->quantity ?? 0) + ($inv->eta_qty ?? 0);
+                                            
+                                            // Show all warehouses, even with 0 stock
+                                            $label = sprintf(
+                                                '%s - %d available (%d in stock%s)',
+                                                $warehouse->name,
+                                                $available,
+                                                $inv->quantity ?? 0,
+                                                ($inv->eta_qty ?? 0) > 0 ? ", {$inv->eta_qty} expected" : ''
+                                            );
+                                            
+                                            $options[$warehouse->id] = $label;
+                                        }
+                                        
+                                        // Always add non-stock option
+                                        $options['non_stock'] = '⚡ Non-Stock (Special Order) - Unlimited';
+                                        
+                                        return $options;
+                                    })
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        // Validate quantity against available stock
+                                        if (!$state || $state === 'non_stock') return;
+                                        
+                                        $variantId = $get('product_variant_id');
+                                        $quantity = intval($get('quantity') ?? 0);
+                                        
+                                        if ($variantId && $quantity > 0) {
+                                            $inventory = \App\Modules\Inventory\Models\ProductInventory::where('product_variant_id', $variantId)
+                                                ->where('warehouse_id', $state)
+                                                ->first();
+                                            
+                                            if ($inventory) {
+                                                $available = ($inventory->quantity ?? 0) + ($inventory->eta_qty ?? 0);
+                                                
+                                                if ($quantity > $available) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->warning()
+                                                        ->title('Low Stock Warning')
+                                                        ->body("Requested {$quantity} but only {$available} available in this warehouse")
+                                                        ->send();
+                                                }
+                                            }
+                                        }
+                                    })
+                                    ->required()
+                                    ->helperText('Select warehouse for this item')
+                                    ->columnSpan(2),
+                                
                                 TextInput::make('quantity')
                                     ->label('Quantity')
                                     ->numeric()
@@ -642,9 +711,6 @@ class InvoiceResource extends Resource
                 
                 EditAction::make(),
                 DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
             ])
             ->defaultSort('issue_date', 'desc');
     }

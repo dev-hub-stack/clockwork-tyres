@@ -3,6 +3,7 @@
 namespace App\Modules\Orders\Observers;
 
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Orders\Models\OrderItemQuantity;
 use App\Modules\Products\Models\ProductVariant;
 
 class OrderItemObserver
@@ -17,6 +18,15 @@ class OrderItemObserver
     }
 
     /**
+     * Handle the OrderItem "created" event.
+     * Create OrderItemQuantity record for warehouse allocation
+     */
+    public function created(OrderItem $orderItem): void
+    {
+        $this->createWarehouseAllocation($orderItem);
+    }
+
+    /**
      * Handle the OrderItem "updating" event.
      * Update product details if variant changed
      */
@@ -25,6 +35,17 @@ class OrderItemObserver
         // Only repopulate if product_name is missing or variant changed
         if (empty($orderItem->product_name) || $orderItem->isDirty('product_variant_id')) {
             $this->populateProductDetails($orderItem);
+        }
+    }
+
+    /**
+     * Handle the OrderItem "updated" event.
+     * Update warehouse allocation if warehouse or quantity changed
+     */
+    public function updated(OrderItem $orderItem): void
+    {
+        if ($orderItem->wasChanged(['warehouse_id', 'quantity'])) {
+            $this->updateWarehouseAllocation($orderItem);
         }
     }
 
@@ -65,5 +86,48 @@ class OrderItemObserver
         // Store snapshots for historical accuracy
         $orderItem->product_snapshot = json_encode($variant->product->toArray());
         $orderItem->variant_snapshot = json_encode($variant->toArray());
+    }
+
+    /**
+     * Create warehouse allocation record in order_item_quantities table
+     */
+    private function createWarehouseAllocation(OrderItem $orderItem): void
+    {
+        // Only create if warehouse_id is set
+        if (!$orderItem->warehouse_id) {
+            return;
+        }
+
+        OrderItemQuantity::create([
+            'order_item_id' => $orderItem->id,
+            'warehouse_id' => $orderItem->warehouse_id,
+            'quantity' => $orderItem->quantity ?? 0,
+        ]);
+    }
+
+    /**
+     * Update warehouse allocation when warehouse or quantity changes
+     */
+    private function updateWarehouseAllocation(OrderItem $orderItem): void
+    {
+        if (!$orderItem->warehouse_id) {
+            // If warehouse removed, delete allocations
+            $orderItem->quantities()->delete();
+            return;
+        }
+
+        // Find existing allocation or create new one
+        $quantity = OrderItemQuantity::firstOrNew([
+            'order_item_id' => $orderItem->id,
+            'warehouse_id' => $orderItem->warehouse_id,
+        ]);
+
+        $quantity->quantity = $orderItem->quantity ?? 0;
+        $quantity->save();
+
+        // Delete old allocations for different warehouses
+        OrderItemQuantity::where('order_item_id', $orderItem->id)
+            ->where('warehouse_id', '!=', $orderItem->warehouse_id)
+            ->delete();
     }
 }
