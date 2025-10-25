@@ -526,7 +526,8 @@ class InvoiceResource extends Resource
                             ->numeric()
                             ->prefix('AED')
                             ->required()
-                            ->default(fn($record) => $record->outstanding_amount),
+                            ->default(fn($record) => $record->outstanding_amount)
+                            ->helperText(fn($record) => "Outstanding amount: AED " . number_format($record->outstanding_amount, 2)),
                         
                         Select::make('payment_method')
                             ->label('Payment Method')
@@ -578,6 +579,63 @@ class InvoiceResource extends Resource
                         
                         Notification::make()
                             ->title('Payment Recorded')
+                            ->body('Payment of AED ' . number_format($data['amount'], 2) . ' has been recorded')
+                            ->success()
+                            ->send();
+                    }),
+                
+                Action::make('startProcessing')
+                    ->label('Start Processing')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->color('primary')
+                    ->visible(fn($record) => $record->order_status->value === 'pending')
+                    ->requiresConfirmation()
+                    ->modalHeading('Start Processing Order')
+                    ->modalDescription('This will mark the order as processing and allocate inventory from the selected warehouses.')
+                    ->modalContent(function ($record) {
+                        // Show stock availability summary
+                        $items = $record->items;
+                        $stockInfo = collect($items)->map(function ($item) {
+                            if (!$item->warehouse_id) {
+                                return [
+                                    'product' => $item->product_name,
+                                    'quantity' => $item->quantity,
+                                    'status' => 'Non-Stock',
+                                    'warning' => false,
+                                ];
+                            }
+                            
+                            $inventory = \App\Modules\Products\Models\ProductInventory::where('product_variant_id', $item->product_variant_id)
+                                ->where('warehouse_id', $item->warehouse_id)
+                                ->first();
+                            
+                            $available = $inventory ? $inventory->quantity : 0;
+                            $hasStock = $available >= $item->quantity;
+                            
+                            return [
+                                'product' => $item->product_name,
+                                'quantity' => $item->quantity,
+                                'available' => $available,
+                                'warehouse' => $item->warehouse?->name ?? 'Unknown',
+                                'status' => $hasStock ? 'In Stock' : 'Insufficient Stock',
+                                'warning' => !$hasStock,
+                            ];
+                        });
+                        
+                        return view('filament.components.stock-availability', [
+                            'stockInfo' => $stockInfo,
+                        ]);
+                    })
+                    ->action(function ($record) {
+                        $record->update([
+                            'order_status' => OrderStatus::PROCESSING,
+                        ]);
+                        
+                        // Inventory will be allocated via OrderObserver
+                        
+                        Notification::make()
+                            ->title('Order Processing Started')
+                            ->body("Order {$record->order_number} is now being processed. Inventory has been allocated.")
                             ->success()
                             ->send();
                     }),
@@ -653,10 +711,13 @@ class InvoiceResource extends Resource
                     }),
                 
                 Action::make('addTracking')
-                    ->label('Add Tracking')
+                    ->label('Mark as Shipped')
                     ->icon('heroicon-o-truck')
                     ->color('primary')
-                    ->visible(fn($record) => !$record->isShipped())
+                    ->visible(fn($record) => $record->order_status->value === 'processing')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Order as Shipped')
+                    ->modalDescription('Enter tracking information and confirm shipped quantities.')
                     ->form([
                         TextInput::make('tracking_number')
                             ->label('Tracking Number')
@@ -672,34 +733,133 @@ class InvoiceResource extends Resource
                         TextInput::make('tracking_url')
                             ->label('Tracking URL')
                             ->url()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->placeholder('https://...'),
+                        
+                        DatePicker::make('shipped_at')
+                            ->label('Shipped Date')
+                            ->default(now())
+                            ->required(),
                     ])
                     ->action(function ($record, array $data) {
-                        $record->markAsShipped(
-                            $data['tracking_number'],
-                            $data['shipping_carrier'],
-                            $data['tracking_url'] ?? null
-                        );
+                        // Update order with tracking info
+                        $record->update([
+                            'order_status' => OrderStatus::SHIPPED,
+                            'tracking_number' => $data['tracking_number'],
+                            'shipping_carrier' => $data['shipping_carrier'],
+                            'tracking_url' => $data['tracking_url'] ?? null,
+                            'shipped_at' => $data['shipped_at'],
+                        ]);
+                        
+                        // Update shipped quantities for all items
+                        foreach ($record->items as $item) {
+                            $item->update([
+                                'shipped_quantity' => $item->quantity,
+                            ]);
+                        }
+                        
+                        // TODO: Send tracking email to customer
+                        // Mail::to($record->customer->email)->send(new OrderShippedMail($record));
                         
                         Notification::make()
-                            ->title('Tracking Added')
-                            ->body('Invoice marked as shipped')
+                            ->title('Order Marked as Shipped')
+                            ->body("Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}")
                             ->success()
                             ->send();
                     }),
                 
                 Action::make('markCompleted')
-                    ->label('Mark Completed')
+                    ->label('Complete Order')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn($record) => $record->order_status->value === 'shipped')
                     ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->markAsCompleted();
+                    ->modalHeading('Complete Order')
+                    ->modalDescription('Mark this order as completed. Ensure payment has been received and customer is satisfied.')
+                    ->form([
+                        Select::make('payment_status')
+                            ->label('Payment Status')
+                            ->options([
+                                'paid' => 'Paid in Full',
+                                'partial' => 'Partially Paid',
+                                'pending' => 'Payment Pending',
+                            ])
+                            ->default(fn($record) => $record->isFullyPaid() ? 'paid' : 'pending')
+                            ->required(),
+                        
+                        Textarea::make('completion_notes')
+                            ->label('Completion Notes (Optional)')
+                            ->rows(2)
+                            ->placeholder('Any final notes about this order...'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'order_status' => OrderStatus::COMPLETED,
+                            'payment_status' => PaymentStatus::from($data['payment_status']),
+                        ]);
+                        
+                        if (!empty($data['completion_notes'])) {
+                            $record->update([
+                                'notes' => $record->notes . "\n\nCompletion Notes: " . $data['completion_notes'],
+                            ]);
+                        }
+                        
+                        // TODO: Send completion email to customer
+                        // Mail::to($record->customer->email)->send(new OrderCompletedMail($record));
                         
                         Notification::make()
-                            ->title('Invoice Completed')
+                            ->title('Order Completed')
+                            ->body("Order {$record->order_number} has been marked as completed")
                             ->success()
+                            ->send();
+                    }),
+                
+                Action::make('cancelOrder')
+                    ->label('Cancel Order')
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->visible(fn($record) => in_array($record->order_status->value, ['pending', 'processing']))
+                    ->requiresConfirmation()
+                    ->modalHeading('Cancel Order')
+                    ->modalDescription('This will cancel the order and deallocate any allocated inventory.')
+                    ->form([
+                        Textarea::make('cancellation_reason')
+                            ->label('Cancellation Reason')
+                            ->required()
+                            ->rows(3)
+                            ->placeholder('Why is this order being cancelled?'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        // Deallocate inventory if order was processing
+                        if ($record->order_status->value === 'processing') {
+                            foreach ($record->items as $item) {
+                                if ($item->allocated_quantity > 0 && $item->warehouse_id) {
+                                    $inventory = \App\Modules\Products\Models\ProductInventory::where('product_variant_id', $item->product_variant_id)
+                                        ->where('warehouse_id', $item->warehouse_id)
+                                        ->first();
+                                    
+                                    if ($inventory) {
+                                        $inventory->increment('quantity', $item->allocated_quantity);
+                                    }
+                                }
+                                
+                                // Reset allocated quantity
+                                $item->update(['allocated_quantity' => 0]);
+                            }
+                            
+                            // Delete OrderItemQuantity records
+                            \App\Modules\Orders\Models\OrderItemQuantity::where('order_id', $record->id)->delete();
+                        }
+                        
+                        $record->update([
+                            'order_status' => OrderStatus::CANCELLED,
+                            'notes' => $record->notes . "\n\nCancellation Reason: " . $data['cancellation_reason'],
+                        ]);
+                        
+                        Notification::make()
+                            ->title('Order Cancelled')
+                            ->body("Order {$record->order_number} has been cancelled and inventory deallocated")
+                            ->warning()
                             ->send();
                     }),
                 

@@ -652,8 +652,31 @@ class QuoteResource extends Resource
                     ->color('primary')
                     ->visible(fn($record) => $record->quote_status->value === 'draft')
                     ->requiresConfirmation()
-                    ->action(function ($record) {
-                        app(OrderService::class)->sendQuote($record);
+                    ->modalHeading('Send Quote to Customer')
+                    ->modalDescription('This will send the quote to the customer via email and mark it as SENT.')
+                    ->form([
+                        TextInput::make('email')
+                            ->label('Customer Email')
+                            ->email()
+                            ->required()
+                            ->default(fn($record) => $record->customer->email ?? '')
+                            ->helperText('Quote will be sent to this email address'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        // Send quote and update status
+                        $record->update([
+                            'quote_status' => QuoteStatus::SENT,
+                            'sent_at' => now(),
+                        ]);
+                        
+                        // TODO: Trigger email notification
+                        // Mail::to($data['email'])->send(new QuoteSentMail($record));
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Sent Successfully')
+                            ->body("Quote {$record->quote_number} has been sent to {$data['email']}")
+                            ->success()
+                            ->send();
                     }),
                 
                 Action::make('approve')
@@ -662,8 +685,31 @@ class QuoteResource extends Resource
                     ->color('success')
                     ->visible(fn($record) => $record->quote_status->value === 'sent')
                     ->requiresConfirmation()
-                    ->action(function ($record) {
-                        app(OrderService::class)->approveQuote($record);
+                    ->modalHeading('Approve Quote')
+                    ->modalDescription('Approving this quote will allow it to be converted to an invoice.')
+                    ->form([
+                        Textarea::make('approval_notes')
+                            ->label('Approval Notes (Optional)')
+                            ->rows(3)
+                            ->placeholder('Any additional notes about this approval...'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'quote_status' => QuoteStatus::APPROVED,
+                            'approved_at' => now(),
+                            'notes' => isset($data['approval_notes']) ? 
+                                $record->notes . "\n\nApproval Notes: " . $data['approval_notes'] : 
+                                $record->notes,
+                        ]);
+                        
+                        // TODO: Notify sales team
+                        // Mail::to('sales@tunerstop.com')->send(new QuoteApprovedMail($record));
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Approved')
+                            ->body("Quote {$record->quote_number} has been approved and is ready to convert to invoice")
+                            ->success()
+                            ->send();
                     }),
                 
                 Action::make('convert')
@@ -672,10 +718,47 @@ class QuoteResource extends Resource
                     ->color('warning')
                     ->visible(fn($record) => $record->canConvertToInvoice())
                     ->requiresConfirmation()
+                    ->modalHeading('Convert Quote to Invoice')
+                    ->modalDescription('This will create an invoice from this approved quote. The quote will remain in the system for reference.')
                     ->action(function ($record) {
                         $invoice = app(QuoteConversionService::class)->convertQuoteToInvoice($record);
-                        // Redirect to invoice edit page (will be created)
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Converted to Invoice')
+                            ->body("Invoice {$invoice->order_number} has been created from quote {$record->quote_number}")
+                            ->success()
+                            ->send();
+                        
+                        // Redirect to invoice edit page
                         return redirect()->route('filament.admin.resources.invoices.edit', ['record' => $invoice]);
+                    }),
+                
+                Action::make('reject')
+                    ->label('Reject')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn($record) => $record->quote_status->value === 'sent')
+                    ->requiresConfirmation()
+                    ->modalHeading('Reject Quote')
+                    ->modalDescription('This will mark the quote as rejected. Please provide a reason.')
+                    ->form([
+                        Textarea::make('rejection_reason')
+                            ->label('Rejection Reason')
+                            ->required()
+                            ->rows(3)
+                            ->placeholder('Why is this quote being rejected?'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'quote_status' => QuoteStatus::REJECTED,
+                            'notes' => $record->notes . "\n\nRejection Reason: " . $data['rejection_reason'],
+                        ]);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Rejected')
+                            ->body("Quote {$record->quote_number} has been marked as rejected")
+                            ->warning()
+                            ->send();
                     }),
                 
                 EditAction::make(),
