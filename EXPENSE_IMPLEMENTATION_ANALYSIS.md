@@ -498,13 +498,156 @@ expenses table (optional - for detailed line items):
 
 ## ✅ NEXT STEPS
 
-1. **Create migration** to add expense fields to `orders` table
-2. **Update Order model** with recordExpenses() and calculateProfit() methods
-3. **Update InvoiceResource** with new expense form (7 fields instead of generic type)
-4. **Decide:** Keep or remove current `expenses` table
+1. ✅ **Create migration** to add expense fields to `orders` table
+2. ✅ **Update Order model** with recordExpenses() and calculateProfit() methods
+3. ✅ **Update InvoiceResource** with new expense form (7 fields instead of generic type)
+4. ✅ **Decide:** Keep or remove current `expenses` table (See final decision below)
 5. **Data Migration:** Import expense data from old Reporting system
 6. **Testing:** Verify profit calculations match old system
 
 ---
 
-**Status:** ⚠️ **Action Required** - Current implementation does not match old Reporting system structure
+## 🎯 FINAL DECISION - expenses TABLE
+
+**Date:** October 26, 2025  
+**Decision:** ❌ **DROP the `expenses` table completely**
+
+**Important:** ⚠️ **payments table is KEPT** - It's different and used for customer payment tracking
+
+### **Rationale:**
+
+**DROP expenses table Because:**
+1. ✅ **Simpler System** - One source of truth (orders table only) for EXPENSES
+2. ✅ **Matches Old System** - Old Reporting system has NO separate expenses table
+3. ✅ **Easier Now Than Later** - Removing now during development is much easier than later with data
+4. ✅ **No Dependencies Yet** - System is in development, no production data
+5. ✅ **Cleaner Code** - No need to maintain two parallel expense systems
+6. ✅ **Better Performance** - No unnecessary table, no confusion
+7. ✅ **Avoid Future Problems** - Prevents data inconsistency between two tables
+
+**KEEP payments table Because:**
+1. ✅ **Different Purpose** - Tracks customer PAYMENTS, not order EXPENSES
+2. ✅ **Multiple Payments** - One order can have multiple payment installments
+3. ✅ **Payment History** - Need audit trail of when/how customer paid
+4. ✅ **Actively Used** - InvoiceResource has "Record Payment" action that uses this table
+
+**Why We Don't Need expenses table:**
+- Old Reporting system works perfectly WITHOUT a separate expenses table
+- All expense data is in the orders table (7 specific fields)
+- Profit calculations are fast and simple
+- No need for "detailed line items" - the 7 fields cover everything
+- Vendor tracking can be added as optional fields to orders table if needed later
+
+### **Implementation Strategy:**
+
+**Clean Removal:**
+1. ✅ Create migration to drop `expenses` table ONLY
+2. ✅ Remove Expense model
+3. ✅ Clean up any expense imports/references in code
+4. ❌ DO NOT touch payments table - it's still needed
+5. ❌ DO NOT touch Payment model - it's actively used
+
+### **Database Schema - Final Structure:**
+
+```sql
+-- orders table (single source of truth for EXPENSES)
+orders:
+  + cost_of_goods DECIMAL(10,2)
+  + shipping_cost DECIMAL(10,2)
+  + duty_amount DECIMAL(10,2)
+  + delivery_fee DECIMAL(10,2)
+  + installation_cost DECIMAL(10,2)
+  + bank_fee DECIMAL(10,2)
+  + credit_card_fee DECIMAL(10,2)
+  + total_expenses DECIMAL(10,2)     -- Auto-calculated
+  + gross_profit DECIMAL(10,2)       -- Auto-calculated
+  + profit_margin DECIMAL(5,2)       -- Auto-calculated
+  + expenses_recorded_at TIMESTAMP
+  + expenses_recorded_by BIGINT
+
+-- expenses table: DELETED ❌ (not needed, using orders table)
+
+-- payments table: KEPT ✅ (tracks customer payments - different from expenses!)
+payments:
+  + id
+  + order_id
+  + customer_id
+  + amount
+  + payment_method
+  + payment_date
+  + reference_number
+  + bank_name
+  + cheque_number
+  + notes
+  + status
+```
+
+### **Difference Between Expenses and Payments:**
+
+| Feature | Expenses (orders table) | Payments (payments table) |
+|---------|------------------------|---------------------------|
+| **Purpose** | Track ORDER COSTS | Track CUSTOMER PAYMENTS |
+| **Direction** | Money OUT (what we spent) | Money IN (what customer paid) |
+| **Relationship** | One set per order | Multiple per order |
+| **Examples** | Cost of goods, shipping, duties | Customer paid $500, then $500 later |
+| **Used For** | Profit calculation | Payment tracking, collections |
+
+### **Usage:**
+
+```php
+// Record EXPENSES (order costs - orders table)
+$order->recordExpenses([
+    'cost_of_goods' => 800,
+    'shipping_cost' => 150,
+    'duty_amount' => 75,
+    'delivery_fee' => 50,
+    'installation_cost' => 0,
+    'bank_fee' => 25,
+    'credit_card_fee' => 25,
+]);
+
+// Profit is instantly available (no JOINs, no complexity)
+echo $order->gross_profit;   // AED 450.00
+echo $order->profit_margin;  // 28.57%
+```
+
+### **Benefits of This Decision:**
+
+1. ✅ **Simpler** - One table, one model, one method
+2. ✅ **Faster** - No JOINs ever needed
+3. ✅ **Clearer** - No confusion about which table to use
+4. ✅ **Matches Old System** - Exact same structure
+5. ✅ **Easy Migration** - Direct field-to-field mapping
+6. ✅ **Less Code** - No need for Expense model, migrations, etc.
+7. ✅ **Future Proof** - If we need vendor tracking later, add optional fields to orders
+
+### **Migration Notes:**
+
+When migrating from old Reporting system:
+```sql
+-- Simple 1:1 field mapping (no intermediate table needed)
+INSERT INTO new_orders (
+    cost_of_goods, shipping_cost, duty_amount, delivery_fee,
+    installation_cost, bank_fee, credit_card_fee,
+    total_expenses, gross_profit, profit_margin,
+    expenses_recorded_at, expenses_recorded_by
+)
+SELECT 
+    cost_of_goods, shipping_cost, duty_amount, delivery_fee,
+    installation_cost, bank_fee, credit_card_fee,
+    total_expenses, gross_profit, profit_margin,
+    expenses_recorded_at, expenses_recorded_by
+FROM old_invoices
+WHERE order_number = new_orders.order_number;
+```
+
+---
+
+**Status:** ✅ **IMPLEMENTED** - Expense recording matches old Reporting system. expenses table will be DROPPED.
+
+**Commits:**
+- dd0cd40 - feat: Implement expense recording matching old Reporting system
+- d95aca0 - feat: Add profit metrics display to invoice table
+- f1b4d00 - docs: Add complete expense implementation summary
+- PENDING - feat: Drop expenses and payments tables (cleaner system)
+
