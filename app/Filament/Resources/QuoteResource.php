@@ -114,14 +114,6 @@ class QuoteResource extends Resource
                                     ->searchable(['name', 'email'])
                                     ->preload()
                                     ->columnSpan(1),
-                                
-                                Select::make('warehouse_id')
-                                    ->label('Warehouse')
-                                    ->relationship('warehouse', 'warehouse_name')
-                                    ->required()
-                                    ->preload()
-                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->warehouse_name ?? $record->code ?? 'Unknown Warehouse')
-                                    ->columnSpan(1),
                             ]),
                         
                         Grid::make(3)
@@ -330,6 +322,7 @@ class QuoteResource extends Resource
                                             }
                                         }
                                     })
+                                    ->dehydrateStateUsing(fn ($state) => $state === 'non_stock' ? null : $state)
                                     ->required()
                                     ->helperText('Select warehouse for this item')
                                     ->columnSpan(2),

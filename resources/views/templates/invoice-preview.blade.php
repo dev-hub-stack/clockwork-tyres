@@ -167,6 +167,16 @@
                             @if($item->product_description)
                                 <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
                             @endif
+                            {{-- Warehouse Information --}}
+                            @if($item->warehouse)
+                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
+                                    📦 Warehouse: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
+                                </small>
+                            @elseif($item->warehouse_id === null)
+                                <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
+                                    ⚡ Non-Stock (Special Order)
+                                </small>
+                            @endif
                         </td>
                         <td class="text-center">
                             <span class="small-text">{{ $item->sku ?? 'N/A' }}</span>

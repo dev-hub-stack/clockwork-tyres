@@ -82,13 +82,6 @@ class InvoiceResource extends Resource
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer')
                             ->disabled(fn ($record) => $record !== null), // Can't change customer on existing invoice
                         
-                        Select::make('warehouse_id')
-                            ->label('Warehouse')
-                            ->relationship('warehouse', 'warehouse_name')
-                            ->required()
-                            ->preload()
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->warehouse_name ?? $record->code ?? 'Unknown Warehouse'),
-                        
                         DatePicker::make('issue_date')
                             ->label('Issue Date')
                             ->required()
@@ -286,6 +279,7 @@ class InvoiceResource extends Resource
                                             }
                                         }
                                     })
+                                    ->dehydrateStateUsing(fn ($state) => $state === 'non_stock' ? null : $state)
                                     ->required()
                                     ->helperText('Select warehouse for this item')
                                     ->columnSpan(2),
