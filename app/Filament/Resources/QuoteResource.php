@@ -761,6 +761,42 @@ class QuoteResource extends Resource
                             ->send();
                     }),
                 
+                Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalHeading('Duplicate Quote')
+                    ->modalDescription('This will create a new quote with the same customer, vehicle info, and line items.')
+                    ->action(function ($record) {
+                        // Create new quote
+                        $newQuote = $record->replicate();
+                        $newQuote->quote_status = QuoteStatus::DRAFT;
+                        $newQuote->quote_number = null; // Will be auto-generated
+                        $newQuote->sent_at = null;
+                        $newQuote->approved_at = null;
+                        $newQuote->issue_date = now();
+                        $newQuote->valid_until = now()->addDays(30);
+                        $newQuote->save();
+                        
+                        // Duplicate line items
+                        foreach ($record->items as $item) {
+                            $newItem = $item->replicate();
+                            $newItem->order_id = $newQuote->id;
+                            $newItem->allocated_quantity = 0;
+                            $newItem->shipped_quantity = 0;
+                            $newItem->save();
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Duplicated')
+                            ->body("New quote {$newQuote->quote_number} has been created from {$record->quote_number}")
+                            ->success()
+                            ->send();
+                        
+                        return redirect()->route('filament.admin.resources.quotes.edit', ['record' => $newQuote]);
+                    }),
+                
                 EditAction::make(),
                 DeleteAction::make(),
             ])
