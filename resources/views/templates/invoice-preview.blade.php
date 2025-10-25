@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} | {{ $record->document_number ?? 'N/A' }}</title>
+    <title>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} | {{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.6; }
@@ -45,7 +45,9 @@
         <div class="header">
             <div>
                 <h1>{{ $documentType === 'quote' ? 'QUOTE' : 'INVOICE' }}</h1>
-                <p style="margin-top: 5px; font-size: 14px;">{{ $record->document_number ?? 'N/A' }}</p>
+                <p style="margin-top: 5px; font-size: 14px;">
+                    {{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}
+                </p>
             </div>
             <div>
                 @if($logo)
