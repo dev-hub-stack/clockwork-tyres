@@ -78,8 +78,9 @@ class OrderObserver
         $year = date('Y');
         $prefix = "QUO-{$year}-";
         
-        // Get the last quote number for this year
-        $lastQuote = Order::where('quote_number', 'LIKE', $prefix . '%')
+        // Get the highest quote number for this year (including soft deleted)
+        $lastQuote = Order::withTrashed()
+            ->where('quote_number', 'LIKE', $prefix . '%')
             ->orderBy('quote_number', 'desc')
             ->first();
         
@@ -91,7 +92,15 @@ class OrderObserver
             $newNumber = 1;
         }
         
-        return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        $quoteNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        
+        // Extra safety: Check if this number exists (shouldn't happen but just in case)
+        while (Order::withTrashed()->where('quote_number', $quoteNumber)->exists()) {
+            $newNumber++;
+            $quoteNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        }
+        
+        return $quoteNumber;
     }
 
     /**
@@ -103,8 +112,9 @@ class OrderObserver
         $year = date('Y');
         $prefix = "ORD-{$year}-";
         
-        // Get the last order number for this year
-        $lastOrder = Order::where('order_number', 'LIKE', $prefix . '%')
+        // Get the highest order number for this year (including soft deleted)
+        $lastOrder = Order::withTrashed()
+            ->where('order_number', 'LIKE', $prefix . '%')
             ->orderBy('order_number', 'desc')
             ->first();
         
@@ -116,7 +126,15 @@ class OrderObserver
             $newNumber = 1;
         }
         
-        return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        $orderNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        
+        // Extra safety: Check if this number exists (shouldn't happen but just in case)
+        while (Order::withTrashed()->where('order_number', $orderNumber)->exists()) {
+            $newNumber++;
+            $orderNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        }
+        
+        return $orderNumber;
     }
 
     /**
