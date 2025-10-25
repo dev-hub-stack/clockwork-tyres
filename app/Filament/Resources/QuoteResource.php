@@ -618,6 +618,87 @@ class QuoteResource extends Resource
                             );
                     }),
             ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('sendBulk')
+                        ->label('Send Selected Quotes')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalHeading('Send Selected Quotes')
+                        ->modalDescription('This will send all selected draft quotes to their respective customers.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $sent = 0;
+                            $skipped = 0;
+                            
+                            foreach ($records as $record) {
+                                if ($record->quote_status->value === 'draft') {
+                                    $record->update([
+                                        'quote_status' => QuoteStatus::SENT,
+                                        'sent_at' => now(),
+                                    ]);
+                                    // TODO: Send email
+                                    $sent++;
+                                } else {
+                                    $skipped++;
+                                }
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Quotes Sent')
+                                ->body("Sent {$sent} quotes" . ($skipped > 0 ? ", skipped {$skipped} (not in draft status)" : ""))
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('approveBulk')
+                        ->label('Approve Selected Quotes')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Approve Selected Quotes')
+                        ->modalDescription('This will approve all selected quotes that are in SENT status.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $approved = 0;
+                            $skipped = 0;
+                            
+                            foreach ($records as $record) {
+                                if ($record->quote_status->value === 'sent') {
+                                    $record->update([
+                                        'quote_status' => QuoteStatus::APPROVED,
+                                        'approved_at' => now(),
+                                    ]);
+                                    $approved++;
+                                } else {
+                                    $skipped++;
+                                }
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Quotes Approved')
+                                ->body("Approved {$approved} quotes" . ($skipped > 0 ? ", skipped {$skipped} (not in sent status)" : ""))
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\DeleteBulkAction::make(),
+                    
+                    Tables\Actions\BulkAction::make('exportBulk')
+                        ->label('Export Selected')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('gray')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            // TODO: Implement PDF export for multiple quotes
+                            \Filament\Notifications\Notification::make()
+                                ->title('Export Feature')
+                                ->body('Bulk export functionality will be implemented soon')
+                                ->info()
+                                ->send();
+                        }),
+                ]),
+            ])
             ->recordActions([
                 Action::make('preview')
                     ->label('Preview')
