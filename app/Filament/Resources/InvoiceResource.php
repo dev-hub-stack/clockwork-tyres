@@ -73,13 +73,24 @@ class InvoiceResource extends Resource
             ->components([
                 Section::make('Invoice Information')
                     ->schema([
-                        Select::make('customer_id')
-                            ->label('Customer')
-                            ->relationship('customer', 'business_name')
-                            ->searchable(['business_name', 'first_name', 'last_name', 'email'])
-                            ->required()
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer')
-                            ->disabled(fn ($record) => $record !== null), // Can't change customer on existing invoice
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('customer_id')
+                                    ->label('Customer')
+                                    ->relationship('customer', 'business_name')
+                                    ->searchable(['business_name', 'first_name', 'last_name', 'email'])
+                                    ->required()
+                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer')
+                                    ->disabled(fn ($record) => $record !== null) // Can't change customer on existing invoice
+                                    ->columnSpan(1),
+                                
+                                Select::make('representative_id')
+                                    ->label('Sales Representative')
+                                    ->relationship('representative', 'name')
+                                    ->searchable(['name', 'email'])
+                                    ->preload()
+                                    ->columnSpan(1),
+                            ]),
                         
                         DatePicker::make('issue_date')
                             ->label('Issue Date')
@@ -384,6 +395,12 @@ class InvoiceResource extends Resource
                     ->label('Customer')
                     ->searchable(['business_name', 'first_name', 'last_name'])
                     ->sortable(),
+                
+                TextColumn::make('representative.name')
+                    ->label('Sales Rep')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
                 
                 BadgeColumn::make('payment_status')
                     ->label('Payment')
