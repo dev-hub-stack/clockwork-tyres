@@ -352,9 +352,119 @@ Uses **UNIFIED ORDERS TABLE** where quotes, invoices, and orders are in the SAME
 
 ---
 
+### Week 5-6: Quotes & Invoices Module ✅ (October 26-27, 2025 COMPLETE!)
+
+**Status:** ✅ COMPLETED - Fully Functional
+**Priority:** CRITICAL - Core business functionality
+
+#### Completed Tasks:
+
+**1. QuoteResource - Complete Quote Management**
+- [x] Created QuoteResource with unified orders table approach
+- [x] Implemented multi-step form (Quote Info → Vehicle → Line Items → Totals)
+- [x] Added dynamic settings integration (tax inclusive/exclusive from settings)
+- [x] Built repeater for line items with product variant selection
+- [x] Real-time total calculations (subtotal, tax, shipping, discount, total)
+- [x] Quote status workflow (draft → sent → approved/rejected/expired)
+- [x] Sales representative assignment
+- [x] PDF preview functionality
+- [x] Convert to Invoice action
+- [x] Duplicate quote functionality
+- [x] Email quote to customer
+- [x] Archive/restore quotes
+- [x] Comprehensive table with filters and search
+
+**2. InvoiceResource - Complete Invoice Management**
+- [x] Created InvoiceResource matching quote structure
+- [x] Implemented invoice-specific fields (issue_date, due_date)
+- [x] Added payment status tracking
+- [x] Order status workflow (pending → processing → shipped → completed)
+- [x] **Record Expenses & Calculate Profit action** ⭐ NEW!
+  - 7 specific expense fields (cost_of_goods, shipping_cost, duty, delivery, installation, bank_fee, credit_card_fee)
+  - Live profit calculation preview
+  - Automatic profit margin calculation
+  - Color-coded profit display (green/red)
+- [x] Profit metrics display in table
+  - Gross profit column with tooltip
+  - Profit margin column with color coding
+  - Total expenses column
+- [x] Sales representative field
+- [x] Mark as shipped action with tracking number
+- [x] Record payment functionality  
+- [x] PDF invoice generation
+- [x] Email invoice to customer
+- [x] Comprehensive filters and search
+
+**3. Expense Recording System** ⭐ NEW!
+- [x] Dropped generic expenses table (cleaner architecture)
+- [x] Added expense fields directly to orders table:
+  - cost_of_goods, shipping_cost, duty_amount, delivery_fee
+  - installation_cost, bank_fee, credit_card_fee
+  - total_expenses, gross_profit, profit_margin
+  - expenses_recorded_at, expenses_recorded_by
+- [x] Created Order model methods:
+  - recordExpenses() - Records all expense fields
+  - calculateProfit() - Auto-calculates profit and margin
+  - getProfitData() - Returns complete profit analysis
+  - hasExpensesRecorded() - Check if expenses recorded
+  - expenseRecordedBy() - Relationship to user
+- [x] Built expense recording UI with live preview
+- [x] Added profit display to invoice table
+- [x] Created comprehensive test guide
+
+**4. Database Schema Updates**
+- [x] Dropped expenses table (using orders table fields instead)
+- [x] Kept payments table (tracks customer payments)
+- [x] Added expense tracking fields to orders table
+- [x] Added profit calculation fields to orders table
+- [x] Fixed order_number unique constraint for duplicate quotes
+
+**5. Bug Fixes & Improvements**
+- [x] Fixed Section/Grid imports (Filament\Schemas not Forms)
+- [x] Removed expenses relationship from Order model
+- [x] Fixed duplicate quote generating unique order_number
+- [x] Cleaned up eager loading (removed expenses)
+- [x] Updated documentation to clarify expenses vs payments
+
+**Key Features Implemented:**
+- ✅ Unified orders table (quotes & invoices in same table)
+- ✅ Quote to invoice conversion (document_type change)
+- ✅ Dynamic tax settings (inclusive/exclusive)
+- ✅ Product variant selection with pricing
+- ✅ Real-time total calculations
+- ✅ **Expense recording with profit tracking** ⭐
+- ✅ **Live profit margin preview** ⭐
+- ✅ Sales representative tracking
+- ✅ PDF generation
+- ✅ Email notifications
+- ✅ Comprehensive status workflows
+- ✅ Audit trail (created_by, updated_by, expenses_recorded_by)
+
+**Documentation Created:**
+- [x] EXPENSE_IMPLEMENTATION_COMPLETE.md
+- [x] EXPENSE_IMPLEMENTATION_ANALYSIS.md
+- [x] EXPENSE_RECORDING_TEST_GUIDE.md
+- [x] Architecture documentation updated
+
+**Completed:** October 27, 2025  
+**Files Changed:** 15+ files  
+**Git Commits:** 12 commits  
+
+---
+
 ## 📊 Current Tasks (In Progress)
 
-### Week 5: Orders & Quotes Module - UI Implementation (Next!)
+### Week 6: Consignment & Warranty Modules (STARTING NOW!)
+**Status:** 🔄 IN PROGRESS
+**Priority:** HIGH - Extended functionality
+
+**Reference System:**  
+Studying old Reporting system at `C:\Users\Dell\Documents\Reporting` for:
+- Consignment tracking implementation
+- Warranty claim workflow
+- Invoice generation patterns
+
+**Next Steps:**
 **Status:** 🔄 Backend Complete - UI Starting
 **Status:** 📅 Ready to start
 **Priority:** CRITICAL - Core business functionality
