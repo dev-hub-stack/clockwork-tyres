@@ -773,6 +773,7 @@ class QuoteResource extends Resource
                         $newQuote = $record->replicate();
                         $newQuote->quote_status = QuoteStatus::DRAFT;
                         $newQuote->quote_number = null; // Will be auto-generated
+                        $newQuote->order_number = null; // Will be auto-generated
                         $newQuote->sent_at = null;
                         $newQuote->approved_at = null;
                         $newQuote->issue_date = now();
