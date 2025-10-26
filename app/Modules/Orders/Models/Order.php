@@ -186,14 +186,6 @@ class Order extends Model
     }
 
     /**
-     * Get all expenses for this order
-     */
-    public function expenses(): HasMany
-    {
-        return $this->hasMany(Expense::class);
-    }
-
-    /**
      * Get the invoice this quote was converted to (if applicable)
      */
     public function convertedInvoice(): BelongsTo
@@ -364,30 +356,6 @@ class Order extends Model
     public function isPaymentPending(): bool
     {
         return $this->payment_status === PaymentStatus::PENDING;
-    }
-
-    /**
-     * Get total expenses
-     */
-    public function getTotalExpensesAttribute(): float
-    {
-        return (float) $this->expenses()->sum('amount');
-    }
-
-    /**
-     * Get paid expenses
-     */
-    public function getPaidExpensesAttribute(): float
-    {
-        return (float) $this->expenses()->paid()->sum('amount');
-    }
-
-    /**
-     * Get unpaid expenses
-     */
-    public function getUnpaidExpensesAttribute(): float
-    {
-        return (float) $this->expenses()->unpaid()->sum('amount');
     }
 
     /**
