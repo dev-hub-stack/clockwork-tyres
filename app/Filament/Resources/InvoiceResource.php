@@ -63,7 +63,7 @@ class InvoiceResource extends Resource
     {
         return parent::getEloquentQuery()
             ->invoices() // Uses the scope from Order model
-            ->with(['customer', 'warehouse', 'payments', 'expenses'])
+            ->with(['customer', 'warehouse', 'payments'])
             ->latest('issue_date');
     }
 
