@@ -13,7 +13,24 @@ return new class extends Migration
     {
         Schema::create('consignment_histories', function (Blueprint $table) {
             $table->id();
-            $table->timestamps();
+            
+            // Relationships
+            $table->foreignId('consignment_id')->constrained('consignments')->onDelete('cascade');
+            $table->foreignId('performed_by')->nullable()->constrained('users')->onDelete('set null');
+            
+            // Action Details
+            $table->string('action', 50); // created, sent, delivered, sale_recorded, return_recorded, etc.
+            $table->text('description'); // Human-readable description
+            $table->json('metadata')->nullable(); // Additional context data
+            
+            $table->timestamp('created_at')->useCurrent();
+            // No updated_at column - history records are immutable
+            
+            // Indexes
+            $table->index('consignment_id');
+            $table->index('performed_by');
+            $table->index('action');
+            $table->index('created_at');
         });
     }
 
