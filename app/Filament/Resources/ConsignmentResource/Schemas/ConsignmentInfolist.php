@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\App\Modules\Consignments\Models\Consignments\Schemas;
+namespace App\Filament\Resources\ConsignmentResource\Schemas;
 
 use Filament\Schemas\Schema;
 

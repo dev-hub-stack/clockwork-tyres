@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\App\Modules\Consignments\Models\Consignments\Tables;
+namespace App\Filament\Resources\ConsignmentResource\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;

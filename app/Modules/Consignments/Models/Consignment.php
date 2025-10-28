@@ -1,0 +1,283 @@
+<?php
+
+namespace App\Modules\Consignments\Models;
+
+use App\Models\User;
+use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Consignments\Enums\ConsignmentStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Consignment extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        // Core fields
+        'consignment_number',
+        'tracking_number',
+        
+        // Relationships
+        'customer_id',
+        'representative_id',
+        'warehouse_id',
+        'created_by',
+        
+        // Financial (uses organization settings for tax, currency)
+        'sub_total',
+        'tax',
+        'discount',
+        'shipping_cost',
+        'total',
+        'currency',
+        'tax_rate',
+        'discount_type',
+        
+        // Status & Tracking
+        'status',
+        'items_sent_count',
+        'items_sold_count',
+        'items_returned_count',
+        
+        // Dates
+        'issue_date',
+        'expected_return_date',
+        'sent_at',
+        'delivered_at',
+        
+        // Vehicle Information
+        'vehicle_year',
+        'vehicle_make',
+        'vehicle_model',
+        'vehicle_sub_model',
+        
+        // Notes
+        'notes',
+        'internal_notes',
+        
+        // Conversion
+        'converted_to_invoice_id',
+    ];
+
+    protected $casts = [
+        'status' => ConsignmentStatus::class,
+        'sub_total' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
+        'total' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
+        'items_sent_count' => 'integer',
+        'items_sold_count' => 'integer',
+        'items_returned_count' => 'integer',
+        'issue_date' => 'date',
+        'expected_return_date' => 'date',
+        'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+    ];
+
+    /**
+     * Get the customer that owns this consignment
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Get the warehouse for this consignment
+     */
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    /**
+     * Get the sales representative for this consignment
+     */
+    public function representative(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'representative_id');
+    }
+
+    /**
+     * Get the user who created this consignment
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get all items for this consignment
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(ConsignmentItem::class);
+    }
+
+    /**
+     * Get all history entries for this consignment
+     */
+    public function histories(): HasMany
+    {
+        return $this->hasMany(ConsignmentHistory::class);
+    }
+
+    /**
+     * Get the invoice this consignment was converted to (if applicable)
+     */
+    public function convertedInvoice(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Orders\Models\Order::class, 'converted_to_invoice_id');
+    }
+
+    /**
+     * Scope: Get recent consignments
+     */
+    public function scopeRecent($query)
+    {
+        return $query->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Scope: Get consignments by status
+     */
+    public function scopeByStatus($query, ConsignmentStatus $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope: Get active consignments (not cancelled or returned)
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereNotIn('status', [
+            ConsignmentStatus::CANCELLED,
+            ConsignmentStatus::RETURNED,
+        ]);
+    }
+
+    /**
+     * Calculate and update totals based on items
+     */
+    public function calculateTotals(): void
+    {
+        $this->sub_total = $this->items->sum(function ($item) {
+            return $item->quantity_sent * $item->price;
+        });
+
+        // Apply tax from organization settings
+        $this->tax = $this->sub_total * ($this->tax_rate / 100);
+        
+        // Calculate total
+        $this->total = $this->sub_total + $this->tax - $this->discount + $this->shipping_cost;
+        
+        $this->save();
+    }
+
+    /**
+     * Update item counts based on items
+     */
+    public function updateItemCounts(): void
+    {
+        $this->items_sent_count = $this->items->sum('quantity_sent');
+        $this->items_sold_count = $this->items->sum('quantity_sold');
+        $this->items_returned_count = $this->items->sum('quantity_returned');
+        $this->save();
+    }
+
+    /**
+     * Update status based on items
+     */
+    public function updateStatusBasedOnItems(): void
+    {
+        if ($this->items_sold_count >= $this->items_sent_count && $this->items_sent_count > 0) {
+            $this->status = ConsignmentStatus::INVOICED_IN_FULL;
+        } elseif ($this->items_sold_count > 0) {
+            $this->status = ConsignmentStatus::PARTIALLY_SOLD;
+        } elseif ($this->items_returned_count >= $this->items_sent_count && $this->items_sent_count > 0) {
+            $this->status = ConsignmentStatus::RETURNED;
+        }
+        
+        $this->save();
+    }
+
+    /**
+     * Check if consignment can record sale
+     */
+    public function canRecordSale(): bool
+    {
+        return $this->status->canRecordSale() && ($this->items_sold_count < $this->items_sent_count);
+    }
+
+    /**
+     * Check if consignment can record return
+     */
+    public function canRecordReturn(): bool
+    {
+        return $this->status->canRecordReturn() && $this->items_sold_count > 0;
+    }
+
+    /**
+     * Check if consignment is fully sold
+     */
+    public function isFullySold(): bool
+    {
+        return $this->items_sold_count >= $this->items_sent_count && $this->items_sent_count > 0;
+    }
+
+    /**
+     * Check if consignment is partially returned
+     */
+    public function isPartiallyReturned(): bool
+    {
+        return $this->items_returned_count > 0 && $this->items_returned_count < $this->items_sent_count;
+    }
+
+    /**
+     * Generate consignment number
+     */
+    public static function generateConsignmentNumber(): string
+    {
+        $prefix = 'CNS';
+        $year = date('Y');
+        
+        $lastConsignment = self::whereYear('created_at', $year)
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        $number = $lastConsignment ? intval(substr($lastConsignment->consignment_number, -4)) + 1 : 1;
+        
+        return $prefix . '-' . $year . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get formatted vehicle information
+     */
+    public function getVehicleInfo(): string
+    {
+        $parts = array_filter([
+            $this->vehicle_year,
+            $this->vehicle_make,
+            $this->vehicle_model,
+            $this->vehicle_sub_model,
+        ]);
+        
+        return implode(' ', $parts) ?: 'No vehicle info';
+    }
+
+    /**
+     * Format currency amount
+     */
+    public function formatCurrency(float $amount): string
+    {
+        $currency = $this->currency ?: 'USD';
+        return $currency . ' ' . number_format($amount, 2);
+    }
+}
