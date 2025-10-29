@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\ConsignmentResource\Tables;
 
+use App\Filament\Resources\ConsignmentResource\Actions\CancelConsignmentAction;
 use App\Filament\Resources\ConsignmentResource\Actions\ConvertToInvoiceAction;
+use App\Filament\Resources\ConsignmentResource\Actions\MarkAsSentAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordReturnAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordSaleAction;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
@@ -162,6 +164,9 @@ class ConsignmentsTable
                 
                 EditAction::make(),
                 
+                MarkAsSentAction::make()
+                    ->tooltip('Mark as sent to customer'),
+                
                 RecordSaleAction::make()
                     ->tooltip('Mark items as sold'),
                 
@@ -178,6 +183,9 @@ class ConsignmentsTable
                     ->url(fn ($record) => "#") // TODO: Implement PDF generation
                     ->openUrlInNewTab()
                     ->tooltip('Download consignment PDF'),
+                
+                CancelConsignmentAction::make()
+                    ->tooltip('Cancel this consignment'),
                 
                 DeleteAction::make(),
             ])
