@@ -256,6 +256,41 @@ class ConsignmentService
     }
 
     /**
+     * Convert consignment to invoice (public wrapper)
+     */
+    public function convertToInvoice(Consignment $consignment): Order
+    {
+        return DB::transaction(function () use ($consignment) {
+            // Get all sold items
+            $soldItems = $consignment->items()
+                ->where('qty_sold', '>', 0)
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'item_id' => $item->id,
+                        'quantity' => $item->qty_sold - ($item->invoiced_quantity ?? 0), // Only uninvoiced sold items
+                        'actual_sale_price' => $item->actual_sale_price ?? $item->price,
+                    ];
+                })
+                ->filter(fn ($item) => $item['quantity'] > 0)
+                ->toArray();
+
+            if (empty($soldItems)) {
+                throw new \Exception('No sold items available to invoice.');
+            }
+
+            $invoice = $this->createInvoiceForSoldItems($consignment, $soldItems);
+
+            $this->logHistory($consignment, 'converted_to_invoice', 'Converted to invoice', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->order_number,
+            ]);
+
+            return $invoice;
+        });
+    }
+
+    /**
      * Create invoice for sold items
      */
     protected function createInvoiceForSoldItems(Consignment $consignment, array $soldItems): Order

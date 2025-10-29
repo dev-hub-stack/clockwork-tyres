@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ConsignmentResource\Tables;
 
+use App\Filament\Resources\ConsignmentResource\Actions\ConvertToInvoiceAction;
+use App\Filament\Resources\ConsignmentResource\Actions\RecordReturnAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordSaleAction;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
 use App\Modules\Settings\Models\CurrencySetting;
@@ -163,20 +165,10 @@ class ConsignmentsTable
                 RecordSaleAction::make()
                     ->tooltip('Mark items as sold'),
                 
-                Action::make('record_return')
-                    ->label('Record Return')
-                    ->icon('heroicon-o-arrow-uturn-left')
-                    ->color('warning')
-                    ->visible(fn ($record) => $record->canRecordReturn())
-                    ->url(fn ($record) => "#") // TODO: Implement RecordReturnAction
+                RecordReturnAction::make()
                     ->tooltip('Mark items as returned'),
                 
-                Action::make('convert_to_invoice')
-                    ->label('Convert to Invoice')
-                    ->icon('heroicon-o-document-text')
-                    ->color('primary')
-                    ->visible(fn ($record) => $record->items_sold_count > 0 && !$record->converted_to_invoice_id)
-                    ->url(fn ($record) => "#") // TODO: Implement ConvertToInvoiceAction
+                ConvertToInvoiceAction::make()
                     ->tooltip('Create invoice for sold items'),
                 
                 Action::make('print_pdf')
