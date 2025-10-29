@@ -180,7 +180,7 @@ class ConsignmentsTable
                     ->label('Print PDF')
                     ->icon('heroicon-o-printer')
                     ->color('gray')
-                    ->url(fn ($record) => "#") // TODO: Implement PDF generation
+                    ->url(fn ($record) => route('consignment.pdf', $record))
                     ->openUrlInNewTab()
                     ->tooltip('Download consignment PDF'),
                 

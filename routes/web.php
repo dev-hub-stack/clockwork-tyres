@@ -6,6 +6,7 @@ use App\Http\Controllers\ProductVariantGridController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\QuotePdfController;
+use App\Http\Controllers\ConsignmentPdfController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -14,6 +15,7 @@ Route::get('/', function () {
 // PDF Download Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/quote/{quote}/pdf', [QuotePdfController::class, 'download'])->name('quote.pdf');
+    Route::get('/consignment/{consignment}/pdf', [ConsignmentPdfController::class, 'download'])->name('consignment.pdf');
 });
 
 // Product Variants Grid Routes (Tunerstop-style implementation)
