@@ -197,12 +197,21 @@ class Consignment extends Model
      */
     public function updateStatusBasedOnItems(): void
     {
-        if ($this->items_sold_count >= $this->items_sent_count && $this->items_sent_count > 0) {
-            $this->status = ConsignmentStatus::INVOICED_IN_FULL;
-        } elseif ($this->items_sold_count > 0) {
-            $this->status = ConsignmentStatus::PARTIALLY_SOLD;
-        } elseif ($this->items_returned_count >= $this->items_sent_count && $this->items_sent_count > 0) {
+        // If all sent items are returned
+        if ($this->items_returned_count >= $this->items_sent_count && $this->items_sent_count > 0) {
             $this->status = ConsignmentStatus::RETURNED;
+        }
+        // If some items are returned (but not all)
+        elseif ($this->items_returned_count > 0 && $this->items_returned_count < $this->items_sent_count) {
+            $this->status = ConsignmentStatus::PARTIALLY_RETURNED;
+        }
+        // If all sent items are sold
+        elseif ($this->items_sold_count >= $this->items_sent_count && $this->items_sent_count > 0) {
+            $this->status = ConsignmentStatus::INVOICED_IN_FULL;
+        }
+        // If some items are sold (but not all)
+        elseif ($this->items_sold_count > 0) {
+            $this->status = ConsignmentStatus::PARTIALLY_SOLD;
         }
         
         $this->save();

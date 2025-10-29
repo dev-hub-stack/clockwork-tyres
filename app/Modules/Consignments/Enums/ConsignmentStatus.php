@@ -12,6 +12,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
     case SENT = 'sent';
     case DELIVERED = 'delivered';
     case PARTIALLY_SOLD = 'partially_sold';
+    case PARTIALLY_RETURNED = 'partially_returned';
     case INVOICED_IN_FULL = 'invoiced_in_full';
     case RETURNED = 'returned';
     case CANCELLED = 'cancelled';
@@ -23,6 +24,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
             self::SENT => 'Sent',
             self::DELIVERED => 'Delivered',
             self::PARTIALLY_SOLD => 'Partially Sold',
+            self::PARTIALLY_RETURNED => 'Partially Returned',
             self::INVOICED_IN_FULL => 'Invoiced in Full',
             self::RETURNED => 'Returned',
             self::CANCELLED => 'Cancelled',
@@ -36,6 +38,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
             self::SENT => 'info',
             self::DELIVERED => 'primary',
             self::PARTIALLY_SOLD => 'warning',
+            self::PARTIALLY_RETURNED => 'warning',
             self::INVOICED_IN_FULL => 'success',
             self::RETURNED => 'danger',
             self::CANCELLED => 'gray',
@@ -49,6 +52,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
             self::SENT => 'heroicon-o-paper-airplane',
             self::DELIVERED => 'heroicon-o-truck',
             self::PARTIALLY_SOLD => 'heroicon-o-clock',
+            self::PARTIALLY_RETURNED => 'heroicon-o-arrow-path',
             self::INVOICED_IN_FULL => 'heroicon-o-check-circle',
             self::RETURNED => 'heroicon-o-arrow-uturn-left',
             self::CANCELLED => 'heroicon-o-x-circle',
@@ -62,10 +66,11 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
     {
         return match ($this) {
             self::DRAFT => [self::SENT, self::CANCELLED],
-            self::SENT => [self::DELIVERED, self::CANCELLED],
-            self::DELIVERED => [self::PARTIALLY_SOLD, self::INVOICED_IN_FULL, self::RETURNED, self::CANCELLED],
-            self::PARTIALLY_SOLD => [self::INVOICED_IN_FULL, self::RETURNED],
-            self::INVOICED_IN_FULL => [self::RETURNED],
+            self::SENT => [self::DELIVERED, self::PARTIALLY_SOLD, self::CANCELLED],
+            self::DELIVERED => [self::PARTIALLY_SOLD, self::INVOICED_IN_FULL, self::PARTIALLY_RETURNED, self::RETURNED, self::CANCELLED],
+            self::PARTIALLY_SOLD => [self::INVOICED_IN_FULL, self::PARTIALLY_RETURNED, self::RETURNED],
+            self::PARTIALLY_RETURNED => [self::RETURNED, self::PARTIALLY_SOLD],
+            self::INVOICED_IN_FULL => [self::PARTIALLY_RETURNED, self::RETURNED],
             self::RETURNED => [],
             self::CANCELLED => [],
         };
@@ -92,7 +97,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
      */
     public function canRecordSale(): bool
     {
-        return in_array($this, [self::DELIVERED, self::PARTIALLY_SOLD]);
+        return in_array($this, [self::SENT, self::DELIVERED, self::PARTIALLY_SOLD, self::PARTIALLY_RETURNED]);
     }
 
     /**
@@ -100,7 +105,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
      */
     public function canRecordReturn(): bool
     {
-        return in_array($this, [self::DELIVERED, self::PARTIALLY_SOLD, self::INVOICED_IN_FULL]);
+        return in_array($this, [self::DELIVERED, self::PARTIALLY_SOLD, self::PARTIALLY_RETURNED, self::INVOICED_IN_FULL]);
     }
 
     /**
