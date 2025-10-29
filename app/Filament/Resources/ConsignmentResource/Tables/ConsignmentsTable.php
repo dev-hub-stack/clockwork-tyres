@@ -11,11 +11,10 @@ use App\Modules\Consignments\Enums\ConsignmentStatus;
 use App\Modules\Settings\Models\CurrencySetting;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -57,9 +56,13 @@ class ConsignmentsTable
                     ->colors([
                         'secondary' => ConsignmentStatus::DRAFT->value,
                         'primary' => ConsignmentStatus::SENT->value,
-                        'warning' => ConsignmentStatus::PARTIAL->value,
-                        'success' => ConsignmentStatus::COMPLETED->value,
-                        'info' => ConsignmentStatus::RETURNED->value,
+                        'info' => ConsignmentStatus::DELIVERED->value,
+                        'warning' => [
+                            ConsignmentStatus::PARTIALLY_SOLD->value,
+                            ConsignmentStatus::PARTIALLY_RETURNED->value,
+                        ],
+                        'success' => ConsignmentStatus::INVOICED_IN_FULL->value,
+                        'gray' => ConsignmentStatus::RETURNED->value,
                         'danger' => ConsignmentStatus::CANCELLED->value,
                     ])
                     ->formatStateUsing(fn ($state) => $state ? $state->getLabel() : 'N/A'),
@@ -114,8 +117,10 @@ class ConsignmentsTable
                     ->options([
                         ConsignmentStatus::DRAFT->value => 'Draft',
                         ConsignmentStatus::SENT->value => 'Sent',
-                        ConsignmentStatus::PARTIAL->value => 'Partial',
-                        ConsignmentStatus::COMPLETED->value => 'Completed',
+                        ConsignmentStatus::DELIVERED->value => 'Delivered',
+                        ConsignmentStatus::PARTIALLY_SOLD->value => 'Partially Sold',
+                        ConsignmentStatus::PARTIALLY_RETURNED->value => 'Partially Returned',
+                        ConsignmentStatus::INVOICED_IN_FULL->value => 'Invoiced in Full',
                         ConsignmentStatus::RETURNED->value => 'Returned',
                         ConsignmentStatus::CANCELLED->value => 'Cancelled',
                     ]),
@@ -160,10 +165,6 @@ class ConsignmentsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                
-                EditAction::make(),
-                
                 MarkAsSentAction::make()
                     ->tooltip('Mark as sent to customer'),
                 

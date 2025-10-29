@@ -211,7 +211,7 @@ class ConsignmentForm
                         
                         Grid::make(3)
                             ->schema([
-                                TextInput::make('sub_total')
+                                TextInput::make('subtotal')
                                     ->label('Subtotal')
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')

@@ -501,7 +501,7 @@
         <table class="totals-table">
             <tr>
                 <td class="label">Subtotal:</td>
-                <td class="value">{{ $currency }} {{ number_format($consignment->sub_total, 2) }}</td>
+                <td class="value">{{ $currency }} {{ number_format($consignment->subtotal, 2) }}</td>
             </tr>
             @if($consignment->tax > 0)
                 <tr>

@@ -11,6 +11,9 @@ class ConsignmentHistory extends Model
 {
     use HasFactory;
 
+    // History records are immutable - only created_at, no updated_at
+    const UPDATED_AT = null;
+
     protected $fillable = [
         'consignment_id',
         'action',

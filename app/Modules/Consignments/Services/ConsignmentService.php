@@ -250,7 +250,7 @@ class ConsignmentService
             'status' => ConsignmentStatus::CANCELLED,
         ]);
 
-        $this->logHistory($consignment, 'cancelled', 'Consignment cancelled', [
+        $this->logHistory($consignment, 'cancelled', $reason ?: 'Consignment cancelled', [
             'reason' => $reason,
         ]);
     }
@@ -306,7 +306,7 @@ class ConsignmentService
             'tax' => 0,
             'total' => 0,
             'order_status' => \App\Modules\Orders\Enums\OrderStatus::PENDING,
-            'payment_status' => \App\Modules\Orders\Enums\PaymentStatus::UNPAID,
+            'payment_status' => \App\Modules\Orders\Enums\PaymentStatus::PENDING,
             'issue_date' => now(),
             'order_notes' => "Created from Consignment #{$consignment->consignment_number}",
         ]);
@@ -331,7 +331,7 @@ class ConsignmentService
                     'quantity' => $quantity,
                     'unit_price' => $price,
                     'line_total' => $quantity * $price,
-                    'tax_inclusive' => $item->tax_inclusive,
+                    'tax_inclusive' => false, // Consignment items are not tax inclusive
                 ]);
 
                 $subtotal += ($quantity * $price);
@@ -348,7 +348,7 @@ class ConsignmentService
 
         // Link consignment to invoice
         $consignment->update([
-            'converted_to_invoice_id' => $invoice->id,
+            'converted_invoice_id' => $invoice->id,
         ]);
 
         return $invoice;
@@ -363,11 +363,10 @@ class ConsignmentService
             'warehouse_id' => $warehouseId,
             'product_variant_id' => $item->product_variant_id,
         ], [
-            'quantity_available' => 0,
-            'quantity_reserved' => 0,
+            'quantity' => 0,
         ]);
 
-        $inventory->increment('quantity_available', $quantity);
+        $inventory->increment('quantity', $quantity);
     }
 
     /**

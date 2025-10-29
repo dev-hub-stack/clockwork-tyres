@@ -37,15 +37,11 @@ class ConsignmentItem extends Model
         // Pricing
         'price',
         'actual_sale_price',
-        'tax_inclusive',
         
         // Status & Dates
         'status',
         'date_sold',
         'date_returned',
-        
-        // Notes
-        'notes',
     ];
 
     protected $casts = [
@@ -56,7 +52,6 @@ class ConsignmentItem extends Model
         'quantity_returned' => 'integer',
         'price' => 'decimal:2',
         'actual_sale_price' => 'decimal:2',
-        'tax_inclusive' => 'boolean',
         'date_sold' => 'datetime',
         'date_returned' => 'datetime',
     ];

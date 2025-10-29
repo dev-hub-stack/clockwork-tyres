@@ -122,28 +122,28 @@ try {
     echo "Attempting to sell 3 units (available: {$item1->quantity})...\n";
     $result = $service->recordSale($consignment, [
         [
-            'consignment_item_id' => $item1->id,
-            'quantity_sold' => 3,
-            'sale_price' => 100.00,
+            'item_id' => $item1->id,
+            'quantity' => 3,
+            'actual_sale_price' => 100.00,
         ]
     ], false);
     
     $item1->refresh();
-    if ($item1->quantity_sold !== 3) {
+    if ($item1->quantity !== 3) {
         throw new \Exception('Quantity sold not updated correctly');
     }
     echo "✓ Sale recorded: 3 units sold\n";
     
     // Try to sell more than available
-    $availableNow = $item1->quantity - $item1->quantity_sold;
+    $availableNow = $item1->quantity - $item1->quantity;
     echo "Attempting to sell " . ($availableNow + 1) . " units (available: {$availableNow})...\n";
     
     try {
         $result = $service->recordSale($consignment, [
             [
-                'consignment_item_id' => $item1->id,
-                'quantity_sold' => $availableNow + 1,
-                'sale_price' => 100.00,
+                'item_id' => $item1->id,
+                'quantity' => $availableNow + 1,
+                'actual_sale_price' => 100.00,
             ]
         ], false);
         echo "✗ Should have prevented overselling!\n";
@@ -166,17 +166,17 @@ try {
     echo "Recording sale with invoice creation...\n";
     $result = $service->recordSale($consignment, [
         [
-            'consignment_item_id' => $item2->id,
-            'quantity_sold' => 2,
-            'sale_price' => 200.00,
+            'item_id' => $item2->id,
+            'quantity' => 2,
+            'actual_sale_price' => 200.00,
         ]
     ], true); // Create invoice
     
-    if (!isset($result['invoice'])) {
+    if (!isset($result)) {
         throw new \Exception('Invoice was not created');
     }
     
-    $invoice = $result['invoice'];
+    $invoice = $result;
     echo "✓ Invoice created: {$invoice->order_number}\n";
     echo "  Invoice items: {$invoice->items->count()}\n";
     echo "  Invoice total: \$" . number_format($invoice->total, 2) . "\n";
@@ -194,14 +194,14 @@ try {
     test('4. RecordReturnAction - Can only return sold items');
     
     $item1->refresh();
-    echo "Item 1: Sold={$item1->quantity_sold}, Returned={$item1->quantity_returned}\n";
+    echo "Item 1: Sold={$item1->quantity}, Returned={$item1->quantity}\n";
     
     // Try to return more than sold
     try {
         $result = $service->recordReturn($consignment, [
             [
-                'consignment_item_id' => $item1->id,
-                'quantity_returned' => $item1->quantity_sold + 1,
+                'item_id' => $item1->id,
+                'quantity' => $item1->quantity + 1,
                 'return_reason' => 'Test return',
             ]
         ], false);
@@ -215,17 +215,17 @@ try {
     }
     
     // Valid return
-    echo "Returning 1 unit (sold: {$item1->quantity_sold})...\n";
+    echo "Returning 1 unit (sold: {$item1->quantity})...\n";
     $result = $service->recordReturn($consignment, [
         [
-            'consignment_item_id' => $item1->id,
-            'quantity_returned' => 1,
+            'item_id' => $item1->id,
+            'quantity' => 1,
             'return_reason' => 'Customer changed mind',
         ]
     ], true); // Update inventory
     
     $item1->refresh();
-    if ($item1->quantity_returned !== 1) {
+    if ($item1->quantity !== 1) {
         throw new \Exception('Return quantity not updated');
     }
     echo "✓ Return recorded: 1 unit returned\n";
@@ -273,15 +273,15 @@ try {
     // Convert main consignment (has sold items)
     echo "\nConverting main consignment (has sold items)...\n";
     
-    if ($consignment->converted_to_invoice_id) {
+    if ($consignment->converted_invoice_id) {
         echo "⚠ Consignment already converted\n";
     } else {
         $finalInvoice = $service->convertToInvoice($consignment);
         echo "✓ Conversion successful: {$finalInvoice->order_number}\n";
         
         $consignment->refresh();
-        if (!$consignment->converted_to_invoice_id) {
-            throw new \Exception('converted_to_invoice_id not set');
+        if (!$consignment->converted_invoice_id) {
+            throw new \Exception('converted_invoice_id not set');
         }
         echo "✓ Conversion link saved\n";
     }
@@ -341,25 +341,25 @@ try {
     $item1->refresh();
     echo "Item 1 current state:\n";
     echo "  Sent: {$item1->quantity}\n";
-    echo "  Sold: {$item1->quantity_sold}\n";
-    echo "  Returned: {$item1->quantity_returned}\n";
+    echo "  Sold: {$item1->quantity}\n";
+    echo "  Returned: {$item1->quantity}\n";
     
-    $canReturn = $item1->quantity_sold - $item1->quantity_returned;
+    $canReturn = $item1->quantity - $item1->quantity;
     echo "  Can still return: {$canReturn}\n";
     
     if ($canReturn > 0) {
         echo "\nRecording another return...\n";
         $service->recordReturn($consignment, [
             [
-                'consignment_item_id' => $item1->id,
-                'quantity_returned' => 1,
+                'item_id' => $item1->id,
+                'quantity' => 1,
                 'return_reason' => 'Second return',
             ]
         ], false);
         
         $item1->refresh();
         echo "✓ Second return recorded\n";
-        echo "  Total returned: {$item1->quantity_returned}\n";
+        echo "  Total returned: {$item1->quantity}\n";
     }
     
     // ==========================================
@@ -370,10 +370,10 @@ try {
     echo "Verifying available quantities for all items...\n\n";
     
     foreach ($consignment->items as $item) {
-        $available = $item->quantity - $item->quantity_sold + $item->quantity_returned;
+        $available = $item->quantity - $item->quantity + $item->quantity;
         
         echo "Item: {$item->product_variant->sku}\n";
-        echo "  Formula: {$item->quantity} - {$item->quantity_sold} + {$item->quantity_returned} = {$available}\n";
+        echo "  Formula: {$item->quantity} - {$item->quantity} + {$item->quantity} = {$available}\n";
         
         if ($available < 0) {
             throw new \Exception('Available quantity cannot be negative!');

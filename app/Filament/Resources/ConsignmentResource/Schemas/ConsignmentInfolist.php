@@ -190,7 +190,7 @@ class ConsignmentInfolist
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                TextEntry::make('sub_total')
+                                TextEntry::make('subtotal')
                                     ->label('Subtotal')
                                     ->money($currency)
                                     ->size('lg'),

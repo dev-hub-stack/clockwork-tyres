@@ -28,7 +28,7 @@ class Consignment extends Model
         'created_by',
         
         // Financial (uses organization settings for tax, currency)
-        'sub_total',
+        'subtotal',
         'tax',
         'discount',
         'shipping_cost',
@@ -60,12 +60,12 @@ class Consignment extends Model
         'internal_notes',
         
         // Conversion
-        'converted_to_invoice_id',
+        'converted_invoice_id',
     ];
 
     protected $casts = [
         'status' => ConsignmentStatus::class,
-        'sub_total' => 'decimal:2',
+        'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'discount' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
@@ -133,7 +133,7 @@ class Consignment extends Model
      */
     public function convertedInvoice(): BelongsTo
     {
-        return $this->belongsTo(\App\Modules\Orders\Models\Order::class, 'converted_to_invoice_id');
+        return $this->belongsTo(\App\Modules\Orders\Models\Order::class, 'converted_invoice_id');
     }
 
     /**
@@ -168,15 +168,15 @@ class Consignment extends Model
      */
     public function calculateTotals(): void
     {
-        $this->sub_total = $this->items->sum(function ($item) {
+        $this->subtotal = $this->items->sum(function ($item) {
             return $item->quantity_sent * $item->price;
         });
 
         // Apply tax from organization settings
-        $this->tax = $this->sub_total * ($this->tax_rate / 100);
+        $this->tax = $this->subtotal * ($this->tax_rate / 100);
         
         // Calculate total
-        $this->total = $this->sub_total + $this->tax - $this->discount + $this->shipping_cost;
+        $this->total = $this->subtotal + $this->tax - $this->discount + $this->shipping_cost;
         
         $this->save();
     }
