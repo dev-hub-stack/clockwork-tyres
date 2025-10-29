@@ -3,11 +3,14 @@
 namespace App\Filament\Resources\ConsignmentResource\Actions;
 
 use App\Modules\Consignments\Models\Consignment;
-use App\Modules\Consignments\Services\ConsignmentService;
+use App\Modules\Consignments\Services\ConsignmentReturnService;
+use App\Modules\Inventory\Models\Warehouse;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -19,112 +22,159 @@ class RecordReturnAction
         return Action::make('record_return')
             ->label('Record Return')
             ->icon('heroicon-o-arrow-uturn-left')
-            ->color('warning')
-            ->modalHeading('Record Items Returned')
-            ->modalDescription('Select which sold items have been returned by the customer')
-            ->modalWidth('5xl')
+            ->color('info')
+            ->modalHeading(fn (Consignment $record) => 'Record Return - Consignment #' . $record->consignment_number)
+            ->modalDescription('Select items that were returned to warehouse. Inventory will be updated.')
+            ->modalWidth('6xl')
             ->visible(fn (Consignment $record) => $record->canRecordReturn())
             ->form(function (Consignment $record) {
-                // Get items that can be returned (have sold quantity > returned quantity)
+                // Get items that can be returned (sent items that haven't been returned yet)
                 $returnableItems = $record->items()
                     ->get()
-                    ->filter(fn ($item) => $item->getAvailableToReturn() > 0);
+                    ->filter(fn ($item) => ($item->quantity_sent - $item->quantity_returned) > 0);
 
                 if ($returnableItems->isEmpty()) {
                     return [
                         Placeholder::make('no_items')
-                            ->content('No items available to return. No items have been sold yet or all sold items have been returned.')
+                            ->content('⚠️ No items available to return. All items have been returned.')
                             ->columnSpanFull(),
                     ];
                 }
 
+                // Get active warehouses
+                $warehouses = Warehouse::where('status', 1)
+                    ->orderBy('warehouse_name')
+                    ->get()
+                    ->mapWithKeys(fn ($wh) => [$wh->id => $wh->warehouse_name . ' (' . $wh->code . ')']);
+
                 return [
-                    Placeholder::make('info')
-                        ->content("**Consignment:** {$record->consignment_number}<br>**Customer:** {$record->customer->business_name}")
-                        ->columnSpanFull(),
-                    
-                    Repeater::make('returned_items')
-                        ->label('Items to Return')
+                    // Customer Information Section
+                    Section::make('Customer Information')
                         ->schema([
-                            TextInput::make('item_id')
-                                ->hidden()
-                                ->default(fn ($state, $get) => $get('item_id')),
-                            
-                            Placeholder::make('product_info')
-                                ->label('Product')
-                                ->content(function ($get) {
-                                    $itemId = $get('item_id');
-                                    if (!$itemId) return 'Select item';
+                            Grid::make(3)
+                                ->schema([
+                                    Placeholder::make('customer_name')
+                                        ->label('Customer')
+                                        ->content($record->customer->business_name ?? $record->customer->full_name),
                                     
-                                    $item = \App\Modules\Consignments\Models\ConsignmentItem::find($itemId);
-                                    if (!$item) return 'Item not found';
+                                    Placeholder::make('customer_email')
+                                        ->label('Email')
+                                        ->content($record->customer->email),
                                     
-                                    return "**{$item->product_name}**<br>SKU: {$item->sku}<br>Sent: {$item->qty_sent} | Sold: {$item->qty_sold} | Returned: {$item->qty_returned} | Available to Return: {$item->getAvailableToReturn()}";
-                                })
-                                ->columnSpan(2),
-                            
-                            TextInput::make('quantity')
-                                ->label('Quantity to Return')
-                                ->numeric()
-                                ->required()
-                                ->minValue(1)
-                                ->default(1)
-                                ->live()
-                                ->maxValue(function ($get) {
-                                    $itemId = $get('item_id');
-                                    if (!$itemId) return 999;
-                                    
-                                    $item = \App\Modules\Consignments\Models\ConsignmentItem::find($itemId);
-                                    return $item ? $item->getAvailableToReturn() : 999;
-                                })
-                                ->helperText(fn ($get) => 'Available to return: ' . ($get('available_to_return') ?? 'N/A'))
-                                ->columnSpan(1),
-                            
-                            Textarea::make('return_reason')
-                                ->label('Return Reason')
-                                ->rows(2)
-                                ->placeholder('Optional: Why is this item being returned?')
-                                ->columnSpan(1),
+                                    Placeholder::make('customer_phone')
+                                        ->label('Phone')
+                                        ->content($record->customer->phone ?? 'N/A'),
+                                ]),
                         ])
-                        ->default(function () use ($returnableItems) {
-                            return $returnableItems->map(function ($item) {
-                                return [
-                                    'item_id' => $item->id,
-                                    'product_name' => $item->product_name,
-                                    'sku' => $item->sku,
-                                    'quantity_sent' => $item->qty_sent,
-                                    'quantity_sold' => $item->qty_sold,
-                                    'quantity_returned' => $item->qty_returned,
-                                    'available_to_return' => $item->getAvailableToReturn(),
-                                    'quantity' => 1,
-                                    'return_reason' => '',
-                                ];
-                            })->toArray();
-                        })
-                        ->columns(4)
-                        ->reorderable(false)
-                        ->addable(false)
-                        ->deletable(true)
-                        ->minItems(1)
-                        ->columnSpanFull(),
+                        ->collapsible()
+                        ->collapsed(true),
                     
-                    Checkbox::make('update_inventory')
-                        ->label('Update Warehouse Inventory')
-                        ->helperText('If checked, returned items will be added back to warehouse stock')
-                        ->default(true)
-                        ->columnSpanFull(),
+                    // Items to Return Section
+                    Section::make('Items to Return')
+                        ->description('Select items being returned and specify warehouse')
+                        ->schema([
+                            Repeater::make('returned_items')
+                                ->label('')
+                                ->schema([
+                                    Select::make('item_id')
+                                        ->label('Item')
+                                        ->options($returnableItems->mapWithKeys(function ($item) {
+                                            $availableToReturn = $item->quantity_sent - $item->quantity_returned;
+                                            return [
+                                                $item->id => "{$item->name} - SKU: {$item->sku} (Can return: {$availableToReturn})"
+                                            ];
+                                        }))
+                                        ->required()
+                                        ->reactive()
+                                        ->afterStateUpdated(function ($state, callable $set) use ($record) {
+                                            $item = $record->items()->find($state);
+                                            if ($item) {
+                                                $availableToReturn = $item->quantity_sent - $item->quantity_returned;
+                                                $set('max_quantity', $availableToReturn);
+                                                $set('quantity', 1);
+                                            }
+                                        })
+                                        ->searchable()
+                                        ->columnSpan(2),
+                                    
+                                    TextInput::make('quantity')
+                                        ->label('Quantity to Return')
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(1)
+                                        ->maxValue(fn (callable $get) => $get('max_quantity') ?? 999)
+                                        ->default(1)
+                                        ->helperText(fn (callable $get) => 
+                                            'Max returnable: ' . ($get('max_quantity') ?? 'N/A')
+                                        )
+                                        ->columnSpan(1),
+                                    
+                                    Select::make('warehouse_id')
+                                        ->label('Return to Warehouse')
+                                        ->options($warehouses)
+                                        ->required()
+                                        ->searchable()
+                                        ->helperText('Select warehouse to receive returned items')
+                                        ->columnSpan(2),
+                                    
+                                    Select::make('condition')
+                                        ->label('Item Condition')
+                                        ->options([
+                                            'good' => '✅ Good (Add to inventory)',
+                                            'damaged' => '⚠️ Damaged',
+                                            'defective' => '❌ Defective',
+                                        ])
+                                        ->default('good')
+                                        ->required()
+                                        ->helperText('Only "Good" items will be added back to inventory')
+                                        ->columnSpan(1),
+                                    
+                                    // Hidden field for tracking
+                                    TextInput::make('max_quantity')->hidden()->default(0),
+                                ])
+                                ->columns(6)
+                                ->defaultItems(0)
+                                ->addActionLabel('Add Item to Return')
+                                ->reorderable(false)
+                                ->columnSpanFull(),
+                        ]),
+                    
+                    // Return Details Section
+                    Section::make('Return Details')
+                        ->schema([
+                            Select::make('return_reason')
+                                ->label('Return Reason')
+                                ->options([
+                                    'customer_request' => 'Customer Request',
+                                    'not_sold' => 'Items Not Sold',
+                                    'damaged' => 'Damaged/Defective',
+                                    'wrong_item' => 'Wrong Item',
+                                    'end_of_period' => 'End of Consignment Period',
+                                    'other' => 'Other',
+                                ])
+                                ->helperText('Select the reason for return')
+                                ->columnSpan(1),
+                            
+                            Textarea::make('return_notes')
+                                ->label('Return Notes (Optional)')
+                                ->rows(3)
+                                ->placeholder('Add any notes about this return...')
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(1),
                 ];
             })
-            ->action(function (Consignment $record, array $data, ConsignmentService $service) {
+            ->action(function (Consignment $record, array $data) {
                 try {
-                    // Filter out items with 0 quantity and prepare data
+                    // Filter out items with missing data
                     $returnedItems = collect($data['returned_items'] ?? [])
-                        ->filter(fn ($item) => ($item['quantity'] ?? 0) > 0)
+                        ->filter(fn ($item) => !empty($item['item_id']) && ($item['quantity'] ?? 0) > 0)
                         ->map(function ($item) {
                             return [
                                 'item_id' => $item['item_id'],
                                 'quantity' => $item['quantity'],
-                                'return_reason' => $item['return_reason'] ?? null,
+                                'warehouse_id' => $item['warehouse_id'],
+                                'condition' => $item['condition'] ?? 'good',
                             ];
                         })
                         ->toArray();
@@ -133,29 +183,29 @@ class RecordReturnAction
                         Notification::make()
                             ->warning()
                             ->title('No Items to Return')
-                            ->body('Please select at least one item with a quantity greater than 0.')
+                            ->body('Please add at least one item with a quantity greater than 0.')
                             ->send();
                         return;
                     }
-
-                    $updateInventory = $data['update_inventory'] ?? false;
                     
                     // Call service to record return
-                    $service->recordReturn($record, $returnedItems, $updateInventory);
+                    $service = app(ConsignmentReturnService::class);
+                    $service->recordReturn(
+                        consignment: $record,
+                        returnedItems: $returnedItems,
+                        reason: $data['return_reason'] ?? null,
+                        notes: $data['return_notes'] ?? null
+                    );
                     
-                    // Success notification
-                    $returnedCount = count($returnedItems);
+                    // Count good items that will be added to inventory
+                    $goodItems = collect($returnedItems)->where('condition', 'good')->count();
                     $totalQty = collect($returnedItems)->sum('quantity');
                     
-                    $body = "Recorded return of {$totalQty} items ({$returnedCount} line items)";
-                    if ($updateInventory) {
-                        $body .= ". Warehouse inventory has been updated.";
-                    }
-                    
+                    // Success notification
                     Notification::make()
                         ->success()
                         ->title('Return Recorded Successfully')
-                        ->body($body)
+                        ->body("Recorded return of {$totalQty} items. {$goodItems} items added back to inventory.")
                         ->send();
                     
                 } catch (\Exception $e) {
@@ -164,11 +214,7 @@ class RecordReturnAction
                         ->title('Error Recording Return')
                         ->body($e->getMessage())
                         ->send();
-                    
-                    throw $e;
                 }
-            })
-            ->successNotificationTitle('Return recorded successfully')
-            ->requiresConfirmation(false); // Already has modal with form
+            });
     }
 }

@@ -7,7 +7,6 @@ use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\Split;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Number;
@@ -23,82 +22,79 @@ class ConsignmentInfolist
                 // Section 1: Consignment Information
                 Section::make('Consignment Information')
                     ->schema([
-                        Split::make([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('consignment_number')
-                                        ->label('Consignment Number')
-                                        ->weight('bold')
-                                        ->copyable()
-                                        ->icon('heroicon-o-document-text'),
-                                    
-                                    TextEntry::make('tracking_number')
-                                        ->label('Tracking Number')
-                                        ->placeholder('N/A')
-                                        ->copyable(),
-                                    
-                                    TextEntry::make('customer.business_name')
-                                        ->label('Customer')
-                                        ->icon('heroicon-o-user')
-                                        ->url(fn ($record) => $record->customer ? route('filament.admin.resources.customers.view', $record->customer) : null),
-                                    
-                                    TextEntry::make('representative.name')
-                                        ->label('Sales Representative')
-                                        ->placeholder('N/A')
-                                        ->icon('heroicon-o-user-circle'),
-                                    
-                                    TextEntry::make('warehouse.warehouse_name')
-                                        ->label('Warehouse')
-                                        ->placeholder('N/A')
-                                        ->icon('heroicon-o-building-storefront'),
-                                    
-                                    TextEntry::make('status')
-                                        ->badge()
-                                        ->color(fn ($state) => match ($state?->value) {
-                                            'draft' => 'secondary',
-                                            'sent' => 'primary',
-                                            'partial' => 'warning',
-                                            'completed' => 'success',
-                                            'returned' => 'info',
-                                            'cancelled' => 'danger',
-                                            default => 'gray',
-                                        }),
-                                    
-                                    TextEntry::make('issue_date')
-                                        ->label('Issue Date')
-                                        ->date()
-                                        ->icon('heroicon-o-calendar'),
-                                    
-                                    TextEntry::make('expected_return_date')
-                                        ->label('Expected Return Date')
-                                        ->date()
-                                        ->placeholder('Not Set')
-                                        ->icon('heroicon-o-calendar-days'),
-                                    
-                                    TextEntry::make('sent_at')
-                                        ->label('Sent Date')
-                                        ->dateTime()
-                                        ->placeholder('Not Sent')
-                                        ->icon('heroicon-o-paper-airplane'),
-                                    
-                                    TextEntry::make('delivered_at')
-                                        ->label('Delivered Date')
-                                        ->dateTime()
-                                        ->placeholder('Not Delivered')
-                                        ->icon('heroicon-o-truck'),
-                                    
-                                    TextEntry::make('created_at')
-                                        ->label('Created')
-                                        ->dateTime()
-                                        ->icon('heroicon-o-clock'),
-                                    
-                                    TextEntry::make('updated_at')
-                                        ->label('Last Updated')
-                                        ->dateTime()
-                                        ->icon('heroicon-o-arrow-path'),
-                                ])
-                                ->columnSpan(2),
-                        ]),
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('consignment_number')
+                                    ->label('Consignment Number')
+                                    ->weight('bold')
+                                    ->copyable()
+                                    ->icon('heroicon-o-document-text'),
+                                
+                                TextEntry::make('tracking_number')
+                                    ->label('Tracking Number')
+                                    ->placeholder('N/A')
+                                    ->copyable(),
+                                
+                                TextEntry::make('customer.business_name')
+                                    ->label('Customer')
+                                    ->icon('heroicon-o-user')
+                                    ->url(fn ($record) => $record->customer ? route('filament.admin.resources.customers.view', $record->customer) : null),
+                                
+                                TextEntry::make('representative.name')
+                                    ->label('Sales Representative')
+                                    ->placeholder('N/A')
+                                    ->icon('heroicon-o-user-circle'),
+                                
+                                TextEntry::make('warehouse.warehouse_name')
+                                    ->label('Warehouse')
+                                    ->placeholder('N/A')
+                                    ->icon('heroicon-o-building-storefront'),
+                                
+                                TextEntry::make('status')
+                                    ->badge()
+                                    ->color(fn ($state) => match ($state?->value) {
+                                        'draft' => 'secondary',
+                                        'sent' => 'primary',
+                                        'partial' => 'warning',
+                                        'completed' => 'success',
+                                        'returned' => 'info',
+                                        'cancelled' => 'danger',
+                                        default => 'gray',
+                                    }),
+                                
+                                TextEntry::make('issue_date')
+                                    ->label('Issue Date')
+                                    ->date()
+                                    ->icon('heroicon-o-calendar'),
+                                
+                                TextEntry::make('expected_return_date')
+                                    ->label('Expected Return Date')
+                                    ->date()
+                                    ->placeholder('Not Set')
+                                    ->icon('heroicon-o-calendar-days'),
+                                
+                                TextEntry::make('sent_at')
+                                    ->label('Sent Date')
+                                    ->dateTime()
+                                    ->placeholder('Not Sent')
+                                    ->icon('heroicon-o-paper-airplane'),
+                                
+                                TextEntry::make('delivered_at')
+                                    ->label('Delivered Date')
+                                    ->dateTime()
+                                    ->placeholder('Not Delivered')
+                                    ->icon('heroicon-o-truck'),
+                                
+                                TextEntry::make('created_at')
+                                    ->label('Created')
+                                    ->dateTime()
+                                    ->icon('heroicon-o-clock'),
+                                
+                                TextEntry::make('updated_at')
+                                    ->label('Last Updated')
+                                    ->dateTime()
+                                    ->icon('heroicon-o-arrow-path'),
+                            ]),
                     ])
                     ->collapsible(),
                 

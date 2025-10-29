@@ -16,6 +16,7 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/quote/{quote}/pdf', [QuotePdfController::class, 'download'])->name('quote.pdf');
     Route::get('/consignment/{consignment}/pdf', [ConsignmentPdfController::class, 'download'])->name('consignment.pdf');
+    Route::get('/consignment/{consignment}/preview', [ConsignmentPdfController::class, 'preview'])->name('consignment.preview');
 });
 
 // Product Variants Grid Routes (Tunerstop-style implementation)

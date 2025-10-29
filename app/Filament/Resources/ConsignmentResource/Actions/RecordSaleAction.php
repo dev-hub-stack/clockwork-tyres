@@ -3,15 +3,18 @@
 namespace App\Filament\Resources\ConsignmentResource\Actions;
 
 use App\Modules\Consignments\Models\Consignment;
-use App\Modules\Consignments\Services\ConsignmentService;
+use App\Modules\Consignments\Services\ConsignmentInvoiceService;
 use App\Modules\Settings\Models\CurrencySetting;
+use App\Filament\Resources\InvoiceResource;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\DB;
 
 class RecordSaleAction
 {
@@ -19,11 +22,11 @@ class RecordSaleAction
     {
         return Action::make('record_sale')
             ->label('Record Sale')
-            ->icon('heroicon-o-banknotes')
+            ->icon('heroicon-o-currency-dollar')
             ->color('success')
-            ->modalHeading('Record Items Sold')
-            ->modalDescription('Select which items have been sold and optionally create an invoice')
-            ->modalWidth('5xl')
+            ->modalHeading(fn (Consignment $record) => 'Record Sale - Consignment #' . $record->consignment_number)
+            ->modalDescription('Select items that were sold. This will create an invoice and update the consignment status.')
+            ->modalWidth('7xl')
             ->visible(fn (Consignment $record) => $record->canRecordSale())
             ->form(function (Consignment $record) {
                 $currency = CurrencySetting::getBase()?->currency_symbol ?? 'AED';
@@ -31,108 +34,171 @@ class RecordSaleAction
                 // Get items that can be sold (have available quantity)
                 $availableItems = $record->items()
                     ->get()
-                    ->filter(fn ($item) => $item->getAvailableToSell() > 0);
+                    ->filter(fn ($item) => $item->quantity_available > 0);
 
                 if ($availableItems->isEmpty()) {
                     return [
                         Placeholder::make('no_items')
-                            ->content('No items available to sell. All items have been sold or returned.')
+                            ->content('⚠️ No items available to sell. All items have been sold or returned.')
                             ->columnSpanFull(),
                     ];
                 }
 
                 return [
-                    Placeholder::make('info')
-                        ->content("**Consignment:** {$record->consignment_number}<br>**Customer:** {$record->customer->business_name}")
-                        ->columnSpanFull(),
-                    
-                    Repeater::make('sold_items')
-                        ->label('Items to Sell')
+                    // Customer Information Section
+                    Section::make('Customer Information')
                         ->schema([
-                            TextInput::make('item_id')
-                                ->hidden()
-                                ->default(fn ($state, $get) => $get('item_id')),
-                            
-                            Placeholder::make('product_info')
-                                ->label('Product')
-                                ->content(function ($get, $state) {
-                                    $itemId = $get('item_id');
-                                    if (!$itemId) return 'Select item';
+                            Grid::make(3)
+                                ->schema([
+                                    Placeholder::make('customer_name')
+                                        ->label('Customer')
+                                        ->content($record->customer->business_name ?? $record->customer->full_name),
                                     
-                                    $item = \App\Modules\Consignments\Models\ConsignmentItem::find($itemId);
-                                    if (!$item) return 'Item not found';
+                                    Placeholder::make('customer_email')
+                                        ->label('Email')
+                                        ->content($record->customer->email),
                                     
-                                    return "**{$item->product_name}**<br>SKU: {$item->sku}<br>Sent: {$item->qty_sent} | Sold: {$item->qty_sold} | Available: {$item->getAvailableToSell()}";
-                                })
-                                ->columnSpan(2),
-                            
-                            TextInput::make('quantity')
-                                ->label('Quantity to Sell')
-                                ->numeric()
-                                ->required()
-                                ->minValue(1)
-                                ->default(1)
-                                ->live()
-                                ->maxValue(function ($get) {
-                                    $itemId = $get('item_id');
-                                    if (!$itemId) return 999;
-                                    
-                                    $item = \App\Modules\Consignments\Models\ConsignmentItem::find($itemId);
-                                    return $item ? $item->getAvailableToSell() : 999;
-                                })
-                                ->helperText(fn ($get) => 'Available: ' . ($get('available') ?? 'N/A'))
-                                ->columnSpan(1),
-                            
-                            TextInput::make('actual_sale_price')
-                                ->label('Sale Price')
-                                ->numeric()
-                                ->required()
-                                ->prefix($currency)
-                                ->default(fn ($get) => $get('price'))
-                                ->minValue(0)
-                                ->step(0.01)
-                                ->helperText('Price per unit')
-                                ->columnSpan(1),
+                                    Placeholder::make('customer_phone')
+                                        ->label('Phone')
+                                        ->content($record->customer->phone ?? 'N/A'),
+                                ]),
                         ])
-                        ->default(function () use ($availableItems) {
-                            return $availableItems->map(function ($item) {
-                                return [
-                                    'item_id' => $item->id,
-                                    'product_name' => $item->product_name,
-                                    'sku' => $item->sku,
-                                    'quantity_sent' => $item->qty_sent,
-                                    'quantity_sold' => $item->qty_sold,
-                                    'available' => $item->getAvailableToSell(),
-                                    'quantity' => 1,
-                                    'price' => $item->price,
-                                    'actual_sale_price' => $item->price,
-                                ];
-                            })->toArray();
-                        })
-                        ->columns(4)
-                        ->reorderable(false)
-                        ->addable(false)
-                        ->deletable(true)
-                        ->minItems(1)
-                        ->columnSpanFull(),
+                        ->collapsible()
+                        ->collapsed(false),
                     
-                    Checkbox::make('create_invoice')
-                        ->label('Create Invoice for Sold Items')
-                        ->helperText('If checked, an invoice will be automatically created with the sold items')
-                        ->default(true)
+                    // Items to Sell Section
+                    Section::make('Items to Sell')
+                        ->description('Select items and specify quantities and prices')
+                        ->schema([
+                            Repeater::make('sold_items')
+                                ->label('')
+                                ->schema([
+                                    Select::make('item_id')
+                                        ->label('Item')
+                                        ->options($availableItems->mapWithKeys(fn ($item) => [
+                                            $item->id => "{$item->name} - SKU: {$item->sku} (Available: {$item->quantity_available})"
+                                        ]))
+                                        ->required()
+                                        ->reactive()
+                                        ->afterStateUpdated(function ($state, callable $set) use ($record) {
+                                            $item = $record->items()->find($state);
+                                            if ($item) {
+                                                $set('max_quantity', $item->quantity_available);
+                                                $set('price', $item->price);
+                                                $set('quantity', 1);
+                                            }
+                                        })
+                                        ->searchable()
+                                        ->columnSpan(3),
+                                    
+                                    TextInput::make('quantity')
+                                        ->label('Quantity to Sell')
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(1)
+                                        ->maxValue(fn (callable $get) => $get('max_quantity') ?? 999)
+                                        ->default(1)
+                                        ->reactive()
+                                        ->afterStateUpdated(fn ($state, callable $set, callable $get) => 
+                                            $set('total', ($state ?? 0) * ($get('price') ?? 0))
+                                        )
+                                        ->columnSpan(1),
+                                    
+                                    TextInput::make('price')
+                                        ->label("Sale Price ({$currency})")
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(0)
+                                        ->step(0.01)
+                                        ->reactive()
+                                        ->afterStateUpdated(fn ($state, callable $set, callable $get) => 
+                                            $set('total', ($state ?? 0) * ($get('quantity') ?? 0))
+                                        )
+                                        ->columnSpan(1),
+                                    
+                                    Placeholder::make('total')
+                                        ->label('Total')
+                                        ->content(fn (callable $get) => 
+                                            $currency . ' ' . number_format($get('total') ?? 0, 2)
+                                        )
+                                        ->columnSpan(1),
+                                    
+                                    // Hidden fields for tracking
+                                    TextInput::make('max_quantity')->hidden()->default(0),
+                                    TextInput::make('total')->hidden()->default(0),
+                                ])
+                                ->columns(6)
+                                ->defaultItems(0)
+                                ->addActionLabel('Add Item to Sale')
+                                ->reorderable(false)
+                                ->columnSpanFull(),
+                        ]),
+                    
+                    // Payment Information Section
+                    Section::make('Payment Information')
+                        ->description('Enter payment details for this sale')
+                        ->schema([
+                            Grid::make(2)
+                                ->schema([
+                                    Select::make('payment_method')
+                                        ->label('Payment Method')
+                                        ->options([
+                                            'cash' => 'Cash',
+                                            'card' => 'Credit/Debit Card',
+                                            'bank_transfer' => 'Bank Transfer',
+                                            'check' => 'Check',
+                                            'other' => 'Other',
+                                        ])
+                                        ->required()
+                                        ->default('cash'),
+                                    
+                                    Select::make('payment_type')
+                                        ->label('Payment Type')
+                                        ->options([
+                                            'full' => 'Full Payment',
+                                            'partial' => 'Partial Payment',
+                                        ])
+                                        ->required()
+                                        ->default('full')
+                                        ->reactive()
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            if ($state === 'full') {
+                                                // Calculate total from sold_items
+                                                $soldItems = $get('sold_items') ?? [];
+                                                $total = collect($soldItems)->sum('total');
+                                                $set('payment_amount', $total);
+                                            }
+                                        }),
+                                    
+                                    TextInput::make('payment_amount')
+                                        ->label("Payment Amount ({$currency})")
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(0)
+                                        ->step(0.01)
+                                        ->reactive()
+                                        ->helperText('Enter the amount received from customer'),
+                                ]),
+                        ]),
+                    
+                    // Notes Section
+                    Textarea::make('sale_notes')
+                        ->label('Sale Notes (Optional)')
+                        ->rows(3)
+                        ->placeholder('Add any notes about this sale...')
                         ->columnSpanFull(),
                 ];
             })
-            ->action(function (Consignment $record, array $data, ConsignmentService $service) {
+            ->action(function (Consignment $record, array $data) {
                 try {
-                    // Filter out items with 0 quantity and prepare data
+                    // Filter out items with missing data
                     $soldItems = collect($data['sold_items'] ?? [])
-                        ->filter(fn ($item) => ($item['quantity'] ?? 0) > 0)
+                        ->filter(fn ($item) => !empty($item['item_id']) && ($item['quantity'] ?? 0) > 0)
                         ->map(function ($item) {
                             return [
                                 'item_id' => $item['item_id'],
                                 'quantity' => $item['quantity'],
-                                'actual_sale_price' => $item['actual_sale_price'],
+                                'price' => $item['price'],
                             ];
                         })
                         ->toArray();
@@ -141,41 +207,41 @@ class RecordSaleAction
                         Notification::make()
                             ->warning()
                             ->title('No Items to Sell')
-                            ->body('Please select at least one item with a quantity greater than 0.')
+                            ->body('Please add at least one item with a quantity greater than 0.')
                             ->send();
                         return;
                     }
 
-                    $createInvoice = $data['create_invoice'] ?? false;
+                    // Prepare payment data
+                    $paymentData = [
+                        'method' => $data['payment_method'],
+                        'type' => $data['payment_type'],
+                        'amount' => $data['payment_amount'],
+                    ];
                     
-                    // Call service to record sale
-                    $invoice = $service->recordSale($record, $soldItems, $createInvoice);
+                    // Call service to record sale and create invoice
+                    $service = app(ConsignmentInvoiceService::class);
+                    $invoice = $service->recordSaleAndCreateInvoice(
+                        consignment: $record,
+                        soldItems: $soldItems,
+                        paymentData: $paymentData,
+                        notes: $data['sale_notes'] ?? null
+                    );
                     
                     // Success notification
-                    $soldCount = count($soldItems);
                     $totalQty = collect($soldItems)->sum('quantity');
                     
-                    $notification = Notification::make()
+                    Notification::make()
                         ->success()
                         ->title('Sale Recorded Successfully')
-                        ->body("Recorded sale of {$totalQty} items ({$soldCount} line items)");
-                    
-                    if ($invoice) {
-                        $notification->body("Invoice {$invoice->order_number} created with {$totalQty} items");
-                        $notification->actions([
+                        ->body("Invoice #{$invoice->invoice_number} created with {$totalQty} items. Payment: {$paymentData['amount']}")
+                        ->actions([
                             \Filament\Notifications\Actions\Action::make('view_invoice')
                                 ->label('View Invoice')
-                                ->url(route('filament.admin.resources.invoices.edit', $invoice->id))
+                                ->url(fn () => InvoiceResource::getUrl('view', ['record' => $invoice]))
                                 ->button(),
-                        ]);
-                    }
-                    
-                    $notification->send();
-                    
-                    // Redirect to invoice if created, otherwise just refresh
-                    if ($invoice) {
-                        return redirect()->route('filament.admin.resources.invoices.edit', $invoice->id);
-                    }
+                        ])
+                        ->send();
                     
                 } catch (\Exception $e) {
                     Notification::make()
@@ -183,11 +249,7 @@ class RecordSaleAction
                         ->title('Error Recording Sale')
                         ->body($e->getMessage())
                         ->send();
-                    
-                    throw $e;
                 }
-            })
-            ->successNotificationTitle('Sale recorded successfully')
-            ->requiresConfirmation(false); // Already has modal with form
+            });
     }
 }

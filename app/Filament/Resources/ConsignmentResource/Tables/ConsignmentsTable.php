@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DatePicker;
@@ -165,6 +166,42 @@ class ConsignmentsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                Action::make('preview')
+                    ->label('Preview')
+                    ->icon('heroicon-o-eye')
+                    ->color('primary')
+                    ->slideOver()
+                    ->modalWidth('7xl')
+                    ->modalContent(function ($record) {
+                        // Load relationships
+                        $record->load(['customer', 'warehouse', 'representative', 'items']);
+                        
+                        // Get settings
+                        $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
+                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
+                        
+                        return view('templates.consignment-preview', [
+                            'consignment' => $record,  // Changed from 'record' to 'consignment'
+                            'documentType' => 'consignment',
+                            'companyName' => $companyBranding->company_name ?? 'TunerStop LLC',
+                            'companyAddress' => $companyBranding->company_address ?? '',
+                            'companyPhone' => $companyBranding->company_phone ?? '',
+                            'companyEmail' => $companyBranding->company_email ?? '',
+                            'taxNumber' => $companyBranding->tax_registration_number ?? '',
+                            'logo' => $companyBranding ? $companyBranding->logo_url : null,
+                            'currency' => $currency?->currency_symbol ?? 'AED',
+                            'vatRate' => $taxSetting ? $taxSetting->rate : 5,
+                        ]);
+                    })
+                    ->tooltip('Preview consignment document'),
+                
+                EditAction::make()
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil')
+                    ->color('warning')
+                    ->tooltip('Edit consignment'),
+                
                 MarkAsSentAction::make()
                     ->tooltip('Mark as sent to customer'),
                 
