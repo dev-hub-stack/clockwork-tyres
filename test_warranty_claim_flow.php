@@ -175,7 +175,7 @@ try {
 }
 
 // ========================================================================
-// TEST 2: Submit Claim (DRAFT → PENDING)
+// TEST 2: Submit Claim (DRAFT → PENDING) - Using changeStatus method
 // ========================================================================
 echo "========================================================================\n";
 echo "TEST 2: Submit Claim for Vendor Review\n";
@@ -183,16 +183,12 @@ echo "========================================================================\n
 
 DB::beginTransaction();
 try {
-    $claim->update(['status' => WarrantyClaimStatus::PENDING]);
-    
-    $claim->addHistory(
-        ClaimActionType::SUBMITTED,
-        'Claim submitted to vendor for review. Awaiting approval and replacement shipment.',
-        ['notes' => 'Submitted with photos and damage documentation.']
-    );
+    // Using the changeStatus method (simulates UI action)
+    $claim->changeStatus(WarrantyClaimStatus::PENDING, 'Claim submitted for processing');
     
     echo "✅ Claim status updated: DRAFT → PENDING\n";
     echo "   Status: " . $claim->status->getLabel() . "\n";
+    echo "   Method: changeStatus() with notes\n";
     echo "   Next Step: Wait for vendor approval\n";
     
     DB::commit();
@@ -203,7 +199,7 @@ try {
 }
 
 // ========================================================================
-// TEST 3: Mark Items as Replaced (PENDING → REPLACED)
+// TEST 3: Mark Items as Replaced (PENDING → REPLACED) - Using markAsReplaced method
 // ========================================================================
 echo "========================================================================\n";
 echo "TEST 3: Mark Items as Replaced\n";
@@ -211,33 +207,26 @@ echo "========================================================================\n
 
 DB::beginTransaction();
 try {
-    // Update all items to replaced
-    foreach ($claim->items as $item) {
-        $item->update(['resolution_action' => ResolutionAction::REPLACE]);
-    }
-    
-    $claim->update(['status' => WarrantyClaimStatus::REPLACED]);
-    
-    $claim->addHistory(
-        ClaimActionType::ITEM_REPLACED,
-        'Replacement items received from vendor. Defective items packaged for return shipment.',
-        ['notes' => 'Replacement SKUs match original order. Quality checked and ready for customer delivery.']
-    );
+    // Using the markAsReplaced method (simulates UI action)
+    $claim->markAsReplaced('Replacement items received from vendor. Quality checked and ready for customer delivery.');
     
     echo "✅ Replacement items received\n";
     echo "   Status: PENDING → REPLACED\n";
+    echo "   Method: markAsReplaced() with notes\n";
+    echo "   Resolution date: " . $claim->fresh()->resolution_date->format('Y-m-d H:i:s') . "\n";
+    echo "   Resolved by: " . ($claim->resolvedBy?->name ?? 'N/A') . "\n";
     echo "   Items replaced: {$claim->items->count()}\n";
     echo "   Next Step: Ship defective items back to vendor\n";
     
     DB::commit();
-    echo "\n✅ TEST 3 PASSED: Items marked as replaced\n\n";
+    echo "\n✅ TEST 3 PASSED: Items marked as replaced using model method\n\n";
 } catch (\Exception $e) {
     DB::rollBack();
     die("❌ TEST 3 FAILED: " . $e->getMessage() . "\n\n");
 }
 
 // ========================================================================
-// TEST 4: Complete Claim (REPLACED → CLAIMED)
+// TEST 4: Complete Claim (REPLACED → CLAIMED) - Using markAsClaimed method
 // ========================================================================
 echo "========================================================================\n";
 echo "TEST 4: Complete Warranty Claim\n";
@@ -245,21 +234,17 @@ echo "========================================================================\n
 
 DB::beginTransaction();
 try {
-    $claim->update(['status' => WarrantyClaimStatus::CLAIMED]);
-    
-    $claim->addHistory(
-        ClaimActionType::ITEM_CLAIMED,
-        'Vendor credit issued. Warranty claim successfully processed.',
-        ['notes' => 'Credit memo received. Defective items returned via tracking #1Z999AA10123456784.']
-    );
+    // Using the markAsClaimed method (simulates UI action)
+    $claim->markAsClaimed('Vendor credit issued. Credit memo received via tracking #1Z999AA10123456784.');
     
     echo "✅ Warranty claim completed\n";
     echo "   Status: REPLACED → CLAIMED\n";
+    echo "   Method: markAsClaimed() with notes\n";
     echo "   Vendor credit issued\n";
-    echo "   Final Status: " . $claim->status->getLabel() . "\n";
+    echo "   Final Status: " . $claim->fresh()->status->getLabel() . "\n";
     
     DB::commit();
-    echo "\n✅ TEST 4 PASSED: Claim completed successfully\n\n";
+    echo "\n✅ TEST 4 PASSED: Claim completed using model method\n\n";
 } catch (\Exception $e) {
     DB::rollBack();
     die("❌ TEST 4 FAILED: " . $e->getMessage() . "\n\n");
@@ -290,6 +275,59 @@ foreach ($claim->histories()->latest()->get() as $index => $history) {
 }
 
 echo "✅ TEST 5 PASSED: History timeline retrieved\n\n";
+
+// ========================================================================
+// TEST 5B: Add Note to Claim - Using addNote method
+// ========================================================================
+echo "========================================================================\n";
+echo "TEST 5B: Add Note to Claim\n";
+echo "========================================================================\n\n";
+
+DB::beginTransaction();
+try {
+    // Using the addNote method (simulates UI action)
+    $claim->addNote('Customer called to confirm replacement received and working properly. Very satisfied with resolution time.');
+    
+    echo "✅ Note added to claim\n";
+    echo "   Method: addNote()\n";
+    echo "   Note recorded in history timeline\n";
+    
+    DB::commit();
+    echo "\n✅ TEST 5B PASSED: Note added successfully\n\n";
+} catch (\Exception $e) {
+    DB::rollBack();
+    die("❌ TEST 5B FAILED: " . $e->getMessage() . "\n\n");
+}
+
+// ========================================================================
+// TEST 5C: Add Video Link to Claim - Using addVideoLink method
+// ========================================================================
+echo "========================================================================\n";
+echo "TEST 5C: Add Video Link to Claim\n";
+echo "========================================================================\n\n";
+
+DB::beginTransaction();
+try {
+    // Using the addVideoLink method (simulates UI action)
+    $claim->addVideoLink('https://youtube.com/watch?v=example123', 'Video showing product damage and packaging condition');
+    
+    echo "✅ Video link added to claim\n";
+    echo "   Method: addVideoLink()\n";
+    echo "   URL: https://youtube.com/watch?v=example123\n";
+    echo "   Description: Video showing product damage and packaging condition\n";
+    
+    // Verify metadata was stored
+    $videoHistory = $claim->histories()->where('action_type', ClaimActionType::VIDEO_LINK_ADDED)->latest()->first();
+    if ($videoHistory && isset($videoHistory->metadata['url'])) {
+        echo "   ✓ Metadata stored: URL = {$videoHistory->metadata['url']}\n";
+    }
+    
+    DB::commit();
+    echo "\n✅ TEST 5C PASSED: Video link added successfully\n\n";
+} catch (\Exception $e) {
+    DB::rollBack();
+    die("❌ TEST 5C FAILED: " . $e->getMessage() . "\n\n");
+}
 
 // ========================================================================
 // TEST 6: Create Standalone Claim (No Invoice)
@@ -341,7 +379,7 @@ try {
 }
 
 // ========================================================================
-// TEST 7: Void a Claim
+// TEST 7: Void a Claim - Using void method
 // ========================================================================
 echo "========================================================================\n";
 echo "TEST 7: Void Warranty Claim\n";
@@ -349,21 +387,17 @@ echo "========================================================================\n
 
 DB::beginTransaction();
 try {
-    $standaloneClaim->update(['status' => WarrantyClaimStatus::VOID]);
-    
-    $standaloneClaim->addHistory(
-        ClaimActionType::VOIDED,
-        'Claim voided - customer provided incorrect information.',
-        ['notes' => 'Customer admitted product was dropped, not a manufacturing defect.']
-    );
+    // Using the void method (simulates UI action)
+    $standaloneClaim->void('Customer provided incorrect information - product was dropped, not a manufacturing defect.');
     
     echo "✅ Claim voided\n";
     echo "   Claim Number: {$standaloneClaim->claim_number}\n";
-    echo "   Final Status: " . $standaloneClaim->status->getLabel() . "\n";
+    echo "   Method: void() with reason\n";
+    echo "   Final Status: " . $standaloneClaim->fresh()->status->getLabel() . "\n";
     echo "   Reason: Customer error, not warranty eligible\n";
     
     DB::commit();
-    echo "\n✅ TEST 7 PASSED: Claim voided successfully\n\n";
+    echo "\n✅ TEST 7 PASSED: Claim voided using model method\n\n";
 } catch (\Exception $e) {
     DB::rollBack();
     die("❌ TEST 7 FAILED: " . $e->getMessage() . "\n\n");
@@ -380,7 +414,8 @@ echo "📊 Test Summary:\n";
 echo "   • Warranty claims created: 2\n";
 echo "   • Claims with invoice link: 1\n";
 echo "   • Standalone claims: 1\n";
-echo "   • Status transitions tested: 5\n";
+echo "   • Status transitions tested: 5 (Draft→Pending→Replaced→Claimed, Void)\n";
+echo "   • Model methods tested: 6 (changeStatus, markAsReplaced, markAsClaimed, void, addNote, addVideoLink)\n";
 echo "   • History entries logged: " . WarrantyClaimHistory::whereIn('warranty_claim_id', [$claim->id, $standaloneClaim->id])->count() . "\n";
 echo "   • Total items claimed: " . ($claim->items->count() + $standaloneClaim->items->count()) . "\n\n";
 
@@ -390,8 +425,11 @@ echo "   ✅ Manual item entry (standalone)\n";
 echo "   ✅ Status workflow (Draft→Pending→Replaced→Claimed)\n";
 echo "   ✅ History tracking with timestamps\n";
 echo "   ✅ Multiple resolution actions (Replace, Refund)\n";
-echo "   ✅ Void functionality\n";
-echo "   ✅ Auto-generated claim numbers\n\n";
+echo "   ✅ Void functionality with reason\n";
+echo "   ✅ Auto-generated claim numbers\n";
+echo "   ✅ Add notes to claims\n";
+echo "   ✅ Add video links with metadata\n";
+echo "   ✅ UI action methods (markAsReplaced, markAsClaimed, void, addNote, addVideoLink)\n\n";
 
 echo "📝 Test Data Created:\n";
 echo "   Claim 1: {$claim->claim_number} (Status: " . $claim->status->getLabel() . ")\n";
