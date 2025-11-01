@@ -95,7 +95,7 @@
                 @if($documentType === 'invoice')
                     <div>
                         <h4>Status:</h4>
-                        <p><strong>{{ strtoupper($record->payment_status ?? 'PENDING') }}</strong></p>
+                        <p><strong>{{ strtoupper($record->payment_status?->value ?? 'PENDING') }}</strong></p>
                     </div>
                 @endif
             </div>
@@ -148,6 +148,10 @@
                                 @php
                                     $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
                                     $productImage = $variantData['image'] ?? null;
+                                    // Add CloudFront base URL if image doesn't start with http
+                                    if ($productImage && !str_starts_with($productImage, 'http')) {
+                                        $productImage = 'https://d3oet5ce3rdmse.cloudfront.net/' . ltrim($productImage, '/');
+                                    }
                                 @endphp
                                 @if($productImage)
                                     <img src="{{ $productImage }}" 
@@ -169,11 +173,20 @@
                                         <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
                                     @endif
                                     {{-- Warehouse Information --}}
-                                    @if($item->warehouse)
+                                    @php
+                                        // Check if item has warehouse info from order_items or from consignment
+                                        $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
+                                        $isNonStock = empty($item->warehouse_id) && empty($item->consignment_item_id);
+                                    @endphp
+                                    @if($hasWarehouse && $item->warehouse)
                                         <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
                                             📦 Warehouse: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
                                         </small>
-                                    @elseif($item->warehouse_id === null)
+                                    @elseif(!empty($item->consignment_item_id))
+                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
+                                            🤝 From Consignment
+                                        </small>
+                                    @elseif($isNonStock)
                                         <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
                                             ⚡ Non-Stock (Special Order)
                                         </small>
@@ -215,7 +228,7 @@
                 <table>
                     <tr>
                         <td style="font-weight: bold;">Subtotal:</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->sub_total ?? 0, 2) }}</td>
+                        <td class="text-right">{{ $currency }} {{ number_format($record->subtotal ?? $record->sub_total ?? 0, 2) }}</td>
                     </tr>
                     @if(($record->shipping ?? 0) > 0)
                     <tr>
@@ -231,7 +244,7 @@
                     @endif
                     <tr>
                         <td style="font-weight: bold;">VAT ({{ $vatRate ?? 5 }}%):</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->vat ?? 0, 2) }}</td>
+                        <td class="text-right">{{ $currency }} {{ number_format($record->tax ?? $record->vat ?? 0, 2) }}</td>
                     </tr>
                     <tr class="total-row">
                         <td>Total:</td>

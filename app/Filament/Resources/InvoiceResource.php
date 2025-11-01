@@ -683,7 +683,10 @@ class InvoiceResource extends Resource
                     ->label('Record Expenses & Calculate Profit')
                     ->icon('heroicon-o-calculator')
                     ->color('warning')
-                    ->visible(fn($record) => $record->order_status->value === 'completed')
+                    ->visible(fn($record) => 
+                        in_array($record->payment_status->value, ['paid', 'partial']) || 
+                        $record->order_status->value === 'completed'
+                    )
                     ->form([
                         Section::make('Expense Breakdown')
                             ->description('Enter all expenses related to this order to calculate profit')
