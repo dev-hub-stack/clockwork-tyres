@@ -10,6 +10,10 @@ enum ClaimActionType: string
     case STATUS_CHANGED = 'status_changed';
     case FILE_ATTACHED = 'file_attached';
     case EMAIL_SENT = 'email_sent';
+    case SUBMITTED = 'submitted';
+    case ITEM_REPLACED = 'item_replaced';
+    case ITEM_CLAIMED = 'item_claimed';
+    case ITEM_RETURNED = 'item_returned';
     case RESOLVED = 'resolved';
     case VOIDED = 'voided';
     
@@ -22,6 +26,10 @@ enum ClaimActionType: string
             self::STATUS_CHANGED => 'Status Changed',
             self::FILE_ATTACHED => 'File Attached',
             self::EMAIL_SENT => 'Email Sent',
+            self::SUBMITTED => 'Claim Submitted',
+            self::ITEM_REPLACED => 'Item Replaced',
+            self::ITEM_CLAIMED => 'Item Claimed',
+            self::ITEM_RETURNED => 'Item Returned',
             self::RESOLVED => 'Claim Resolved',
             self::VOIDED => 'Claim Voided',
         };
@@ -36,6 +44,10 @@ enum ClaimActionType: string
             self::STATUS_CHANGED => 'heroicon-o-arrow-path',
             self::FILE_ATTACHED => 'heroicon-o-paper-clip',
             self::EMAIL_SENT => 'heroicon-o-envelope',
+            self::SUBMITTED => 'heroicon-o-paper-airplane',
+            self::ITEM_REPLACED => 'heroicon-o-arrow-path-rounded-square',
+            self::ITEM_CLAIMED => 'heroicon-o-check-circle',
+            self::ITEM_RETURNED => 'heroicon-o-arrow-uturn-left',
             self::RESOLVED => 'heroicon-o-check-badge',
             self::VOIDED => 'heroicon-o-x-mark',
         };
@@ -50,6 +62,10 @@ enum ClaimActionType: string
             self::STATUS_CHANGED => 'green',
             self::FILE_ATTACHED => 'purple',
             self::EMAIL_SENT => 'orange',
+            self::SUBMITTED => 'info',
+            self::ITEM_REPLACED => 'warning',
+            self::ITEM_CLAIMED => 'success',
+            self::ITEM_RETURNED => 'info',
             self::RESOLVED => 'success',
             self::VOIDED => 'danger',
         };

@@ -3,7 +3,11 @@
 namespace App\Filament\Resources\WarrantyClaimResource\Tables;
 
 use App\Modules\Warranties\Enums\WarrantyClaimStatus;
-use Filament\Tables;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
@@ -71,7 +75,7 @@ class WarrantyClaimsTable
                         $record->items->sum('quantity') . ' total items'
                     ),
                 
-                TextColumn::make('warehouse.name')
+                TextColumn::make('warehouse.warehouse_name')
                     ->label('WAREHOUSE')
                     ->sortable()
                     ->toggleable(),
@@ -98,7 +102,7 @@ class WarrantyClaimsTable
                 
                 SelectFilter::make('warehouse_id')
                     ->label('Warehouse')
-                    ->relationship('warehouse', 'name')
+                    ->relationship('warehouse', 'warehouse_name')
                     ->preload(),
                 
                 Filter::make('claim_date')
@@ -135,19 +139,19 @@ class WarrantyClaimsTable
                     ->relationship('representative', 'name')
                     ->preload(),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->tooltip('View complete claim details and history'),
-                Tables\Actions\EditAction::make()
-                    ->tooltip('Edit claim information')
+            ->recordActions([
+                Action::make('view')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->url(fn ($record) => route('filament.admin.resources.warranty-claims.view', ['record' => $record])),
+                EditAction::make()
                     ->visible(fn ($record) => $record->canBeEdited()),
-                Tables\Actions\DeleteAction::make()
-                    ->tooltip('Delete claim'),
+                DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\BulkAction::make('markAsPending')
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                    Action::make('markAsPending')
                         ->label('Mark as Pending')
                         ->icon('heroicon-o-clock')
                         ->color('warning')
@@ -157,7 +161,7 @@ class WarrantyClaimsTable
                                 $record->changeStatus(WarrantyClaimStatus::PENDING, 'Bulk action');
                             }
                         }),
-                    Tables\Actions\BulkAction::make('exportSelected')
+                    Action::make('exportSelected')
                         ->label('Export Selected')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->action(fn () => null), // TODO: Implement export

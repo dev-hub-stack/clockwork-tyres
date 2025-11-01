@@ -11,9 +11,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
@@ -63,8 +62,8 @@ class WarrantyClaimForm
                                 if (!$customerId) return [];
                                 
                                 return Order::where('customer_id', $customerId)
-                                    ->where('type', 'invoice')
-                                    ->where('status', '!=', 'void')
+                                    ->invoices()
+                                    ->where('order_status', '!=', 'cancelled')
                                     ->latest()
                                     ->limit(50)
                                     ->get()
@@ -98,7 +97,7 @@ class WarrantyClaimForm
                         Grid::make(2)->schema([
                             Select::make('warehouse_id')
                                 ->label('Warehouse')
-                                ->relationship('warehouse', 'name')
+                                ->relationship('warehouse', 'warehouse_name')
                                 ->required()
                                 ->preload()
                                 ->helperText('Only in-stock items for warranty claim'),
@@ -127,13 +126,13 @@ class WarrantyClaimForm
                                         ->live()
                                         ->getSearchResultsUsing(function (string $search) {
                                             return \App\Modules\Products\Models\ProductVariant::query()
-                                                ->with(['product.brand', 'product.productModel', 'finish'])
+                                                ->with(['product.brand', 'product.model', 'finish'])
                                                 ->where(function ($query) use ($search) {
                                                     $query->where('sku', 'like', "%{$search}%")
                                                         ->orWhere('part_number', 'like', "%{$search}%")
                                                         ->orWhereHas('product', function ($q) use ($search) {
                                                             $q->whereHas('brand', fn($b) => $b->where('name', 'like', "%{$search}%"))
-                                                              ->orWhereHas('productModel', fn($m) => $m->where('name', 'like', "%{$search}%"));
+                                                              ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"));
                                                         });
                                                 })
                                                 ->limit(50)
@@ -144,21 +143,21 @@ class WarrantyClaimForm
                                                         '%s - %s %s',
                                                         $v->sku ?? 'NO-SKU',
                                                         $v->product->brand?->name ?? 'N/A',
-                                                        $v->product->productModel?->name ?? 'N/A'
+                                                        $v->product->model?->name ?? 'N/A'
                                                     )
                                                 ]);
                                         })
                                         ->getOptionLabelUsing(function ($value) {
                                             if (!$value) return 'Unknown';
                                             
-                                            $v = \App\Modules\Products\Models\ProductVariant::with(['product.brand', 'product.productModel'])->find($value);
+                                            $v = \App\Modules\Products\Models\ProductVariant::with(['product.brand', 'product.model'])->find($value);
                                             if (!$v || !$v->product) return 'Unknown Product';
                                             
                                             return sprintf(
                                                 '%s - %s %s',
                                                 $v->sku ?? 'NO-SKU',
                                                 $v->product->brand?->name ?? 'N/A',
-                                                $v->product->productModel?->name ?? 'N/A'
+                                                $v->product->model?->name ?? 'N/A'
                                             );
                                         })
                                         ->columnSpan(2)
@@ -194,83 +193,7 @@ class WarrantyClaimForm
                             ->addActionLabel('+ Add line')
                             ->reorderable(false)
                             ->collapsible()
-                            ->headerActions([
-                                // FETCH FROM INVOICE BUTTON ⭐
-                                Action::make('fetchFromInvoice')
-                                    ->label('Fetch Products from Invoice')
-                                    ->color('primary')
-                                    ->icon('heroicon-o-document-arrow-down')
-                                    ->visible(fn (Get $get) => $get('../../invoice_id') !== null)
-                                    ->requiresConfirmation()
-                                    ->modalHeading('Select Products from Invoice')
-                                    ->modalDescription(function (Get $get) {
-                                        $invoiceId = $get('../../invoice_id');
-                                        if (!$invoiceId) return 'Select an invoice first';
-                                        
-                                        $invoice = Order::find($invoiceId);
-                                        return sprintf(
-                                            'Invoice: %s | Date: %s | Total: $%s',
-                                            $invoice->order_number,
-                                            $invoice->issue_date->format('M d, Y'),
-                                            number_format($invoice->total ?? 0, 2)
-                                        );
-                                    })
-                                    ->modalSubmitActionLabel('Add Selected Items')
-                                    ->modalWidth('3xl')
-                                    ->form(function (Get $get) {
-                                        $invoiceId = $get('../../invoice_id');
-                                        if (!$invoiceId) return [];
-                                        
-                                        $invoice = Order::with('items.productVariant.product')->find($invoiceId);
-                                        if (!$invoice) return [];
-                                        
-                                        $options = [];
-                                        foreach ($invoice->items as $item) {
-                                            if (!$item->productVariant) continue;
-                                            
-                                            $options[] = \Filament\Forms\Components\Checkbox::make("item_{$item->id}")
-                                                ->label(sprintf(
-                                                    '%s - %s %s (Qty: %d) - $%s each',
-                                                    $item->productVariant->sku ?? 'N/A',
-                                                    $item->productVariant->product->brand?->name ?? 'N/A',
-                                                    $item->productVariant->product->productModel?->name ?? 'N/A',
-                                                    $item->quantity,
-                                                    number_format($item->price ?? 0, 2)
-                                                ))
-                                                ->default(false);
-                                        }
-                                        
-                                        return $options;
-                                    })
-                                    ->action(function (array $data, Get $get, Set $set) {
-                                        $invoiceId = $get('../../invoice_id');
-                                        $invoice = Order::with('items.productVariant')->find($invoiceId);
-                                        
-                                        $currentItems = $get('../../items') ?? [];
-                                        $newItems = $currentItems;
-                                        
-                                        foreach ($data as $key => $checked) {
-                                            if (!$checked || !str_starts_with($key, 'item_')) continue;
-                                            
-                                            $itemId = (int) str_replace('item_', '', $key);
-                                            $invoiceItem = $invoice->items->find($itemId);
-                                            
-                                            if (!$invoiceItem || !$invoiceItem->productVariant) continue;
-                                            
-                                            $newItems[] = [
-                                                'product_variant_id' => $invoiceItem->product_variant_id,
-                                                'quantity' => $invoiceItem->quantity,
-                                                'issue_description' => '',
-                                                'resolution_action' => ResolutionAction::REPLACE->value,
-                                                'invoice_id' => $invoiceId,
-                                                'invoice_item_id' => $itemId,
-                                            ];
-                                        }
-                                        
-                                        $set('../../items', $newItems);
-                                    }),
-                            ])
-                            ->helperText('Add products to claim. Use "Fetch Products from Invoice" button if invoice is linked.'),
+                            ->helperText('Add products to claim. Items can be manually added below.'),
                     ]),
 
                 // NOTES SECTION

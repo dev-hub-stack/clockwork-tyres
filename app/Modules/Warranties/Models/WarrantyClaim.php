@@ -45,6 +45,35 @@ class WarrantyClaim extends Model
         'status' => 'draft',
     ];
 
+    // ========== LIFECYCLE HOOKS ==========
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($claim) {
+            // Auto-generate claim number if not provided
+            if (empty($claim->claim_number)) {
+                $claim->claim_number = self::generateClaimNumber();
+            }
+
+            // Set issue_date to claim_date if not provided
+            if (empty($claim->issue_date) && !empty($claim->claim_date)) {
+                $claim->issue_date = $claim->claim_date;
+            }
+
+            // Set claim_date to today if not provided
+            if (empty($claim->claim_date)) {
+                $claim->claim_date = now();
+            }
+
+            // Set created_by if not provided
+            if (empty($claim->created_by) && auth()->check()) {
+                $claim->created_by = auth()->id();
+            }
+        });
+    }
+
     // ========== RELATIONSHIPS ==========
 
     public function customer(): BelongsTo
@@ -133,7 +162,7 @@ class WarrantyClaim extends Model
     public function addHistory(ClaimActionType $type, string $description, ?array $metadata = null): void
     {
         $this->histories()->create([
-            'user_id' => auth()->id(),
+            'user_id' => auth()->id() ?? $this->created_by ?? 1, // Fallback to claim creator or system user
             'action_type' => $type,
             'description' => $description,
             'metadata' => $metadata,
@@ -266,5 +295,31 @@ class WarrantyClaim extends Model
             WarrantyClaimStatus::CLAIMED,
             WarrantyClaimStatus::RETURNED,
         ]);
+    }
+
+    /**
+     * Generate a unique claim number
+     * Format: WXXXYYYY where XXX is current year, YYYY is sequential number
+     */
+    public static function generateClaimNumber(): string
+    {
+        $year = now()->format('y'); // 2-digit year (e.g., 25 for 2025)
+        
+        // Get the last claim number for this year
+        $lastClaim = self::whereYear('created_at', now()->year)
+            ->orderBy('claim_number', 'desc')
+            ->first();
+        
+        if ($lastClaim && $lastClaim->claim_number) {
+            // Extract the numeric part and increment
+            $lastNumber = (int) substr($lastClaim->claim_number, 3); // Skip 'WXX' prefix
+            $nextNumber = $lastNumber + 1;
+        } else {
+            // Start from 1 for this year
+            $nextNumber = 1;
+        }
+        
+        // Format: WXX (W + 2-digit year) + 4-digit sequential number
+        return sprintf('W%s%04d', $year, $nextNumber);
     }
 }
