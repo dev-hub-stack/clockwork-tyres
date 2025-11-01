@@ -31,7 +31,7 @@
             margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .header-left {
@@ -40,9 +40,6 @@
         
         .header-right {
             text-align: right;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
         }
         
         .logo {

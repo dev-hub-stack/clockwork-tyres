@@ -20,6 +20,16 @@ class ConsignmentPdfController extends Controller
         $taxSetting = TaxSetting::getDefault();
         $currency = CurrencySetting::getBase();
         
+        // Get logo full path for PDF (DomPDF needs absolute path)
+        $logoPath = null;
+        if ($companyBranding && $companyBranding->logo_path) {
+            $logoPath = public_path('storage/' . $companyBranding->logo_path);
+            // Check if file exists, otherwise use null
+            if (!file_exists($logoPath)) {
+                $logoPath = null;
+            }
+        }
+        
         // Prepare data for the view
         $data = [
             'consignment' => $consignment,
@@ -29,7 +39,7 @@ class ConsignmentPdfController extends Controller
             'companyPhone' => $companyBranding->company_phone ?? '',
             'companyEmail' => $companyBranding->company_email ?? '',
             'taxNumber' => $companyBranding->tax_registration_number ?? '',
-            'logo' => $companyBranding ? $companyBranding->logo_url : null,
+            'logo' => $logoPath,
             'currency' => $currency?->currency_symbol ?? 'AED',
             'vatRate' => $taxSetting ? $taxSetting->rate : 5,
         ];
@@ -56,6 +66,9 @@ class ConsignmentPdfController extends Controller
         $taxSetting = TaxSetting::getDefault();
         $currency = CurrencySetting::getBase();
         
+        // For preview, use relative URL (works in browser)
+        $logoUrl = $companyBranding ? $companyBranding->logo_url : null;
+        
         // Prepare data for the view
         $data = [
             'consignment' => $consignment,
@@ -65,7 +78,7 @@ class ConsignmentPdfController extends Controller
             'companyPhone' => $companyBranding->company_phone ?? '',
             'companyEmail' => $companyBranding->company_email ?? '',
             'taxNumber' => $companyBranding->tax_registration_number ?? '',
-            'logo' => $companyBranding ? $companyBranding->logo_url : null,
+            'logo' => $logoUrl,
             'currency' => $currency?->currency_symbol ?? 'AED',
             'vatRate' => $taxSetting ? $taxSetting->rate : 5,
         ];

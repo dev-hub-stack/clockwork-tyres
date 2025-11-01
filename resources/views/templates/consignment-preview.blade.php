@@ -31,7 +31,7 @@
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .header h1 {
@@ -54,7 +54,6 @@
         
         .header-right {
             text-align: right;
-            max-width: 200px;
         }
         
         .logo {
