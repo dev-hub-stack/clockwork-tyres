@@ -31,26 +31,17 @@ class RecordSaleAction
             ->form(function (Consignment $record) {
                 $currency = CurrencySetting::getBase()?->currency_symbol ?? 'AED';
                 
-                // Get items that can be sold (have available quantity)
-                $availableItems = $record->items()
+                // Get ALL items with calculated available quantities
+                $allItems = $record->items()
                     ->get()
-                    ->filter(function ($item) {
-                        $available = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
-                        return $available > 0;
-                    })
                     ->map(function ($item) {
                         $available = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
                         $item->quantity_available = $available;
                         return $item;
                     });
 
-                if ($availableItems->isEmpty()) {
-                    return [
-                        Placeholder::make('no_items')
-                            ->content('⚠️ No items available to sell. All items have been sold or returned.')
-                            ->columnSpanFull(),
-                    ];
-                }
+                // Filter items that can be sold (have available quantity > 0)
+                $availableItems = $allItems->filter(fn ($item) => $item->quantity_available > 0);
 
                 return [
                     // Customer Information Section
@@ -72,8 +63,11 @@ class RecordSaleAction
                                 ]),
                         ]),
                     
-                    // Items to Sell Section
+                    // Items to Sell Section - Show ALL items sent
                     Section::make('Items to Sell')
+                        ->description($availableItems->isEmpty() 
+                            ? '⚠️ No items available to sell. All items have been sold or returned.' 
+                            : 'Select items and specify quantities to sell')
                         ->schema([
                             Repeater::make('sold_items')
                                 ->label('')
