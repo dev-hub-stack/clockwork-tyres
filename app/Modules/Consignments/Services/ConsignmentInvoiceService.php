@@ -7,6 +7,7 @@ use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Orders\Models\Payment;
 use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\TaxSetting;
@@ -228,12 +229,12 @@ class ConsignmentInvoiceService
             'discount' => 0,
             'discount_type' => 'none',
             'total' => $totals['total'],
-            'amount_paid' => 0, // Will be updated by recordPayment
+            'amount_paid' => 0, // Will be updated by Payment model
             'balance_due' => $totals['total'],
             
             // Status
-            'status' => 'pending', // Will be updated by recordPayment
-            'payment_status' => 'pending', // Will be updated by recordPayment
+            'order_status' => 'pending', // Will be updated by recordPayment
+            'payment_status' => 'pending', // Will be updated by Payment model
             
             // Currency - use settings
             'currency' => CurrencySetting::getBase()?->currency_symbol ?? ($consignment->currency ?? 'AED'),
@@ -318,25 +319,33 @@ class ConsignmentInvoiceService
     
     /**
      * Record payment on invoice
+     * Creates a Payment record which automatically updates the order's payment status
      */
     protected function recordPayment(Order $invoice, array $paymentData): void
     {
-        $invoice->update([
-            'amount_paid' => $paymentData['amount'],
-            'balance_due' => $invoice->total - $paymentData['amount'],
-            'payment_status' => $paymentData['type'] === 'full' ? 'paid' : 'partial',
-            'status' => $paymentData['type'] === 'full' ? 'paid' : 'partially_paid',
-            'paid_at' => $paymentData['type'] === 'full' ? now() : null,
+        // Create payment record - Payment model will automatically update order payment status
+        Payment::create([
+            'order_id' => $invoice->id,
+            'customer_id' => $invoice->customer_id,
+            'recorded_by' => auth()->id(),
+            'amount' => $paymentData['amount'],
             'payment_method' => $paymentData['method'],
-            'payment_history' => [
-                [
-                    'amount' => $paymentData['amount'],
-                    'method' => $paymentData['method'],
-                    'type' => $paymentData['type'],
-                    'date' => now()->toISOString(),
-                    'created_by' => auth()->id(),
-                ]
-            ],
+            'payment_date' => now(),
+            'reference_number' => $paymentData['reference'] ?? null,
+            'notes' => 'Payment recorded during consignment sale',
+            'status' => 'completed',
+        ]);
+        
+        // Update order status based on payment type
+        $invoice->update([
+            'order_status' => $paymentData['type'] === 'full' ? 'completed' : 'processing',
+        ]);
+        
+        Log::info('Payment recorded for consignment invoice', [
+            'invoice_id' => $invoice->id,
+            'payment_amount' => $paymentData['amount'],
+            'payment_type' => $paymentData['type'],
+            'payment_method' => $paymentData['method'],
         ]);
     }
     
