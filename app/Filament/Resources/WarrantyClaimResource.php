@@ -16,7 +16,7 @@ class WarrantyClaimResource extends Resource
 {
     protected static ?string $model = WarrantyClaim::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-shield-check';
     
     protected static string|\UnitEnum|null $navigationGroup = 'Sales';
     
