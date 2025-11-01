@@ -159,13 +159,22 @@ class WarrantyClaimsTable
                         ]),
                         'companyBranding' => \App\Models\CompanyBranding::getActive(),
                         'currency' => \App\Models\CurrencySetting::getBase(),
+                        'includeHistory' => true, // Preview always shows history
                     ])),
                 Action::make('downloadPdf')
-                    ->label('PDF')
+                    ->label('PDF (Full)')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
-                    ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record]))
-                    ->openUrlInNewTab(),
+                    ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record, 'include_history' => 1]))
+                    ->openUrlInNewTab()
+                    ->tooltip('Download PDF with activity history'),
+                Action::make('downloadCustomerPdf')
+                    ->label('PDF (Customer)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record, 'include_history' => 0]))
+                    ->openUrlInNewTab()
+                    ->tooltip('Download clean PDF for customer'),
                 EditAction::make()
                     ->visible(fn ($record) => $record->canBeEdited()),
                 DeleteAction::make(),

@@ -60,18 +60,28 @@ class ViewWarrantyClaim extends ViewRecord
                         'taxNumber' => $companyBranding->tax_registration_number ?? '',
                         'logo' => $companyBranding ? $companyBranding->logo_url : null,
                         'currency' => $currency?->currency_symbol ?? 'AED',
+                        'includeHistory' => true, // Preview always shows history
                     ]);
                 })
                 ->tooltip('Preview warranty claim document'),
             
-            // Download PDF
+            // Download PDF (with history)
             Actions\Action::make('print_pdf')
                 ->label('Print PDF')
                 ->icon('heroicon-o-printer')
                 ->color('gray')
-                ->url(fn ($record) => route('warranty-claim.pdf', $record))
+                ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record, 'include_history' => 1]))
                 ->openUrlInNewTab()
-                ->tooltip('Download warranty claim PDF'),
+                ->tooltip('Download warranty claim PDF with activity history'),
+            
+            // Download PDF (customer version - no history)
+            Actions\Action::make('download_customer_pdf')
+                ->label('Customer PDF')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('info')
+                ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record, 'include_history' => 0]))
+                ->openUrlInNewTab()
+                ->tooltip('Download clean PDF for customer (no activity history)'),
             
             // Submit Claim (Draft → Pending)
             Actions\Action::make('submitClaim')

@@ -11,6 +11,9 @@ class WarrantyClaimPdfController extends Controller
 {
     public function download(WarrantyClaim $warrantyClaim)
     {
+        // Check if activity history should be included (default: false for customer-facing PDFs)
+        $includeHistory = request()->boolean('include_history', false);
+        
         // Load relationships with nested data
         $warrantyClaim->load([
             'invoice', 
@@ -18,8 +21,12 @@ class WarrantyClaimPdfController extends Controller
             'warehouse', 
             'items.productVariant.product.brand',
             'items.productVariant.product.model',
-            'histories.user'
         ]);
+        
+        // Only load history if requested
+        if ($includeHistory) {
+            $warrantyClaim->load('histories.user');
+        }
         
         // Get settings
         $companyBranding = CompanyBranding::getActive();
@@ -36,6 +43,7 @@ class WarrantyClaimPdfController extends Controller
             'taxNumber' => $companyBranding->tax_registration_number ?? '',
             'logo' => $companyBranding ? $companyBranding->logo_url : null,
             'currency' => $currency?->currency_symbol ?? 'AED',
+            'includeHistory' => $includeHistory,
         ];
         
         // Generate PDF
@@ -52,6 +60,9 @@ class WarrantyClaimPdfController extends Controller
 
     public function preview(WarrantyClaim $warrantyClaim)
     {
+        // Preview always includes history for internal review
+        $includeHistory = request()->boolean('include_history', true);
+        
         // Load relationships with nested data
         $warrantyClaim->load([
             'invoice', 
@@ -59,8 +70,12 @@ class WarrantyClaimPdfController extends Controller
             'warehouse', 
             'items.productVariant.product.brand',
             'items.productVariant.product.model',
-            'histories.user'
         ]);
+        
+        // Only load history if requested
+        if ($includeHistory) {
+            $warrantyClaim->load('histories.user');
+        }
         
         // Get settings
         $companyBranding = CompanyBranding::getActive();
@@ -77,6 +92,7 @@ class WarrantyClaimPdfController extends Controller
             'taxNumber' => $companyBranding->tax_registration_number ?? '',
             'logo' => $companyBranding ? $companyBranding->logo_url : null,
             'currency' => $currency?->currency_symbol ?? 'AED',
+            'includeHistory' => $includeHistory,
         ];
         
         // Return the HTML view directly for preview

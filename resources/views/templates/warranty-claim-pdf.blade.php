@@ -501,7 +501,7 @@
     @endif
 
     <!-- Activity History -->
-    @if($claim->claimHistory && $claim->claimHistory->count() > 0)
+    @if(($includeHistory ?? true) && $claim->claimHistory && $claim->claimHistory->count() > 0)
         <div class="timeline-section">
             <h3>Activity History</h3>
             @foreach($claim->claimHistory->sortByDesc('created_at') as $history)
