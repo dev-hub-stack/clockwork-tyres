@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Modules\Products\Models\ProductInventory;
+use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -39,20 +39,15 @@ class WarehouseStockOverview extends BaseWidget
             };
             
             $stats[] = Stat::make($warehouse->warehouse_name, number_format($totalQuantity) . ' units')
-                ->description("{$totalItems} unique products")
+                ->description($lowStockCount > 0 
+                    ? "{$totalItems} products • {$lowStockCount} low stock ⚠️" 
+                    : "{$totalItems} unique products")
                 ->descriptionIcon('heroicon-m-cube')
                 ->chart($this->getWarehouseChart($warehouse->id))
                 ->color($color)
                 ->extraAttributes([
                     'class' => 'cursor-pointer',
-                ])
-                ->url(route('filament.admin.resources.product-inventories.index', [
-                    'tableFilters' => [
-                        'warehouse_id' => ['value' => $warehouse->id],
-                    ],
-                ]))
-                ->badge($lowStockCount > 0 ? "{$lowStockCount} Low Stock" : null)
-                ->badgeColor($lowStockCount > 0 ? 'danger' : null);
+                ]);
         }
         
         // Add overall stats
@@ -61,12 +56,12 @@ class WarehouseStockOverview extends BaseWidget
         $totalLowStock = ProductInventory::where('quantity', '<=', 10)->where('quantity', '>', 0)->count();
         
         array_unshift($stats, Stat::make('Total Stock', number_format($totalStock) . ' units')
-            ->description("{$totalProducts} products in stock")
+            ->description($totalLowStock > 0 
+                ? "{$totalProducts} products • {$totalLowStock} low stock ⚠️" 
+                : "{$totalProducts} products in stock ✓")
             ->descriptionIcon('heroicon-m-cube-transparent')
             ->chart($this->getOverallChart())
-            ->color($totalLowStock > 50 ? 'danger' : ($totalLowStock > 20 ? 'warning' : 'success'))
-            ->badge($totalLowStock > 0 ? "{$totalLowStock} items low" : 'All good')
-            ->badgeColor($totalLowStock > 0 ? 'danger' : 'success'));
+            ->color($totalLowStock > 50 ? 'danger' : ($totalLowStock > 20 ? 'warning' : 'success')));
         
         return $stats;
     }
