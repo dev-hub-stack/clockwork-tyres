@@ -34,7 +34,15 @@ class RecordSaleAction
                 // Get items that can be sold (have available quantity)
                 $availableItems = $record->items()
                     ->get()
-                    ->filter(fn ($item) => $item->quantity_available > 0);
+                    ->filter(function ($item) {
+                        $available = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
+                        return $available > 0;
+                    })
+                    ->map(function ($item) {
+                        $available = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
+                        $item->quantity_available = $available;
+                        return $item;
+                    });
 
                 if ($availableItems->isEmpty()) {
                     return [
@@ -76,12 +84,12 @@ class RecordSaleAction
                                     Select::make('item_id')
                                         ->label('Item')
                                         ->options($availableItems->mapWithKeys(fn ($item) => [
-                                            $item->id => "{$item->name} - SKU: {$item->sku} (Available: {$item->quantity_available})"
+                                            $item->id => "{$item->product_name} - SKU: {$item->sku} (Available: {$item->quantity_available})"
                                         ]))
                                         ->required()
                                         ->reactive()
-                                        ->afterStateUpdated(function ($state, callable $set) use ($record) {
-                                            $item = $record->items()->find($state);
+                                        ->afterStateUpdated(function ($state, callable $set) use ($availableItems) {
+                                            $item = $availableItems->firstWhere('id', $state);
                                             if ($item) {
                                                 $set('max_quantity', $item->quantity_available);
                                                 $set('price', $item->price);

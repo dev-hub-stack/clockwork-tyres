@@ -31,7 +31,15 @@ class RecordReturnAction
                 // Get items that can be returned (sent items that haven't been returned yet)
                 $returnableItems = $record->items()
                     ->get()
-                    ->filter(fn ($item) => ($item->quantity_sent - $item->quantity_returned) > 0);
+                    ->filter(function ($item) {
+                        $canReturn = $item->quantity_sent - ($item->quantity_returned ?? 0);
+                        return $canReturn > 0;
+                    })
+                    ->map(function ($item) {
+                        $canReturn = $item->quantity_sent - ($item->quantity_returned ?? 0);
+                        $item->quantity_returnable = $canReturn;
+                        return $item;
+                    });
 
                 if ($returnableItems->isEmpty()) {
                     return [
@@ -79,18 +87,16 @@ class RecordReturnAction
                                     Select::make('item_id')
                                         ->label('Item')
                                         ->options($returnableItems->mapWithKeys(function ($item) {
-                                            $availableToReturn = $item->quantity_sent - $item->quantity_returned;
                                             return [
-                                                $item->id => "{$item->name} - SKU: {$item->sku} (Can return: {$availableToReturn})"
+                                                $item->id => "{$item->product_name} - SKU: {$item->sku} (Can return: {$item->quantity_returnable})"
                                             ];
                                         }))
                                         ->required()
                                         ->reactive()
-                                        ->afterStateUpdated(function ($state, callable $set) use ($record) {
-                                            $item = $record->items()->find($state);
+                                        ->afterStateUpdated(function ($state, callable $set) use ($returnableItems) {
+                                            $item = $returnableItems->firstWhere('id', $state);
                                             if ($item) {
-                                                $availableToReturn = $item->quantity_sent - $item->quantity_returned;
-                                                $set('max_quantity', $availableToReturn);
+                                                $set('max_quantity', $item->quantity_returnable);
                                                 $set('quantity', 1);
                                             }
                                         })
