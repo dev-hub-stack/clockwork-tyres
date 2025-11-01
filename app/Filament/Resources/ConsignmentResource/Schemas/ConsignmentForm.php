@@ -81,23 +81,23 @@ class ConsignmentForm
                 // Vehicle Information Section
                 Section::make('Vehicle Information')
                     ->schema([
-                        TextInput::make('vehicle_year')
+                        TextInput::make('year')
                             ->label('Year')
                             ->numeric()
                             ->maxLength(4)
                             ->placeholder('2024'),
                         
-                        TextInput::make('vehicle_make')
+                        TextInput::make('make')
                             ->label('Make')
                             ->maxLength(100)
                             ->placeholder('Toyota'),
                         
-                        TextInput::make('vehicle_model')
+                        TextInput::make('model')
                             ->label('Model')
                             ->maxLength(100)
                             ->placeholder('Camry'),
                         
-                        TextInput::make('vehicle_sub_model')
+                        TextInput::make('sub_model')
                             ->label('Sub Model')
                             ->maxLength(100)
                             ->placeholder('SE, XLE, etc.'),
@@ -161,10 +161,24 @@ class ConsignmentForm
                                         if ($state) {
                                             $variant = \App\Modules\Products\Models\ProductVariant::with('product')->find($state);
                                             if ($variant) {
+                                                // Get customer to check if dealer
+                                                $customerId = $get('../../customer_id');
+                                                $customer = $customerId ? \App\Modules\Customers\Models\Customer::find($customerId) : null;
+                                                
+                                                // Determine price based on customer type
+                                                $price = 0;
+                                                if ($customer && $customer->isDealer()) {
+                                                    // Dealer: use price (dealer/cost price)
+                                                    $price = floatval($variant->price ?? 0);
+                                                } else {
+                                                    // Retail: use UAE retail price → US retail price → base price
+                                                    $price = floatval($variant->uae_retail_price ?? $variant->us_retail_price ?? $variant->price ?? 0);
+                                                }
+                                                
                                                 $set('sku', $variant->sku);
                                                 $set('product_name', $variant->product->name ?? '');
                                                 $set('brand_name', $variant->product->brand->name ?? '');
-                                                $set('price', $variant->price ?? 0);
+                                                $set('price', $price);
                                             }
                                         }
                                     })
@@ -181,13 +195,21 @@ class ConsignmentForm
                                     ->numeric()
                                     ->default(1)
                                     ->required()
-                                    ->minValue(1),
+                                    ->minValue(1)
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        self::calculateTotals($get, $set);
+                                    }),
                                 
                                 TextInput::make('price')
                                     ->label('Price')
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->required(),
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        self::calculateTotals($get, $set);
+                                    }),
                                 
                                 Textarea::make('notes')
                                     ->label('Item Notes')
@@ -200,48 +222,98 @@ class ConsignmentForm
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => 
                                 $state['product_name'] ?? 'New Item'
-                            ),
+                            )
+                            ->live(),
                     ]),
 
                 // Financial Information Section
                 Section::make('Financial Information')
                     ->schema([
-                        Hidden::make('tax_rate')
-                            ->default(fn () => \App\Modules\Settings\Models\TaxSetting::getDefault()?->rate ?? 5),
-                        
                         Grid::make(3)
                             ->schema([
-                                TextInput::make('subtotal')
+                                \Filament\Forms\Components\Placeholder::make('subtotal_display')
                                     ->label('Subtotal')
-                                    ->numeric()
-                                    ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->disabled()
-                                    ->dehydrated(true)
-                                    ->default(0)
+                                    ->content(function ($get, $record) {
+                                        $items = $record ? $record->items : ($get('items') ?? []);
+                                        $subtotal = 0;
+                                        
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity_sent'] ?? 0);
+                                            $price = floatval($item['price'] ?? 0);
+                                            $subtotal += ($qty * $price);
+                                        }
+                                        
+                                        $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+                                        return $currencySymbol . ' ' . number_format($subtotal, 2);
+                                    })
                                     ->helperText('Calculated from items'),
                                 
-                                TextInput::make('tax')
-                                    ->label('Tax')
-                                    ->numeric()
-                                    ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->disabled()
-                                    ->dehydrated(true)
-                                    ->default(0)
+                                \Filament\Forms\Components\Placeholder::make('tax_display')
+                                    ->label(function () {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        $taxRate = $taxSetting ? $taxSetting->rate : 5;
+                                        return "Tax ({$taxRate}%)";
+                                    })
+                                    ->content(function ($get, $record) {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                        
+                                        $items = $record ? $record->items : ($get('items') ?? []);
+                                        $subtotal = 0;
+                                        
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity_sent'] ?? 0);
+                                            $price = floatval($item['price'] ?? 0);
+                                            $subtotal += ($qty * $price);
+                                        }
+                                        
+                                        $tax = $subtotal * ($taxRate / 100);
+                                        $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+                                        return $currencySymbol . ' ' . number_format($tax, 2);
+                                    })
                                     ->helperText(function () {
                                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
                                         $taxRate = $taxSetting ? $taxSetting->rate : 5;
                                         return "Calculated from subtotal at {$taxRate}%";
                                     }),
                                 
-                                TextInput::make('total')
+                                \Filament\Forms\Components\Placeholder::make('total_display')
                                     ->label('Total')
-                                    ->numeric()
-                                    ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->disabled()
-                                    ->dehydrated(true)
-                                    ->default(0)
+                                    ->content(function ($get, $record) {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                        
+                                        $items = $record ? $record->items : ($get('items') ?? []);
+                                        $subtotal = 0;
+                                        
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity_sent'] ?? 0);
+                                            $price = floatval($item['price'] ?? 0);
+                                            $subtotal += ($qty * $price);
+                                        }
+                                        
+                                        $tax = $subtotal * ($taxRate / 100);
+                                        $discount = floatval($get('discount') ?? $record->discount ?? 0);
+                                        $shipping = floatval($get('shipping_cost') ?? $record->shipping_cost ?? 0);
+                                        $total = $subtotal + $tax - $discount + $shipping;
+                                        
+                                        $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+                                        return $currencySymbol . ' ' . number_format($total, 2);
+                                    })
                                     ->helperText('Subtotal + Tax - Discount + Shipping'),
                             ]),
+                        
+                        Hidden::make('subtotal')
+                            ->default(0)
+                            ->dehydrated(true),
+                        
+                        Hidden::make('tax')
+                            ->default(0)
+                            ->dehydrated(true),
+                        
+                        Hidden::make('total')
+                            ->default(0)
+                            ->dehydrated(true),
                         
                         Grid::make(2)
                             ->schema([
@@ -249,13 +321,21 @@ class ConsignmentForm
                                     ->label('Discount')
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->default(0),
+                                    ->default(0)
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        self::calculateTotals($get, $set);
+                                    }),
                                 
                                 TextInput::make('shipping_cost')
                                     ->label('Shipping Cost')
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                    ->default(0),
+                                    ->default(0)
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        self::calculateTotals($get, $set);
+                                    }),
                             ]),
                     ])
                     ->collapsible(),
@@ -264,17 +344,47 @@ class ConsignmentForm
                 Section::make('Notes')
                     ->schema([
                         Textarea::make('notes')
-                            ->label('Customer Notes')
-                            ->rows(3)
-                            ->helperText('Notes visible to customer'),
-                        
-                        Textarea::make('internal_notes')
-                            ->label('Internal Notes')
-                            ->rows(3)
-                            ->helperText('Internal notes (not visible to customer)'),
+                            ->label('Notes')
+                            ->rows(5)
+                            ->helperText('Additional notes for this consignment')
+                            ->columnSpanFull(),
                     ])
-                    ->columns(2)
                     ->collapsible(),
             ]);
+    }
+
+    /**
+     * Calculate and set totals (subtotal, tax, total)
+     */
+    protected static function calculateTotals($get, $set): void
+    {
+        // Get tax rate
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        // Calculate subtotal from items
+        $items = $get('items') ?? [];
+        $subtotal = 0;
+        
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $subtotal += ($qty * $price);
+        }
+        
+        // Calculate tax
+        $tax = $subtotal * ($taxRate / 100);
+        
+        // Get discount and shipping
+        $discount = floatval($get('discount') ?? 0);
+        $shipping = floatval($get('shipping_cost') ?? 0);
+        
+        // Calculate total
+        $total = $subtotal + $tax - $discount + $shipping;
+        
+        // Set the values
+        $set('subtotal', $subtotal);
+        $set('tax', $tax);
+        $set('total', $total);
     }
 }

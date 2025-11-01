@@ -13,10 +13,10 @@
         
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 9px;
-            line-height: 1.4;
+            font-size: 7px;
+            line-height: 1.2;
             color: #333;
-            padding: 15px;
+            padding: 10px;
         }
         
         .clearfix::after {
@@ -26,45 +26,78 @@
         }
         
         .header {
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .header-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        .logo {
+            max-width: 100px;
+            max-height: 35px;
+            margin-bottom: 4px;
+        }
+        
+        .logo-placeholder {
+            width: 100px;
+            height: 35px;
+            background: #2563eb;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: bold;
+            border-radius: 3px;
+            margin-bottom: 4px;
         }
         
         .header h1 {
-            font-size: 28px;
+            font-size: 16px;
             color: #2563eb;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             font-weight: bold;
             text-transform: uppercase;
         }
         
         .header .subtitle {
-            font-size: 14px;
+            font-size: 10px;
             color: #666;
             font-weight: normal;
         }
         
         .company-info {
-            float: right;
             text-align: right;
-            margin-top: -40px;
         }
         
         .company-info h2 {
-            font-size: 16px;
+            font-size: 9px;
             color: #1e40af;
             margin-bottom: 3px;
         }
         
         .company-info p {
-            font-size: 8px;
+            font-size: 6px;
             color: #666;
             margin: 2px 0;
+            line-height: 1.3;
         }
         
         .info-section {
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
         
         .info-left {
@@ -79,23 +112,23 @@
         
         .info-box {
             border: 1px solid #ddd;
-            padding: 10px;
+            padding: 6px;
             background-color: #f9fafb;
-            border-radius: 4px;
-            min-height: 120px;
+            border-radius: 3px;
+            min-height: 80px;
         }
         
         .info-box h3 {
-            font-size: 11px;
+            font-size: 8px;
             color: #1e40af;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 5px;
-            margin-bottom: 8px;
+            border-bottom: 1px solid #2563eb;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
             font-weight: bold;
         }
         
         .info-row {
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             display: flex;
             justify-content: space-between;
         }
@@ -114,9 +147,9 @@
         
         .status-badge {
             display: inline-block;
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 8px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 6px;
             font-weight: bold;
             text-transform: uppercase;
         }
@@ -149,28 +182,28 @@
         .summary-section {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 20px;
-            padding: 10px;
+            margin-bottom: 10px;
+            padding: 6px;
             background-color: #f9fafb;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         
         .summary-box {
             text-align: center;
             flex: 1;
-            padding: 5px;
+            padding: 3px;
         }
         
         .summary-value {
-            font-size: 18px;
+            font-size: 12px;
             font-weight: bold;
             color: #2563eb;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         
         .summary-label {
-            font-size: 8px;
+            font-size: 6px;
             color: #666;
             text-transform: uppercase;
         }
@@ -178,8 +211,8 @@
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 8px;
+            margin-bottom: 8px;
+            font-size: 6px;
         }
         
         .items-table thead {
@@ -188,14 +221,14 @@
         }
         
         .items-table th {
-            padding: 8px 5px;
+            padding: 4px 3px;
             text-align: left;
             font-weight: bold;
             border: 1px solid #1e40af;
         }
         
         .items-table td {
-            padding: 6px 5px;
+            padding: 3px 3px;
             border: 1px solid #ddd;
         }
         
@@ -211,25 +244,25 @@
         
         .item-description {
             color: #6b7280;
-            font-size: 7px;
+            font-size: 5px;
         }
         
         .sku-badge {
             display: inline-block;
             background-color: #e5e7eb;
-            padding: 2px 5px;
+            padding: 1px 3px;
             border-radius: 2px;
-            font-size: 7px;
+            font-size: 5px;
             color: #374151;
-            margin-top: 2px;
+            margin-top: 1px;
         }
         
         .quantity-badge {
             display: inline-block;
             background-color: #dbeafe;
             color: #1e40af;
-            padding: 2px 6px;
-            border-radius: 3px;
+            padding: 1px 4px;
+            border-radius: 2px;
             font-weight: bold;
         }
         
@@ -244,16 +277,16 @@
         .totals-section {
             float: right;
             width: 300px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         .totals-table {
             width: 100%;
-            font-size: 9px;
+            font-size: 7px;
         }
         
         .totals-table td {
-            padding: 6px 10px;
+            padding: 3px 6px;
         }
         
         .totals-table .label {
@@ -275,60 +308,60 @@
         
         .totals-table .grand-total .label,
         .totals-table .grand-total .value {
-            font-size: 11px;
+            font-size: 8px;
             color: #1e40af;
-            padding: 8px 10px;
+            padding: 4px 6px;
         }
         
         .notes-section {
             clear: both;
-            margin-top: 20px;
+            margin-top: 10px;
         }
         
         .notes-box {
             border: 1px solid #ddd;
-            padding: 10px;
+            padding: 6px;
             background-color: #f9fafb;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        
-        .notes-box h3 {
-            font-size: 10px;
-            color: #1e40af;
-            border-bottom: 1px solid #2563eb;
-            padding-bottom: 4px;
+            border-radius: 3px;
             margin-bottom: 6px;
         }
         
+        .notes-box h3 {
+            font-size: 7px;
+            color: #1e40af;
+            border-bottom: 1px solid #2563eb;
+            padding-bottom: 2px;
+            margin-bottom: 3px;
+        }
+        
         .notes-box p {
-            font-size: 8px;
+            font-size: 6px;
             color: #333;
-            line-height: 1.5;
+            line-height: 1.3;
         }
         
         .notes-box ul {
             margin: 0;
-            padding-left: 15px;
-            font-size: 7px;
-            line-height: 1.3;
+            padding-left: 10px;
+            font-size: 5px;
+            line-height: 1.2;
         }
         
         .notes-box ul li {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         
         .footer {
-            margin-top: 30px;
-            padding-top: 10px;
+            margin-top: 15px;
+            padding-top: 6px;
             border-top: 1px solid #ddd;
             text-align: center;
-            font-size: 7px;
+            font-size: 5px;
             color: #666;
         }
         
         .footer p {
-            margin: 3px 0;
+            margin: 2px 0;
         }
         
         @media print {
@@ -351,22 +384,33 @@
     </style>
 </head>
 <body>
-    <div class="header clearfix">
-        <h1>CONSIGNMENT</h1>
-        <div class="subtitle">{{ $consignment->consignment_number }}</div>
+    <div class="header">
+        <div class="header-left">
+            <h1>CONSIGNMENT</h1>
+            <div class="subtitle">{{ $consignment->consignment_number }}</div>
+        </div>
         
-        <div class="company-info">
-            <h2>{{ $companyName }}</h2>
-            @if($companyAddress)
-                <p>{{ $companyAddress }}</p>
+        <div class="header-right">
+            @if($logo)
+                <img src="{{ $logo }}" alt="Company Logo" class="logo">
+            @else
+                <div class="logo-placeholder">
+                    {{ $companyName }}
+                </div>
             @endif
-            @if($companyPhone)
-                <p>Phone: {{ $companyPhone }}</p>
-            @endif
-            @if($companyEmail)
-                <p>Email: {{ $companyEmail }}</p>
-            @endif
-            <p>Generated: {{ now()->format('d/m/Y H:i') }}</p>
+            <div class="company-info">
+                <h2>{{ $companyName }}</h2>
+                @if($companyAddress)
+                    <p>{{ $companyAddress }}</p>
+                @endif
+                @if($companyPhone)
+                    <p>Phone: {{ $companyPhone }}</p>
+                @endif
+                @if($companyEmail)
+                    <p>Email: {{ $companyEmail }}</p>
+                @endif
+                <p>Generated: {{ now()->format('d/m/Y H:i') }}</p>
+            </div>
         </div>
     </div>
 
@@ -399,8 +443,8 @@
                 <div class="info-row">
                     <span class="info-label">Status:</span>
                     <span class="info-value">
-                        <span class="status-badge status-{{ str_replace('_', '-', $consignment->status) }}">
-                            {{ strtoupper(str_replace('_', ' ', $consignment->status)) }}
+                        <span class="status-badge status-{{ str_replace('_', '-', $consignment->status->value) }}">
+                            {{ $consignment->status->getLabel() }}
                         </span>
                     </span>
                 </div>
@@ -410,7 +454,7 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Warehouse:</span>
-                    <span class="info-value">{{ $consignment->warehouse?->name ?? 'N/A' }}</span>
+                    <span class="info-value">{{ $consignment->warehouse?->warehouse_name ?? 'N/A' }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Created:</span>

@@ -27,15 +27,12 @@ class Consignment extends Model
         'warehouse_id',
         'created_by',
         
-        // Financial (uses organization settings for tax, currency)
+        // Financial
         'subtotal',
         'tax',
         'discount',
         'shipping_cost',
         'total',
-        'currency',
-        'tax_rate',
-        'discount_type',
         
         // Status & Tracking
         'status',
@@ -49,15 +46,15 @@ class Consignment extends Model
         'sent_at',
         'delivered_at',
         
-        // Vehicle Information
-        'vehicle_year',
-        'vehicle_make',
-        'vehicle_model',
-        'vehicle_sub_model',
+        // Vehicle Information (database columns)
+        'year',
+        'make',
+        'model',
+        'sub_model',
         
         // Notes
         'notes',
-        'internal_notes',
+        'terms_conditions',
         
         // Conversion
         'converted_invoice_id',
@@ -70,7 +67,6 @@ class Consignment extends Model
         'discount' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'total' => 'decimal:2',
-        'tax_rate' => 'decimal:2',
         'items_sent_count' => 'integer',
         'items_sold_count' => 'integer',
         'items_returned_count' => 'integer',
@@ -272,10 +268,10 @@ class Consignment extends Model
     public function getVehicleInfo(): string
     {
         $parts = array_filter([
-            $this->vehicle_year,
-            $this->vehicle_make,
-            $this->vehicle_model,
-            $this->vehicle_sub_model,
+            $this->year,
+            $this->make,
+            $this->model,
+            $this->sub_model,
         ]);
         
         return implode(' ', $parts) ?: 'No vehicle info';
@@ -286,7 +282,75 @@ class Consignment extends Model
      */
     public function formatCurrency(float $amount): string
     {
-        $currency = $this->currency ?: 'USD';
+        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_code ?? 'AED';
         return $currency . ' ' . number_format($amount, 2);
+    }
+
+    // ============================================
+    // Attribute Accessors (Backward Compatibility)
+    // ============================================
+    
+    /**
+     * Get vehicle_year attribute (maps to 'year' column)
+     */
+    public function getVehicleYearAttribute()
+    {
+        return $this->year;
+    }
+
+    /**
+     * Set vehicle_year attribute (maps to 'year' column)
+     */
+    public function setVehicleYearAttribute($value)
+    {
+        $this->attributes['year'] = $value;
+    }
+
+    /**
+     * Get vehicle_make attribute (maps to 'make' column)
+     */
+    public function getVehicleMakeAttribute()
+    {
+        return $this->make;
+    }
+
+    /**
+     * Set vehicle_make attribute (maps to 'make' column)
+     */
+    public function setVehicleMakeAttribute($value)
+    {
+        $this->attributes['make'] = $value;
+    }
+
+    /**
+     * Get vehicle_model attribute (maps to 'model' column)
+     */
+    public function getVehicleModelAttribute()
+    {
+        return $this->model;
+    }
+
+    /**
+     * Set vehicle_model attribute (maps to 'model' column)
+     */
+    public function setVehicleModelAttribute($value)
+    {
+        $this->attributes['model'] = $value;
+    }
+
+    /**
+     * Get vehicle_sub_model attribute (maps to 'sub_model' column)
+     */
+    public function getVehicleSubModelAttribute()
+    {
+        return $this->sub_model;
+    }
+
+    /**
+     * Set vehicle_sub_model attribute (maps to 'sub_model' column)
+     */
+    public function setVehicleSubModelAttribute($value)
+    {
+        $this->attributes['sub_model'] = $value;
     }
 }
