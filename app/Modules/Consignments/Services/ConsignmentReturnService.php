@@ -77,12 +77,12 @@ class ConsignmentReturnService
                 throw new \InvalidArgumentException("Item {$itemData['item_id']} not found in consignment");
             }
             
-            // Check if there's quantity available to return (sent items that haven't been returned)
-            $availableToReturn = $item->quantity_sent - $item->quantity_returned;
+            // Check if there's quantity available to return (sent items that haven't been sold or returned)
+            $availableToReturn = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
             
             if ($itemData['quantity'] > $availableToReturn) {
                 throw new \InvalidArgumentException(
-                    "Cannot return {$itemData['quantity']} of item '{$item->name}'. Only {$availableToReturn} available to return."
+                    "Cannot return {$itemData['quantity']} of item '{$item->product_name}'. Only {$availableToReturn} available to return."
                 );
             }
             
@@ -134,6 +134,10 @@ class ConsignmentReturnService
             
             // Only add back to inventory if condition is good
             if ($condition === 'good') {
+                // Get product_id from variant relationship
+                $variant = $item->productVariant;
+                $productId = $variant ? $variant->product_id : null;
+                
                 // Find or create product inventory record
                 $inventory = ProductInventory::firstOrCreate(
                     [
@@ -141,7 +145,7 @@ class ConsignmentReturnService
                         'warehouse_id' => $warehouseId,
                     ],
                     [
-                        'product_id' => $item->product_id,
+                        'product_id' => $productId,
                         'quantity' => 0,
                         'cost_price' => 0,
                     ]

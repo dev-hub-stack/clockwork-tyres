@@ -226,7 +226,21 @@ class Consignment extends Model
      */
     public function canRecordReturn(): bool
     {
-        return $this->status->canRecordReturn() && $this->items_sold_count > 0;
+        // Can return if status allows it AND there are items that can be returned
+        // Items can be returned if: quantity_sent - quantity_returned > 0
+        if (!$this->status->canRecordReturn()) {
+            return false;
+        }
+        
+        // Check if there are any items with returnable quantity
+        $hasReturnableItems = $this->items()
+            ->get()
+            ->some(function ($item) {
+                $returnable = $item->quantity_sent - ($item->quantity_returned ?? 0);
+                return $returnable > 0;
+            });
+        
+        return $hasReturnableItems;
     }
 
     /**

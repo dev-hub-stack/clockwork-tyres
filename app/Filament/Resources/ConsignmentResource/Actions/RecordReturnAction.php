@@ -28,26 +28,18 @@ class RecordReturnAction
             ->modalWidth('6xl')
             ->visible(fn (Consignment $record) => $record->canRecordReturn())
             ->form(function (Consignment $record) {
-                // Get items that can be returned (sent items that haven't been returned yet)
-                $returnableItems = $record->items()
+                // Get ALL items with calculated returnable quantities
+                $allItems = $record->items()
                     ->get()
-                    ->filter(function ($item) {
-                        $canReturn = $item->quantity_sent - ($item->quantity_returned ?? 0);
-                        return $canReturn > 0;
-                    })
                     ->map(function ($item) {
-                        $canReturn = $item->quantity_sent - ($item->quantity_returned ?? 0);
+                        // Can only return items that are still with customer (not sold, not already returned)
+                        $canReturn = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
                         $item->quantity_returnable = $canReturn;
                         return $item;
                     });
 
-                if ($returnableItems->isEmpty()) {
-                    return [
-                        Placeholder::make('no_items')
-                            ->content('⚠️ No items available to return. All items have been returned.')
-                            ->columnSpanFull(),
-                    ];
-                }
+                // Filter items that can be returned (have returnable quantity > 0)
+                $returnableItems = $allItems->filter(fn ($item) => $item->quantity_returnable > 0);
 
                 // Get active warehouses
                 $warehouses = Warehouse::where('status', 1)
@@ -75,11 +67,17 @@ class RecordReturnAction
                                 ]),
                         ]),
                     
-                    // Items to Return Section
+                    // Items to Return Section - Show ALL items sent
                     Section::make('Items to Return')
+                        ->description($returnableItems->isEmpty() 
+                            ? '⚠️ No items available to return. All items have been returned.' 
+                            : 'Select items and specify quantities to return to warehouse')
                         ->schema([
                             Repeater::make('returned_items')
                                 ->label('')
+                                ->defaultItems(1)
+                                ->collapsed(false)
+                                ->addable($returnableItems->count() > 1)
                                 ->schema([
                                     Select::make('item_id')
                                         ->label('Item')
@@ -107,6 +105,24 @@ class RecordReturnAction
                                         ->minValue(1)
                                         ->maxValue(fn (callable $get) => $get('max_quantity') ?? 999)
                                         ->default(1)
+                                        ->live(onBlur: true)
+                                        ->rule('integer')
+                                        ->rule('min:1')
+                                        ->rule(function (callable $get) {
+                                            return function ($attribute, $value, $fail) use ($get) {
+                                                $maxQty = $get('max_quantity');
+                                                if ($maxQty && $value > $maxQty) {
+                                                    $fail("Cannot return more than {$maxQty} units (returnable quantity).");
+                                                }
+                                            };
+                                        })
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            // Auto-correct if exceeds max
+                                            $maxQty = $get('max_quantity');
+                                            if ($maxQty && $state > $maxQty) {
+                                                $set('quantity', $maxQty);
+                                            }
+                                        })
                                         ->helperText(fn (callable $get) => 
                                             'Max returnable: ' . ($get('max_quantity') ?? 'N/A')
                                         )
@@ -136,7 +152,6 @@ class RecordReturnAction
                                     TextInput::make('max_quantity')->hidden()->default(0),
                                 ])
                                 ->columns(6)
-                                ->defaultItems(0)
                                 ->addActionLabel('Add Item to Return')
                                 ->reorderable(false)
                                 ->columnSpanFull(),

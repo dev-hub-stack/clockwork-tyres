@@ -105,7 +105,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
      */
     public function canRecordReturn(): bool
     {
-        return in_array($this, [self::DELIVERED, self::PARTIALLY_SOLD, self::PARTIALLY_RETURNED, self::INVOICED_IN_FULL]);
+        return in_array($this, [self::SENT, self::DELIVERED, self::PARTIALLY_SOLD, self::PARTIALLY_RETURNED, self::INVOICED_IN_FULL]);
     }
 
     /**

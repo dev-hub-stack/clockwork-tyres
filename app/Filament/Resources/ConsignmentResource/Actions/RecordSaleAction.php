@@ -67,15 +67,28 @@ class RecordSaleAction
                     Section::make('Items to Sell')
                         ->description($availableItems->isEmpty() 
                             ? '⚠️ No items available to sell. All items have been sold or returned.' 
-                            : 'Select items and specify quantities to sell')
+                            : 'Check items you want to sell and enter quantities')
                         ->schema([
                             Repeater::make('sold_items')
                                 ->label('')
                                 ->schema([
-                                    Select::make('item_id')
+                                    Placeholder::make('item_info')
                                         ->label('Item')
+                                        ->content(fn (callable $get) => function () use ($availableItems, $get) {
+                                            $itemId = $get('item_id');
+                                            if (!$itemId) return 'Select an item';
+                                            
+                                            $item = $availableItems->firstWhere('id', $itemId);
+                                            if (!$item) return 'Item not found';
+                                            
+                                            return "<strong>{$item->product_name}</strong><br><small class='text-gray-500'>SKU: {$item->sku} | Available: {$item->quantity_available}</small>";
+                                        })
+                                        ->columnSpan(2),
+                                    
+                                    Select::make('item_id')
+                                        ->label('Select Item')
                                         ->options($availableItems->mapWithKeys(fn ($item) => [
-                                            $item->id => "{$item->product_name} - SKU: {$item->sku} (Available: {$item->quantity_available})"
+                                            $item->id => "{$item->product_name} ({$item->sku})"
                                         ]))
                                         ->required()
                                         ->reactive()
@@ -85,37 +98,57 @@ class RecordSaleAction
                                                 $set('max_quantity', $item->quantity_available);
                                                 $set('price', $item->price);
                                                 $set('quantity', 1);
+                                                $set('total', 1 * $item->price);
                                             }
                                         })
                                         ->searchable()
-                                        ->columnSpan(3),
+                                        ->columnSpan(2),
                                     
                                     TextInput::make('quantity')
-                                        ->label('Quantity to Sell')
+                                        ->label('Qty to Sell')
                                         ->numeric()
                                         ->required()
                                         ->minValue(1)
                                         ->maxValue(fn (callable $get) => $get('max_quantity') ?? 999)
                                         ->default(1)
-                                        ->reactive()
-                                        ->afterStateUpdated(fn ($state, callable $set, callable $get) => 
-                                            $set('total', ($state ?? 0) * ($get('price') ?? 0))
-                                        )
+                                        ->live(onBlur: true)
+                                        ->rule('integer')
+                                        ->rule('min:1')
+                                        ->rule(function (callable $get) {
+                                            return function ($attribute, $value, $fail) use ($get) {
+                                                $maxQty = $get('max_quantity');
+                                                if ($maxQty && $value > $maxQty) {
+                                                    $fail("Cannot sell more than {$maxQty} units (available quantity).");
+                                                }
+                                            };
+                                        })
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            // Update total for this item
+                                            $set('total', ($state ?? 0) * ($get('price') ?? 0));
+                                            
+                                            // Validate against max quantity
+                                            $maxQty = $get('max_quantity');
+                                            if ($maxQty && $state > $maxQty) {
+                                                // This will trigger validation error
+                                                $set('quantity', $maxQty);
+                                            }
+                                        })
                                         ->columnSpan(1),
                                     
                                     TextInput::make('price')
-                                        ->label("Sale Price ({$currency})")
+                                        ->label("Price ({$currency})")
                                         ->numeric()
                                         ->required()
                                         ->minValue(0)
                                         ->step(0.01)
-                                        ->reactive()
-                                        ->afterStateUpdated(fn ($state, callable $set, callable $get) => 
-                                            $set('total', ($state ?? 0) * ($get('quantity') ?? 0))
-                                        )
+                                        ->live(onBlur: true)
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            // Update total for this item
+                                            $set('total', ($state ?? 0) * ($get('quantity') ?? 0));
+                                        })
                                         ->columnSpan(1),
                                     
-                                    Placeholder::make('total')
+                                    Placeholder::make('total_display')
                                         ->label('Total')
                                         ->content(fn (callable $get) => 
                                             $currency . ' ' . number_format($get('total') ?? 0, 2)
@@ -126,11 +159,17 @@ class RecordSaleAction
                                     TextInput::make('max_quantity')->hidden()->default(0),
                                     TextInput::make('total')->hidden()->default(0),
                                 ])
-                                ->columns(6)
-                                ->defaultItems(0)
-                                ->addActionLabel('Add Item to Sale')
+                                ->columns(7)
+                                ->defaultItems($availableItems->isEmpty() ? 0 : 1)
+                                ->addActionLabel('+ Add Another Item')
+                                ->addable($availableItems->count() > 1) // Only allow adding if multiple items available
                                 ->reorderable(false)
-                                ->columnSpanFull(),
+                                ->collapsed(false)
+                                ->itemLabel(fn (array $state) => $state['item_id'] 
+                                    ? $availableItems->firstWhere('id', $state['item_id'])?->product_name ?? 'Item' 
+                                    : 'New Item')
+                                ->columnSpanFull()
+                                ->disabled($availableItems->isEmpty()),
                         ]),
                     
                     // Payment Information Section
@@ -157,16 +196,7 @@ class RecordSaleAction
                                             'partial' => 'Partial Payment',
                                         ])
                                         ->required()
-                                        ->default('full')
-                                        ->reactive()
-                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                            if ($state === 'full') {
-                                                // Calculate total from sold_items
-                                                $soldItems = $get('sold_items') ?? [];
-                                                $total = collect($soldItems)->sum('total');
-                                                $set('payment_amount', $total);
-                                            }
-                                        }),
+                                        ->default('full'),
                                     
                                     TextInput::make('payment_amount')
                                         ->label("Payment Amount ({$currency})")
@@ -174,7 +204,6 @@ class RecordSaleAction
                                         ->required()
                                         ->minValue(0)
                                         ->step(0.01)
-                                        ->reactive()
                                         ->helperText('Enter the amount received from customer'),
                                 ]),
                         ]),
@@ -233,12 +262,6 @@ class RecordSaleAction
                         ->success()
                         ->title('Sale Recorded Successfully')
                         ->body("Invoice #{$invoice->invoice_number} created with {$totalQty} items. Payment: {$paymentData['amount']}")
-                        ->actions([
-                            \Filament\Notifications\Actions\Action::make('view_invoice')
-                                ->label('View Invoice')
-                                ->url(fn () => InvoiceResource::getUrl('view', ['record' => $invoice]))
-                                ->button(),
-                        ])
                         ->send();
                     
                 } catch (\Exception $e) {

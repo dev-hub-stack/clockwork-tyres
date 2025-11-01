@@ -121,9 +121,12 @@ class ConsignmentInvoiceService
                 throw new \InvalidArgumentException("Item {$itemData['item_id']} not found in consignment");
             }
             
-            if ($itemData['quantity'] > $item->quantity_available) {
+            // Calculate available quantity manually
+            $quantityAvailable = $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0);
+            
+            if ($itemData['quantity'] > $quantityAvailable) {
                 throw new \InvalidArgumentException(
-                    "Insufficient quantity for item '{$item->name}'. Available: {$item->quantity_available}, Requested: {$itemData['quantity']}"
+                    "Insufficient quantity for item '{$item->product_name}'. Available: {$quantityAvailable}, Requested: {$itemData['quantity']}"
                 );
             }
         }
@@ -225,7 +228,7 @@ class ConsignmentInvoiceService
             
             // Status
             'status' => 'pending', // Will be updated by recordPayment
-            'payment_status' => 1, // Unpaid
+            'payment_status' => 'pending', // Will be updated by recordPayment
             
             // Currency
             'currency' => $consignment->currency ?? 'AED',
@@ -316,7 +319,7 @@ class ConsignmentInvoiceService
         $invoice->update([
             'amount_paid' => $paymentData['amount'],
             'balance_due' => $invoice->total - $paymentData['amount'],
-            'payment_status' => $paymentData['type'] === 'full' ? 10 : 1, // 10=paid, 1=partial
+            'payment_status' => $paymentData['type'] === 'full' ? 'paid' : 'partial',
             'status' => $paymentData['type'] === 'full' ? 'paid' : 'partially_paid',
             'paid_at' => $paymentData['type'] === 'full' ? now() : null,
             'payment_method' => $paymentData['method'],
@@ -393,7 +396,7 @@ class ConsignmentInvoiceService
         $parts = [];
         
         // Start with product name
-        $productName = $item->name ?? 'Product';
+        $productName = $item->product_name ?? 'Product';
         $parts[] = $productName;
         
         // Add brand
