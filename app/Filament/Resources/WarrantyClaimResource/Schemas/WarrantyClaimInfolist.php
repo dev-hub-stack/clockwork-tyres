@@ -3,21 +3,21 @@
 namespace App\Filament\Resources\WarrantyClaimResource\Schemas;
 
 use App\Modules\Warranties\Enums\WarrantyClaimStatus;
-use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\Group;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\Split;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\ViewEntry;
-use Filament\Infolists\Infolist;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Split;
+use Filament\Schemas\Components\TextEntry;
+use Filament\Schemas\Components\ViewEntry;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 
 class WarrantyClaimInfolist
 {
-    public static function configure(Infolist $infolist): Infolist
+    public static function configure(Schema $schema): Schema
     {
-        return $infolist
-            ->schema([
+        return $schema
+            ->components([
                 // Header Section with Status and Key Info
                 Section::make('Claim Overview')
                     ->schema([

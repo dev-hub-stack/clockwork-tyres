@@ -3,22 +3,22 @@
 namespace App\Filament\Resources\WarrantyClaimResource\Pages;
 
 use App\Filament\Resources\WarrantyClaimResource;
-use App\Filament\Resources\WarrantyClaimResource\Schemas\WarrantyClaimInfolist;
+use App\Filament\Resources\WarrantyClaimResource\Schemas\WarrantyClaimViewSchema;
 use App\Modules\Warranties\Enums\WarrantyClaimStatus;
 use Filament\Actions;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Schema;
 
 class ViewWarrantyClaim extends ViewRecord
 {
     protected static string $resource = WarrantyClaimResource::class;
 
-    public function infolist(Infolist $infolist): Infolist
+    public function schema(Schema $schema): Schema
     {
-        return WarrantyClaimInfolist::configure($infolist);
+        return WarrantyClaimViewSchema::configure($schema);
     }
 
     protected function getHeaderActions(): array
