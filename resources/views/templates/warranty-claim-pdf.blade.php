@@ -54,7 +54,9 @@
         
         .header-right {
             text-align: right;
-            max-width: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
         }
         
         .logo {
