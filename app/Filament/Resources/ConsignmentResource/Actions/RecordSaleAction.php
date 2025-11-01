@@ -7,13 +7,13 @@ use App\Modules\Consignments\Services\ConsignmentInvoiceService;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Filament\Resources\InvoiceResource;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 
 class RecordSaleAction
@@ -54,7 +54,7 @@ class RecordSaleAction
 
                 return [
                     // Customer Information Section
-                    Fieldset::make('Customer Information')
+                    Section::make('Customer Information')
                         ->schema([
                             Grid::make(3)
                                 ->schema([
@@ -73,7 +73,7 @@ class RecordSaleAction
                         ]),
                     
                     // Items to Sell Section
-                    Fieldset::make('Items to Sell')
+                    Section::make('Items to Sell')
                         ->schema([
                             Repeater::make('sold_items')
                                 ->label('')
@@ -140,7 +140,7 @@ class RecordSaleAction
                         ]),
                     
                     // Payment Information Section
-                    Fieldset::make('Payment Information')
+                    Section::make('Payment Information')
                         ->schema([
                             Grid::make(2)
                                 ->schema([

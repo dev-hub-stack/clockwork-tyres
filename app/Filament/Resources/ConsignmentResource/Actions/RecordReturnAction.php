@@ -6,12 +6,12 @@ use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Services\ConsignmentReturnService;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 
@@ -57,7 +57,7 @@ class RecordReturnAction
 
                 return [
                     // Customer Information Section
-                    Fieldset::make('Customer Information')
+                    Section::make('Customer Information')
                         ->schema([
                             Grid::make(3)
                                 ->schema([
@@ -76,7 +76,7 @@ class RecordReturnAction
                         ]),
                     
                     // Items to Return Section
-                    Fieldset::make('Items to Return')
+                    Section::make('Items to Return')
                         ->schema([
                             Repeater::make('returned_items')
                                 ->label('')
@@ -143,7 +143,7 @@ class RecordReturnAction
                         ]),
                     
                     // Return Details Section
-                    Fieldset::make('Return Details')
+                    Section::make('Return Details')
                         ->schema([
                             Select::make('return_reason')
                                 ->label('Return Reason')
