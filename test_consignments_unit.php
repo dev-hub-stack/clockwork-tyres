@@ -10,7 +10,11 @@
  * - Accessor methods
  * - Business logic methods
  * 
+ * DEALER PRICING: Unit tests focus on models/enums only
+ * See test_dealer_pricing_all_modules.php for pricing integration
+ * 
  * Run: php test_consignments_unit.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

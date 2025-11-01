@@ -216,8 +216,17 @@ class InvoiceResource extends Resource
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
                                             $variant = ProductVariant::with('product')->find($state);
-                                            $set('unit_price', $variant->price ?? $variant->product->retail_price ?? 0);
-                                            $set('quantity', 1);
+                                            if ($variant) {
+                                                // Use uae_retail_price from tunerstop-admin
+                                                // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
+                                                $price = floatval($variant->uae_retail_price ?? 0);
+                                                $set('unit_price', $price);
+                                                $set('quantity', 1);
+                                                
+                                                // Set tax_inclusive from system setting
+                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                            }
                                         }
                                     })
                                     ->live()
@@ -373,6 +382,12 @@ class InvoiceResource extends Resource
                     
                 Hidden::make('document_type')
                     ->default('invoice'),
+                    
+                Hidden::make('tax_inclusive')
+                    ->default(function () {
+                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                    }),
             ]);
     }
 

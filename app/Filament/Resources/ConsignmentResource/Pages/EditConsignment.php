@@ -30,7 +30,19 @@ class EditConsignment extends EditRecord
     {
         // Load items relationship if not loaded
         if (!isset($data['items']) && $this->record) {
-            $data['items'] = $this->record->items->toArray();
+            $data['items'] = $this->record->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'warehouse_id' => $item->warehouse_id,
+                    'sku' => $item->sku,
+                    'product_name' => $item->product_name,
+                    'brand_name' => $item->brand_name,
+                    'quantity_sent' => $item->quantity_sent,
+                    'price' => $item->price,
+                    'notes' => $item->notes,
+                ];
+            })->toArray();
         }
         
         return $data;

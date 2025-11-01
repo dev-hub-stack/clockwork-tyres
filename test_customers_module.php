@@ -6,7 +6,12 @@
  * This script tests the Customers module backend logic before building UI
  * Following the lessons learned from Settings module
  * 
+ * DEALER PRICING: Tests customer type detection and relationships
+ * See test_customers_crud.php for dealer pricing rules
+ * See test_dealer_pricing_all_modules.php for complete integration
+ * 
  * Run: php test_customers_module.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

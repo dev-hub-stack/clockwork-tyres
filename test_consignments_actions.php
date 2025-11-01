@@ -4,13 +4,17 @@
  * Consignment Actions - Validation Test
  * 
  * Tests all Filament actions with edge cases:
- * - RecordSaleAction (multiple scenarios)
+ * - RecordSaleAction (multiple scenarios, dealer pricing validation)
  * - RecordReturnAction (validation)
  * - ConvertToInvoiceAction (prerequisites)
  * - MarkAsSentAction (status requirements)
  * - CancelConsignmentAction (validation rules)
  * 
+ * DEALER PRICING: RecordSaleAction uses DealerPricingService for invoice creation
+ * See test_dealer_pricing_all_modules.php for complete pricing test
+ * 
  * Run: php test_consignments_actions.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

@@ -42,14 +42,6 @@ class ConsignmentForm
                             ->live()
                             ->helperText('Select the customer receiving the consignment'),
                         
-                        Select::make('warehouse_id')
-                            ->label('Warehouse')
-                            ->relationship('warehouse', 'warehouse_name')
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->helperText('Warehouse where items are sent from'),
-                        
                         Select::make('representative_id')
                             ->label('Sales Representative')
                             ->relationship('representative', 'name')
@@ -157,7 +149,8 @@ class ConsignmentForm
                                             $variant->product->finish?->name ?? 'N/A'
                                         );
                                     })
-                                    ->afterStateUpdated(function ($set, $get, $state) {
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $set, $get) {
                                         if ($state) {
                                             $variant = \App\Modules\Products\Models\ProductVariant::with('product')->find($state);
                                             if ($variant) {
@@ -165,30 +158,84 @@ class ConsignmentForm
                                                 $customerId = $get('../../customer_id');
                                                 $customer = $customerId ? \App\Modules\Customers\Models\Customer::find($customerId) : null;
                                                 
-                                                // Determine price based on customer type
-                                                $price = 0;
-                                                if ($customer && $customer->isDealer()) {
-                                                    // Dealer: use price (dealer/cost price)
-                                                    $price = floatval($variant->price ?? 0);
-                                                } else {
-                                                    // Retail: use UAE retail price → US retail price → base price
-                                                    $price = floatval($variant->uae_retail_price ?? $variant->us_retail_price ?? $variant->price ?? 0);
-                                                }
+                                                // Use uae_retail_price from tunerstop-admin
+                                                // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
+                                                $price = floatval($variant->uae_retail_price ?? 0);
                                                 
                                                 $set('sku', $variant->sku);
                                                 $set('product_name', $variant->product->name ?? '');
                                                 $set('brand_name', $variant->product->brand->name ?? '');
                                                 $set('price', $price);
+                                                
+                                                // Set tax_inclusive from system setting
+                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                                
+                                                // Trigger total calculation
+                                                self::calculateTotals($get, $set);
                                             }
                                         }
                                     })
-                                    ->live()
                                     ->required()
                                     ->columnSpan(2),
                                 
                                 Hidden::make('sku'),
                                 Hidden::make('product_name'),
                                 Hidden::make('brand_name'),
+                                Hidden::make('tax_inclusive')
+                                    ->default(function () {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                                    }),
+                                
+                                Select::make('warehouse_id')
+                                    ->label('Warehouse')
+                                    ->options(function ($get) {
+                                        $variantId = $get('product_variant_id');
+                                        
+                                        if (!$variantId) {
+                                            return ['' => 'Select product first'];
+                                        }
+                                        
+                                        // Get inventory per warehouse for this variant
+                                        $inventories = \App\Modules\Inventory\Models\ProductInventory::where('product_variant_id', $variantId)
+                                            ->with('warehouse')
+                                            ->get();
+                                        
+                                        $options = [];
+                                        
+                                        foreach ($inventories as $inv) {
+                                            if (!$inv->warehouse) continue;
+                                            
+                                            $warehouse = $inv->warehouse;
+                                            $available = ($inv->quantity ?? 0) + ($inv->eta_qty ?? 0);
+                                            
+                                            // Show all warehouses, even with 0 stock
+                                            $label = sprintf(
+                                                '%s (Available: %d)',
+                                                $warehouse->warehouse_name ?? $warehouse->name,
+                                                $available
+                                            );
+                                            
+                                            $options[$warehouse->id] = $label;
+                                        }
+                                        
+                                        // If no inventory records, show all warehouses
+                                        if (empty($options)) {
+                                            $warehouses = \App\Modules\Inventory\Models\Warehouse::where('status', 1)->get();
+                                            foreach ($warehouses as $wh) {
+                                                $options[$wh->id] = $wh->warehouse_name . ' (Available: 0)';
+                                            }
+                                        }
+                                        
+                                        return $options;
+                                    })
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->helperText('Warehouse where this item is sent from')
+                                    ->visible(fn ($get) => $get('product_variant_id') !== null)
+                                    ->columnSpan(1),
                                 
                                 TextInput::make('quantity_sent')
                                     ->label('Qty to Send')
@@ -199,7 +246,9 @@ class ConsignmentForm
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::calculateTotals($get, $set);
-                                    }),
+                                    })
+                                    ->visible(fn ($get) => $get('product_variant_id') !== null)
+                                    ->columnSpan(1),
                                 
                                 TextInput::make('price')
                                     ->label('Price')
@@ -209,14 +258,16 @@ class ConsignmentForm
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::calculateTotals($get, $set);
-                                    }),
+                                    })
+                                    ->visible(fn ($get) => $get('product_variant_id') !== null)
+                                    ->columnSpan(1),
                                 
                                 Textarea::make('notes')
                                     ->label('Item Notes')
                                     ->rows(2)
                                     ->columnSpanFull(),
                             ])
-                            ->columns(3)
+                            ->columns(4)
                             ->defaultItems(1)
                             ->addActionLabel('Add Item')
                             ->collapsible()

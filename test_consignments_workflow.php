@@ -13,7 +13,11 @@
  * 7. Verify all quantities and calculations
  * 8. Test PDF generation
  * 
+ * DEALER PRICING: This test uses ConsignmentService which integrates with DealerPricingService
+ * See test_dealer_pricing_all_modules.php for pricing validation
+ * 
  * Run: php test_consignments_workflow.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

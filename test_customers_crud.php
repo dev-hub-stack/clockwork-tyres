@@ -3,7 +3,13 @@
 /**
  * Test Script for Customers Module - Database CRUD Operations
  * 
+ * Tests customer creation, dealer pricing setup, and DealerPricingService
+ * 
+ * DEALER PRICING: This is the foundation test for dealer pricing rules
+ * See test_dealer_pricing_all_modules.php for complete integration test
+ * 
  * Run: php test_customers_crud.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

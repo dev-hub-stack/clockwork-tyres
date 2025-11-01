@@ -234,22 +234,16 @@ class QuoteResource extends Resource
                                         if ($state) {
                                             $variant = ProductVariant::with('product')->find($state);
                                             if ($variant) {
-                                                // Get customer to check if dealer
-                                                $customerId = $get('../../customer_id');
-                                                $customer = $customerId ? Customer::find($customerId) : null;
-                                                
-                                                // Determine price based on customer type
-                                                $price = 0;
-                                                if ($customer && $customer->isDealer()) {
-                                                    // Dealer: use price (dealer/cost price)
-                                                    $price = floatval($variant->price ?? 0);
-                                                } else {
-                                                    // Retail: use UAE retail price → US retail price → base price
-                                                    $price = floatval($variant->uae_retail_price ?? $variant->us_retail_price ?? $variant->price ?? 0);
-                                                }
+                                                // Use uae_retail_price from tunerstop-admin
+                                                // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
+                                                $price = floatval($variant->uae_retail_price ?? 0);
                                                 
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);
+                                                
+                                                // Set tax_inclusive from system setting
+                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
                                             }
                                         }
                                     })
@@ -444,6 +438,12 @@ class QuoteResource extends Resource
                                         
                                         Hidden::make('vat')
                                             ->default(0),
+                                        
+                                        Hidden::make('tax_inclusive')
+                                            ->default(function () {
+                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                                            }),
                                         
                                         TextInput::make('shipping')
                                             ->label('Shipping')

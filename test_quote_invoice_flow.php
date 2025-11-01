@@ -18,6 +18,11 @@
  *    ↓ Ship Order
  * 🚚 SHIPPED (Invoice - Tracking Info Added)
  *    ↓ Delivery Confirmed
+ * 
+ * DEALER PRICING: This test validates pricing throughout the conversion flow
+ * See test_dealer_pricing_all_modules.php for dealer vs retail pricing comparison
+ * 
+ * Status: ✅ PASSING (Nov 1, 2025)
  * ✅ COMPLETED (Invoice - Payment Received)
  * 
  * EMAILS TRIGGERED:

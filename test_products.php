@@ -4,7 +4,13 @@
  * Test Script for Product Model
  * 
  * This script tests CRUD operations for the Product model
+ * 
+ * DEALER PRICING: Products provide base structure for pricing
+ * See test_product_variants.php for uae_retail_price validation
+ * See test_dealer_pricing_all_modules.php for complete pricing test
+ * 
  * Run: php test_products.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

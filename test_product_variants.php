@@ -9,7 +9,11 @@
  * rim_width, cost, price, us_retail_price, uae_retail_price, sale_price,
  * clearance_corner, image, supplier_stock, product_id
  * 
+ * DEALER PRICING: This test validates uae_retail_price field exists and is accessible
+ * See test_dealer_pricing_all_modules.php for pricing integration
+ * 
  * Run: php test_product_variants.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';

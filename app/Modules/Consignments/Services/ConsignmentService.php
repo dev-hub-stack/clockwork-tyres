@@ -87,6 +87,7 @@ class ConsignmentService
             ConsignmentItem::create([
                 'consignment_id' => $consignment->id,
                 'product_variant_id' => $variant->id,
+                'warehouse_id' => $itemData['warehouse_id'] ?? null,
                 'product_snapshot' => $snapshot,
                 
                 // Denormalized fields
@@ -96,7 +97,7 @@ class ConsignmentService
                 'description' => $variant->product->description ?? '',
                 
                 // Quantities
-                'quantity_sent' => $itemData['quantity'] ?? 1,
+                'quantity_sent' => $itemData['quantity_sent'] ?? $itemData['quantity'] ?? 1,
                 'quantity_sold' => 0,
                 'quantity_returned' => 0,
                 

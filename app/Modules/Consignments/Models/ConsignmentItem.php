@@ -19,6 +19,7 @@ class ConsignmentItem extends Model
         // Relationships
         'consignment_id',
         'product_variant_id',
+        'warehouse_id',
         
         // Snapshots (JSONB) - preserve product data at time of consignment
         'product_snapshot',
@@ -70,6 +71,14 @@ class ConsignmentItem extends Model
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    /**
+     * Get the warehouse for this item
+     */
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Inventory\Models\Warehouse::class);
     }
 
     /**

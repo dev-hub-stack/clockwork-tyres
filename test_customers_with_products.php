@@ -5,7 +5,11 @@
  * 
  * Tests customer pricing with brands and models
  * 
+ * DEALER PRICING: Integration test for customers + products pricing
+ * See test_dealer_pricing_all_modules.php for complete module integration
+ * 
  * Run: php test_customers_with_products.php
+ * Status: ✅ PASSING (Nov 1, 2025)
  */
 
 require __DIR__.'/vendor/autoload.php';
