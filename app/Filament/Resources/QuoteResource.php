@@ -10,6 +10,7 @@ use App\Modules\Orders\Services\QuoteConversionService;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Settings\Models\CompanyBranding;
+use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\TaxSetting;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
@@ -340,7 +341,7 @@ class QuoteResource extends Resource
                                 TextInput::make('unit_price')
                                     ->label('Unit Price')
                                     ->numeric()
-                                    ->prefix('AED')
+                                    ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
                                     ->live()
                                     ->reactive(),
@@ -348,7 +349,7 @@ class QuoteResource extends Resource
                                 TextInput::make('discount')
                                     ->label('Discount')
                                     ->numeric()
-                                    ->prefix('AED')
+                                    ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
                                     ->live()
                                     ->reactive(),
@@ -356,11 +357,13 @@ class QuoteResource extends Resource
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
                                     ->content(function ($get) {
+                                        $currency = CurrencySetting::getBase();
+                                        $currencyCode = $currency ? $currency->currency_code : 'AED';
                                         $qty = floatval($get('quantity') ?? 0);
                                         $price = floatval($get('unit_price') ?? 0);
                                         $discount = floatval($get('discount') ?? 0);
                                         $total = ($qty * $price) - $discount;
-                                        return Number::currency($total, 'AED');
+                                        return Number::currency($total, $currencyCode);
                                     }),
                             ])
                             ->columns(4)
@@ -393,6 +396,9 @@ class QuoteResource extends Resource
                                         Placeholder::make('sub_total_display')
                                             ->label('Subtotal')
                                             ->content(function ($get, $record) {
+                                                $currency = CurrencySetting::getBase();
+                                                $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                                                
                                                 // Access items from the record or form state
                                                 $items = $record ? $record->items : ($get('items') ?? []);
                                                 $subtotal = 0;
@@ -404,7 +410,7 @@ class QuoteResource extends Resource
                                                     $subtotal += ($qty * $price) - $discount;
                                                 }
                                                 
-                                                return 'AED ' . number_format($subtotal, 2);
+                                                return $currencySymbol . ' ' . number_format($subtotal, 2);
                                             }),
                                         
                                         Placeholder::make('vat_display')
@@ -415,6 +421,9 @@ class QuoteResource extends Resource
                                                 return "{$taxName} ({$taxRate}%)";
                                             })
                                             ->content(function ($get, $record) {
+                                                $currency = CurrencySetting::getBase();
+                                                $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                                                
                                                 // Get tax rate from settings
                                                 $taxSetting = TaxSetting::getDefault();
                                                 $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
@@ -433,7 +442,7 @@ class QuoteResource extends Resource
                                                 // Calculate VAT
                                                 $vat = $subtotal * ($taxRate / 100);
                                                 
-                                                return 'AED ' . number_format($vat, 2);
+                                                return $currencySymbol . ' ' . number_format($vat, 2);
                                             }),
                                         
                                         Hidden::make('vat')
@@ -448,7 +457,7 @@ class QuoteResource extends Resource
                                         TextInput::make('shipping')
                                             ->label('Shipping')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->live()
                                             ->afterStateUpdated(function ($get, $set) {
@@ -479,6 +488,9 @@ class QuoteResource extends Resource
                                         Placeholder::make('total_display')
                                             ->label('Total')
                                             ->content(function ($get, $record) {
+                                                $currency = CurrencySetting::getBase();
+                                                $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                                                
                                                 // Get tax rate from settings
                                                 $taxSetting = TaxSetting::getDefault();
                                                 $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
@@ -499,7 +511,7 @@ class QuoteResource extends Resource
                                                 $shipping = floatval($get('shipping') ?? $record->shipping ?? 0);
                                                 $total = $subtotal + $vat + $shipping;
                                                 
-                                                return 'AED ' . number_format($total, 2);
+                                                return $currencySymbol . ' ' . number_format($total, 2);
                                             })
                                             ->extraAttributes(['class' => 'font-bold text-lg']),
                                         
@@ -547,7 +559,7 @@ class QuoteResource extends Resource
                 
                 TextColumn::make('total')
                     ->label('Amount')
-                    ->money('AED')
+                    ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->sortable(),
                 
                 TextColumn::make('valid_until')
@@ -631,6 +643,7 @@ class QuoteResource extends Resource
                         // Get settings
                         $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
                         
                         return view('templates.invoice-preview', [
                             'record' => $record,
@@ -641,7 +654,7 @@ class QuoteResource extends Resource
                             'companyEmail' => $companyBranding->company_email ?? '',
                             'taxNumber' => $companyBranding->tax_registration_number ?? '',
                             'logo' => $companyBranding ? $companyBranding->logo_url : null,
-                            'currency' => 'AED',
+                            'currency' => $currency ? $currency->currency_symbol : 'AED',
                             'vatRate' => $taxSetting ? $taxSetting->rate : 5,
                         ]);
                     }),

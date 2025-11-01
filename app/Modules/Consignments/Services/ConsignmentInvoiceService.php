@@ -7,6 +7,9 @@ use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Settings\Models\CompanyBranding;
+use App\Modules\Settings\Models\CurrencySetting;
+use App\Modules\Settings\Models\TaxSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -150,6 +153,10 @@ class ConsignmentInvoiceService
      */
     protected function calculateSaleTotals(Consignment $consignment, array $soldItems): array
     {
+        // Get tax rate from settings
+        $taxSetting = TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5.0;
+        
         $subtotal = 0;
         
         foreach ($soldItems as $itemData) {
@@ -160,7 +167,6 @@ class ConsignmentInvoiceService
             // Handle tax-inclusive pricing
             if ($item->tax_inclusive ?? false) {
                 // Extract tax from price
-                $taxRate = $consignment->tax_rate ?? 5.0;
                 $priceExcludingTax = $price / (1 + ($taxRate / 100));
                 $subtotal += $quantity * $priceExcludingTax;
             } else {
@@ -169,7 +175,6 @@ class ConsignmentInvoiceService
         }
         
         // Calculate tax
-        $taxRate = $consignment->tax_rate ?? 5.0;
         $tax = $subtotal * ($taxRate / 100);
         
         // Calculate total
@@ -230,8 +235,8 @@ class ConsignmentInvoiceService
             'status' => 'pending', // Will be updated by recordPayment
             'payment_status' => 'pending', // Will be updated by recordPayment
             
-            // Currency
-            'currency' => $consignment->currency ?? 'AED',
+            // Currency - use settings
+            'currency' => CurrencySetting::getBase()?->currency_symbol ?? ($consignment->currency ?? 'AED'),
             
             // Dates
             'invoice_date' => now()->toDateString(),

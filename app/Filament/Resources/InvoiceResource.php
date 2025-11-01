@@ -9,6 +9,9 @@ use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Settings\Models\CompanyBranding;
+use App\Modules\Settings\Models\CurrencySetting;
+use App\Modules\Settings\Models\TaxSetting;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
@@ -315,7 +318,7 @@ class InvoiceResource extends Resource
                                 TextInput::make('unit_price')
                                     ->label('Unit Price')
                                     ->numeric()
-                                    ->prefix('AED')
+                                    ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
                                     ->live()
                                     ->reactive(),
@@ -323,7 +326,7 @@ class InvoiceResource extends Resource
                                 TextInput::make('discount')
                                     ->label('Discount')
                                     ->numeric()
-                                    ->prefix('AED')
+                                    ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
                                     ->live()
                                     ->reactive(),
@@ -331,11 +334,13 @@ class InvoiceResource extends Resource
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
                                     ->content(function ($get) {
+                                        $currency = CurrencySetting::getBase();
+                                        $currencyCode = $currency ? $currency->currency_code : 'AED';
                                         $qty = floatval($get('quantity') ?? 0);
                                         $price = floatval($get('unit_price') ?? 0);
                                         $discount = floatval($get('discount') ?? 0);
                                         $total = ($qty * $price) - $discount;
-                                        return Number::currency($total, 'AED');
+                                        return Number::currency($total, $currencyCode);
                                     }),
                             ])
                             ->columns(4)
@@ -439,25 +444,30 @@ class InvoiceResource extends Resource
                 
                 TextColumn::make('total')
                     ->label('Amount')
-                    ->money('AED')
+                    ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->sortable(),
                 
                 TextColumn::make('balance')
                     ->label('Balance')
-                    ->money('AED')
+                    ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->getStateUsing(fn($record) => $record->outstanding_amount)
                     ->color(fn($state) => $state > 0 ? 'danger' : 'success')
                     ->sortable(),
                 
                 TextColumn::make('gross_profit')
                     ->label('Profit')
-                    ->money('AED')
+                    ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->color(fn($state) => $state >= 0 ? 'success' : 'danger')
                     ->sortable()
                     ->toggleable()
-                    ->tooltip(fn($record) => $record->hasExpensesRecorded() 
-                        ? "Margin: {$record->profit_margin}% | Expenses: AED " . number_format($record->total_expenses, 2)
-                        : 'Expenses not recorded yet'),
+                    ->tooltip(function($record) {
+                        if (!$record->hasExpensesRecorded()) {
+                            return 'Expenses not recorded yet';
+                        }
+                        $currency = CurrencySetting::getBase();
+                        $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                        return "Margin: {$record->profit_margin}% | Expenses: {$currencySymbol} " . number_format($record->total_expenses, 2);
+                    }),
                 
                 TextColumn::make('profit_margin')
                     ->label('Margin %')
@@ -468,7 +478,7 @@ class InvoiceResource extends Resource
                 
                 TextColumn::make('total_expenses')
                     ->label('Expenses')
-                    ->money('AED')
+                    ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 
@@ -554,6 +564,7 @@ class InvoiceResource extends Resource
                         // Get settings
                         $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
                         
                         return view('templates.invoice-preview', [
                             'record' => $record,
@@ -564,7 +575,7 @@ class InvoiceResource extends Resource
                             'companyEmail' => $companyBranding->company_email ?? '',
                             'taxNumber' => $companyBranding->tax_registration_number ?? '',
                             'logo' => $companyBranding ? $companyBranding->logo_url : null,
-                            'currency' => 'AED',
+                            'currency' => $currency ? $currency->currency_symbol : 'AED',
                             'vatRate' => $taxSetting ? $taxSetting->rate : 5,
                         ]);
                     }),
@@ -578,10 +589,14 @@ class InvoiceResource extends Resource
                         TextInput::make('amount')
                             ->label('Amount')
                             ->numeric()
-                            ->prefix('AED')
+                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                             ->required()
                             ->default(fn($record) => $record->outstanding_amount)
-                            ->helperText(fn($record) => "Outstanding amount: AED " . number_format($record->outstanding_amount, 2)),
+                            ->helperText(function($record) {
+                                $currency = CurrencySetting::getBase();
+                                $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                                return "Outstanding amount: {$currencySymbol} " . number_format($record->outstanding_amount, 2);
+                            }),
                         
                         Select::make('payment_method')
                             ->label('Payment Method')
@@ -631,9 +646,12 @@ class InvoiceResource extends Resource
                             'status' => 'completed',
                         ]);
                         
+                        $currency = CurrencySetting::getBase();
+                        $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                        
                         Notification::make()
                             ->title('Payment Recorded')
-                            ->body('Payment of AED ' . number_format($data['amount'], 2) . ' has been recorded')
+                            ->body("Payment of {$currencySymbol} " . number_format($data['amount'], 2) . ' has been recorded')
                             ->success()
                             ->send();
                     }),
@@ -711,7 +729,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('cost_of_goods')
                                             ->label('Cost of Goods')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Direct product costs')
                                             ->reactive(),
@@ -719,7 +737,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('shipping_cost')
                                             ->label('Shipping Cost')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Freight and shipping charges')
                                             ->reactive(),
@@ -727,7 +745,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('duty_amount')
                                             ->label('Customs Duty')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Import duties and taxes')
                                             ->reactive(),
@@ -735,7 +753,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('delivery_fee')
                                             ->label('Delivery Fee')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Last-mile delivery charges')
                                             ->reactive(),
@@ -743,7 +761,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('installation_cost')
                                             ->label('Installation Cost')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Setup and installation fees')
                                             ->reactive(),
@@ -751,7 +769,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('bank_fee')
                                             ->label('Bank Fee')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Wire transfer and banking fees')
                                             ->reactive(),
@@ -759,7 +777,7 @@ class InvoiceResource extends Resource
                                         TextInput::make('credit_card_fee')
                                             ->label('Credit Card Fee')
                                             ->numeric()
-                                            ->prefix('AED')
+                                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
                                             ->helperText('Payment processing fees')
                                             ->reactive(),
@@ -768,6 +786,9 @@ class InvoiceResource extends Resource
                                 Placeholder::make('profit_preview')
                                     ->label('Profit Preview')
                                     ->content(function ($get, $record) {
+                                        $currency = CurrencySetting::getBase();
+                                        $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
+                                        
                                         $revenue = $record->total ?? 0;
                                         $expenses = 
                                             floatval($get('cost_of_goods') ?? 0) +
@@ -788,11 +809,11 @@ class InvoiceResource extends Resource
                                                 <div class='grid grid-cols-3 gap-4'>
                                                     <div>
                                                         <p class='text-sm text-gray-600 dark:text-gray-400'>Revenue</p>
-                                                        <p class='text-lg font-semibold'>AED " . number_format($revenue, 2) . "</p>
+                                                        <p class='text-lg font-semibold'>{$currencySymbol} " . number_format($revenue, 2) . "</p>
                                                     </div>
                                                     <div>
                                                         <p class='text-sm text-gray-600 dark:text-gray-400'>Total Expenses</p>
-                                                        <p class='text-lg font-semibold text-red-600'>AED " . number_format($expenses, 2) . "</p>
+                                                        <p class='text-lg font-semibold text-red-600'>{$currencySymbol} " . number_format($expenses, 2) . "</p>
                                                     </div>
                                                     <div>
                                                         <p class='text-sm text-gray-600 dark:text-gray-400'>Gross Profit</p>
