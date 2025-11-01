@@ -381,9 +381,9 @@ class ConsignmentInvoiceService
             
             // Log status change in history
             $consignment->histories()->create([
-                'status' => $newStatus,
+                'action' => 'sale_recorded',
                 'description' => 'Items sold and invoice created',
-                'created_by' => auth()->id(),
+                'performed_by' => auth()->id(),
             ]);
         }
     }

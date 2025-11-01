@@ -215,15 +215,17 @@ class RecordReturnAction
                         notes: $data['return_notes'] ?? null
                     );
                     
-                    // Count good items that will be added to inventory
-                    $goodItems = collect($returnedItems)->where('condition', 'good')->count();
+                    // Count quantities
                     $totalQty = collect($returnedItems)->sum('quantity');
+                    $goodQty = collect($returnedItems)
+                        ->where('condition', 'good')
+                        ->sum('quantity');
                     
                     // Success notification
                     Notification::make()
                         ->success()
                         ->title('Return Recorded Successfully')
-                        ->body("Recorded return of {$totalQty} items. {$goodItems} items added back to inventory.")
+                        ->body("Recorded return of {$totalQty} units. {$goodQty} units added back to inventory.")
                         ->send();
                     
                 } catch (\Exception $e) {

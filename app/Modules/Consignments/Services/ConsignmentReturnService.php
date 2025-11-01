@@ -205,9 +205,9 @@ class ConsignmentReturnService
             
             // Log status change in history
             $consignment->histories()->create([
-                'status' => $newStatus,
+                'action' => 'status_changed',
                 'description' => 'Items returned to warehouse',
-                'created_by' => auth()->id(),
+                'performed_by' => auth()->id(),
             ]);
         }
     }
@@ -232,9 +232,9 @@ class ConsignmentReturnService
         }
         
         $consignment->histories()->create([
-            'status' => $consignment->status,
+            'action' => 'return_recorded',
             'description' => $description,
-            'created_by' => auth()->id(),
+            'performed_by' => auth()->id(),
             'metadata' => [
                 'action' => 'return_recorded',
                 'returned_items' => $returnedItems,
