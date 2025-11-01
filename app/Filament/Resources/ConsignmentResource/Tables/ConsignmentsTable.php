@@ -50,7 +50,15 @@ class ConsignmentsTable
                     ->label('Customer')
                     ->searchable(['business_name', 'first_name', 'last_name', 'email'])
                     ->sortable()
-                    ->limit(30),
+                    ->limit(30)
+                    ->default('N/A')
+                    ->getStateUsing(function ($record) {
+                        if (!$record->customer) return 'N/A';
+                        return $record->customer->business_name 
+                            ?? ($record->customer->first_name . ' ' . $record->customer->last_name)
+                            ?? $record->customer->email
+                            ?? 'Unknown Customer';
+                    }),
                 
                 BadgeColumn::make('status')
                     ->label('Status')
@@ -71,12 +79,14 @@ class ConsignmentsTable
                 TextColumn::make('items_counts')
                     ->label('Items (S/S/R)')
                     ->getStateUsing(function ($record) {
-                        return sprintf(
-                            '%d/%d/%d',
-                            $record->items_sent_count ?? 0,
-                            $record->items_sold_count ?? 0,
-                            $record->items_returned_count ?? 0
-                        );
+                        // Calculate from actual items, not denormalized fields
+                        $items = $record->items ?? collect();
+                        
+                        $sent = $items->sum('quantity_sent') ?? 0;
+                        $sold = $items->sum('quantity_sold') ?? 0;
+                        $returned = $items->sum('quantity_returned') ?? 0;
+                        
+                        return sprintf('%d/%d/%d', $sent, $sold, $returned);
                     })
                     ->description(fn () => 'Sent/Sold/Returned')
                     ->alignCenter()
@@ -86,7 +96,25 @@ class ConsignmentsTable
                     ->label('Total')
                     ->money($currency)
                     ->sortable()
-                    ->weight('medium'),
+                    ->weight('medium')
+                    ->getStateUsing(function ($record) {
+                        // Calculate total on-the-fly if not set
+                        $total = floatval($record->total ?? 0);
+                        
+                        if ($total == 0 && $record->items && $record->items->count() > 0) {
+                            $subtotal = $record->items->sum(function($item) {
+                                return ($item->quantity_sent ?? 0) * ($item->price ?? 0);
+                            });
+                            
+                            $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                            $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                            $tax = $subtotal * ($taxRate / 100);
+                            
+                            $total = $subtotal + $tax - ($record->discount ?? 0) + ($record->shipping_cost ?? 0);
+                        }
+                        
+                        return $total;
+                    }),
                 
                 TextColumn::make('warehouse.warehouse_name')
                     ->label('Warehouse')

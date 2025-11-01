@@ -26,6 +26,18 @@ class ConsignmentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'consignment_number';
 
+    /**
+     * Eager load relationships for better performance
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['customer', 'warehouse', 'representative', 'items'])
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ConsignmentForm::configure($schema);
@@ -56,13 +68,5 @@ class ConsignmentResource extends Resource
             'view' => ViewConsignment::route('/{record}'),
             'edit' => EditConsignment::route('/{record}/edit'),
         ];
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
     }
 }

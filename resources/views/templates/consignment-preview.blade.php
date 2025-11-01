@@ -415,7 +415,12 @@
                 <h3>Customer Information</h3>
                 <div class="info-row">
                     <span class="info-label">Name:</span>
-                    <span class="info-value">{{ $consignment->customer?->name ?? 'N/A' }}</span>
+                    <span class="info-value">
+                        {{ $consignment->customer?->business_name 
+                            ?? ($consignment->customer?->first_name . ' ' . $consignment->customer?->last_name)
+                            ?? $consignment->customer?->email 
+                            ?? 'N/A' }}
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Email:</span>
@@ -470,7 +475,7 @@
     <!-- Summary Statistics -->
     <div class="summary-section clearfix">
         <div class="summary-box">
-            <div class="summary-value">{{ $consignment->items->sum('quantity') }}</div>
+            <div class="summary-value">{{ $consignment->items->sum('quantity_sent') }}</div>
             <div class="summary-label">Items Sent</div>
         </div>
         <div class="summary-box">
@@ -482,7 +487,18 @@
             <div class="summary-label">Items Returned</div>
         </div>
         <div class="summary-box">
-            <div class="summary-value">{{ $currency }} {{ number_format($consignment->total, 2) }}</div>
+            @php
+                // Calculate total on-the-fly if not set
+                $displayTotal = $consignment->total ?? 0;
+                if ($displayTotal == 0 && $consignment->items->count() > 0) {
+                    $subtotal = $consignment->items->sum(function($item) {
+                        return ($item->quantity_sent ?? 0) * ($item->price ?? 0);
+                    });
+                    $tax = $subtotal * ($vatRate / 100);
+                    $displayTotal = $subtotal + $tax - ($consignment->discount ?? 0) + ($consignment->shipping_cost ?? 0);
+                }
+            @endphp
+            <div class="summary-value">{{ $currency }} {{ number_format($displayTotal, 2) }}</div>
             <div class="summary-label">Total Value</div>
         </div>
     </div>
@@ -505,24 +521,24 @@
                 <tr>
                     <td>
                         <div class="item-name">{{ $item->product_name }}</div>
-                        @if($item->product?->brand?->name)
-                            <div class="item-description">{{ $item->product->brand->name }}</div>
+                        @if($item->brand_name)
+                            <div class="item-description">{{ $item->brand_name }}</div>
                         @endif
-                        @if($item->product?->sku)
-                            <div class="sku-badge">SKU: {{ $item->product->sku }}</div>
+                        @if($item->sku)
+                            <div class="sku-badge">SKU: {{ $item->sku }}</div>
                         @endif
                     </td>
-                    <td class="text-center">{{ $item->quantity }}</td>
-                    <td class="text-right">{{ $currency }} {{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-right">{{ $currency }} {{ number_format($item->total, 2) }}</td>
+                    <td class="text-center">{{ $item->quantity_sent }}</td>
+                    <td class="text-right">{{ $currency }} {{ number_format($item->price, 2) }}</td>
+                    <td class="text-right">{{ $currency }} {{ number_format($item->quantity_sent * $item->price, 2) }}</td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity_sold }}</span>
+                        <span class="quantity-badge">{{ $item->quantity_sold ?? 0 }}</span>
                     </td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity_returned }}</span>
+                        <span class="quantity-badge">{{ $item->quantity_returned ?? 0 }}</span>
                     </td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity - $item->quantity_sold + $item->quantity_returned }}</span>
+                        <span class="quantity-badge">{{ $item->quantity_sent - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0) }}</span>
                     </td>
                 </tr>
             @empty
@@ -540,17 +556,53 @@
         <table class="totals-table">
             <tr>
                 <td class="label">Subtotal:</td>
-                <td class="value">{{ $currency }} {{ number_format($consignment->subtotal, 2) }}</td>
+                <td class="value">
+                    @php
+                        // Calculate subtotal on-the-fly if not set
+                        $calculatedSubtotal = $consignment->subtotal ?? 0;
+                        if ($calculatedSubtotal == 0 && $consignment->items->count() > 0) {
+                            $calculatedSubtotal = $consignment->items->sum(function($item) {
+                                return ($item->quantity_sent ?? 0) * ($item->price ?? 0);
+                            });
+                        }
+                    @endphp
+                    {{ $currency }} {{ number_format($calculatedSubtotal, 2) }}
+                </td>
             </tr>
-            @if($consignment->tax > 0)
+            @php
+                // Calculate tax on-the-fly if needed
+                $calculatedTax = $consignment->tax ?? 0;
+                if ($calculatedTax == 0 && $calculatedSubtotal > 0) {
+                    $calculatedTax = $calculatedSubtotal * ($vatRate / 100);
+                }
+                
+                // Calculate total on-the-fly if needed
+                $calculatedTotal = $consignment->total ?? 0;
+                if ($calculatedTotal == 0 && $calculatedSubtotal > 0) {
+                    $calculatedTotal = $calculatedSubtotal + $calculatedTax - ($consignment->discount ?? 0) + ($consignment->shipping_cost ?? 0);
+                }
+            @endphp
+            @if($calculatedTax > 0)
                 <tr>
                     <td class="label">Tax ({{ $vatRate }}%):</td>
-                    <td class="value">{{ $currency }} {{ number_format($consignment->tax, 2) }}</td>
+                    <td class="value">{{ $currency }} {{ number_format($calculatedTax, 2) }}</td>
+                </tr>
+            @endif
+            @if(($consignment->discount ?? 0) > 0)
+                <tr>
+                    <td class="label">Discount:</td>
+                    <td class="value">-{{ $currency }} {{ number_format($consignment->discount ?? 0, 2) }}</td>
+                </tr>
+            @endif
+            @if(($consignment->shipping_cost ?? 0) > 0)
+                <tr>
+                    <td class="label">Shipping:</td>
+                    <td class="value">{{ $currency }} {{ number_format($consignment->shipping_cost ?? 0, 2) }}</td>
                 </tr>
             @endif
             <tr class="grand-total">
                 <td class="label">Grand Total:</td>
-                <td class="value">{{ $currency }} {{ number_format($consignment->total, 2) }}</td>
+                <td class="value">{{ $currency }} {{ number_format($calculatedTotal, 2) }}</td>
             </tr>
         </table>
     </div>

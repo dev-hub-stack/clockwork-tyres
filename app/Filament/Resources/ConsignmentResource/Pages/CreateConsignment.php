@@ -8,4 +8,44 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateConsignment extends CreateRecord
 {
     protected static string $resource = ConsignmentResource::class;
+
+    /**
+     * Mutate form data before creating the record
+     */
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // Calculate totals from items
+        $items = $data['items'] ?? [];
+        $subtotal = 0;
+        
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $subtotal += ($qty * $price);
+        }
+        
+        // Get tax rate from settings
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        $tax = $subtotal * ($taxRate / 100);
+        $discount = floatval($data['discount'] ?? 0);
+        $shipping = floatval($data['shipping_cost'] ?? 0);
+        $total = $subtotal + $tax - $discount + $shipping;
+        
+        // Set calculated values
+        $data['subtotal'] = $subtotal;
+        $data['tax'] = $tax;
+        $data['total'] = $total;
+        
+        // Generate consignment number if not set
+        if (empty($data['consignment_number'])) {
+            $data['consignment_number'] = \App\Modules\Consignments\Models\Consignment::generateConsignmentNumber();
+        }
+        
+        // Set created_by
+        $data['created_by'] = auth()->id();
+        
+        return $data;
+    }
 }
