@@ -7,6 +7,7 @@ use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\QuotePdfController;
 use App\Http\Controllers\ConsignmentPdfController;
+use App\Http\Controllers\WarrantyClaimPdfController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -17,6 +18,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/quote/{quote}/pdf', [QuotePdfController::class, 'download'])->name('quote.pdf');
     Route::get('/consignment/{consignment}/pdf', [ConsignmentPdfController::class, 'download'])->name('consignment.pdf');
     Route::get('/consignment/{consignment}/preview', [ConsignmentPdfController::class, 'preview'])->name('consignment.preview');
+    Route::get('/warranty-claim/{warrantyClaim}/pdf', [WarrantyClaimPdfController::class, 'download'])->name('warranty-claim.pdf');
+    Route::get('/warranty-claim/{warrantyClaim}/preview', [WarrantyClaimPdfController::class, 'preview'])->name('warranty-claim.preview');
 });
 
 // Product Variants Grid Routes (Tunerstop-style implementation)

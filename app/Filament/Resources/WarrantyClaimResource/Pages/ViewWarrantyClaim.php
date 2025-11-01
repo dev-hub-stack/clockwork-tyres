@@ -26,6 +26,53 @@ class ViewWarrantyClaim extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Preview Document
+            Actions\Action::make('preview')
+                ->label('Preview')
+                ->icon('heroicon-o-eye')
+                ->color('primary')
+                ->slideOver()
+                ->modalWidth('7xl')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
+                ->modalContent(function ($record) {
+                    // Load relationships
+                    $record->load([
+                        'invoice', 
+                        'customer', 
+                        'warehouse', 
+                        'items.productVariant.product.brand',
+                        'items.productVariant.product.model',
+                        'histories.user'
+                    ]);
+                    
+                    // Get settings
+                    $companyBranding = \App\Modules\Settings\Models\CompanyBranding::getActive();
+                    $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
+                    
+                    return view('templates.warranty-claim-preview', [
+                        'claim' => $record,
+                        'documentType' => 'warranty_claim',
+                        'companyName' => $companyBranding->company_name ?? 'TunerStop LLC',
+                        'companyAddress' => $companyBranding->company_address ?? '',
+                        'companyPhone' => $companyBranding->company_phone ?? '',
+                        'companyEmail' => $companyBranding->company_email ?? '',
+                        'taxNumber' => $companyBranding->tax_registration_number ?? '',
+                        'logo' => $companyBranding ? $companyBranding->logo_url : null,
+                        'currency' => $currency?->currency_symbol ?? 'AED',
+                    ]);
+                })
+                ->tooltip('Preview warranty claim document'),
+            
+            // Download PDF
+            Actions\Action::make('print_pdf')
+                ->label('Print PDF')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn ($record) => route('warranty-claim.pdf', $record))
+                ->openUrlInNewTab()
+                ->tooltip('Download warranty claim PDF'),
+            
             // Submit Claim (Draft → Pending)
             Actions\Action::make('submitClaim')
                 ->label('Submit Claim')
