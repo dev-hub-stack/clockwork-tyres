@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
+use Filament\Actions\Action;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Section;
@@ -110,8 +111,86 @@ class WarrantyClaimForm
                         ]),
                     ]),
 
-                // ITEMS REPEATER SECTION
+                // ITEMS SECTION
                 Section::make('Claimed Items')
+                    ->description('Add products that need warranty service')
+                    ->headerActions([
+                        Action::make('fetchFromInvoice')
+                            ->label('Fetch from Invoice')
+                            ->icon('heroicon-o-document-arrow-down')
+                            ->color('primary')
+                            ->visible(fn (Get $get) => $get('invoice_id') !== null)
+                            ->requiresConfirmation()
+                            ->modalHeading('Select Products from Invoice')
+                            ->modalDescription(function (Get $get) {
+                                $invoiceId = $get('invoice_id');
+                                if (!$invoiceId) return 'Select an invoice first';
+                                
+                                $invoice = Order::find($invoiceId);
+                                if (!$invoice) return 'Invoice not found';
+                                
+                                return sprintf(
+                                    'Invoice: %s | Date: %s | Total: $%s',
+                                    $invoice->order_number,
+                                    $invoice->issue_date?->format('M d, Y') ?? 'N/A',
+                                    number_format($invoice->total ?? 0, 2)
+                                );
+                            })
+                            ->modalSubmitActionLabel('Add Selected Items')
+                            ->modalWidth('3xl')
+                            ->form(function (Get $get) {
+                                $invoiceId = $get('invoice_id');
+                                if (!$invoiceId) return [];
+                                
+                                $invoice = Order::with('items.productVariant.product')->find($invoiceId);
+                                if (!$invoice) return [];
+                                
+                                $checkboxes = [];
+                                foreach ($invoice->items as $item) {
+                                    if (!$item->productVariant) continue;
+                                    
+                                    $checkboxes[] = \Filament\Forms\Components\Checkbox::make("item_{$item->id}")
+                                        ->label(sprintf(
+                                            '%s - %s %s (Qty: %d) - $%s each',
+                                            $item->productVariant->sku ?? 'N/A',
+                                            $item->productVariant->product->brand?->name ?? 'N/A',
+                                            $item->productVariant->product->model?->name ?? 'N/A',
+                                            $item->quantity,
+                                            number_format($item->price ?? 0, 2)
+                                        ))
+                                        ->default(false);
+                                }
+                                
+                                return $checkboxes;
+                            })
+                            ->action(function (array $data, Get $get, Set $set) {
+                                $invoiceId = $get('invoice_id');
+                                $invoice = Order::with('items.productVariant')->find($invoiceId);
+                                
+                                $currentItems = $get('items') ?? [];
+                                $newItems = $currentItems;
+                                
+                                foreach ($data as $key => $checked) {
+                                    if (!$checked || !str_starts_with($key, 'item_')) continue;
+                                    
+                                    $itemId = (int) str_replace('item_', '', $key);
+                                    $invoiceItem = $invoice->items->find($itemId);
+                                    
+                                    if (!$invoiceItem || !$invoiceItem->productVariant) continue;
+                                    
+                                    $newItems[] = [
+                                        'product_variant_id' => $invoiceItem->product_variant_id,
+                                        'quantity' => $invoiceItem->quantity,
+                                        'issue_description' => '',
+                                        'resolution_action' => ResolutionAction::REPLACE->value,
+                                        'invoice_id' => $invoiceId,
+                                        'invoice_item_id' => $itemId,
+                                    ];
+                                }
+                                
+                                $set('items', $newItems);
+                            }),
+                    ])
                     ->schema([
                         Repeater::make('items')
                             ->label('')
@@ -193,7 +272,11 @@ class WarrantyClaimForm
                             ->addActionLabel('+ Add line')
                             ->reorderable(false)
                             ->collapsible()
-                            ->helperText('Add products to claim. Items can be manually added below.'),
+                            ->helperText(fn (Get $get) => 
+                                $get('invoice_id') 
+                                    ? 'Use "Fetch Products from Invoice" button above to auto-add items, or add manually.' 
+                                    : 'Add products to claim manually.'
+                            ),
                     ]),
 
                 // NOTES SECTION
