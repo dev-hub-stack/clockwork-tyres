@@ -200,6 +200,8 @@ class ConsignmentsTable
                     ->color('primary')
                     ->slideOver()
                     ->modalWidth('7xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
                     ->modalContent(function ($record) {
                         // Load relationships
                         $record->load(['customer', 'warehouse', 'representative', 'items']);
