@@ -68,7 +68,11 @@ class WarrantyClaimViewSchema
                 // Items Section with Custom View
                 Section::make('Claimed Items')
                     ->schema([
-                        View::make('filament.resources.warranty-claim.components.items-table-view'),
+                        Placeholder::make('items_table')
+                            ->label('')
+                            ->content(fn ($record) => view('filament.resources.warranty-claim.components.items-table', [
+                                'record' => $record,
+                            ])),
                     ])
                     ->collapsible(),
 
@@ -89,7 +93,11 @@ class WarrantyClaimViewSchema
                 // Activity History Section
                 Section::make('Activity History')
                     ->schema([
-                        View::make('filament.resources.warranty-claim.components.history-timeline-view'),
+                        Placeholder::make('history_timeline')
+                            ->label('')
+                            ->content(fn ($record) => view('filament.resources.warranty-claim.components.history-timeline', [
+                                'record' => $record,
+                            ])),
                     ])
                     ->collapsible(),
             ]);
