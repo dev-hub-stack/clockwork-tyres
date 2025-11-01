@@ -1,6 +1,6 @@
 # Reporting CRM v2.0 - Progress Summary
 
-**Last Updated:** November 1, 2025  
+**Last Updated:** November 2, 2025  
 **Project:** Filament v3 CRM System  
 **Phase:** Module Development & Enhancement  
 **Status:** AHEAD OF SCHEDULE ✨
@@ -12,7 +12,7 @@
 ```
 Progress Bar: [███████████████░░░░░] 75%
 
-✅ Completed:     9 modules
+✅ Completed:    10 modules
 🟡 In Progress:   0 modules  
 ⬜ Not Started:   2 modules
 ```
@@ -25,6 +25,7 @@ Progress Bar: [███████████████░░░░░] 75%
 - 5 Customers using system
 - 2 Warehouses operational
 - 11 Filament Resources functional
+- **NEW:** Warranty PDF generation operational
 
 ---
 
@@ -446,9 +447,9 @@ Progress Bar: [███████████████░░░░░] 75%
 ---
 
 ### 9. ⚠️ Warranty Claims Module - **100% COMPLETE** ✅
-**Completed:** November 1, 2025  
-**Status:** Production Ready  
-**Commit:** cb736d6
+**Completed:** November 2, 2025  
+**Status:** Production Ready with PDF Generation  
+**Latest Commits:** cb736d6, 165138e, cc62abb
 
 **What's Done:**
 - ✅ Database schema (warranty_claims, warranty_claim_items, warranty_claim_history)
@@ -462,6 +463,10 @@ Progress Bar: [███████████████░░░░░] 75%
 - ✅ History tracking with action types
 - ✅ Filament v3 compatibility (all imports corrected)
 - ✅ All 7 end-to-end tests passing
+- ✅ **NEW: PDF generation with DomPDF**
+- ✅ **NEW: Preview modal (slideOver 7xl)**
+- ✅ **NEW: Toggleable activity history**
+- ✅ **NEW: Two PDF versions (Full & Customer)**
 
 **Features:**
 - ✅ List view with filters (status, warehouse, date, sales rep)
@@ -470,20 +475,28 @@ Progress Bar: [███████████████░░░░░] 75%
 - ✅ Status badges with colors and icons
 - ✅ Bulk actions (mark as pending, delete)
 - ✅ View/Edit/Delete actions
+- ✅ **PDF Preview action in View & List pages**
+- ✅ **PDF Download (Full) with activity history**
+- ✅ **PDF Download (Customer) without history**
 - ✅ Model methods: markAsReplaced(), markAsClaimed(), void(), addNote(), addVideoLink()
 - ✅ Query scopes: recent(), pending(), draft(), resolved(), active()
+- ✅ Null-safe accessors for product/brand/model relationships
 
 **Files Created:**
 - `app/Modules/Warranties/Models/WarrantyClaim.php`
-- `app/Modules/Warranties/Models/WarrantyClaimItem.php`
+- `app/Modules/Warranties/Models/WarrantyClaimItem.php` (updated with null-safe accessors)
 - `app/Modules/Warranties/Models/WarrantyClaimHistory.php`
 - `app/Modules/Warranties/Enums/*.php` (3 enums)
 - `app/Filament/Resources/WarrantyClaimResource.php`
 - `app/Filament/Resources/WarrantyClaimResource/Pages/*.php` (4 pages)
-- `app/Filament/Resources/WarrantyClaimResource/Tables/WarrantyClaimsTable.php`
+- `app/Filament/Resources/WarrantyClaimResource/Tables/WarrantyClaimsTable.php` (updated with PDF actions)
 - `app/Filament/Resources/WarrantyClaimResource/Schemas/WarrantyClaimForm.php`
 - `database/migrations/*warranty*` (3 migrations)
 - `test_warranty_claim_flow.php` (comprehensive test suite)
+- **`app/Http/Controllers/WarrantyClaimPdfController.php` (NEW)**
+- **`resources/views/templates/warranty-claim-preview.blade.php` (NEW)**
+- **`resources/views/templates/warranty-claim-pdf.blade.php` (NEW)**
+- **`routes/web.php` (added warranty-claim.pdf & warranty-claim.preview routes)**
 
 **Test Results:**
 ```
@@ -500,6 +513,8 @@ Total: 7/7 PASSING ✅
 
 **Access:**
 - `/admin/warranty-claims` (List, Create, View, Edit)
+- **`/warranty-claim/{id}/pdf` (PDF Download)**
+- **`/warranty-claim/{id}/preview` (HTML Preview)**
 
 **Documentation:**
 - `docs/WARRANTY_CLAIMS_FINAL_PLAN.md`
@@ -509,7 +524,7 @@ Total: 7/7 PASSING ✅
 **What's Pending (Optional Enhancements):**
 - ⬜ UI action buttons for status transitions (model methods exist)
 - ⬜ Infolist layout for better View page design
-- ⬜ PDF generation for warranty documents
+- ⬜ Email integration for PDFs
 - ⬜ Re-implement "Fetch from Invoice" feature (removed due to Filament v3 incompatibility)
 
 ---

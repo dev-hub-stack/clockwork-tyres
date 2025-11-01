@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\WarrantyClaimResource\Tables;
 
 use App\Modules\Warranties\Enums\WarrantyClaimStatus;
+use App\Modules\Settings\Models\CompanyBranding;
+use App\Modules\Settings\Models\CurrencySetting;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -157,8 +159,8 @@ class WarrantyClaimsTable
                             'items.productVariant.product.model',
                             'histories.user'
                         ]),
-                        'companyBranding' => \App\Models\CompanyBranding::getActive(),
-                        'currency' => \App\Models\CurrencySetting::getBase(),
+                        'companyBranding' => CompanyBranding::getActive(),
+                        'currency' => CurrencySetting::getBase(),
                         'includeHistory' => true, // Preview always shows history
                     ])),
                 Action::make('downloadPdf')
