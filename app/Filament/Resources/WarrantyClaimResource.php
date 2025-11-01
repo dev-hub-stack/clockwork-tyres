@@ -18,7 +18,7 @@ class WarrantyClaimResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
     
-    protected static ?string $navigationGroup = 'Sales';
+    protected static string|\UnitEnum|null $navigationGroup = 'Sales';
     
     protected static ?int $navigationSort = 6;
     
