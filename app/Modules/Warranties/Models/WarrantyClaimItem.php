@@ -63,16 +63,34 @@ class WarrantyClaimItem extends Model
     public function getProductNameAttribute(): string
     {
         if ($this->productVariant) {
-            return $this->productVariant->product->brand->name . ' ' . 
-                   $this->productVariant->product->productModel->name;
+            $brand = $this->productVariant->product->brand?->name ?? 'Unknown Brand';
+            $model = $this->productVariant->product->model?->name ?? 'Unknown Model';
+            return $brand . ' ' . $model;
         }
         
         if ($this->product) {
-            return $this->product->brand->name . ' ' . 
-                   $this->product->productModel->name;
+            $brand = $this->product->brand?->name ?? 'Unknown Brand';
+            $model = $this->product->model?->name ?? 'Unknown Model';
+            return $brand . ' ' . $model;
         }
 
         return 'Unknown Product';
+    }
+
+    /**
+     * Get brand name
+     */
+    public function getBrandNameAttribute(): ?string
+    {
+        if ($this->productVariant) {
+            return $this->productVariant->product->brand?->name;
+        }
+        
+        if ($this->product) {
+            return $this->product->brand?->name;
+        }
+
+        return null;
     }
 
     /**

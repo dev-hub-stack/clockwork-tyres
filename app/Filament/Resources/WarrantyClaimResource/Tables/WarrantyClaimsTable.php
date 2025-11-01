@@ -144,6 +144,28 @@ class WarrantyClaimsTable
                     ->label('View')
                     ->icon('heroicon-o-eye')
                     ->url(fn ($record) => route('filament.admin.resources.warranty-claims.view', ['record' => $record])),
+                Action::make('preview')
+                    ->label('Preview')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->slideOver()
+                    ->modalWidth('7xl')
+                    ->modalContent(fn ($record) => view('templates.warranty-claim-preview', [
+                        'warrantyClaim' => $record->load([
+                            'invoice', 'customer', 'warehouse',
+                            'items.productVariant.product.brand',
+                            'items.productVariant.product.model',
+                            'histories.user'
+                        ]),
+                        'companyBranding' => \App\Models\CompanyBranding::getActive(),
+                        'currency' => \App\Models\CurrencySetting::getBase(),
+                    ])),
+                Action::make('downloadPdf')
+                    ->label('PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->url(fn ($record) => route('warranty-claim.pdf', ['warrantyClaim' => $record]))
+                    ->openUrlInNewTab(),
                 EditAction::make()
                     ->visible(fn ($record) => $record->canBeEdited()),
                 DeleteAction::make(),
