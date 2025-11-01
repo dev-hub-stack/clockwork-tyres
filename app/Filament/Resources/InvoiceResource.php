@@ -558,6 +558,7 @@ class InvoiceResource extends Resource
                 Action::make('preview')
                     ->label('Preview')
                     ->icon('heroicon-o-eye')
+                    ->tooltip('Preview invoice document')
                     ->slideOver()
                     ->modalWidth('7xl')
                     ->modalContent(function ($record) {
@@ -584,6 +585,7 @@ class InvoiceResource extends Resource
                     ->label('Record Payment')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
+                    ->tooltip('Record a payment received for this invoice')
                     ->visible(fn($record) => !$record->isFullyPaid())
                     ->form([
                         TextInput::make('amount')
@@ -660,6 +662,7 @@ class InvoiceResource extends Resource
                     ->label('Start Processing')
                     ->icon('heroicon-o-cog-6-tooth')
                     ->color('primary')
+                    ->tooltip('Begin order fulfillment and reserve inventory from warehouse')
                     ->visible(fn($record) => $record->order_status->value === 'pending')
                     ->requiresConfirmation()
                     ->modalHeading('Start Processing Order')
@@ -716,6 +719,7 @@ class InvoiceResource extends Resource
                     ->label('Record Expenses & Calculate Profit')
                     ->icon('heroicon-o-calculator')
                     ->color('warning')
+                    ->tooltip('Record costs and expenses to calculate profit margin')
                     ->visible(fn($record) => 
                         in_array($record->payment_status->value, ['paid', 'partial']) || 
                         $record->order_status->value === 'completed'
@@ -947,6 +951,7 @@ class InvoiceResource extends Resource
                     ->label('Cancel Order')
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
+                    ->tooltip('Cancel this order and return any allocated inventory to stock')
                     ->visible(fn($record) => in_array($record->order_status->value, ['pending', 'processing']))
                     ->requiresConfirmation()
                     ->modalHeading('Cancel Order')
@@ -992,8 +997,10 @@ class InvoiceResource extends Resource
                             ->send();
                     }),
                 
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->tooltip('Edit invoice details'),
+                DeleteAction::make()
+                    ->tooltip('Permanently delete this record (cannot be undone - use Cancel Order instead for legitimate orders)'),
             ])
             ->defaultSort('issue_date', 'desc');
     }
