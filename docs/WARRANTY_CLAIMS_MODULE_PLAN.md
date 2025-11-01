@@ -74,6 +74,7 @@ warranty_claims:
 - customer_id (FK)
 - warehouse_id (FK)
 - representative_id (FK)
+- invoice_id (FK) ⭐ NEW - Link to invoice being claimed
 - status (enum: draft, pending, replaced, claimed, returned, void)
 - issue_date
 - claim_date
@@ -91,6 +92,8 @@ warranty_claim_items:
 - product_id or product_variant_id (FK)
 - order_id (FK - original order)
 - order_item_id (FK - original order item)
+- invoice_id (FK) ⭐ NEW - Link to specific invoice
+- invoice_item_id (FK) ⭐ NEW - Link to specific invoice item
 - quantity
 - issue_description
 - resolution_action (replace, refund, repair)
@@ -149,6 +152,7 @@ warranty_claim_history:
 - [ ] Create migration: `create_warranty_claims_table.php`
   - claim_number (unique, indexed)
   - customer_id, warehouse_id, representative_id (foreign keys)
+  - invoice_id (nullable foreign key) ⭐ NEW - Link to invoice
   - status (enum)
   - dates (issue_date, claim_date, resolution_date)
   - notes, internal_notes (text)
@@ -159,6 +163,7 @@ warranty_claim_history:
   - warranty_claim_id (foreign key)
   - product_id, product_variant_id (nullable foreign keys)
   - order_id, order_item_id (nullable foreign keys - reference original purchase)
+  - invoice_id, invoice_item_id (nullable foreign keys) ⭐ NEW - Link to invoice items
   - quantity, issue_description, resolution_action
   - timestamps
 
@@ -172,13 +177,13 @@ warranty_claim_history:
 
 #### Task 1.3: Create Models
 - [ ] Create `app/Modules/Warranties/Models/WarrantyClaim.php`
-  - Relationships: customer, warehouse, representative, items, histories, createdBy, resolvedBy
+  - Relationships: customer, warehouse, representative, invoice ⭐ NEW, items, histories, createdBy, resolvedBy
   - Casts: status (enum), dates
   - Scopes: recent, byStatus, pending, resolved
   - Methods: addHistory, addNote, addVideoLink, markAsReplaced, markAsClaimed, void
 
 - [ ] Create `app/Modules/Warranties/Models/WarrantyClaimItem.php`
-  - Relationships: warrantyClaim, product, productVariant, order, orderItem
+  - Relationships: warrantyClaim, product, productVariant, order, orderItem, invoice ⭐ NEW, invoiceItem ⭐ NEW
   - Casts: quantity (integer)
 
 - [ ] Create `app/Modules/Warranties/Models/WarrantyClaimHistory.php`
@@ -201,17 +206,27 @@ warranty_claim_history:
 - [ ] Create `app/Filament/Resources/WarrantyClaimResource/Schemas/WarrantyClaimForm.php`
   - Section: Claim Information
     - customer_id (select, searchable)
+    - invoice_id (select, searchable) ⭐ NEW - Link to existing invoice
+      - Auto-populate customer when invoice selected
+      - Show invoice details (number, date, total)
+      - Optional field (can claim without invoice)
     - warehouse_id (select)
     - representative_id (select, default: current user)
     - issue_date (date picker)
     - claim_date (date picker)
   
   - Section: Claimed Items (Repeater)
-    - product_variant_id (select with search)
-    - order_id (optional - link to original order)
-    - quantity (number)
-    - issue_description (textarea)
-    - resolution_action (select: replace/refund/repair)
+    - **Option A: Manual Entry**
+      - product_variant_id (select with search)
+      - quantity (number)
+      - issue_description (textarea)
+      - resolution_action (select: replace/refund/repair)
+    
+    - **Option B: From Invoice (if invoice selected)** ⭐ NEW
+      - "Import from Invoice" button
+      - Shows invoice items in dropdown
+      - Auto-fills product, quantity
+      - User adds issue_description
   
   - Section: Notes
     - notes (textarea - customer-facing)
@@ -451,6 +466,240 @@ warranty_claim_history:
   - How to add notes/videos
   - How to mark as replaced/claimed
   - Email notification settings
+
+---
+
+---
+
+## 🎨 UI/UX RECOMMENDATIONS (Better than Scrollable Timeline)
+
+### Client Vision vs Best Practice
+
+**Client showed:** Scrollable timeline (limited vertical space)
+
+**Better UX Options:**
+
+### ✅ **OPTION 1: Filament Timeline Component (RECOMMENDED)**
+**Why it's better:**
+- Built-in Filament component (less code)
+- Responsive and accessible
+- Auto-pagination (better than scrolling)
+- Professional look
+- Easy to maintain
+
+**Implementation:**
+```php
+// In Infolist
+Section::make('Claim History')
+    ->schema([
+        ViewEntry::make('histories')
+            ->view('filament.warranty-claims.history-timeline')
+    ])
+```
+
+**Features:**
+- Show latest 10 entries by default
+- "Load More" button at bottom
+- Icons for each action type (📝 note, 🎥 video, ✅ status change)
+- User avatar + name
+- Relative timestamps (2 hours ago, yesterday)
+- Expandable metadata (click to see full details)
+
+---
+
+### ✅ **OPTION 2: Accordion History (Good for Mobile)**
+**Why it's good:**
+- Each history entry is a collapsible accordion
+- Click to expand and see full details
+- Saves vertical space
+- Great for mobile devices
+
+**Example:**
+```
+▼ 2025-04-10 - Note added by John Doe (2 days ago)
+  "Damage piece not returned, replacement issued."
+  
+▶ 2025-04-09 - Video link added by Jane Smith (3 days ago)
+
+▶ 2025-04-08 - Status changed by Admin (4 days ago)
+```
+
+---
+
+### ✅ **OPTION 3: Tabbed History (Most Organized)**
+**Why it's excellent:**
+- Separate tabs for different action types
+- Users can quickly find specific info
+- Less overwhelming
+- Professional appearance
+
+**Tabs:**
+- **All** - Show everything
+- **Notes** - Only notes
+- **Videos** - Only video links
+- **Status Changes** - Only status updates
+- **Attachments** - Only files
+
+---
+
+### ✅ **OPTION 4: Infinite Scroll (Modern, Smooth)**
+**Why it's modern:**
+- No "Load More" button
+- Auto-loads as you scroll down
+- Smooth user experience
+- Popular in modern apps
+
+**Technical:**
+- Use Livewire pagination with infinite scroll
+- Load 15 entries at a time
+- Show loading spinner while fetching
+
+---
+
+### 🏆 **MY RECOMMENDATION: Combination Approach**
+
+**Best of all worlds:**
+
+1. **Main View: Filament Timeline** (Option 1)
+   - Show latest 5-10 entries
+   - Professional, clean look
+   - Icons for visual clarity
+
+2. **Modal for Full History**
+   - Click "View Full History" button
+   - Opens modal with infinite scroll
+   - Filter by action type
+   - Search history
+
+3. **Quick Actions Widget**
+   - Separate widget for quick actions
+   - "Add Note" and "Add Video Link" always visible
+   - Don't mix actions with history
+
+**Example Layout:**
+```
+┌─────────────────────────────────────────────────────┐
+│  Warranty Claim #2392130                  [Edit] [•]│
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  Recent Activity (Timeline)                         │
+│  ┌────────────────────────────────────────────┐    │
+│  │ 📝 Note added - 2 hours ago                │    │
+│  │    by John Doe                              │    │
+│  │    "Replacement shipped via FedEx"          │    │
+│  │                                              │    │
+│  │ 🎥 Video link added - Yesterday             │    │
+│  │    by Jane Smith                             │    │
+│  │    [View Video] googledrive.com/...         │    │
+│  │                                              │    │
+│  │ ✅ Status changed - 2 days ago              │    │
+│  │    by Admin                                  │    │
+│  │    pending → replaced                        │    │
+│  └────────────────────────────────────────────┘    │
+│                                                      │
+│  [View Full History (28 entries)]                   │
+│                                                      │
+├─────────────────────────────────────────────────────┤
+│  Quick Actions                                       │
+│  [📝 Add Note]  [🎥 Add Video Link]  [📎 Attach]    │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+### 💡 Additional UX Enhancements
+
+#### 1. **Smart History Grouping**
+Group history by date:
+```
+Today
+  📝 Note added - 2 hours ago
+  🎥 Video link added - 4 hours ago
+
+Yesterday
+  ✅ Status changed to Replaced
+  📧 Email sent to customer
+
+April 8, 2025
+  📝 Note added - Claim received
+```
+
+#### 2. **Action Icons with Colors**
+```php
+'note_added' => ['icon' => 'heroicon-o-pencil', 'color' => 'gray'],
+'video_link_added' => ['icon' => 'heroicon-o-video-camera', 'color' => 'blue'],
+'status_changed' => ['icon' => 'heroicon-o-arrow-path', 'color' => 'green'],
+'file_attached' => ['icon' => 'heroicon-o-paper-clip', 'color' => 'purple'],
+'email_sent' => ['icon' => 'heroicon-o-envelope', 'color' => 'orange'],
+```
+
+#### 3. **Inline Actions**
+Allow quick actions on history entries:
+- Reply to a note
+- Edit your own notes
+- Delete your own entries
+- Copy video link
+
+#### 4. **Rich Metadata Display**
+When video link added, show thumbnail:
+```
+🎥 Video link added - 2 hours ago
+   by John Doe
+   
+   [Video Thumbnail Preview]
+   googledrive.com/392478479273
+   [Watch Video] [Copy Link]
+```
+
+#### 5. **Activity Stats Widget**
+Show summary at top:
+```
+┌─────────────────────────────────────┐
+│  Claim Activity Summary              │
+│  📝 12 Notes  🎥 3 Videos  📎 5 Files│
+│  ✅ 4 Status Changes  📧 6 Emails    │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 🎯 FINAL RECOMMENDATION
+
+**Implement this structure:**
+
+### View Page Layout:
+```php
+// Top Section
+- Claim Details (customer, invoice link, status)
+- Quick Stats Widget
+- Quick Actions (Add Note, Add Video, Attach File)
+
+// Middle Section  
+- Claimed Items Table
+- Invoice Reference (if linked)
+
+// Bottom Section
+- Activity Timeline (Filament Timeline Component)
+  - Latest 5 entries shown
+  - Grouped by date
+  - Icons + colors
+  - User avatars
+  - "View Full History" button
+  
+// Full History Modal (when clicked)
+- Infinite scroll
+- Filter by type
+- Search capability
+- Export to PDF
+```
+
+**Benefits:**
+- ✅ No scrolling issues (pagination handles it)
+- ✅ Professional appearance (matches Filament design)
+- ✅ Easy to find information (grouped, filtered)
+- ✅ Mobile friendly (responsive)
+- ✅ Fast loading (lazy load history)
+- ✅ Accessible (keyboard navigation)
 
 ---
 
