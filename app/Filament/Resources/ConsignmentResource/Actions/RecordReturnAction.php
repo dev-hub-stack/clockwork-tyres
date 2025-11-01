@@ -6,10 +6,10 @@ use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Services\ConsignmentReturnService;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -57,7 +57,7 @@ class RecordReturnAction
 
                 return [
                     // Customer Information Section
-                    Section::make('Customer Information')
+                    Fieldset::make('Customer Information')
                         ->schema([
                             Grid::make(3)
                                 ->schema([
@@ -73,13 +73,10 @@ class RecordReturnAction
                                         ->label('Phone')
                                         ->content($record->customer->phone ?? 'N/A'),
                                 ]),
-                        ])
-                        ->collapsible()
-                        ->collapsed(true),
+                        ]),
                     
                     // Items to Return Section
-                    Section::make('Items to Return')
-                        ->description('Select items being returned and specify warehouse')
+                    Fieldset::make('Items to Return')
                         ->schema([
                             Repeater::make('returned_items')
                                 ->label('')
@@ -146,7 +143,7 @@ class RecordReturnAction
                         ]),
                     
                     // Return Details Section
-                    Section::make('Return Details')
+                    Fieldset::make('Return Details')
                         ->schema([
                             Select::make('return_reason')
                                 ->label('Return Reason')

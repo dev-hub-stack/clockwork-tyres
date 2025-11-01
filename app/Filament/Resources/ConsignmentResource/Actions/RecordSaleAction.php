@@ -7,10 +7,10 @@ use App\Modules\Consignments\Services\ConsignmentInvoiceService;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Filament\Resources\InvoiceResource;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -54,7 +54,7 @@ class RecordSaleAction
 
                 return [
                     // Customer Information Section
-                    Section::make('Customer Information')
+                    Fieldset::make('Customer Information')
                         ->schema([
                             Grid::make(3)
                                 ->schema([
@@ -70,13 +70,10 @@ class RecordSaleAction
                                         ->label('Phone')
                                         ->content($record->customer->phone ?? 'N/A'),
                                 ]),
-                        ])
-                        ->collapsible()
-                        ->collapsed(false),
+                        ]),
                     
                     // Items to Sell Section
-                    Section::make('Items to Sell')
-                        ->description('Select items and specify quantities and prices')
+                    Fieldset::make('Items to Sell')
                         ->schema([
                             Repeater::make('sold_items')
                                 ->label('')
@@ -143,8 +140,7 @@ class RecordSaleAction
                         ]),
                     
                     // Payment Information Section
-                    Section::make('Payment Information')
-                        ->description('Enter payment details for this sale')
+                    Fieldset::make('Payment Information')
                         ->schema([
                             Grid::make(2)
                                 ->schema([
