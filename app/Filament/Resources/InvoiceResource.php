@@ -985,9 +985,13 @@ class InvoiceResource extends Resource
                             \App\Modules\Orders\Models\OrderItemQuantity::where('order_id', $record->id)->delete();
                         }
                         
+                        // Handle null notes (use order_notes field)
+                        $currentNotes = $record->order_notes ?? '';
+                        $newNotes = trim($currentNotes) . "\n\nCancellation Reason: " . $data['cancellation_reason'];
+                        
                         $record->update([
                             'order_status' => OrderStatus::CANCELLED,
-                            'notes' => $record->notes . "\n\nCancellation Reason: " . $data['cancellation_reason'],
+                            'order_notes' => $newNotes,
                         ]);
                         
                         Notification::make()

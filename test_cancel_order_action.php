@@ -7,8 +7,19 @@
  * 1. Finding a processing invoice with allocations
  * 2. Recording current inventory levels
  * 3. Canceling the order
- * 4. Verifying inventory was deallocated
- * 5. Verifying OrderItemQuantity records deleted
+ * 4. Verifying inventory was dealloc// STEP 6: Verify cancellation reason was recorded
+echo "📄 STEP 6: VERIFY CANCELLATION REASON\n";
+echo "───────────────────────────────────────────────────────────────────────\n";
+
+$testInvoice = $testInvoice->fresh();
+$notesContainReason = strpos($testInvoice->order_notes ?? '', $cancellationReason) !== false;
+
+echo "Order notes field contains cancellation reason: " . ($notesContainReason ? "YES" : "NO") . "\n";
+if ($notesContainReason) {
+    echo "✅ Cancellation reason recorded\n\n";
+} else {
+    echo "❌ Cancellation reason NOT recorded\n\n";
+}erifying OrderItemQuantity records deleted
  * 6. Verifying allocated_quantity reset to 0
  */
 
@@ -169,13 +180,21 @@ try {
     }
     
     // Step 2: Update order status
+    $currentNotes = $testInvoice->order_notes ?? '';
+    $newNotes = trim($currentNotes) . "\n\nCancellation Reason: " . $cancellationReason;
+    
+    echo "  Updating order with cancellation reason...\n";
+    echo "    Current notes length: " . strlen($currentNotes) . "\n";
+    echo "    New notes length: " . strlen($newNotes) . "\n";
+    
     $testInvoice->update([
         'order_status' => OrderStatus::CANCELLED,
-        'notes' => $testInvoice->notes . "\n\nCancellation Reason: " . $cancellationReason,
+        'order_notes' => $newNotes,
     ]);
     
     echo "\n✅ Order cancelled successfully\n";
-    echo "   New status: {$testInvoice->fresh()->order_status->value}\n\n";
+    echo "   New status: {$testInvoice->fresh()->order_status->value}\n";
+    echo "   Notes updated: " . (strlen($testInvoice->fresh()->order_notes ?? '') > 0 ? "YES" : "NO") . "\n\n";
     
 } catch (\Exception $e) {
     echo "❌ ERROR: Failed to cancel order\n";
@@ -259,9 +278,9 @@ echo "📄 STEP 6: VERIFY CANCELLATION REASON\n";
 echo "───────────────────────────────────────────────────────────────────────\n";
 
 $testInvoice = $testInvoice->fresh();
-$notesContainReason = strpos($testInvoice->notes, $cancellationReason) !== false;
+$notesContainReason = strpos($testInvoice->order_notes ?? '', $cancellationReason) !== false;
 
-echo "Notes field contains cancellation reason: " . ($notesContainReason ? "YES" : "NO") . "\n";
+echo "Order notes field contains cancellation reason: " . ($notesContainReason ? "YES" : "NO") . "\n";
 if ($notesContainReason) {
     echo "✅ Cancellation reason recorded\n\n";
 } else {
