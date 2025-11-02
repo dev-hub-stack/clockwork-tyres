@@ -78,6 +78,14 @@ class ProductVariant extends Model
     }
 
     /**
+     * Relationship: Consignment items for this variant
+     */
+    public function consignmentItems()
+    {
+        return $this->hasMany(\App\Modules\Consignments\Models\ConsignmentItem::class);
+    }
+
+    /**
      * Scope: Active variants
      */
     public function scopeActive($query)
