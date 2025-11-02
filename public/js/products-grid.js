@@ -291,7 +291,8 @@ $(document).ready(function () {
             dataType: "string", 
             align: "center", 
             dataIndx: "images",
-            filter: { crules: [{ condition: 'begin' }] }
+            editable: false,              // Can't edit images in grid
+            filter: false                 // NO FILTER for images column
         }
     ];
     
@@ -410,62 +411,81 @@ $(document).ready(function () {
         ]
     };
     
-    // Main pqGrid configuration - WIDER COLUMNS FOR READABILITY
+    // Main pqGrid configuration - EXACTLY LIKE TUNERSTOP
     var obj = {
         width: '100%',          // Full width of container
-        height: 'flex',
+        height: '100vh',        // Full viewport height like Tunerstop
         minHeight: 500,
-        maxHeight: $(window).height() - 150,
-        rowHt: 50,
-        rowBorders: true,
-        trackModel: {on: true},
-        resizable: true,
+        rowHt: 50,              // Row height
+        rowBorders: true,       // Show row borders
+        trackModel: {on: true}, // Track changes
+        resizable: true,        // Resizable columns
         title: "<b>Products</b>",
         colModel: colModel,
         toolbar: toolbar,
-        freezeCols: 2,
+        freezeCols: 2,          // Freeze first 2 columns
         wrap: false,
         hwrap: false,
-        hoverMode: 'cell',
+        swipeModel: {on: false}, // Disable swipe
         
-        // Enable horizontal scrolling for wide columns (like Tunerstop)
+        // Enable horizontal scrolling for wide columns
         scrollModel: { 
             horizontal: true,       // Enable horizontal scroll
-            autoFit: false,         // Don't auto-fit columns (allow horizontal scroll)
+            autoFit: false,         // Don't auto-fit columns
             pace: 'fast'            // Smooth scrolling
         },
         
-        // FILTER MODEL - CRITICAL: Exactly like Tunerstop
+        // FILTER MODEL - CRITICAL
         filterModel: { 
             header: true,           // Show filter row below column headers
             type: 'local',          // Local filtering
             on: true,               // Enable filtering
-            mode: "AND",            // AND mode for multiple filters
-            menuIcon: false         // DISABLE filter menu icon (remove black arrows)
+            mode: "AND"             // AND mode for multiple filters
+            // NO menuIcon property = no arrows
         },
         
         // LOCAL DATA MODEL (not remote)
         dataModel: {
             dataType: "JSON",
-            location: "local",
-            data: data,
-            recIndx: "id"
+            recIndx: "id",          // CRITICAL: Must match Tunerstop
+            data: data
         },
         
         // Pagination - EXACTLY LIKE TUNERSTOP
-        pageModel: {
-            type: "local",
-            rPP: 100,                           // Default 100 records per page
-            rPPOptions: [100, 200, 300, 400, 500]  // Same options as Tunerstop
+        pageModel: { 
+            type: "local", 
+            rPP: 100, 
+            option: [100, 200, 300, 400, 500]  // CRITICAL: 'option' not 'rPPOptions'
         },
         
-        // Selection
-        selectionModel: { type: 'row', mode: 'block' },
+        // Selection Model - Enable Excel-like behavior
+        selectionModel: { 
+            type: 'cell',           // CRITICAL: Change from 'row' to 'cell' for Excel-like
+            mode: 'block'           // Allow block selection
+        },
         
-        // Editing
-        editable: true,
-        editor: { select: true },
-        clicksToEdit: 2,
+        // Editing - Enable Excel-like editing with fill handle
+        editable: true,             // Make grid editable
+        editor: { 
+            select: true,           // Select text on edit
+            autoFocus: true         // Auto focus when editing
+        },
+        editModel: {
+            clicksToEdit: 2,        // Double-click to edit (like Excel)
+            saveKey: $.ui.keyCode.ENTER,
+            keyUpDown: true         // Arrow keys navigate during edit
+        },
+        
+        // FILL HANDLE - Excel-like drag down feature
+        fillHandle: 'all',          // Enable fill handle on all cells
+        
+        // Copy/Paste - Excel-like functionality  
+        copyModel: {
+            on: true,               // Enable copy/paste
+            render: true            // Copy rendered values
+        },
+        
+        postRenderInterval: -1,     // Call postRender synchronously
         
         // Event handlers - CRITICAL for auto-save
         history: function (evt, ui) {
@@ -492,11 +512,13 @@ $(document).ready(function () {
             }
         },
         
-        postRenderInterval: -1, // Call postRender synchronously
-        
         load: function (evt, ui) {
             var grid = this,
-            data = grid.option('dataModel').data;
+                data = grid.option('dataModel').data;
+            
+            // Attach tooltip like Tunerstop
+            grid.widget().pqTooltip();
+            
             // Validate the whole data
             grid.isValid({ data: data });
         }

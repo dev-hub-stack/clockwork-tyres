@@ -67,6 +67,22 @@
             height: 16px;
         }
         
+        /* FILL HANDLE - Excel-like drag down indicator */
+        .pq-grid-fill-handle {
+            background: #2563eb !important;  /* Blue color */
+            border: 2px solid #1e40af !important;
+            width: 8px !important;
+            height: 8px !important;
+            cursor: crosshair !important;
+            z-index: 1000 !important;
+        }
+        
+        /* Cell selection border */
+        .pq-grid-cell.pq-state-select {
+            border: 2px solid #2563eb !important;
+            background: #dbeafe !important;
+        }
+        
         /* GRID LINES - Make them visible like Tunerstop */
         .pq-grid-cell,
         .pq-grid-col {
