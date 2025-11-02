@@ -441,7 +441,7 @@ $(document).ready(function () {
             type: 'local',          // Local filtering
             on: true,               // Enable filtering
             mode: "AND",            // AND mode for multiple filters
-            menuIcon: true          // Show filter menu icon
+            menuIcon: false         // DISABLE filter menu icon (remove black arrows)
         },
         
         // LOCAL DATA MODEL (not remote)
@@ -452,11 +452,11 @@ $(document).ready(function () {
             recIndx: "id"
         },
         
-        // Pagination
+        // Pagination - EXACTLY LIKE TUNERSTOP
         pageModel: {
             type: "local",
-            rPP: 50,
-            rPPOptions: [10, 20, 50, 100, 500]
+            rPP: 100,                           // Default 100 records per page
+            rPPOptions: [100, 200, 300, 400, 500]  // Same options as Tunerstop
         },
         
         // Selection

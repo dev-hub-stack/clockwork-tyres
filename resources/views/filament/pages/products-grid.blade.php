@@ -67,6 +67,36 @@
             height: 16px;
         }
         
+        /* GRID LINES - Make them visible like Tunerstop */
+        .pq-grid-cell,
+        .pq-grid-col {
+            border: 1px solid #d1d5db !important;  /* Visible gray borders */
+            border-right-color: #d1d5db !important;
+            border-bottom-color: #d1d5db !important;
+        }
+        
+        .pq-grid-row {
+            border-bottom: 1px solid #d1d5db !important;
+        }
+        
+        /* Striped rows for better readability */
+        .pq-grid-row.pq-striped {
+            background: #f9fafb !important;
+        }
+        
+        /* Header cells */
+        .pq-grid-header-table .pq-grid-col {
+            border: 1px solid #9ca3af !important;
+            background: #f3f4f6 !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Hide sort arrows in filter row cells */
+        .pq-grid-header-search-row .pq-sort-icon,
+        .pq-grid-header-search-row .ui-icon {
+            display: none !important;
+        }
+        
         /* CRITICAL: Force filter header row to show - Updated */
         .pq-grid-header-search-row,
         tr.pq-grid-header-search-row {
@@ -113,6 +143,14 @@
         /* Make sure the filter row is after header row */
         .pq-grid-header-table tbody tr:nth-child(2) {
             display: table-row !important;
+        }
+        
+        /* FULL WIDTH FIX - Override Filament constraints */
+        .fi-main,
+        .fi-page,
+        .fi-page-content {
+            width: 100% !important;
+            max-width: 100% !important;
         }
     </style>
     
