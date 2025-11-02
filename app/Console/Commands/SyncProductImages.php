@@ -85,7 +85,12 @@ class SyncProductImages extends Command
                 $images = array_slice($group['images'], 0, 9);
                 for ($i = 0; $i < count($images); $i++) {
                     $field = 'image_' . ($i + 1);
-                    $productImage->{$field} = $images[$i];
+                    // Prepend 'products/' folder path if not already present
+                    $imagePath = $images[$i];
+                    if (!str_starts_with($imagePath, 'products/')) {
+                        $imagePath = 'products/' . $imagePath;
+                    }
+                    $productImage->{$field} = $imagePath;
                 }
                 
                 $productImage->save();
