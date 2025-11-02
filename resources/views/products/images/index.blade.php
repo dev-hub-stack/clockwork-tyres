@@ -84,7 +84,7 @@
                     <a href="{{ route('admin.products.images.export', request()->all()) }}" class="btn btn-primary">
                         <i class="bi bi-download"></i> Export
                     </a>
-                    <a href="{{ route('admin.products.grid') }}" class="btn btn-secondary">
+                    <a href="/admin/products-grid" class="btn btn-secondary">
                         <i class="bi bi-grid"></i> Products Grid
                     </a>
                 </div>
