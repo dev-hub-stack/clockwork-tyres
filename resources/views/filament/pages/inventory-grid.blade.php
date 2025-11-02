@@ -696,9 +696,12 @@
             let modal = new bootstrap.Modal(document.getElementById('consignmentModal'));
             modal.show();
             
+            // URL encode the SKU to handle special characters
+            let encodedSku = encodeURIComponent(sku);
+            
             // Fetch data via AJAX
             $.ajax({
-                url: '/api/inventory/sku/' + sku + '/consignments',
+                url: '/admin/api/inventory/sku/' + encodedSku + '/consignments',
                 method: 'GET',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -748,9 +751,12 @@
             let modal = new bootstrap.Modal(document.getElementById('incomingModal'));
             modal.show();
             
+            // URL encode the SKU to handle special characters
+            let encodedSku = encodeURIComponent(sku);
+            
             // Fetch data via AJAX
             $.ajax({
-                url: '/api/inventory/sku/' + sku + '/incoming' + (warehouse ? '?warehouse=' + warehouse : ''),
+                url: '/admin/api/inventory/sku/' + encodedSku + '/incoming' + (warehouse ? '?warehouse=' + warehouse : ''),
                 method: 'GET',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')

@@ -47,10 +47,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     // Inventory API Routes by SKU (for inventory grid modals) - MUST BE FIRST!
     Route::get('api/inventory/sku/{sku}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsBySku'])
-        ->where('sku', '.*') // Allow dots and special characters in SKU
         ->name('api.inventory.consignments.bySku');
     Route::get('api/inventory/sku/{sku}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockBySku'])
-        ->where('sku', '.*') // Allow dots and special characters in SKU
         ->name('api.inventory.incoming.bySku');
     
     // Inventory API Routes by Variant ID (for modals)
