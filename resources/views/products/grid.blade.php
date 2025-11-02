@@ -12,9 +12,9 @@
     <!-- jQuery UI CSS -->
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     
-    <!-- pqGrid CSS - Use minified versions like old system -->
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
+    <!-- pqGrid PRO CSS - CRITICAL: Use PRO version for filter headers -->
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.ui.min.css') }}">
     
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -422,8 +422,8 @@
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- pqGrid JS - Use minified version like old system -->
-    <script src="{{ asset('pqgridf/pqgrid.min.js') }}"></script>
+    <!-- pqGrid PRO JS - CRITICAL: Use PRO version for filter headers -->
+    <script src="{{ asset('pqgridf/pqgrid-pro.min.js') }}"></script>
     
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>

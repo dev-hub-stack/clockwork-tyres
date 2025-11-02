@@ -100,7 +100,7 @@ $(document).ready(function () {
     // Data is already loaded in page via: var data = @json($products_data);
     console.log('Grid data loaded:', data.length + ' rows');
     
-    // Column definitions - EXACT TUNERSTOP STRUCTURE
+    // Column definitions - MATCHING TUNERSTOP PROFESSIONAL LAYOUT
     var colModel = [
         // Checkbox column with "Select All"
         { 
@@ -113,7 +113,7 @@ $(document).ready(function () {
             dataType: 'bool',
             skipExport: true,
             editor: false,
-            width: 10, 
+            width: 50, 
             sortable: false
         },
         // Action column with delete button
@@ -121,7 +121,8 @@ $(document).ready(function () {
             title: "Action", 
             editable: false,
             skipExport: true, 
-            minWidth: 85, 
+            minWidth: 100,
+            width: 100,
             sortable: false, 
             align: "center",
             render: function (ui) {
@@ -135,7 +136,7 @@ $(document).ready(function () {
                 });
             }
         },
-        // Data columns
+        // Data columns - PROFESSIONAL WIDTHS
         {
             title: "SKU", 
             width: 160, 
@@ -147,7 +148,7 @@ $(document).ready(function () {
         },
         {
             title: "Brand", 
-            width: 130, 
+            width: 150, 
             dataType: "string", 
             align: "center", 
             dataIndx: "brand", 
@@ -156,7 +157,7 @@ $(document).ready(function () {
         },
         {
             title: "Model", 
-            width: 160, 
+            width: 180, 
             dataType: "string", 
             align: "center", 
             dataIndx: "model", 
@@ -165,7 +166,7 @@ $(document).ready(function () {
         },
         {
             title: "Finish", 
-            width: 130, 
+            width: 150, 
             dataType: "string", 
             align: "center", 
             dataIndx: "finish", 
@@ -174,7 +175,7 @@ $(document).ready(function () {
         },
         {
             title: "Construction", 
-            width: 100, 
+            width: 120, 
             dataType: "string", 
             align: "center", 
             dataIndx: "construction", 
@@ -182,7 +183,7 @@ $(document).ready(function () {
         },
         {
             title: "Rim Width", 
-            width: 80, 
+            width: 100, 
             dataType: "float", 
             align: "center", 
             dataIndx: "rim_width", 
@@ -190,7 +191,7 @@ $(document).ready(function () {
         },
         {
             title: "Rim Diameter", 
-            width: 80, 
+            width: 110, 
             dataType: "float", 
             align: "center", 
             dataIndx: "rim_diameter", 
@@ -198,7 +199,7 @@ $(document).ready(function () {
         },
         {
             title: "Size", 
-            width: 80, 
+            width: 100, 
             dataType: "string", 
             align: "center", 
             dataIndx: "size", 
@@ -206,7 +207,7 @@ $(document).ready(function () {
         },
         {
             title: "Bolt Pattern", 
-            width: 100, 
+            width: 120, 
             dataType: "string", 
             align: "center", 
             dataIndx: "bolt_pattern", 
@@ -214,7 +215,7 @@ $(document).ready(function () {
         },
         {
             title: "Hub Bore", 
-            width: 80, 
+            width: 100, 
             dataType: "float", 
             align: "center", 
             dataIndx: "hub_bore", 
@@ -222,7 +223,7 @@ $(document).ready(function () {
         },
         {
             title: "Offset", 
-            width: 80, 
+            width: 100, 
             dataType: "string", 
             align: "center", 
             dataIndx: "offset", 
@@ -230,7 +231,7 @@ $(document).ready(function () {
         },
         {
             title: "Warranty", 
-            width: 90, 
+            width: 100, 
             dataType: "string", 
             align: "center", 
             dataIndx: "backspacing", 
@@ -238,7 +239,7 @@ $(document).ready(function () {
         },
         {
             title: "Max Wheel Load",
-            width: 100, 
+            width: 130, 
             dataType: "string", 
             align: "center", 
             dataIndx: "max_wheel_load", 
@@ -254,7 +255,7 @@ $(document).ready(function () {
         },
         {
             title: "Lipsize", 
-            width: 80, 
+            width: 100, 
             dataType: "string", 
             align: "center", 
             dataIndx: "lipsize",
@@ -262,7 +263,7 @@ $(document).ready(function () {
         },
         {
             title: "US Retail Price", 
-            width: 80, 
+            width: 120, 
             dataType: "float", 
             align: "center", 
             dataIndx: "us_retail_price",
@@ -270,7 +271,7 @@ $(document).ready(function () {
         },
         {
             title: "UAE Retail Price", 
-            width: 80, 
+            width: 130, 
             dataType: "float", 
             align: "center", 
             dataIndx: "uae_retail_price",
@@ -278,7 +279,7 @@ $(document).ready(function () {
         },
         {
             title: "Sale Price", 
-            width: 80, 
+            width: 110, 
             dataType: "float", 
             align: "center", 
             dataIndx: "sale_price",
@@ -286,7 +287,7 @@ $(document).ready(function () {
         },
         {
             title: "Images", 
-            width: 200, 
+            width: 250, 
             dataType: "string", 
             align: "center", 
             dataIndx: "images",
@@ -345,6 +346,19 @@ $(document).ready(function () {
             },
             {type: 'separator'},
             {
+                type: 'button',
+                label: '🔍 Toggle Filters',
+                listener: function () {
+                    var currentState = this.option('filterModel.header');
+                    console.log('Current filter header state:', currentState);
+                    this.option('filterModel.header', !currentState);
+                    this.refreshHeader();
+                    this.refresh();
+                    console.log('New filter header state:', this.option('filterModel.header'));
+                }
+            },
+            {type: 'separator'},
+            {
                 type: 'button', 
                 icon: '', 
                 label: ' New Product', 
@@ -398,24 +412,36 @@ $(document).ready(function () {
     
     // Main pqGrid configuration
     var obj = {
+        width: '100%',
+        height: 'flex',
+        minHeight: 500,
+        maxHeight: $(window).height() - 150,
         rowHt: 50,
         rowBorders: true,
         trackModel: {on: true},
-        height: '100vh',
-        minHeight: '400px',
-        maxHeight: $(window).height()-200,
         resizable: true,
         title: "<b>Products</b>",
         colModel: colModel,
         toolbar: toolbar,
         freezeCols: 2,
-        filterModel: { header: true, type: 'local', on: true, mode: "AND" },
+        wrap: false,
+        hwrap: false,
+        
+        // FILTER MODEL - CRITICAL: Exactly like Tunerstop
+        filterModel: { 
+            header: true,           // Show filter row below column headers
+            type: 'local',          // Local filtering
+            on: true,               // Enable filtering
+            mode: "AND",            // AND mode for multiple filters
+            menuIcon: true          // Show filter menu icon
+        },
         
         // LOCAL DATA MODEL (not remote)
         dataModel: {
             dataType: "JSON",
             location: "local",
-            data: data
+            data: data,
+            recIndx: "id"
         },
         
         // Pagination
@@ -473,28 +499,35 @@ $(document).ready(function () {
     
     // Initialize grid with setTimeout like Tunerstop
     setTimeout(function () {
+        console.log('🎯 Initializing pqGrid with professional layout...');
+        console.log('📦 Data length:', data.length);
+        
         grid = pq.grid("#productsGrid", obj);
         
         console.log('✅ Grid initialized');
-        console.log('✅ Loaded ' + data.length + ' product variants');
         
-        // CRITICAL: Explicitly enable filter header after grid creation
-        grid.option('filterModel', { header: true, type: 'local', on: true, mode: "AND" });
-        grid.refresh();
-        
-        // Set placeholder text for search fields after render
+        // Force filter header visibility after render
         setTimeout(function() {
-            $('.pq-grid-hd-search-field').attr('placeholder', 'Search');
-            console.log('🔍 Search fields found:', $('.pq-grid-hd-search-field').length);
+            console.log('🔍 Verifying filter header...');
             
-            // If still 0, manually trigger filter creation
-            if ($('.pq-grid-hd-search-field').length === 0) {
-                console.log('⚠️ Trying to force filter creation...');
-                grid.refreshHeader();
-                grid.refreshDataAndView();
+            // Force refresh to ensure filter row appears
+            grid.refreshHeader();
+            grid.refresh();
+            
+            // Log status
+            var filterFields = $('.pq-grid-hd-search-field');
+            console.log('🔍 Filter fields visible:', filterFields.length);
+            
+            if (filterFields.length > 0) {
+                console.log('✅ Filter header is working!');
+                // Add placeholder text
+                filterFields.attr('placeholder', 'Filter...');
+            } else {
+                console.warn('⚠️ Filter fields not found. Checking configuration...');
+                console.log('Filter model:', grid.option('filterModel'));
             }
-        }, 200);
-    }, 500);
+        }, 300);
+    }, 100);
     
     // Optional: Auto-save interval (uncomment if needed)
     // interval = setInterval(saveChanges, 2000);
