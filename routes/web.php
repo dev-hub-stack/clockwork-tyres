@@ -45,19 +45,19 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('inventory/import', [InventoryController::class, 'import'])
         ->name('inventory.import');
     
-    // Inventory API Routes (for modals)
+    // Inventory API Routes by SKU (for inventory grid modals) - MUST BE FIRST!
+    Route::get('api/inventory/sku/{sku}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsBySku'])
+        ->where('sku', '.*') // Allow dots and special characters in SKU
+        ->name('api.inventory.consignments.bySku');
+    Route::get('api/inventory/sku/{sku}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockBySku'])
+        ->where('sku', '.*') // Allow dots and special characters in SKU
+        ->name('api.inventory.incoming.bySku');
+    
+    // Inventory API Routes by Variant ID (for modals)
     Route::get('api/inventory/{variant}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsByVariant'])
         ->name('api.inventory.consignments');
     Route::get('api/inventory/{variant}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockByVariant'])
         ->name('api.inventory.incoming');
-    
-    // Inventory API Routes by SKU (for inventory grid modals)
-    Route::get('api/inventory/{sku}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsBySku'])
-        ->where('sku', '.*') // Allow dots and special characters in SKU
-        ->name('api.inventory.consignments.bySku');
-    Route::get('api/inventory/{sku}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockBySku'])
-        ->where('sku', '.*') // Allow dots and special characters in SKU
-        ->name('api.inventory.incoming.bySku');
     
     // Product Images Routes (Tunerstop pattern)
     Route::get('products/images', [ProductImageController::class, 'index'])

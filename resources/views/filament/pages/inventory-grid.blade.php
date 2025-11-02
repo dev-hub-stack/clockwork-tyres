@@ -698,7 +698,7 @@
             
             // Fetch data via AJAX
             $.ajax({
-                url: '/api/inventory/' + sku + '/consignments',
+                url: '/api/inventory/sku/' + sku + '/consignments',
                 method: 'GET',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -750,7 +750,7 @@
             
             // Fetch data via AJAX
             $.ajax({
-                url: '/api/inventory/' + sku + '/incoming' + (warehouse ? '?warehouse=' + warehouse : ''),
+                url: '/api/inventory/sku/' + sku + '/incoming' + (warehouse ? '?warehouse=' + warehouse : ''),
                 method: 'GET',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
