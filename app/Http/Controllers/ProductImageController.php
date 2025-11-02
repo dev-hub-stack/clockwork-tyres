@@ -215,7 +215,9 @@ class ProductImageController extends Controller
                     $dbField = 'image_' . $i;
                     
                     if (isset($data[$csvKey]) && !empty($data[$csvKey])) {
-                        $productImage->{$dbField} = $data[$csvKey];
+                        // Prepend 'products/' folder path to image name (like Tunerstop)
+                        $imageName = trim($data[$csvKey]);
+                        $productImage->{$dbField} = 'products/' . $imageName;
                     }
                 }
 

@@ -75,6 +75,9 @@
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="page-title">
+                    <a href="/admin" class="btn btn-link text-decoration-none">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
                     <i class="bi bi-images"></i> Product Images
                 </h1>
                 <div class="d-flex gap-2">
@@ -86,6 +89,9 @@
                     </a>
                     <a href="/admin/products-grid" class="btn btn-secondary">
                         <i class="bi bi-grid"></i> Products Grid
+                    </a>
+                    <a href="/admin" class="btn btn-outline-secondary">
+                        <i class="bi bi-house"></i> Back to Admin
                     </a>
                 </div>
             </div>
