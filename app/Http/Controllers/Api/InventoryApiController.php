@@ -175,11 +175,9 @@ class InventoryApiController extends Controller
                         return [
                             'warehouse' => $inventory->warehouse->name ?? 'Unknown',
                             'warehouse_code' => $inventory->warehouse->code ?? 'N/A',
-                            'eta' => $inventory->eta ? date('d-m-Y', strtotime($inventory->eta)) : 'Not Set',
+                            'eta' => $inventory->eta ?? null,
                             'quantity' => $inventory->eta_qty ?? 0,
-                            'supplier' => $inventory->supplier_name ?? 'N/A',
-                            'po_number' => $inventory->po_number ?? 'N/A',
-                            'status' => $inventory->status ?? 'Pending',
+                            'notes' => $inventory->notes ?? null,
                         ];
                     }
                     return null;

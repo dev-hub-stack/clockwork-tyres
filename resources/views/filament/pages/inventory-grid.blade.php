@@ -770,13 +770,11 @@
                     if (response.length > 0) {
                         let tableBody = '';
                         response.forEach(function(item) {
-                            let statusClass = item.status === 'Delivered' ? 'success' : (item.status === 'Pending' ? 'warning' : 'info');
                             tableBody += '<tr>';
-                            tableBody += '<td>' + item.warehouse + '</td>';
-                            tableBody += '<td class="text-center">' + item.eta + '</td>';
+                            tableBody += '<td><strong>' + item.warehouse + '</strong></td>';
+                            tableBody += '<td class="text-center">' + (item.eta || 'Not Set') + '</td>';
                             tableBody += '<td class="text-center"><span class="badge bg-success">' + item.quantity + '</span></td>';
-                            tableBody += '<td>' + item.supplier + '</td>';
-                            tableBody += '<td class="text-center"><span class="badge bg-' + statusClass + '">' + item.status + '</span></td>';
+                            tableBody += '<td>' + (item.notes || '-') + '</td>';
                             tableBody += '</tr>';
                         });
                         
@@ -789,7 +787,7 @@
                 },
                 error: function(xhr, status, error) {
                     $('#incomingLoading').hide();
-                    $('#incomingTableBody').html('<tr><td colspan="5" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
+                    $('#incomingTableBody').html('<tr><td colspan="4" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
                     $('#incomingContent').show();
                 }
             });
@@ -915,8 +913,7 @@
                                         <th>Warehouse</th>
                                         <th class="text-center">ETA Date</th>
                                         <th class="text-center">Quantity</th>
-                                        <th>Supplier/PO</th>
-                                        <th class="text-center">Status</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody id="incomingTableBody">
