@@ -528,14 +528,17 @@ $(document).ready(function () {
     setTimeout(function () {
         console.log('🎯 Initializing pqGrid with professional layout...');
         console.log('📦 Data length:', data.length);
+        console.log('📋 Sample data row:', data[0]);
         
         grid = pq.grid("#productsGrid", obj);
         
         console.log('✅ Grid initialized');
+        console.log('📄 Page Model:', grid.option('pageModel'));
+        console.log('🔍 Filter Model:', grid.option('filterModel'));
         
         // Force filter header visibility after render
         setTimeout(function() {
-            console.log('🔍 Verifying filter header...');
+            console.log('🔍 Verifying filter header and pagination...');
             
             // Force refresh to ensure filter row appears
             grid.refreshHeader();
@@ -543,7 +546,11 @@ $(document).ready(function () {
             
             // Log status
             var filterFields = $('.pq-grid-hd-search-field');
+            var pager = $('.pq-pager');
+            
             console.log('🔍 Filter fields visible:', filterFields.length);
+            console.log('📄 Pagination container:', pager.length);
+            console.log('📊 Total pages:', grid.option('pageModel.curPage'), 'of', Math.ceil(data.length / grid.option('pageModel.rPP')));
             
             if (filterFields.length > 0) {
                 console.log('✅ Filter header is working!');
@@ -552,6 +559,12 @@ $(document).ready(function () {
             } else {
                 console.warn('⚠️ Filter fields not found. Checking configuration...');
                 console.log('Filter model:', grid.option('filterModel'));
+            }
+            
+            if (pager.length > 0) {
+                console.log('✅ Pagination is rendering!');
+            } else {
+                console.warn('⚠️ Pagination not visible. Checking pageModel...');
             }
         }, 300);
     }, 100);

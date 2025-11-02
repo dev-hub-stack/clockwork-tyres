@@ -230,9 +230,20 @@
                     <h5 class="modal-title"><i class="bi bi-upload"></i> Bulk Upload Products</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{{ route('admin.products.bulk.import') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('admin.products.bulk.import') }}" method="POST" enctype="multipart/form-data" id="bulkUploadForm">
                     @csrf
                     <div class="modal-body">
+                        <!-- Loading Overlay -->
+                        <div id="uploadLoader" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 9999; border-radius: 8px;">
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                                <div class="spinner-border text-success" style="width: 4rem; height: 4rem;" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <h4 class="mt-3 text-success">Processing Import...</h4>
+                                <p class="text-muted">Please wait while we process your file.<br>This may take a few minutes for large files.</p>
+                            </div>
+                        </div>
+                        
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -277,7 +288,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="btn btn-success" id="uploadBtn">
                             <i class="bi bi-upload"></i> Upload & Import
                         </button>
                     </div>
@@ -348,6 +359,20 @@
     
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <!-- Bulk Upload Loader Script -->
+    <script>
+        $(document).ready(function() {
+            // Show loader when bulk upload form is submitted
+            $('#bulkUploadForm').on('submit', function(e) {
+                // Show loader
+                $('#uploadLoader').fadeIn();
+                $('#uploadBtn').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+                
+                // Note: Form will submit normally, loader will show until page reloads
+            });
+        });
+    </script>
     
     <!-- Embed data (Tunerstop style) -->
     <script>

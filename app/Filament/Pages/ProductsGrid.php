@@ -56,16 +56,25 @@ class ProductsGrid extends Page
                     'id' => $variant->id,
                     'product_id' => $product->id,
                     'sku' => $variant->sku ?? '',
-                    'product_full_name' => $product->brand->name . ' ' . $product->model->name . ' ' . $product->finish->name,
+                    'product_full_name' => $product->brand->name . ' ' . $product->model->name . ' ' . ($variant->finish ?? ''),
                     'brand' => $product->brand->name ?? '',
                     'model' => $product->model->name ?? '',
-                    'finish' => $product->finish->name ?? '',
-                    'size' => $variant->size ?? '',
+                    'finish' => $variant->finish ?? '',  // Load from variant's finish field (text column)
+                    'construction' => $product->construction ?? '',  // From product table
                     'rim_width' => $variant->rim_width ?? '',
                     'rim_diameter' => $variant->rim_diameter ?? '',
+                    'size' => $variant->size ?? '',
                     'bolt_pattern' => $variant->bolt_pattern ?? '',
-                    'offset' => $variant->offset ?? '',
                     'hub_bore' => $variant->hub_bore ?? '',
+                    'offset' => $variant->offset ?? '',
+                    'backspacing' => $variant->backspacing ?? '',
+                    'max_wheel_load' => $variant->max_wheel_load ?? '',
+                    'weight' => $variant->weight ?? '',
+                    'lipsize' => $variant->lipsize ?? '',
+                    'us_retail_price' => $variant->us_retail_price ?? 0,
+                    'uae_retail_price' => $variant->uae_retail_price ?? 0,
+                    'sale_price' => $variant->sale_price ?? 0,
+                    'images' => $variant->image ?? '',  // Column name is 'image' not 'images'
                     'inventory' => []
                 ];
 

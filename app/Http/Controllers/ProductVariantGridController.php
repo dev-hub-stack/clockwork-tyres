@@ -255,10 +255,48 @@ class ProductVariantGridController extends Controller
             $rows = $data[0];
             $headers = array_shift($rows); // Remove header row
             
-            // Normalize headers (lowercase, trim)
-            $headers = array_map(function($h) {
-                return strtolower(trim($h));
+            \Log::info('CSV Headers (original):', $headers);
+            
+            // Define header mapping once (not inside loop!)
+            $headerMap = [
+                'rimwidth' => 'rim_width',
+                'rim width' => 'rim_width',
+                'rimdiameter' => 'rim_diameter',
+                'rim diameter' => 'rim_diameter',
+                'boltpattern' => 'bolt_pattern',
+                'boltpattern1' => 'bolt_pattern',
+                'bolt pattern' => 'bolt_pattern',
+                'bolt pattern1' => 'bolt_pattern',
+                'hubbore' => 'hub_bore',
+                'hub bore' => 'hub_bore',
+                'usretail' => 'us_retail_price',
+                'us retail' => 'us_retail_price',
+                'us retail price' => 'us_retail_price',
+                'uaeretailincludingvat' => 'uae_retail_price',
+                'uae retail including vat' => 'uae_retail_price',
+                'uae retail price' => 'uae_retail_price',
+                'lipsize' => 'lipsize',
+                'maxwheelload' => 'max_wheel_load',
+                'max wheel load' => 'max_wheel_load',
+                'image 10' => 'image10',
+                'image 11' => 'image11',
+            ];
+            
+            // Normalize headers (lowercase, trim, and map variants)
+            $headers = array_map(function($h) use ($headerMap) {
+                $normalized = strtolower(trim($h));
+                
+                // Check if there's a mapping for this header
+                if (isset($headerMap[$normalized])) {
+                    return $headerMap[$normalized];
+                }
+                
+                // Otherwise, replace spaces with underscores for consistency
+                return str_replace(' ', '_', $normalized);
             }, $headers);
+            
+            \Log::info('CSV Headers (normalized):', $headers);
+            \Log::info('Total rows to import:', ['count' => count($rows)]);
             
             $totalRows = count($rows);
             $imported = 0;
@@ -341,7 +379,7 @@ class ProductVariantGridController extends Controller
                                 'model_id' => $modelId,
                                 'finish_id' => $finishId,
                                 'construction' => $rowData['construction'] ?? null,
-                                'price' => $rowData['us retail price'] ?? 0,
+                                'price' => $rowData['us_retail_price'] ?? 0,
                                 'status' => 1,
                             ];
                             
@@ -361,21 +399,22 @@ class ProductVariantGridController extends Controller
                                 'product_id' => $productId,
                                 'finish_id' => $finishId,
                                 'finish' => $rowData['finish'] ?? null,
-                                'rim_width' => !empty($rowData['rim width']) ? (float)$rowData['rim width'] : null,
-                                'rim_diameter' => !empty($rowData['rim diameter']) ? (float)$rowData['rim diameter'] : null,
+                                'rim_width' => !empty($rowData['rim_width']) ? (float)$rowData['rim_width'] : null,
+                                'rim_diameter' => !empty($rowData['rim_diameter']) ? (float)$rowData['rim_diameter'] : null,
                                 'size' => $rowData['size'] ?? null,
-                                'bolt_pattern' => $rowData['bolt pattern'] ?? null,
-                                'hub_bore' => !empty($rowData['hub bore']) ? (float)$rowData['hub bore'] : null,
+                                'bolt_pattern' => $rowData['bolt_pattern'] ?? null,
+                                'hub_bore' => $rowData['hub_bore'] ?? null,  // String column: supports "PFS", numbers, etc.
                                 'offset' => $rowData['offset'] ?? null,
                                 'backspacing' => $rowData['warranty'] ?? null,
-                                'max_wheel_load' => $rowData['max wheel load'] ?? null,
+                                'max_wheel_load' => $rowData['max_wheel_load'] ?? null,
                                 'weight' => $rowData['weight'] ?? null,
                                 'lipsize' => $rowData['lipsize'] ?? null,
-                                'us_retail_price' => !empty($rowData['us retail price']) ? (float)$rowData['us retail price'] : 0,
-                                'uae_retail_price' => !empty($rowData['uae retail price']) ? (float)$rowData['uae retail price'] : 0,
-                                'sale_price' => !empty($rowData['sale price']) ? (float)$rowData['sale price'] : 0,
-                                'clearance_corner' => !empty($rowData['clearance corner']) ? (int)$rowData['clearance corner'] : 0,
-                                'supplier_stock' => !empty($rowData['supplier stock']) ? (int)$rowData['supplier stock'] : 0,
+                                // 'construction' is in products table, not product_variants
+                                'us_retail_price' => !empty($rowData['us_retail_price']) ? (float)$rowData['us_retail_price'] : 0,
+                                'uae_retail_price' => !empty($rowData['uae_retail_price']) ? (float)$rowData['uae_retail_price'] : 0,
+                                'sale_price' => !empty($rowData['sale_price']) ? (float)$rowData['sale_price'] : 0,
+                                'clearance_corner' => !empty($rowData['clearance_corner']) ? (int)$rowData['clearance_corner'] : 0,
+                                'supplier_stock' => !empty($rowData['supplier_stock']) ? (int)$rowData['supplier_stock'] : 0,
                             ];
                             
                             // CRITICAL: Collect image filenames from image1-image9 columns
