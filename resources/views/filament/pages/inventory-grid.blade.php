@@ -1,22 +1,23 @@
 <x-filament-panels::page>
-    <!-- CSRF Token for AJAX requests -->
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    
-    <!-- jQuery (required by pqGrid) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
-    <!-- jQuery UI CSS & JS -->
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-    
-    <!-- pqGrid PRO CSS - LOCAL (Required for filter headers!) -->
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
-    
-    <!-- Bootstrap 5 for styling -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <style>
+    <div>
+        <!-- CSRF Token for AJAX requests -->
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+        
+        <!-- jQuery (required by pqGrid) -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        
+        <!-- jQuery UI CSS & JS -->
+        <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+        <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+        
+        <!-- pqGrid PRO CSS - LOCAL (Required for filter headers!) -->
+        <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
+        
+        <!-- Bootstrap 5 for styling -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        
+        <style>
         /* FULL WIDTH PAGE - Override Filament's max-width constraint */
         .fi-body {
             max-width: none !important;
@@ -897,4 +898,5 @@
             });
         });
     </script>
+    </div>
 </x-filament-panels::page>
