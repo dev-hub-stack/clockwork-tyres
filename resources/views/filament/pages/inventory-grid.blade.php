@@ -219,7 +219,7 @@
                     <h5 class="modal-title">Import Inventory</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form action="{{ route('admin.inventory.import') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('admin.inventory.import') }}" method="POST" enctype="multipart/form-data" id="inventoryImportForm">
                     @csrf
                     <div class="modal-body">
                         <div class="row justify-content-center">
@@ -234,21 +234,44 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Sample File</label><br/>
-                                    <a href="{{ asset('uploads/samplefiles/product-inventory.xlsx') }}" 
-                                       download="product-inventory.xlsx" 
+                                    <a href="{{ asset('uploads/samplefiles/product-inventory.csv') }}" 
+                                       download="product-inventory.csv" 
                                        class="btn btn-warning">
-                                        <i class="bi bi-download"></i> Download Sample
+                                        <i class="bi bi-download"></i> Download Sample CSV
                                     </a>
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="alert alert-info">
+                            <strong><i class="bi bi-info-circle"></i> CSV Format:</strong>
+                            <ul class="mb-0">
+                                <li>Required columns: <strong>SKU, Warehouse Code, Quantity</strong></li>
+                                <li>Optional: ETA (YYYY-MM-DD), ETA Quantity</li>
+                                <li>Warehouse Code must match existing warehouse codes</li>
+                            </ul>
+                        </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Import</button>
+                        <button type="submit" class="btn btn-primary" id="importInventoryBtn">
+                            <i class="bi bi-cloud-upload"></i> Import
+                        </button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Processing Loader Overlay (Like Tunerstop) -->
+    <div id="processingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 40px 60px; border-radius: 10px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem; border-width: 0.3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="mt-3 mb-2" style="color: #333;">Processing Import...</h4>
+            <p style="color: #666; margin: 0;">Please wait while we process your inventory data</p>
+            <p style="color: #999; font-size: 14px; margin-top: 10px;">This may take a few moments for large files</p>
         </div>
     </div>
 
@@ -604,6 +627,44 @@
 
             // Auto-save every 2 minutes (optional - matching old system pattern)
             // interval = setInterval(saveChanges, 120000);
+        });
+
+        // Show processing loader on form submit (Tunerstop style)
+        $(document).ready(function() {
+            $('#inventoryImportForm').on('submit', function(e) {
+                // Show the processing overlay
+                $('#processingOverlay').css('display', 'flex');
+                
+                // Disable the submit button to prevent double submission
+                $('#importInventoryBtn').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+                
+                // Hide the modal
+                $('#import-product-inventory').modal('hide');
+                
+                console.log('📤 Inventory import form submitted - showing loader');
+                
+                // Form will submit normally (no e.preventDefault())
+                // The loader will stay visible until the page reloads with results
+            });
+
+            // Export button handler
+            $('#export-btn').on('click', function() {
+                if (typeof grid !== 'undefined' && grid) {
+                    var format = 'xlsx';
+                    var blob = grid.exportData({
+                        format: format,
+                        nopqdata: true,
+                        render: true
+                    });
+                    if (typeof blob === "string") {
+                        blob = new Blob([blob]);
+                    }
+                    saveAs(blob, "Inventory-Export-" + new Date().toISOString().slice(0,10) + "." + format);
+                    console.log('✅ Inventory exported as ' + format);
+                } else {
+                    alert('Grid is not ready. Please wait for the page to load completely.');
+                }
+            });
         });
     </script>
 </x-filament-panels::page>
