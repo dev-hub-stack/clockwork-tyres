@@ -9,18 +9,41 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     
-    <!-- pqGrid CSS - LOCAL (matching old Reporting system) -->
-    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.min.css') }}">
+    <!-- pqGrid PRO CSS - LOCAL (Required for filter headers!) -->
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
     <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
     
     <!-- Bootstrap 5 for styling -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <style>
+        /* FULL WIDTH PAGE - Override Filament's max-width constraint */
+        .fi-body {
+            max-width: none !important;
+            width: 100% !important;
+        }
+        
+        .fi-main {
+            max-width: none !important;
+            width: 100% !important;
+        }
+        
+        .fi-content {
+            max-width: none !important;
+            width: 100% !important;
+        }
+        
+        .fi-section-content-ctn {
+            max-width: none !important;
+            width: 100% !important;
+        }
+        
         .page-content {
             background: #fff;
             padding: 20px;
             border-radius: 8px;
+            max-width: none !important;
+            width: 100% !important;
         }
         
         .action-buttons {
@@ -32,6 +55,17 @@
         
         #grid_json_inventory {
             min-height: 600px;
+            width: 100% !important;
+            overflow-x: auto !important;
+        }
+        
+        /* pqGrid container - ensure full width */
+        .pq-grid {
+            width: 100% !important;
+        }
+        
+        .pq-grid-cont {
+            width: 100% !important;
         }
 
         /* Warehouse column styling (matching old system) */
@@ -48,20 +82,80 @@
             background-color: #e3f2fd !important;
         }
 
-        /* Filter header row */
+        /* Filter header row - FORCE DISPLAY & STYLING */
         .pq-grid-header-search-row {
             display: table-row !important;
             visibility: visible !important;
             background-color: #f8f9fa !important;
         }
 
+        .pq-grid-header-search-row .pq-grid-col {
+            padding: 5px !important;
+            background: #f8f9fa !important;
+            border-color: #e5e7eb !important;
+        }
+
         .pq-grid-hd-search-field {
             display: block !important;
             width: 100% !important;
-            padding: 6px 10px !important;
+            padding: 5px 8px !important;
             border: 1px solid #d1d5db !important;
             border-radius: 4px !important;
             font-size: 13px !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+        }
+
+        .pq-grid-hd-search-field:focus {
+            outline: none !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+        }
+
+        /* HIDE FILTER ICON/ARROW - This was the black arrow you wanted to hide */
+        .pq-grid-header-search-icon,
+        .pq-grid-col .ui-icon-triangle-1-s,
+        .pq-grid-col .ui-icon-carat-2-n-s,
+        .pq-grid-title-row .ui-icon,
+        .pq-grid-col .ui-icon,
+        .ui-icon-triangle-1-n,
+        .ui-icon-triangle-1-s,
+        .ui-icon-triangle-2-n-s,
+        .pq-grid-title-row .pq-grid-col .ui-icon,
+        .pq-grid-title-row .ui-state-default .ui-icon,
+        span.ui-icon {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        
+        /* Remove padding where icons were */
+        .pq-grid-title-row .ui-state-default {
+            padding-right: 10px !important;
+        }
+
+        /* Grid column headers */
+        .pq-grid-col, .pq-grid-number-cell {
+            border-color: #e5e7eb !important;
+            background-color: #f3f4f6 !important;
+        }
+
+        .pq-grid-title-row .pq-grid-number-cell,
+        .pq-grid-header-search-row .pq-grid-number-cell,
+        .pq-grid-title-row .ui-state-default {
+            background-color: #374151 !important;
+            color: #fff !important;
+        }
+
+        /* Grid rows */
+        .pq-grid-row.pq-striped {
+            background: #f9fafb;
+        }
+
+        .pq-cont-inner > .pq-table > .pq-grid-row {
+            border-bottom-color: #e5e7eb;
         }
 
         /* Toolbar styling */
@@ -89,6 +183,9 @@
         <div class="action-buttons mb-4">
             <button type="button" class="btn btn-primary" id="import-inv-btn">
                 <i class="bi bi-cloud-download"></i> Import Inventory
+            </button>
+            <button type="button" class="btn btn-info" id="export-btn">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
             </button>
             <button type="button" class="btn btn-success" id="save-changes-btn">
                 <i class="bi bi-save"></i> Save Changes
@@ -158,8 +255,8 @@
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- pqGrid JS - LOCAL (matching old Reporting system) -->
-    <script src="{{ asset('pqgridf/pqgrid.min.js') }}"></script>
+    <!-- pqGrid PRO JS - LOCAL (Required for filter headers!) -->
+    <script src="{{ asset('pqgridf/pqgrid-pro.min.js') }}"></script>
     
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -286,7 +383,7 @@
             var colModel = [
                 {
                     title: "SKU", 
-                    width: 250, 
+                    width: 280, 
                     dataType: "string", 
                     align: "center",
                     dataIndx: "sku", 
@@ -296,7 +393,7 @@
                 },
                 { 
                     title: "Product Full Name", 
-                    width: 400, 
+                    width: 450, 
                     dataType: "string", 
                     align: "center", 
                     dataIndx: "product_full_name", 
@@ -306,7 +403,7 @@
                 },
                 { 
                     title: "Size", 
-                    width: 200, 
+                    width: 120, 
                     dataType: "string", 
                     align: "center", 
                     dataIndx: "size", 
@@ -315,7 +412,7 @@
                 },
                 { 
                     title: "Bolt Pattern", 
-                    width: 200, 
+                    width: 150, 
                     dataType: "string", 
                     align: "center", 
                     dataIndx: "bolt_pattern",  
@@ -324,7 +421,7 @@
                 },
                 { 
                     title: "Offset", 
-                    width: 200, 
+                    width: 120, 
                     dataType: "string", 
                     align: "center", 
                     dataIndx: "offset", 
@@ -344,11 +441,12 @@
                 let warehouseColumn = {
                     title: warehouse.code, 
                     dataIndx: qtyWare, 
-                    width: 150, 
+                    width: 120, 
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner',
-                    editable: true 
+                    editable: true,
+                    filter: { crules: [{ condition: 'equal' }] }
                 };
                 colModel[wj] = warehouseColumn;
                 wj = wj+1;
@@ -357,11 +455,12 @@
                 let warehouseETAColumn = {
                     title: "ETA "+warehouse.code, 
                     dataIndx: etaWare, 
-                    width: 150, 
+                    width: 180, 
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner-eta',
-                    editable: true
+                    editable: true,
+                    filter: { crules: [{ condition: 'begin' }] }
                 };
                 colModel[wj] = warehouseETAColumn;
                 wj = wj+1;
@@ -374,7 +473,8 @@
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner-eta_qty',
-                    editable: true
+                    editable: true,
+                    filter: { crules: [{ condition: 'equal' }] }
                 };
                 colModel[wj] = warehouseETAQtyColumn;
                 wj = wj+1;
@@ -434,10 +534,10 @@
 
             // pqGrid configuration object (matching old system structure)
             var obj = {
-                width: "100%",
+                width: "auto",  // Auto width to show all columns
                 height: 650,
                 title: "Inventory Grid - " + allWarehouses.length + " Warehouses",
-                scrollModel: { autoFit: true },
+                scrollModel: { horizontal: true, autoFit: false },  // Enable horizontal scroll, don't auto-fit
                 numberCell: { show: true, title: "#" },
                 colModel: colModel,
                 dataModel: { 
