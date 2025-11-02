@@ -136,10 +136,10 @@ $(document).ready(function () {
                 });
             }
         },
-        // Data columns - PROFESSIONAL WIDTHS
+        // Data columns - WIDER FOR BETTER READABILITY
         {
             title: "SKU", 
-            width: 160, 
+            width: 200,         // Increased 
             dataType: "string", 
             align: "center", 
             dataIndx: "sku", 
@@ -148,7 +148,7 @@ $(document).ready(function () {
         },
         {
             title: "Brand", 
-            width: 150, 
+            width: 180,         // Increased
             dataType: "string", 
             align: "center", 
             dataIndx: "brand", 
@@ -157,7 +157,7 @@ $(document).ready(function () {
         },
         {
             title: "Model", 
-            width: 180, 
+            width: 200,         // Increased
             dataType: "string", 
             align: "center", 
             dataIndx: "model", 
@@ -166,7 +166,7 @@ $(document).ready(function () {
         },
         {
             title: "Finish", 
-            width: 150, 
+            width: 180,         // Increased
             dataType: "string", 
             align: "center", 
             dataIndx: "finish", 
@@ -175,7 +175,7 @@ $(document).ready(function () {
         },
         {
             title: "Construction", 
-            width: 120, 
+            width: 150,         // Increased
             dataType: "string", 
             align: "center", 
             dataIndx: "construction", 
@@ -183,7 +183,7 @@ $(document).ready(function () {
         },
         {
             title: "Rim Width", 
-            width: 100, 
+            width: 120,         // Increased
             dataType: "float", 
             align: "center", 
             dataIndx: "rim_width", 
@@ -191,7 +191,7 @@ $(document).ready(function () {
         },
         {
             title: "Rim Diameter", 
-            width: 110, 
+            width: 130,         // Increased
             dataType: "float", 
             align: "center", 
             dataIndx: "rim_diameter", 
@@ -410,9 +410,9 @@ $(document).ready(function () {
         ]
     };
     
-    // Main pqGrid configuration
+    // Main pqGrid configuration - WIDER COLUMNS FOR READABILITY
     var obj = {
-        width: '100%',
+        width: '100%',          // Full width of container
         height: 'flex',
         minHeight: 500,
         maxHeight: $(window).height() - 150,
@@ -426,6 +426,14 @@ $(document).ready(function () {
         freezeCols: 2,
         wrap: false,
         hwrap: false,
+        hoverMode: 'cell',
+        
+        // Enable horizontal scrolling for wide columns (like Tunerstop)
+        scrollModel: { 
+            horizontal: true,       // Enable horizontal scroll
+            autoFit: false,         // Don't auto-fit columns (allow horizontal scroll)
+            pace: 'fast'            // Smooth scrolling
+        },
         
         // FILTER MODEL - CRITICAL: Exactly like Tunerstop
         filterModel: { 
@@ -450,9 +458,6 @@ $(document).ready(function () {
             rPP: 50,
             rPPOptions: [10, 20, 50, 100, 500]
         },
-        
-        // Scrolling
-        scrollModel: { autoFit: true },
         
         // Selection
         selectionModel: { type: 'row', mode: 'block' },

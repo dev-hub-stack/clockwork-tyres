@@ -13,21 +13,26 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     
     <style>
-        /* Make page full width - collapse Filament sidebar */
-        .fi-sidebar {
-            transition: all 0.3s ease;
-        }
-        
-        /* Full width content */
-        .fi-main {
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-        
+        /* GRID CONTAINER - Full width with horizontal scroll */
         .page-content {
             background: #fff;
             padding: 20px;
             border-radius: 8px;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto; /* Enable horizontal scroll if needed */
+        }
+        
+        #productsGrid {
+            min-height: 600px;
+            width: 100% !important;
+            max-width: none !important;
+        }
+        
+        /* Ensure grid doesn't get squeezed */
+        .pq-grid {
+            width: 100% !important;
+            min-width: 100%;
         }
         
         .action-buttons {
@@ -110,6 +115,13 @@
             display: table-row !important;
         }
     </style>
+    
+    <!-- Sidebar Collapse Help Alert -->
+    <div class="alert alert-info alert-dismissible fade show mb-3" role="alert" style="background: #e0f2fe; border-color: #0ea5e9;">
+        <strong><i class="bi bi-info-circle"></i> Tip:</strong> 
+        To see wider columns, <strong>collapse the sidebar</strong> by clicking the <strong>"☰" (hamburger menu)</strong> icon at the <strong>top-left corner</strong> of the page.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     
     <!-- Success/Error Messages -->
     @if(session('success'))
