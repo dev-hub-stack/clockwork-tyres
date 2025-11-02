@@ -43,10 +43,11 @@ class ConsignmentResource extends Resource
         return ConsignmentForm::configure($schema);
     }
 
-    public static function infolist(Schema $schema): Schema
-    {
-        return ConsignmentInfolist::configure($schema);
-    }
+    // Temporarily disabled - infolist components not working
+    // public static function infolist(Schema $schema): Schema
+    // {
+    //     return ConsignmentInfolist::configure($schema);
+    // }
 
     public static function table(Table $table): Table
     {
