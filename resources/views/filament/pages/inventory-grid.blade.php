@@ -1,24 +1,22 @@
 <x-filament-panels::page>
-    <!-- All content must be wrapped in a single root element for Livewire -->
-    <div>
-        <!-- CSRF Token for AJAX requests -->
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-        
-        <!-- jQuery (required by pqGrid) -->
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        
-        <!-- jQuery UI CSS & JS -->
-        <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-        <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-        
-        <!-- pqGrid PRO CSS - LOCAL (Required for filter headers!) -->
-        <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
-        <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
-        
-        <!-- Bootstrap 5 for styling -->
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        
-        <style>
+    <!-- CSRF Token for AJAX requests -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+    <!-- jQuery (required by pqGrid) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- jQuery UI CSS & JS -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    
+    <!-- pqGrid PRO CSS - LOCAL (Required for filter headers!) -->
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid-pro.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('pqgridf/pqgrid.ui.min.css') }}">
+    
+    <!-- Bootstrap 5 for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
         /* FULL WIDTH PAGE - Override Filament's max-width constraint */
         .fi-body {
             max-width: none !important;
@@ -82,36 +80,6 @@
 
         .inventory-info-inner-eta_qty {
             background-color: #e3f2fd !important;
-        }
-
-        /* Consignment Stock column styling */
-        .consignment-stock-col {
-            background-color: #f3e5f5 !important;
-        }
-
-        /* Incoming Stock column styling */
-        .incoming-stock-col {
-            background-color: #e8f5e9 !important;
-        }
-
-        /* Clickable links in columns */
-        .consignment-link,
-        .incoming-link {
-            text-decoration: none;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        .consignment-link:hover {
-            background-color: #ba68c8;
-            color: white !important;
-        }
-
-        .incoming-link:hover {
-            background-color: #66bb6a;
-            color: white !important;
         }
 
         /* Filter header row - FORCE DISPLAY & STYLING */
@@ -304,73 +272,6 @@
             <h4 class="mt-3 mb-2" style="color: #333;">Processing Import...</h4>
             <p style="color: #666; margin: 0;">Please wait while we process your inventory data</p>
             <p style="color: #999; font-size: 14px; margin-top: 10px;">This may take a few moments for large files</p>
-        </div>
-    </div>
-
-    <!-- Consignment Stock Modal -->
-    <div class="modal fade" id="consignmentModal" tabindex="-1" aria-labelledby="consignmentModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="consignmentModalLabel">
-                        <i class="bi bi-box-seam"></i> Consignment Stock - <strong><span id="consignmentModalSku"></span></strong>
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Customer</th>
-                                    <th class="text-center">Available Qty</th>
-                                    <th class="text-center">Date Consigned</th>
-                                </tr>
-                            </thead>
-                            <tbody id="consignmentTableBody">
-                                <!-- Data loaded via AJAX -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Incoming Stock Modal -->
-    <div class="modal fade" id="incomingStockModal" tabindex="-1" aria-labelledby="incomingStockModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="incomingStockModalLabel">
-                        <i class="bi bi-truck"></i> Incoming Stock - <strong><span id="incomingStockModalSku"></span></strong>
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="text-center">Warehouse</th>
-                                    <th class="text-center">ETA Date</th>
-                                    <th class="text-center">Quantity</th>
-                                    <th class="text-center">Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody id="incomingStockTableBody">
-                                <!-- Data loaded via AJAX -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -587,9 +488,9 @@
                 colModel[wj] = warehouseETAColumn;
                 wj = wj+1;
                 
-                // ETA Qty column
+                // Incoming Stock column (ETA Qty)
                 let warehouseETAQtyColumn = {
-                    title: "ETA Qty "+warehouse.code, 
+                    title: "Incoming Stock "+warehouse.code, 
                     dataIndx: etaWareQty, 
                     width: 150, 
                     dataType: 'string', 
@@ -602,44 +503,25 @@
                 wj = wj+1;
             });
 
-            // Add Consignment Stock column
-            colModel[wj] = {
-                title: "Consignment Stock", 
-                dataIndx: "consignment_stock", 
-                width: 160, 
-                dataType: 'integer', 
+            // Consignment Stock column (total across all customers)
+            let consignmentStockColumn = {
+                title: "Consignment Stock",
+                dataIndx: "consignment_stock",
+                width: 150,
+                dataType: "integer",
                 align: "center",
-                cls: 'consignment-stock-col',
+                halign: "center",
                 editable: false,
+                filter: { crules: [{ condition: 'equal' }] },
                 render: function(ui) {
-                    var value = ui.cellData || 0;
+                    let value = ui.cellData;
                     if (value > 0) {
-                        return '<a href="#" class="text-primary fw-bold consignment-link" data-sku="' + ui.rowData.sku + '" data-variant-id="' + ui.rowData.id + '">' + value + '</a>';
+                        return '<span style="color: #0066cc; font-weight: bold;">' + value + '</span>';
                     }
-                    return '<span class="text-muted">' + value + '</span>';
-                },
-                filter: { crules: [{ condition: 'equal' }] }
+                    return value || 0;
+                }
             };
-            wj = wj+1;
-
-            // Add Incoming Stock column
-            colModel[wj] = {
-                title: "Incoming Stock", 
-                dataIndx: "incoming_stock", 
-                width: 150, 
-                dataType: 'integer', 
-                align: "center",
-                cls: 'incoming-stock-col',
-                editable: false,
-                render: function(ui) {
-                    var value = ui.cellData || 0;
-                    if (value > 0) {
-                        return '<a href="#" class="text-success fw-bold incoming-link" data-sku="' + ui.rowData.sku + '" data-variant-id="' + ui.rowData.id + '">' + value + '</a>';
-                    }
-                    return '<span class="text-muted">' + value + '</span>';
-                },
-                filter: { crules: [{ condition: 'equal' }] }
-            };
+            colModel[wj] = consignmentStockColumn;
             wj = wj+1;
 
             // Toolbar configuration (matching old system)
@@ -768,99 +650,6 @@
             // interval = setInterval(saveChanges, 120000);
         });
 
-        // ========================================
-        // Consignment Stock Modal Handlers
-        // ========================================
-        
-        // Click handler for consignment stock links
-        $(document).on('click', '.consignment-link', function(e) {
-            e.preventDefault();
-            var sku = $(this).data('sku');
-            var variantId = $(this).data('variant-id');
-            loadConsignmentModal(sku, variantId);
-        });
-
-        // Load consignment modal with data
-        function loadConsignmentModal(sku, variantId) {
-            $('#consignmentModalSku').text(sku);
-            $('#consignmentTableBody').html('<tr><td colspan="3" class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div> Loading...</td></tr>');
-            $('#consignmentModal').modal('show');
-            
-            $.ajax({
-                url: '/admin/api/inventory/' + variantId + '/consignments',
-                method: 'GET',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(data) {
-                    var html = '';
-                    if (data.length === 0) {
-                        html = '<tr><td colspan="3" class="text-center text-muted">No active consignments found</td></tr>';
-                    } else {
-                        data.forEach(function(item) {
-                            html += '<tr>';
-                            html += '<td><a href="/admin/customers/' + item.customer_id + '" class="text-primary" target="_blank">' + item.customer + '</a></td>';
-                            html += '<td class="text-center"><span class="badge bg-primary">' + item.available_qty + '</span></td>';
-                            html += '<td class="text-center">' + item.date_consigned + '</td>';
-                            html += '</tr>';
-                        });
-                    }
-                    $('#consignmentTableBody').html(html);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading consignment data:', error);
-                    $('#consignmentTableBody').html('<tr><td colspan="3" class="text-center text-danger"><i class="bi bi-exclamation-circle"></i> Error loading data. Please try again.</td></tr>');
-                }
-            });
-        }
-
-        // ========================================
-        // Incoming Stock Modal Handlers
-        // ========================================
-        
-        // Click handler for incoming stock links
-        $(document).on('click', '.incoming-link', function(e) {
-            e.preventDefault();
-            var sku = $(this).data('sku');
-            var variantId = $(this).data('variant-id');
-            loadIncomingStockModal(sku, variantId);
-        });
-
-        // Load incoming stock modal with data
-        function loadIncomingStockModal(sku, variantId) {
-            $('#incomingStockModalSku').text(sku);
-            $('#incomingStockTableBody').html('<tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm text-success" role="status"><span class="visually-hidden">Loading...</span></div> Loading...</td></tr>');
-            $('#incomingStockModal').modal('show');
-            
-            $.ajax({
-                url: '/admin/api/inventory/' + variantId + '/incoming',
-                method: 'GET',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(data) {
-                    var html = '';
-                    if (data.length === 0) {
-                        html = '<tr><td colspan="4" class="text-center text-muted">No incoming stock found</td></tr>';
-                    } else {
-                        data.forEach(function(item) {
-                            html += '<tr>';
-                            html += '<td class="text-center">' + (item.warehouse_code || 'N/A') + '</td>';
-                            html += '<td class="text-center">' + (item.eta || '<span class="text-muted">Not Set</span>') + '</td>';
-                            html += '<td class="text-center"><span class="badge bg-success">' + item.quantity + '</span></td>';
-                            html += '<td class="text-center text-muted"><small>' + (item.notes || '-') + '</small></td>';
-                            html += '</tr>';
-                        });
-                    }
-                    $('#incomingStockTableBody').html(html);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading incoming stock data:', error);
-                    $('#incomingStockTableBody').html('<tr><td colspan="4" class="text-center text-danger"><i class="bi bi-exclamation-circle"></i> Error loading data. Please try again.</td></tr>');
-                }
-            });
-        }
-
         // Show processing loader on form submit (Tunerstop style)
         $(document).ready(function() {
             $('#inventoryImportForm').on('submit', function(e) {
@@ -899,5 +688,4 @@
             });
         });
     </script>
-    </div>
 </x-filament-panels::page>
