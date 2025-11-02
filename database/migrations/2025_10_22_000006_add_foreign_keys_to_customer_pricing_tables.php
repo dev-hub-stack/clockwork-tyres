@@ -64,18 +64,30 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customer_brand_pricing', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->dropForeign(['brand_id']);
+            if ($this->foreignKeyExists('customer_brand_pricing', 'customer_brand_pricing_customer_id_foreign')) {
+                $table->dropForeign(['customer_id']);
+            }
+            if ($this->foreignKeyExists('customer_brand_pricing', 'customer_brand_pricing_brand_id_foreign')) {
+                $table->dropForeign(['brand_id']);
+            }
         });
 
         Schema::table('customer_model_pricing', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->dropForeign(['model_id']);
+            if ($this->foreignKeyExists('customer_model_pricing', 'customer_model_pricing_customer_id_foreign')) {
+                $table->dropForeign(['customer_id']);
+            }
+            if ($this->foreignKeyExists('customer_model_pricing', 'customer_model_pricing_model_id_foreign')) {
+                $table->dropForeign(['model_id']);
+            }
         });
 
         Schema::table('customer_addon_category_pricing', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->dropForeign(['add_on_category_id']);
+            if ($this->foreignKeyExists('customer_addon_category_pricing', 'customer_addon_category_pricing_customer_id_foreign')) {
+                $table->dropForeign(['customer_id']);
+            }
+            if ($this->foreignKeyExists('customer_addon_category_pricing', 'customer_addon_category_pricing_add_on_category_id_foreign')) {
+                $table->dropForeign(['add_on_category_id']);
+            }
         });
     }
 };

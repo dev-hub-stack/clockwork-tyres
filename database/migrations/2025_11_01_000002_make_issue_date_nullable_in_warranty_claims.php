@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('warranty_claims', function (Blueprint $table) {
-            // Make issue_date nullable and default to claim_date if not provided
-            $table->date('issue_date')->nullable()->change();
-        });
+        if (Schema::hasTable('warranty_claims') && Schema::hasColumn('warranty_claims', 'issue_date')) {
+            Schema::table('warranty_claims', function (Blueprint $table) {
+                // Make issue_date nullable and default to claim_date if not provided
+                $table->date('issue_date')->nullable()->change();
+            });
+        }
     }
 
     /**
@@ -22,8 +24,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('warranty_claims', function (Blueprint $table) {
-            $table->date('issue_date')->nullable(false)->change();
-        });
+        if (Schema::hasTable('warranty_claims') && Schema::hasColumn('warranty_claims', 'issue_date')) {
+            Schema::table('warranty_claims', function (Blueprint $table) {
+                $table->date('issue_date')->nullable(false)->change();
+            });
+        }
     }
 };
