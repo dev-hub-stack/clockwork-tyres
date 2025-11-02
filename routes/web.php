@@ -45,6 +45,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('inventory/import', [InventoryController::class, 'import'])
         ->name('inventory.import');
     
+    // Inventory API Routes (for modals)
+    Route::get('api/inventory/{variant}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsByVariant'])
+        ->name('api.inventory.consignments');
+    Route::get('api/inventory/{variant}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockByVariant'])
+        ->name('api.inventory.incoming');
+    
     // Product Images Routes (Tunerstop pattern)
     Route::get('products/images', [ProductImageController::class, 'index'])
         ->name('products.images.index');

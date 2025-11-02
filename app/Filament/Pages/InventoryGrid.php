@@ -45,7 +45,15 @@ class InventoryGrid extends Page
             'model',
             'finish',
             'variants' => function ($query) {
-                $query->with(['inventories.warehouse']);
+                $query->with([
+                    'inventories.warehouse',
+                    'consignmentItems' => function($q) {
+                        $q->whereHas('consignment', function($query) {
+                            $query->whereIn('status', ['sent', 'delivered', 'partially_sold']);
+                        });
+                    },
+                    'consignmentItems.consignment.customer'
+                ]);
             }
         ])
         ->whereHas('variants')
@@ -81,6 +89,16 @@ class InventoryGrid extends Page
                         'eta_qty' => $inventory->eta_qty ?? 0,
                     ];
                 }
+
+                // Calculate total incoming stock (sum of all ETA quantities across warehouses)
+                $row['incoming_stock'] = $variant->inventories->sum('eta_qty') ?? 0;
+
+                // Calculate total consignment stock (sent - sold - returned for active consignments)
+                $consignmentQty = 0;
+                foreach ($variant->consignmentItems as $item) {
+                    $consignmentQty += ($item->quantity_sent - $item->quantity_sold - $item->quantity_returned);
+                }
+                $row['consignment_stock'] = $consignmentQty;
 
                 $this->products_data[] = $row;
             }
