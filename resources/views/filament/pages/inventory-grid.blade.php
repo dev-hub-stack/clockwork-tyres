@@ -714,7 +714,10 @@
                         response.forEach(function(item) {
                             tableBody += '<tr>';
                             tableBody += '<td><a href="/admin/customers/' + item.customer_id + '" target="_blank" class="text-decoration-none">' + item.customer + '</a></td>';
-                            tableBody += '<td class="text-center"><span class="badge bg-primary">' + item.available_qty + '</span></td>';
+                            tableBody += '<td class="text-center">' + item.quantity_sent + '</td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-success">' + item.quantity_sold + '</span></td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-warning">' + item.quantity_returned + '</span></td>';
+                            tableBody += '<td class="text-center"><strong><span class="badge bg-primary">' + item.available_qty + '</span></strong></td>';
                             tableBody += '<td class="text-center">' + item.date_consigned + '</td>';
                             tableBody += '<td class="text-center"><a href="/admin/consignments/' + item.consignment_id + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> View</a></td>';
                             tableBody += '</tr>';
@@ -729,7 +732,7 @@
                 },
                 error: function(xhr, status, error) {
                     $('#consignmentLoading').hide();
-                    $('#consignmentTableBody').html('<tr><td colspan="4" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
+                    $('#consignmentTableBody').html('<tr><td colspan="7" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
                     $('#consignmentContent').show();
                 }
             });
@@ -858,7 +861,10 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Customer</th>
-                                        <th class="text-center">Available Qty</th>
+                                        <th class="text-center">Sent</th>
+                                        <th class="text-center">Sold</th>
+                                        <th class="text-center">Returned</th>
+                                        <th class="text-center"><strong>Available</strong></th>
                                         <th class="text-center">Date Consigned</th>
                                         <th class="text-center">Actions</th>
                                     </tr>

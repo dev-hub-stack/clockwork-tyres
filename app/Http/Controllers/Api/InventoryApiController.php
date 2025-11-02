@@ -33,8 +33,12 @@ class InventoryApiController extends Controller
                         return [
                             'customer' => $item->consignment->customer->business_name ?? $item->consignment->customer->name,
                             'customer_id' => $item->consignment->customer_id,
+                            'quantity_sent' => $item->quantity_sent,
+                            'quantity_sold' => $item->quantity_sold,
+                            'quantity_returned' => $item->quantity_returned,
                             'available_qty' => $availableQty,
                             'date_consigned' => $item->consignment->issue_date->format('d-m-Y'),
+                            'consignment_id' => $item->consignment_id,
                             'consignment_number' => $item->consignment->consignment_number,
                         ];
                     }
@@ -120,6 +124,9 @@ class InventoryApiController extends Controller
                             'customer' => $item->consignment->customer->business_name ?? $item->consignment->customer->name ?? 'Unknown Customer',
                             'customer_id' => $item->consignment->customer_id,
                             'consignment_id' => $item->consignment_id,
+                            'quantity_sent' => $item->quantity_sent,
+                            'quantity_sold' => $item->quantity_sold,
+                            'quantity_returned' => $item->quantity_returned,
                             'available_qty' => $availableQty,
                             'date_consigned' => $item->consignment->issue_date ? $item->consignment->issue_date->format('d-m-Y') : 'N/A',
                             'consignment_number' => $item->consignment->consignment_number ?? 'N/A',
