@@ -95,4 +95,98 @@ class InventoryApiController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get consignments for a specific product variant (by SKU)
+     * Returns list of customers with consignment quantities and dates
+     */
+    public function getConsignmentsBySku($sku)
+    {
+        try {
+            $variant = ProductVariant::where('sku', $sku)->firstOrFail();
+            
+            $consignments = ConsignmentItem::where('product_variant_id', $variant->id)
+                ->whereHas('consignment', function($q) {
+                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold']);
+                })
+                ->with('consignment.customer')
+                ->get()
+                ->map(function($item) {
+                    $availableQty = $item->quantity_sent - $item->quantity_sold - $item->quantity_returned;
+                    
+                    // Only include items with available quantity > 0
+                    if ($availableQty > 0) {
+                        return [
+                            'customer' => $item->consignment->customer->business_name ?? $item->consignment->customer->name ?? 'Unknown Customer',
+                            'customer_id' => $item->consignment->customer_id,
+                            'consignment_id' => $item->consignment_id,
+                            'available_qty' => $availableQty,
+                            'date_consigned' => $item->consignment->issue_date ? $item->consignment->issue_date->format('d-m-Y') : 'N/A',
+                            'consignment_number' => $item->consignment->consignment_number ?? 'N/A',
+                        ];
+                    }
+                    return null;
+                })
+                ->filter() // Remove null values
+                ->values(); // Re-index array
+                
+            return response()->json($consignments);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load consignment data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get incoming stock for a specific product variant (by SKU)
+     * Returns list of incoming stock with ETA dates and quantities per warehouse
+     */
+    public function getIncomingStockBySku($sku, Request $request)
+    {
+        try {
+            $variant = ProductVariant::where('sku', $sku)->firstOrFail();
+            
+            // Get warehouse filter if provided
+            $warehouseCode = $request->query('warehouse');
+            
+            $query = $variant->inventories()->with('warehouse');
+            
+            // Filter by warehouse if specified
+            if ($warehouseCode) {
+                $query->whereHas('warehouse', function($q) use ($warehouseCode) {
+                    $q->where('code', $warehouseCode);
+                });
+            }
+            
+            $incomingStock = $query->get()
+                ->map(function($inventory) {
+                    // Only include if there's actually incoming quantity
+                    if (isset($inventory->eta_qty) && $inventory->eta_qty > 0) {
+                        return [
+                            'warehouse' => $inventory->warehouse->name ?? 'Unknown',
+                            'warehouse_code' => $inventory->warehouse->code ?? 'N/A',
+                            'eta' => $inventory->eta ? date('d-m-Y', strtotime($inventory->eta)) : 'Not Set',
+                            'quantity' => $inventory->eta_qty ?? 0,
+                            'supplier' => $inventory->supplier_name ?? 'N/A',
+                            'po_number' => $inventory->po_number ?? 'N/A',
+                            'status' => $inventory->status ?? 'Pending',
+                        ];
+                    }
+                    return null;
+                })
+                ->filter() // Remove null values
+                ->values(); // Re-index array
+                
+            return response()->json($incomingStock);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load incoming stock data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

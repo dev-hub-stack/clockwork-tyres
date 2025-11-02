@@ -497,7 +497,15 @@
                     align: "center", 
                     cls: 'inventory-info-inner-eta_qty',
                     editable: true,
-                    filter: { crules: [{ condition: 'equal' }] }
+                    filter: { crules: [{ condition: 'equal' }] },
+                    render: function(ui) {
+                        let value = ui.cellData;
+                        let sku = ui.rowData.sku;
+                        if (value && parseInt(value) > 0) {
+                            return '<a href="javascript:void(0);" class="incoming-link text-success fw-bold text-decoration-none" data-sku="' + sku + '" data-warehouse="' + warehouse.code + '" style="cursor: pointer;">' + value + '</a>';
+                        }
+                        return value || '';
+                    }
                 };
                 colModel[wj] = warehouseETAQtyColumn;
                 wj = wj+1;
@@ -515,8 +523,9 @@
                 filter: { crules: [{ condition: 'equal' }] },
                 render: function(ui) {
                     let value = ui.cellData;
+                    let sku = ui.rowData.sku;
                     if (value > 0) {
-                        return '<span style="color: #0066cc; font-weight: bold;">' + value + '</span>';
+                        return '<a href="javascript:void(0);" class="consignment-link text-primary fw-bold text-decoration-none" data-sku="' + sku + '" style="cursor: pointer;">' + value + '</a>';
                     }
                     return value || 0;
                 }
@@ -648,6 +657,134 @@
 
             // Auto-save every 2 minutes (optional - matching old system pattern)
             // interval = setInterval(saveChanges, 120000);
+
+            // ============================================
+            // CONSIGNMENT STOCK MODAL CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.consignment-link', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                let sku = $(this).data('sku');
+                loadConsignmentModal(sku);
+            });
+
+            // ============================================
+            // INCOMING STOCK MODAL CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.incoming-link', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                let sku = $(this).data('sku');
+                let warehouse = $(this).data('warehouse');
+                loadIncomingModal(sku, warehouse);
+            });
+        });
+
+        // ============================================
+        // LOAD CONSIGNMENT STOCK MODAL FUNCTION
+        // ============================================
+        function loadConsignmentModal(sku) {
+            // Set SKU in modal title
+            $('#consignmentSku').text(sku);
+            
+            // Show loading, hide content
+            $('#consignmentLoading').show();
+            $('#consignmentContent').hide();
+            $('#consignmentEmpty').hide();
+            
+            // Open modal
+            let modal = new bootstrap.Modal(document.getElementById('consignmentModal'));
+            modal.show();
+            
+            // Fetch data via AJAX
+            $.ajax({
+                url: '/api/inventory/' + sku + '/consignments',
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    $('#consignmentLoading').hide();
+                    
+                    if (response.length > 0) {
+                        let tableBody = '';
+                        response.forEach(function(item) {
+                            tableBody += '<tr>';
+                            tableBody += '<td><a href="/admin/customers/' + item.customer_id + '" target="_blank" class="text-decoration-none">' + item.customer + '</a></td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-primary">' + item.available_qty + '</span></td>';
+                            tableBody += '<td class="text-center">' + item.date_consigned + '</td>';
+                            tableBody += '<td class="text-center"><a href="/admin/consignments/' + item.consignment_id + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> View</a></td>';
+                            tableBody += '</tr>';
+                        });
+                        
+                        $('#consignmentTableBody').html(tableBody);
+                        $('#consignmentContent').show();
+                    } else {
+                        $('#consignmentEmpty').show();
+                        $('#consignmentContent').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#consignmentLoading').hide();
+                    $('#consignmentTableBody').html('<tr><td colspan="4" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
+                    $('#consignmentContent').show();
+                }
+            });
+        }
+
+        // ============================================
+        // LOAD INCOMING STOCK MODAL FUNCTION
+        // ============================================
+        function loadIncomingModal(sku, warehouse) {
+            // Set SKU in modal title
+            $('#incomingSku').text(sku + (warehouse ? ' (' + warehouse + ')' : ''));
+            
+            // Show loading, hide content
+            $('#incomingLoading').show();
+            $('#incomingContent').hide();
+            $('#incomingEmpty').hide();
+            
+            // Open modal
+            let modal = new bootstrap.Modal(document.getElementById('incomingModal'));
+            modal.show();
+            
+            // Fetch data via AJAX
+            $.ajax({
+                url: '/api/inventory/' + sku + '/incoming' + (warehouse ? '?warehouse=' + warehouse : ''),
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    $('#incomingLoading').hide();
+                    
+                    if (response.length > 0) {
+                        let tableBody = '';
+                        response.forEach(function(item) {
+                            let statusClass = item.status === 'Delivered' ? 'success' : (item.status === 'Pending' ? 'warning' : 'info');
+                            tableBody += '<tr>';
+                            tableBody += '<td>' + item.warehouse + '</td>';
+                            tableBody += '<td class="text-center">' + item.eta + '</td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-success">' + item.quantity + '</span></td>';
+                            tableBody += '<td>' + item.supplier + '</td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-' + statusClass + '">' + item.status + '</span></td>';
+                            tableBody += '</tr>';
+                        });
+                        
+                        $('#incomingTableBody').html(tableBody);
+                        $('#incomingContent').show();
+                    } else {
+                        $('#incomingEmpty').show();
+                        $('#incomingContent').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#incomingLoading').hide();
+                    $('#incomingTableBody').html('<tr><td colspan="5" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
+                    $('#incomingContent').show();
+                }
+            });
+        }
         });
 
         // Show processing loader on form submit (Tunerstop style)
@@ -688,4 +825,110 @@
             });
         });
     </script>
+
+    <!-- Consignment Stock Modal -->
+    <div class="modal fade" id="consignmentModal" tabindex="-1" aria-labelledby="consignmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="consignmentModalLabel">
+                        <i class="bi bi-box-seam"></i> Consignment Stock - <span id="consignmentSku"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="consignmentLoading" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Loading consignment details...</p>
+                    </div>
+                    <div id="consignmentContent" style="display: none;">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>Available Qty</strong> = Sent - Sold - Returned
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th class="text-center">Available Qty</th>
+                                        <th class="text-center">Date Consigned</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="consignmentTableBody">
+                                    <!-- Data loaded via AJAX -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="consignmentEmpty" class="alert alert-warning" style="display: none;">
+                            <i class="bi bi-exclamation-triangle"></i> No active consignments found for this product.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incoming Stock Modal -->
+    <div class="modal fade" id="incomingModal" tabindex="-1" aria-labelledby="incomingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="incomingModalLabel">
+                        <i class="bi bi-truck"></i> Incoming Stock - <span id="incomingSku"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="incomingLoading" class="text-center py-5">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Loading incoming stock details...</p>
+                    </div>
+                    <div id="incomingContent" style="display: none;">
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>Incoming Stock</strong> shows expected deliveries and quantities in transit
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Warehouse</th>
+                                        <th class="text-center">ETA Date</th>
+                                        <th class="text-center">Quantity</th>
+                                        <th>Supplier/PO</th>
+                                        <th class="text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="incomingTableBody">
+                                    <!-- Data loaded via AJAX -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="incomingEmpty" class="alert alert-warning" style="display: none;">
+                            <i class="bi bi-exclamation-triangle"></i> No incoming stock found for this product.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <!-- Bootstrap 5 JS (required for modals) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 </x-filament-panels::page>
