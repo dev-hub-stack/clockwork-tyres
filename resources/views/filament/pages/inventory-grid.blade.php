@@ -785,7 +785,6 @@
                 }
             });
         }
-        });
 
         // Show processing loader on form submit (Tunerstop style)
         $(document).ready(function() {
