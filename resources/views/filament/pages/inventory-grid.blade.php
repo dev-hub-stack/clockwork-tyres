@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <!-- All content must be wrapped in a single root element for Livewire -->
     <div>
         <!-- CSRF Token for AJAX requests -->
         <meta name="csrf-token" content="{{ csrf_token() }}">
