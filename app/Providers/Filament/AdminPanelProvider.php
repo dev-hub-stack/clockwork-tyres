@@ -32,8 +32,10 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::hex('#e91e63'), // Pink/Magenta accent
+                'gray' => Color::Slate,
             ])
+            ->darkMode(false)
             // Enable collapsible sidebar on desktop (like Tunerstop)
             ->sidebarCollapsibleOnDesktop()
             // Optional: Make sidebar collapsed by default
@@ -47,8 +49,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                AccountWidget::class,
-                FilamentInfoWidget::class,
+                \App\Filament\Widgets\OrderStatsOverview::class,
+                \App\Filament\Widgets\PendingOrdersTable::class,
+                // AccountWidget::class,
+                // FilamentInfoWidget::class,
             ])
             ->navigationItems([
                 NavigationItem::make('Product Images')
