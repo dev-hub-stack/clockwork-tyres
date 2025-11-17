@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Modules\Orders\Models\Order;
 use Filament\Forms;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,18 +40,12 @@ class PendingOrdersTable extends BaseWidget
                     ->label('Order #')
                     ->searchable()
                     ->weight('bold')
-                    ->size('sm')
-                    ->url(fn (Order $record): string => route('filament.admin.resources.orders.view', $record)),
+                    ->size('sm'),
                     
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Customer')
                     ->searchable()
-                    ->size('sm')
-                    ->url(fn (Order $record): string => 
-                        $record->customer_id 
-                            ? route('filament.admin.resources.customers.view', $record->customer_id)
-                            : '#'
-                    ),
+                    ->size('sm'),
                     
                 Tables\Columns\TextColumn::make('wheel_brand')
                     ->label('Wheel Brand')
@@ -90,11 +85,11 @@ class PendingOrdersTable extends BaseWidget
                     ->label('Payment')
                     ->badge()
                     ->size('sm')
-                    ->color(fn (Order $record): string => {
+                    ->color(function (Order $record): string {
                         if ($record->payment_status === 'paid') {
                             return 'success';
                         }
-                        if ($record->amount_paid > 0 && $record->amount_paid < $record->total_amount) {
+                        if ($record->paid_amount > 0 && $record->paid_amount < $record->total) {
                             return 'warning';
                         }
                         return 'danger';
@@ -103,7 +98,7 @@ class PendingOrdersTable extends BaseWidget
                         if ($record->payment_status === 'paid') {
                             return 'PAID';
                         }
-                        if ($record->amount_paid > 0 && $record->amount_paid < $record->total_amount) {
+                        if ($record->paid_amount > 0 && $record->paid_amount < $record->total) {
                             return 'PARTIAL PAYMENT';
                         }
                         return 'PENDING';
@@ -117,7 +112,7 @@ class PendingOrdersTable extends BaseWidget
                     ->color('warning')
                     ->visible(fn (Order $record) => 
                         $record->payment_status !== 'paid' && 
-                        ($record->total_amount - $record->amount_paid) > 0
+                        ($record->total - $record->paid_amount) > 0
                     )
                     ->modalHeading('Record Balance Payment')
                     ->modalSubmitActionLabel('Record Payment')
@@ -128,7 +123,7 @@ class PendingOrdersTable extends BaseWidget
                             ->prefix('$')
                             ->required()
                             ->default(fn (Order $record) => 
-                                number_format($record->total_amount - $record->amount_paid, 2, '.', '')
+                                number_format($record->total - $record->paid_amount, 2, '.', '')
                             ),
                         Forms\Components\Select::make('payment_method')
                             ->label('Payment Method')
@@ -150,11 +145,11 @@ class PendingOrdersTable extends BaseWidget
                     ])
                     ->action(function (Order $record, array $data) {
                         $amount = floatval($data['amount']);
-                        $newAmountPaid = $record->amount_paid + $amount;
+                        $newAmountPaid = $record->paid_amount + $amount;
                         
                         $record->update([
-                            'amount_paid' => $newAmountPaid,
-                            'payment_status' => $newAmountPaid >= $record->total_amount ? 'paid' : 'partial',
+                            'paid_amount' => $newAmountPaid,
+                            'payment_status' => $newAmountPaid >= $record->total ? 'paid' : 'partial',
                         ]);
                         
                         // Create payment record if payments table exists
@@ -223,6 +218,9 @@ class PendingOrdersTable extends BaseWidget
             ->emptyStateHeading('No Pending Orders')
             ->emptyStateDescription('All orders have been completed or there are no pending orders.')
             ->emptyStateIcon('heroicon-o-check-circle')
-            ->poll('30s'); // Auto-refresh every 30 seconds
+            ->poll('30s') // Auto-refresh every 30 seconds
+            ->paginated([10, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
+            ->striped();
     }
 }

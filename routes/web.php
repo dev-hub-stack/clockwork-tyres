@@ -13,6 +13,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Dashboard API routes
+require __DIR__ . '/dashboard.php';
+
 // PDF Download Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/quote/{quote}/pdf', [QuotePdfController::class, 'download'])->name('quote.pdf');

@@ -20,24 +20,46 @@ class OrderStatsOverview extends BaseWidget
         $monthlyRevenue = Order::where('order_status', 'completed')
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
-            ->sum('total_amount');
+            ->sum('total');
         
         // Today's orders
         $todayOrders = Order::whereDate('created_at', today())->count();
         
         // Notifications: low stock + pending warranty claims + overdue invoices
-        $lowStockCount = DB::table('product_inventories')
-            ->where('available_quantity', '<', 5)
-            ->count();
+        $lowStockCount = 0;
+        $pendingWarranty = 0;
+        $overdueInvoices = 0;
         
-        $pendingWarranty = DB::table('warranty_claims')
-            ->where('status', 'submitted')
-            ->count();
+        try {
+            if (DB::getSchemaBuilder()->hasTable('product_inventories')) {
+                $lowStockCount = DB::table('product_inventories')
+                    ->where('available_quantity', '<', 5)
+                    ->count();
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip
+        }
         
-        $overdueInvoices = DB::table('invoices')
-            ->where('due_date', '<', now())
-            ->where('payment_status', '!=', 'paid')
-            ->count();
+        try {
+            if (DB::getSchemaBuilder()->hasTable('warranty_claims')) {
+                $pendingWarranty = DB::table('warranty_claims')
+                    ->where('status', 'submitted')
+                    ->count();
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip
+        }
+        
+        try {
+            if (DB::getSchemaBuilder()->hasTable('invoices')) {
+                $overdueInvoices = DB::table('invoices')
+                    ->where('due_date', '<', now())
+                    ->where('payment_status', '!=', 'paid')
+                    ->count();
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip
+        }
         
         $notifications = $lowStockCount + $pendingWarranty + $overdueInvoices;
         
