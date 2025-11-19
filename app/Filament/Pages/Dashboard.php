@@ -18,9 +18,20 @@ class Dashboard extends Page
     public $todayOrders;
     public $notifications;
     public $orders;
+    public $currency = 'AED'; // Default currency
 
     public function mount(): void
     {
+        // Get currency from settings
+        try {
+            $currencySetting = \DB::table('settings')->where('key', 'site.currency')->first();
+            if ($currencySetting) {
+                $this->currency = $currencySetting->value ?? 'AED';
+            }
+        } catch (\Exception $e) {
+            $this->currency = 'AED';
+        }
+        
         $this->pendingOrders = Order::whereIn('order_status', ['pending', 'processing'])->count();
         
         $this->monthlyRevenue = Order::where('order_status', 'completed')
@@ -54,17 +65,18 @@ class Dashboard extends Page
 
         // Get pending orders with relationships
         $pendingOrdersList = Order::whereIn('order_status', ['pending', 'processing'])
-            ->with(['customer', 'items.product'])
+            ->with(['customer', 'items'])
             ->orderBy('created_at', 'desc')
             ->get();
         
         $this->orders = [];
         foreach ($pendingOrdersList as $order) {
             $firstItem = $order->items->first();
-            $wheelBrand = 'N/A';
             
-            if ($firstItem && $firstItem->product) {
-                $wheelBrand = $firstItem->product->brand ?? 'N/A';
+            // Get wheel brand from order_items.brand_name (snapshot)
+            $wheelBrand = 'N/A';
+            if ($firstItem) {
+                $wheelBrand = $firstItem->brand_name ?? 'N/A';
             }
             
             $vehicle = 'N/A';
@@ -76,17 +88,35 @@ class Dashboard extends Page
                 );
             }
             
+            // Collect all items for expandable view
+            $orderItems = [];
+            foreach ($order->items as $item) {
+                $orderItems[] = [
+                    'product_name' => $item->product_name ?? 'N/A',
+                    'brand' => $item->brand_name ?? 'N/A',
+                    'model' => $item->model_name ?? 'N/A',
+                    'sku' => $item->sku ?? 'N/A',
+                    'quantity' => $item->quantity ?? 0,
+                    'unit_price' => (float) ($item->unit_price ?? 0),
+                    'line_total' => (float) ($item->line_total ?? 0),
+                ];
+            }
+            
             $this->orders[] = [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'created_at' => $order->created_at->format('n/j/y'),
                 'customer_name' => $order->customer ? $order->customer->name : 'Unknown Customer',
+                'customer_phone' => $order->customer ? $order->customer->phone : '',
+                'customer_email' => $order->customer ? $order->customer->email : '',
                 'wheel_brand' => $wheelBrand,
                 'vehicle' => $vehicle,
                 'tracking_number' => $order->tracking_number,
                 'payment_status' => $order->payment_status ?? 'pending',
                 'outstanding_amount' => (float) ($order->outstanding_amount ?? 0),
                 'total' => (float) ($order->total ?? 0),
+                'items' => $orderItems,
+                'order_notes' => $order->order_notes ?? '',
             ];
         }
     }

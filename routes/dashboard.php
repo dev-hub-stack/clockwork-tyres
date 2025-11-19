@@ -29,34 +29,46 @@ Route::middleware(['web', 'auth'])->prefix('admin/dashboard')->group(function ()
     
     // Record payment
     Route::post('/record-payment/{order}', function (Order $order) {
-        $paymentAmount = floatval(request('payment_amount'));
-        $paymentMethod = request('payment_method', 'cash');
+        $validated = request()->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|in:cash,card,bank_transfer,cheque,online',
+            'payment_date' => 'required|date',
+            'reference_number' => 'nullable|string|max:255',
+            'bank_name' => 'nullable|string|max:255',
+            'cheque_number' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
         
-        if ($paymentAmount <= 0) {
-            return response()->json(['success' => false, 'message' => 'Invalid payment amount']);
+        $paymentAmount = floatval($validated['amount']);
+        
+        if ($paymentAmount > $order->outstanding_amount) {
+            return response()->json(['success' => false, 'message' => 'Payment amount exceeds outstanding balance']);
         }
         
-        $newPaidAmount = $order->paid_amount + $paymentAmount;
+        // Create payment record using existing Payment model
+        \App\Modules\Orders\Models\Payment::create([
+            'order_id' => $order->id,
+            'customer_id' => $order->customer_id,
+            'recorded_by' => auth()->id(),
+            'amount' => $paymentAmount,
+            'payment_method' => $validated['payment_method'],
+            'payment_date' => $validated['payment_date'],
+            'reference_number' => $validated['reference_number'] ?? null,
+            'bank_name' => $validated['bank_name'] ?? null,
+            'cheque_number' => $validated['cheque_number'] ?? null,
+            'status' => 'completed',
+            'notes' => $validated['notes'] ?? null,
+        ]);
         
+        // Update order
+        $newPaidAmount = $order->paid_amount + $paymentAmount;
         $order->update([
             'paid_amount' => $newPaidAmount,
             'outstanding_amount' => $order->total - $newPaidAmount,
             'payment_status' => $newPaidAmount >= $order->total ? 'paid' : 'partial',
         ]);
         
-        // Create payment record if table exists
-        if (Schema::hasTable('payments')) {
-            DB::table('payments')->insert([
-                'order_id' => $order->id,
-                'amount' => $paymentAmount,
-                'payment_method' => $paymentMethod,
-                'payment_date' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-        
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'message' => 'Payment recorded successfully']);
     });
     
     // Mark order as done
@@ -70,6 +82,7 @@ Route::middleware(['web', 'auth'])->prefix('admin/dashboard')->group(function ()
         
         $order->update([
             'order_status' => 'completed',
+            'order_workflow_status' => 'completed',
         ]);
         
         return response()->json(['success' => true]);

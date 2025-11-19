@@ -81,6 +81,10 @@ class Order extends Model
         // Notes
         'order_notes',
         'internal_notes',
+        'delivery_note',
+        
+        // Workflow
+        'order_workflow_status',
         
         // Expense fields (matching old Reporting system)
         'cost_of_goods',
@@ -165,6 +169,14 @@ class Order extends Model
     }
 
     /**
+     * Get all payments for this order
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
      * Get all item quantities through items
      */
     public function itemQuantities(): HasManyThrough
@@ -177,13 +189,6 @@ class Order extends Model
         );
     }
 
-    /**
-     * Get all payments for this order
-     */
-    public function payments(): HasMany
-    {
-        return $this->hasMany(Payment::class);
-    }
 
     /**
      * Get the invoice this quote was converted to (if applicable)
