@@ -22,17 +22,17 @@
             .btn-refresh { background: #ec4899; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; }
             .btn-refresh:hover { background: #db2777; }
             table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th { background: #f9fafb; padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
-            td { padding: 0.875rem 1rem; border-top: 1px solid #e5e7eb; font-size: 0.875rem; vertical-align: middle; }
+            th { background: #f9fafb; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            td { padding: 0.5rem 0.75rem; border-top: 1px solid #e5e7eb; font-size: 0.8rem; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
             tr:hover { background: #f9fafb; }
-            .col-expand { width: 40px; text-align: center; }
-            .col-date { width: 90px; }
-            .col-order { width: 160px; }
-            .col-customer { width: 160px; }
-            .col-brand { width: 160px; }
-            .col-vehicle { width: 160px; }
-            .col-tracking { width: 120px; text-align: center; }
-            .col-payment { width: 120px; text-align: center; }
+            .col-expand { width: 3%; text-align: center; padding: 0.5rem 0.25rem !important; }
+            .col-date { width: 7%; }
+            .col-order { width: 13%; }
+            .col-customer { width: 13%; }
+            .col-brand { width: 13%; }
+            .col-vehicle { width: 13%; }
+            .col-tracking { width: 10%; text-align: center; }
+            .col-payment { width: 10%; text-align: center; }
             .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
             .badge-blue { background: #dbeafe; color: #1e40af; }
             .badge-green { background: #d1fae5; color: #065f46; }
@@ -95,52 +95,51 @@
                         <th class="col-payment">Payment</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <template x-for="order in orders" :key="order.id">
-                        <tbody x-data="{ expanded: false }">
-                            <!-- Main Order Row -->
-                            <tr style="border-bottom: 1px solid #e5e7eb;">
-                                <td class="col-expand">
-                                    <button @click="expanded = !expanded" class="expand-btn" 
-                                            :style="expanded ? 'transform: rotate(90deg);' : ''">
-                                        ▶
-                                    </button>
-                                </td>
-                                <td class="col-date" x-text="order.created_at"></td>
-                                <td class="col-order">
-                                    <a :href="'/admin/orders/' + order.id" class="link-pink" x-text="order.order_number" target="_blank"></a>
-                                </td>
-                                <td class="col-customer">
-                                    <a :href="'/admin/orders?customer=' + encodeURIComponent(order.customer_name)" class="link-pink" x-text="order.customer_name"></a>
-                                </td>
-                                <td class="col-brand" x-text="order.wheel_brand"></td>
-                                <td class="col-vehicle" x-text="order.vehicle"></td>
-                                <td class="col-tracking">
-                                    <span class="badge badge-blue" x-text="order.tracking_number || 'PENDING'"></span>
-                                </td>
-                                <td class="col-payment">
-                                    <template x-if="order.payment_status === 'paid'">
-                                        <span class="badge badge-green">PAID</span>
-                                    </template>
-                                    <template x-if="order.payment_status === 'partial'">
-                                        <div>
-                                            <span class="badge badge-yellow">PARTIAL</span>
-                                            <div style="font-size: 0.7rem; color: #6b7280; margin-top: 0.25rem;">
-                                                {{ $currency }} <span x-text="parseFloat(order.outstanding_amount).toFixed(2)"></span>
-                                            </div>
+                <template x-for="(order, index) in orders" :key="order.id">
+                    <tbody>
+                        <!-- Main Order Row -->
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td class="col-expand">
+                                <button @click="toggleExpand(index)" class="expand-btn" 
+                                        :style="expandedRows[index] ? 'transform: rotate(90deg);' : ''">
+                                    ▶
+                                </button>
+                            </td>
+                            <td class="col-date" x-text="order.created_at"></td>
+                            <td class="col-order">
+                                <a :href="'/admin/orders/' + order.id" class="link-pink" x-text="order.order_number" target="_blank"></a>
+                            </td>
+                            <td class="col-customer">
+                                <a :href="'/admin/orders?customer=' + encodeURIComponent(order.customer_name)" class="link-pink" x-text="order.customer_name"></a>
+                            </td>
+                            <td class="col-brand" x-text="order.wheel_brand"></td>
+                            <td class="col-vehicle" x-text="order.vehicle"></td>
+                            <td class="col-tracking">
+                                <span class="badge badge-blue" x-text="order.tracking_number || 'PENDING'"></span>
+                            </td>
+                            <td class="col-payment">
+                                <template x-if="order.payment_status === 'paid'">
+                                    <span class="badge badge-green">PAID</span>
+                                </template>
+                                <template x-if="order.payment_status === 'partial'">
+                                    <div>
+                                        <span class="badge badge-yellow">PARTIAL</span>
+                                        <div style="font-size: 0.7rem; color: #6b7280; margin-top: 0.25rem;">
+                                            {{ $currency }} <span x-text="parseFloat(order.outstanding_amount).toFixed(2)"></span>
                                         </div>
-                                    </template>
-                                    <template x-if="order.payment_status === 'pending'">
-                                        <span class="badge badge-red">PENDING</span>
-                                    </template>
-                                </td>
-                            </tr>
-                            
-                            <!-- Expanded Details Row -->
-                            <tr x-show="expanded" x-transition style="background: #f9fafb;">
-                                <td colspan="8" style="padding: 0; border-bottom: 2px solid #e5e7eb;">
-                                    <div style="padding: 1.5rem 1rem;">
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    </div>
+                                </template>
+                                <template x-if="order.payment_status === 'pending'">
+                                    <span class="badge badge-red">PENDING</span>
+                                </template>
+                            </td>
+                        </tr>
+                        
+                        <!-- Expanded Details Row -->
+                        <tr x-show="expandedRows[index]" x-transition style="background: #f9fafb;">
+                            <td style="padding: 0; border-bottom: 2px solid #e5e7eb;"></td>
+                                <td colspan="7" style="padding: 1rem; border-bottom: 2px solid #e5e7eb;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                                     <!-- Order Items -->
                                                     <div style="background: white; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb;">
                                                         <h4 style="font-weight: 600; margin-bottom: 0.75rem; color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">Order Items</h4>
@@ -243,9 +242,8 @@
                                     </div>
                                 </td>
                             </tr>
-                        </tbody>
-                    </template>
-                </tbody>
+                    </tbody>
+                </template>
             </table>
 
             <!-- Payment Modal -->
@@ -366,6 +364,7 @@
             function orderSheet() {
                 return {
                     orders: @json($orders),
+                    expandedRows: {},
                     showPaymentModal: false,
                     currentOrder: null,
                     paymentAmount: 0,
@@ -375,6 +374,14 @@
                     bankName: '',
                     chequeNumber: '',
                     paymentNotes: '',
+
+                    toggleExpand(index) {
+                        // Create a new object to trigger Alpine reactivity
+                        this.expandedRows = {
+                            ...this.expandedRows,
+                            [index]: !this.expandedRows[index]
+                        };
+                    },
 
                     recordPayment(order) {
                         this.currentOrder = order;
