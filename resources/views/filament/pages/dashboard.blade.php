@@ -137,9 +137,10 @@
                             </tr>
                             
                             <!-- Expanded Details Row -->
-                            <tr x-show="expanded" x-transition>
-                                <td colspan="8" style="padding: 1.5rem; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <tr x-show="expanded" x-transition style="background: #f9fafb;">
+                                <td colspan="8" style="padding: 0; border-bottom: 2px solid #e5e7eb;">
+                                    <div style="padding: 1.5rem 1rem;">
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                                     <!-- Order Items -->
                                                     <div style="background: white; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb;">
                                                         <h4 style="font-weight: 600; margin-bottom: 0.75rem; color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">Order Items</h4>
@@ -159,8 +160,8 @@
                                                                         <td style="padding: 0.5rem; border-bottom: 1px solid #e5e7eb;" x-text="item.product_name"></td>
                                                                         <td style="padding: 0.5rem; border-bottom: 1px solid #e5e7eb;" x-text="item.brand"></td>
                                                                         <td style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e5e7eb;" x-text="item.quantity"></td>
-                                                                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="parseFloat(item.unit_price).toFixed(2)"></span></td>
-                                                                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="parseFloat(item.line_total).toFixed(2)"></span></td>
+                                                                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="(item.unit_price || 0).toFixed(2)"></span></td>
+                                                                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="(item.line_total || 0).toFixed(2)"></span></td>
                                                                     </tr>
                                                                 </template>
                                                             </tbody>
@@ -192,6 +193,14 @@
                                                                 <span x-text="order.vehicle"></span>
                                                             </div>
                                                             <div style="margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                                                <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">Sub Total:</span>
+                                                                <span>{{ $currency }} <span x-text="parseFloat(order.sub_total || 0).toFixed(2)"></span></span>
+                                                            </div>
+                                                            <div style="margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                                                <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">VAT:</span>
+                                                                <span>{{ $currency }} <span x-text="parseFloat(order.vat || 0).toFixed(2)"></span></span>
+                                                            </div>
+                                                            <div style="margin-bottom: 0.5rem; font-size: 0.875rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
                                                                 <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">Total:</span>
                                                                 <span style="font-weight: 600;">{{ $currency }} <span x-text="parseFloat(order.total).toFixed(2)"></span></span>
                                                             </div>
@@ -231,8 +240,9 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </td>
-                                        </tr>
+                                    </div>
+                                </td>
+                            </tr>
                         </tbody>
                     </template>
                 </tbody>

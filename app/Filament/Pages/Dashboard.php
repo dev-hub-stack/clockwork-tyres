@@ -91,14 +91,24 @@ class Dashboard extends Page
             // Collect all items for expandable view
             $orderItems = [];
             foreach ($order->items as $item) {
+                // Calculate line total if it's 0
+                $unitPrice = (float) ($item->unit_price ?? 0);
+                $quantity = $item->quantity ?? 0;
+                $lineTotal = (float) ($item->line_total ?? 0);
+                
+                // If line_total is 0, calculate it
+                if ($lineTotal == 0 && $unitPrice > 0) {
+                    $lineTotal = $unitPrice * $quantity;
+                }
+                
                 $orderItems[] = [
                     'product_name' => $item->product_name ?? 'N/A',
                     'brand' => $item->brand_name ?? 'N/A',
                     'model' => $item->model_name ?? 'N/A',
                     'sku' => $item->sku ?? 'N/A',
-                    'quantity' => $item->quantity ?? 0,
-                    'unit_price' => (float) ($item->unit_price ?? 0),
-                    'line_total' => (float) ($item->line_total ?? 0),
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $lineTotal,
                 ];
             }
             
@@ -114,6 +124,8 @@ class Dashboard extends Page
                 'tracking_number' => $order->tracking_number,
                 'payment_status' => $order->payment_status ?? 'pending',
                 'outstanding_amount' => (float) ($order->outstanding_amount ?? 0),
+                'sub_total' => (float) ($order->sub_total ?? 0),
+                'vat' => (float) ($order->vat ?? 0),
                 'total' => (float) ($order->total ?? 0),
                 'items' => $orderItems,
                 'order_notes' => $order->order_notes ?? '',
