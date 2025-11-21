@@ -50,7 +50,9 @@ class Order extends Model
         'discount',
         'total',
         'currency',
+        'tax_type',
         'tax_inclusive',
+        'channel',
         
         // Vehicle
         'vehicle_year',
@@ -495,6 +497,35 @@ class Order extends Model
     public function expenseRecordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'expenses_recorded_by');
+    }
+
+    /**
+     * Calculate totals based on items
+     */
+    public function calculateTotals(): void
+    {
+        $subTotal = 0;
+        $items = $this->items;
+        
+        foreach ($items as $item) {
+            $qty = $item->quantity ?? 0;
+            $price = $item->unit_price ?? 0;
+            $discount = $item->discount ?? 0;
+            $subTotal += ($qty * $price) - $discount;
+        }
+        
+        $this->sub_total = $subTotal;
+        
+        // Calculate VAT
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $this->vat = $this->sub_total * ($taxRate / 100);
+        $this->tax = $this->vat; // Map vat to tax field as well
+        
+        // Calculate Total
+        $this->total = $this->sub_total + $this->vat + ($this->shipping ?? 0);
+        
+        $this->saveQuietly();
     }
 }
 

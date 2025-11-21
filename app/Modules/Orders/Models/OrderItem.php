@@ -26,6 +26,7 @@ class OrderItem extends Model
         'product_variant_id',
         'add_on_id',
         'warehouse_id',
+        'category',
         
         // JSONB Snapshots
         'product_snapshot',
@@ -38,6 +39,7 @@ class OrderItem extends Model
         'product_description',
         'brand_name',
         'model_name',
+        'item_attributes',
         
         // Pricing
         'quantity',
@@ -56,6 +58,7 @@ class OrderItem extends Model
         'product_snapshot' => 'array',
         'variant_snapshot' => 'array',
         'addon_snapshot' => 'array',
+        'item_attributes' => 'array',
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
         'tax_inclusive' => 'boolean',
