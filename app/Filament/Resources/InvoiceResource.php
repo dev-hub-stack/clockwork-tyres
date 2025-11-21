@@ -59,6 +59,11 @@ class InvoiceResource extends Resource
     
     protected static ?string $pluralModelLabel = 'Invoices';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     /**
      * Global scope to only show invoices
      */
@@ -115,7 +120,8 @@ class InvoiceResource extends Resource
                                 'cancelled' => 'Cancelled',
                             ])
                             ->default('pending')
-                            ->required(),
+                            ->required()
+                            ->hiddenOn('view'),
                         
                         Select::make('payment_status')
                             ->label('Payment Status')
@@ -128,7 +134,8 @@ class InvoiceResource extends Resource
                             ])
                             ->default('pending')
                             ->disabled() // Auto-calculated from payments
-                            ->dehydrated(false),
+                            ->dehydrated(false)
+                            ->hiddenOn('view'),
                     ])->columns(2),
 
                 Section::make('Vehicle Information')
@@ -331,6 +338,17 @@ class InvoiceResource extends Resource
                                     ->live()
                                     ->reactive(),
                                 
+                                \Filament\Forms\Components\Toggle::make('tax_inclusive')
+                                    ->label('Tax Inclusive')
+                                    ->default(function () {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                                    })
+                                    ->live()
+                                    ->reactive()
+                                    ->inline(false)
+                                    ->helperText('Is the price tax-inclusive?'),
+                                
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
                                     ->content(function ($get) {
@@ -343,7 +361,7 @@ class InvoiceResource extends Resource
                                         return Number::currency($total, $currencyCode);
                                     }),
                             ])
-                            ->columns(4)
+                            ->columns(1)
                             ->defaultItems(1)
                             ->addActionLabel('Add Line Item')
                             ->reorderable()
@@ -362,6 +380,11 @@ class InvoiceResource extends Resource
                                 TextInput::make('shipping_carrier')
                                     ->label('Shipping Carrier')
                                     ->maxLength(255)
+                                    ->columnSpan(1),
+                                
+                                DatePicker::make('shipped_at')
+                                    ->label('Shipped Date')
+                                    ->disabled()
                                     ->columnSpan(1),
                             ]),
                         
@@ -413,7 +436,7 @@ class InvoiceResource extends Resource
                 
                 TextColumn::make('customer.name')
                     ->label('Customer')
-                    ->searchable(['business_name', 'first_name', 'last_name'])
+                    ->searchable(['business_name', 'first_name', 'last_name', 'email', 'phone'])
                     ->sortable(),
                 
                 TextColumn::make('representative.name')
@@ -422,23 +445,31 @@ class InvoiceResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 
-                BadgeColumn::make('payment_status')
+                TextColumn::make('payment_status')
                     ->label('Payment')
+                    ->badge()
                     ->colors([
                         'warning' => 'pending',
                         'info' => 'partial',
                         'success' => 'paid',
                         'danger' => 'failed',
                         'secondary' => 'refunded',
-                    ]),
+                    ])
+                    ->action(
+                        Action::make('viewPayments')
+                            ->label('Payment History')
+                            ->modalHeading('Payment History')
+                            ->modalWidth('4xl')
+                            ->modalContent(fn ($record) => view('filament.resources.invoices.payment-history', ['payments' => $record->payments]))
+                            ->modalSubmitAction(false)
+                            ->modalCancelAction(fn ($action) => $action->label('Close'))
+                    ),
                 
                 BadgeColumn::make('order_status')
                     ->label('Status')
                     ->colors([
-                        'warning' => 'pending',
-                        'info' => 'processing',
-                        'primary' => 'shipped',
-                        'success' => 'completed',
+                        'warning' => ['pending', 'processing'],
+                        'success' => ['shipped', 'completed'],
                         'danger' => 'cancelled',
                     ]),
                 
@@ -458,6 +489,7 @@ class InvoiceResource extends Resource
                     ->label('Profit')
                     ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->color(fn($state) => $state >= 0 ? 'success' : 'danger')
+                    ->visible(fn() => auth()->user()->hasRole(['admin', 'accountant']))
                     ->sortable()
                     ->toggleable()
                     ->tooltip(function($record) {
@@ -479,12 +511,21 @@ class InvoiceResource extends Resource
                 TextColumn::make('total_expenses')
                     ->label('Expenses')
                     ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
+                    ->visible(fn() => auth()->user()->hasRole(['admin', 'accountant']))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('valid_until')
                     ->label('Due Date')
-                    ->date()
+                    ->formatStateUsing(function ($state, $record) {
+                        $date = \Carbon\Carbon::parse($state);
+                        if ($date->isPast() && $record->payment_status !== \App\Modules\Orders\Enums\PaymentStatus::PAID) {
+                            $days = $date->diffInDays(now());
+                            return "Overdue by {$days} days";
+                        }
+                        return $date->format('M j, Y');
+                    })
+                    ->color(fn($state, $record) => \Carbon\Carbon::parse($state)->isPast() && $record->payment_status !== \App\Modules\Orders\Enums\PaymentStatus::PAID ? 'danger' : null)
                     ->sortable(),
                 
                 TextColumn::make('warehouse.warehouse_name')
@@ -530,6 +571,12 @@ class InvoiceResource extends Resource
                     ->searchable()
                     ->preload()
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer'),
+
+                SelectFilter::make('representative_id')
+                    ->label('Sales Representative')
+                    ->relationship('representative', 'name')
+                    ->searchable()
+                    ->preload(),
                 
                 Filter::make('due_date')
                     ->form([
@@ -553,6 +600,33 @@ class InvoiceResource extends Resource
                 Filter::make('overdue')
                     ->query(fn (Builder $query): Builder => $query->where('valid_until', '<', now())->where('payment_status', '!=', 'paid'))
                     ->toggle(),
+            ])
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function ($livewire) {
+                        $query = $livewire->getFilteredTableQuery();
+                        $records = $query->get();
+                        
+                        return response()->streamDownload(function () use ($records) {
+                            $handle = fopen('php://output', 'w');
+                            fputcsv($handle, ['Invoice #', 'Date', 'Customer', 'Status', 'Payment', 'Total', 'Balance']);
+                            
+                            foreach ($records as $record) {
+                                fputcsv($handle, [
+                                    $record->order_number,
+                                    $record->issue_date->format('Y-m-d'),
+                                    $record->customer->name ?? '',
+                                    $record->order_status->name,
+                                    $record->payment_status->name,
+                                    $record->total,
+                                    $record->outstanding_amount,
+                                ]);
+                            }
+                            fclose($handle);
+                        }, 'invoices-' . now()->format('Y-m-d') . '.csv');
+                    }),
             ])
             ->recordActions([
                 Action::make('preview')
@@ -658,62 +732,7 @@ class InvoiceResource extends Resource
                             ->send();
                     }),
                 
-                Action::make('startProcessing')
-                    ->label('Start Processing')
-                    ->icon('heroicon-o-cog-6-tooth')
-                    ->color('primary')
-                    ->tooltip('Begin order fulfillment and reserve inventory from warehouse')
-                    ->visible(fn($record) => $record->order_status->value === 'pending')
-                    ->requiresConfirmation()
-                    ->modalHeading('Start Processing Order')
-                    ->modalDescription('This will mark the order as processing and allocate inventory from the selected warehouses.')
-                    ->modalContent(function ($record) {
-                        // Show stock availability summary
-                        $items = $record->items;
-                        $stockInfo = collect($items)->map(function ($item) {
-                            if (!$item->warehouse_id) {
-                                return [
-                                    'product' => $item->product_name,
-                                    'quantity' => $item->quantity,
-                                    'status' => 'Non-Stock',
-                                    'warning' => false,
-                                ];
-                            }
-                            
-                            $inventory = \App\Modules\Products\Models\ProductInventory::where('product_variant_id', $item->product_variant_id)
-                                ->where('warehouse_id', $item->warehouse_id)
-                                ->first();
-                            
-                            $available = $inventory ? $inventory->quantity : 0;
-                            $hasStock = $available >= $item->quantity;
-                            
-                            return [
-                                'product' => $item->product_name,
-                                'quantity' => $item->quantity,
-                                'available' => $available,
-                                'warehouse' => $item->warehouse?->name ?? 'Unknown',
-                                'status' => $hasStock ? 'In Stock' : 'Insufficient Stock',
-                                'warning' => !$hasStock,
-                            ];
-                        });
-                        
-                        return view('filament.components.stock-availability', [
-                            'stockInfo' => $stockInfo,
-                        ]);
-                    })
-                    ->action(function ($record) {
-                        $record->update([
-                            'order_status' => OrderStatus::PROCESSING,
-                        ]);
-                        
-                        // Inventory will be allocated via OrderObserver
-                        
-                        Notification::make()
-                            ->title('Order Processing Started')
-                            ->body("Order {$record->order_number} is now being processed. Inventory has been allocated.")
-                            ->success()
-                            ->send();
-                    }),
+
                 
                 Action::make('recordExpenses')
                     ->label('Record Expenses & Calculate Profit')
@@ -721,8 +740,9 @@ class InvoiceResource extends Resource
                     ->color('warning')
                     ->tooltip('Record costs and expenses to calculate profit margin')
                     ->visible(fn($record) => 
-                        in_array($record->payment_status->value, ['paid', 'partial']) || 
-                        $record->order_status->value === 'completed'
+                        auth()->user()->hasRole(['admin', 'accountant']) &&
+                        (in_array($record->payment_status->value, ['paid', 'partial']) || 
+                        $record->order_status->value === 'completed')
                     )
                     ->form([
                         Section::make('Expense Breakdown')
@@ -734,7 +754,7 @@ class InvoiceResource extends Resource
                                             ->label('Cost of Goods')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->cost_of_goods ?? 0)
                                             ->helperText('Direct product costs')
                                             ->reactive(),
                                         
@@ -742,7 +762,7 @@ class InvoiceResource extends Resource
                                             ->label('Shipping Cost')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->shipping_cost ?? 0)
                                             ->helperText('Freight and shipping charges')
                                             ->reactive(),
                                         
@@ -750,7 +770,7 @@ class InvoiceResource extends Resource
                                             ->label('Customs Duty')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->duty_amount ?? 0)
                                             ->helperText('Import duties and taxes')
                                             ->reactive(),
                                         
@@ -758,7 +778,7 @@ class InvoiceResource extends Resource
                                             ->label('Delivery Fee')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->delivery_fee ?? 0)
                                             ->helperText('Last-mile delivery charges')
                                             ->reactive(),
                                         
@@ -766,7 +786,7 @@ class InvoiceResource extends Resource
                                             ->label('Installation Cost')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->installation_cost ?? 0)
                                             ->helperText('Setup and installation fees')
                                             ->reactive(),
                                         
@@ -774,7 +794,7 @@ class InvoiceResource extends Resource
                                             ->label('Bank Fee')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->bank_fee ?? 0)
                                             ->helperText('Wire transfer and banking fees')
                                             ->reactive(),
                                         
@@ -782,7 +802,7 @@ class InvoiceResource extends Resource
                                             ->label('Credit Card Fee')
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
-                                            ->default(0)
+                                            ->default(fn($record) => $record->credit_card_fee ?? 0)
                                             ->helperText('Payment processing fees')
                                             ->reactive(),
                                     ]),
@@ -964,31 +984,11 @@ class InvoiceResource extends Resource
                             ->placeholder('Why is this order being cancelled?'),
                     ])
                     ->action(function ($record, array $data) {
-                        // Deallocate inventory if order was processing
-                        if ($record->order_status->value === 'processing') {
-                            foreach ($record->items as $item) {
-                                if ($item->allocated_quantity > 0 && $item->warehouse_id) {
-                                    $inventory = \App\Modules\Products\Models\ProductInventory::where('product_variant_id', $item->product_variant_id)
-                                        ->where('warehouse_id', $item->warehouse_id)
-                                        ->first();
-                                    
-                                    if ($inventory) {
-                                        $inventory->increment('quantity', $item->allocated_quantity);
-                                    }
-                                }
-                                
-                                // Reset allocated quantity
-                                $item->update(['allocated_quantity' => 0]);
-                            }
-                            
-                            // Delete OrderItemQuantity records
-                            \App\Modules\Orders\Models\OrderItemQuantity::where('order_id', $record->id)->delete();
-                        }
-                        
                         // Handle null notes (use order_notes field)
                         $currentNotes = $record->order_notes ?? '';
                         $newNotes = trim($currentNotes) . "\n\nCancellation Reason: " . $data['cancellation_reason'];
                         
+                        // Update status - OrderObserver will handle inventory release
                         $record->update([
                             'order_status' => OrderStatus::CANCELLED,
                             'order_notes' => $newNotes,
@@ -1003,8 +1003,7 @@ class InvoiceResource extends Resource
                 
                 EditAction::make()
                     ->tooltip('Edit invoice details'),
-                DeleteAction::make()
-                    ->tooltip('Permanently delete this record (cannot be undone - use Cancel Order instead for legitimate orders)'),
+
             ])
             ->defaultSort('issue_date', 'desc');
     }

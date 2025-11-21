@@ -8,7 +8,7 @@
     <title>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} | {{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.6; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.6; background-color: #ffffff; }
         .container { max-width: 800px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
         .logo { max-width: 200px; max-height: 80px; }
