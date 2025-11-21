@@ -47,6 +47,11 @@ return new class extends Migration
     private function foreignKeyExists(string $table, string $key): bool
     {
         $connection = Schema::getConnection();
+        
+        if ($connection->getDriverName() === 'sqlite') {
+            return false;
+        }
+
         $dbName = $connection->getDatabaseName();
         
         $result = $connection->select(

@@ -23,7 +23,9 @@ return new class extends Migration
             ->update(['customer_type' => 'dealer']);
         
         // Step 2: Modify the ENUM to only allow 'retail' and 'dealer'
-        DB::statement("ALTER TABLE customers MODIFY customer_type ENUM('retail', 'dealer') NOT NULL DEFAULT 'retail'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE customers MODIFY customer_type ENUM('retail', 'dealer') NOT NULL DEFAULT 'retail'");
+        }
     }
 
     /**
@@ -34,6 +36,8 @@ return new class extends Migration
     public function down(): void
     {
         // Restore original ENUM with all 4 values
-        DB::statement("ALTER TABLE customers MODIFY customer_type ENUM('retail', 'dealer', 'wholesale', 'corporate') NOT NULL DEFAULT 'retail'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE customers MODIFY customer_type ENUM('retail', 'dealer', 'wholesale', 'corporate') NOT NULL DEFAULT 'retail'");
+        }
     }
 };
