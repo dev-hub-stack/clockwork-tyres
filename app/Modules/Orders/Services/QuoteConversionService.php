@@ -70,8 +70,12 @@ class QuoteConversionService
                 'quote_status' => QuoteStatus::CONVERTED,
                 'is_quote_converted' => true,
                 'converted_to_invoice_id' => $quote->id,  // Self-reference
-                'order_status' => OrderStatus::PENDING,   // Initialize order workflow
+                'order_status' => OrderStatus::PROCESSING,   // Initialize order workflow and trigger stock reduction
+                'order_number' => $this->generateInvoiceNumber(), // Generate new invoice number
             ]);
+            
+            // Recalculate totals to ensure accuracy
+            $quote->calculateTotals();
             
             Log::info('Quote converted to invoice successfully', [
                 'order_id' => $quote->id,
@@ -230,5 +234,39 @@ class QuoteConversionService
             'created_at' => $order->created_at->toDateTimeString(),
             'updated_at' => $order->updated_at->toDateTimeString(),
         ];
+    }
+
+    /**
+     * Generate a unique invoice number
+     * Format: INV-YYYY-XXXX
+     */
+    protected function generateInvoiceNumber(): string
+    {
+        $year = date('Y');
+        $prefix = "INV-{$year}-";
+        
+        // Get the highest invoice number for this year (including soft deleted)
+        $lastInvoice = Order::withTrashed()
+            ->where('order_number', 'LIKE', $prefix . '%')
+            ->orderBy('order_number', 'desc')
+            ->first();
+        
+        if ($lastInvoice) {
+            // Extract the number and increment
+            $lastNumber = (int) substr($lastInvoice->order_number, -4);
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+        
+        $invoiceNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        
+        // Extra safety: Check if this number exists
+        while (Order::withTrashed()->where('order_number', $invoiceNumber)->exists()) {
+            $newNumber++;
+            $invoiceNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        }
+        
+        return $invoiceNumber;
     }
 }

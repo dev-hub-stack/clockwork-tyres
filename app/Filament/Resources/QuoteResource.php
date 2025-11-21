@@ -115,9 +115,19 @@ class QuoteResource extends Resource
                                     ->searchable(['name', 'email'])
                                     ->preload()
                                     ->columnSpan(1),
+                                
+                                Select::make('channel')
+                                    ->label('Channel')
+                                    ->options([
+                                        'retail' => 'Retail',
+                                        'wholesale' => 'Wholesale',
+                                    ])
+                                    ->default('retail')
+                                    ->required()
+                                    ->columnSpan(1),
                             ]),
                         
-                        Grid::make(3)
+                        Grid::make(2)
                             ->schema([
                                 DatePicker::make('issue_date')
                                     ->label('Issue Date')
@@ -129,19 +139,6 @@ class QuoteResource extends Resource
                                     ->label('Valid Until')
                                     ->required()
                                     ->default(now()->addDays(30))
-                                    ->columnSpan(1),
-                                
-                                Select::make('quote_status')
-                                    ->label('Status')
-                                    ->options([
-                                        'draft' => 'Draft',
-                                        'sent' => 'Sent',
-                                        'approved' => 'Approved',
-                                        'rejected' => 'Rejected',
-                                        'expired' => 'Expired',
-                                    ])
-                                    ->default('draft')
-                                    ->required()
                                     ->columnSpan(1),
                             ]),
                     ]),
@@ -354,6 +351,17 @@ class QuoteResource extends Resource
                                     ->live()
                                     ->reactive(),
                                 
+                                \Filament\Forms\Components\Toggle::make('tax_inclusive')
+                                    ->label('Tax Inclusive')
+                                    ->default(function () {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                                    })
+                                    ->live()
+                                    ->reactive()
+                                    ->inline(false)
+                                    ->helperText('Is the price tax-inclusive?'),
+                                
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
                                     ->content(function ($get) {
@@ -366,7 +374,7 @@ class QuoteResource extends Resource
                                         return Number::currency($total, $currencyCode);
                                     }),
                             ])
-                            ->columns(4)
+                            ->columns(1)
                             ->defaultItems(1)
                             ->addActionLabel('Add Line Item')
                             ->reorderable()
@@ -439,10 +447,29 @@ class QuoteResource extends Resource
                                                     $subtotal += ($qty * $price) - $discount;
                                                 }
                                                 
-                                                // Calculate VAT
-                                                $vat = $subtotal * ($taxRate / 100);
+                                                // Calculate VAT based on tax_inclusive flag per item
+                                                $totalVat = 0;
                                                 
-                                                return $currencySymbol . ' ' . number_format($vat, 2);
+                                                foreach ($items as $item) {
+                                                    $qty = floatval($item['quantity'] ?? 0);
+                                                    $price = floatval($item['unit_price'] ?? 0);
+                                                    $discount = floatval($item['discount'] ?? 0);
+                                                    $taxInclusive = $item['tax_inclusive'] ?? true;
+                                                    
+                                                    $lineTotal = ($qty * $price) - $discount;
+                                                    
+                                                    if ($taxInclusive) {
+                                                        // Tax is INCLUDED in price, extract it
+                                                        $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                                                    } else {
+                                                        // Tax is NOT included, calculate it
+                                                        $taxAmount = $lineTotal * ($taxRate / 100);
+                                                    }
+                                                    
+                                                    $totalVat += $taxAmount;
+                                                }
+                                                
+                                                return $currencySymbol . ' ' . number_format($totalVat, 2);
                                             }),
                                         
                                         Hidden::make('vat')
@@ -495,23 +522,32 @@ class QuoteResource extends Resource
                                                 $taxSetting = TaxSetting::getDefault();
                                                 $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
                                                 
-                                                // Calculate subtotal
+                                                // Calculate total based on tax_inclusive
                                                 $items = $record ? $record->items : ($get('items') ?? []);
-                                                $subtotal = 0;
+                                                $shipping = floatval($get('shipping') ?? $record->shipping ?? 0);
                                                 
+                                                $grandTotal = 0;
                                                 foreach ($items as $item) {
                                                     $qty = floatval($item['quantity'] ?? 0);
                                                     $price = floatval($item['unit_price'] ?? 0);
                                                     $discount = floatval($item['discount'] ?? 0);
-                                                    $subtotal += ($qty * $price) - $discount;
+                                                    $taxInclusive = $item['tax_inclusive'] ?? true;
+                                                    
+                                                    $lineTotal = ($qty * $price) - $discount;
+                                                    
+                                                    if ($taxInclusive) {
+                                                        // Already has tax, just add line total
+                                                        $grandTotal += $lineTotal;
+                                                    } else {
+                                                        // Need to add tax
+                                                        $lineTax = $lineTotal * ($taxRate / 100);
+                                                        $grandTotal += $lineTotal + $lineTax;
+                                                    }
                                                 }
                                                 
-                                                // Calculate VAT and total
-                                                $vat = $subtotal * ($taxRate / 100);
-                                                $shipping = floatval($get('shipping') ?? $record->shipping ?? 0);
-                                                $total = $subtotal + $vat + $shipping;
+                                                $grandTotal += $shipping;
                                                 
-                                                return $currencySymbol . ' ' . number_format($total, 2);
+                                                return $currencySymbol . ' ' . number_format($grandTotal, 2);
                                             })
                                             ->extraAttributes(['class' => 'font-bold text-lg']),
                                         
@@ -521,6 +557,15 @@ class QuoteResource extends Resource
                                     ->columnSpan(1),
                             ]),
                     ]),
+                    
+                Hidden::make('tax_type')
+                    ->default('standard'),
+                    
+                Hidden::make('tax_inclusive')
+                    ->default(function () {
+                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                    }),
                     
                 Hidden::make('document_type')
                     ->default('quote'),
