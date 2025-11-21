@@ -33,6 +33,10 @@ class Consignment extends Model
         'discount',
         'shipping_cost',
         'total',
+        'total_value',
+        'invoiced_value',
+        'returned_value',
+        'balance_value',
         
         // Status & Tracking
         'status',
@@ -67,6 +71,10 @@ class Consignment extends Model
         'discount' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'total' => 'decimal:2',
+        'total_value' => 'decimal:2',
+        'invoiced_value' => 'decimal:2',
+        'returned_value' => 'decimal:2',
+        'balance_value' => 'decimal:2',
         'items_sent_count' => 'integer',
         'items_sold_count' => 'integer',
         'items_returned_count' => 'integer',
