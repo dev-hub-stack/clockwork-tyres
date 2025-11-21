@@ -114,12 +114,16 @@ class OrderFulfillmentService
             $qtyToAllocate = min($availableQty, $quantityNeeded - $quantityAllocated);
             
             if ($qtyToAllocate > 0) {
-                // Create allocation record
-                OrderItemQuantity::create([
-                    'order_item_id' => $item->id,
-                    'warehouse_id' => $inventory->warehouse_id,
-                    'quantity' => $qtyToAllocate,
-                ]);
+                // Create or update allocation record
+                OrderItemQuantity::updateOrCreate(
+                    [
+                        'order_item_id' => $item->id,
+                        'warehouse_id' => $inventory->warehouse_id,
+                    ],
+                    [
+                        'quantity' => $qtyToAllocate,
+                    ]
+                );
                 
                 // Reduce inventory
                 $inventory->decrement('quantity', $qtyToAllocate);
