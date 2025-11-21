@@ -49,12 +49,6 @@ class ConsignmentForm
                             ->preload()
                             ->helperText('Sales rep responsible for this consignment'),
                         
-                        Select::make('status')
-                            ->label('Status')
-                            ->options(ConsignmentStatus::class)
-                            ->default(ConsignmentStatus::DRAFT)
-                            ->required(),
-                        
                         DatePicker::make('issue_date')
                             ->label('Issue Date')
                             ->default(now())
@@ -66,36 +60,10 @@ class ConsignmentForm
                         
                         TextInput::make('tracking_number')
                             ->label('Tracking Number')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('tracking number not required'),
                     ])
                     ->columns(2),
-
-                // Vehicle Information Section
-                Section::make('Vehicle Information')
-                    ->schema([
-                        TextInput::make('year')
-                            ->label('Year')
-                            ->numeric()
-                            ->maxLength(4)
-                            ->placeholder('2024'),
-                        
-                        TextInput::make('make')
-                            ->label('Make')
-                            ->maxLength(100)
-                            ->placeholder('Toyota'),
-                        
-                        TextInput::make('model')
-                            ->label('Model')
-                            ->maxLength(100)
-                            ->placeholder('Camry'),
-                        
-                        TextInput::make('sub_model')
-                            ->label('Sub Model')
-                            ->maxLength(100)
-                            ->placeholder('SE, XLE, etc.'),
-                    ])
-                    ->columns(4)
-                    ->collapsible(),
 
                 // Consignment Items Section
                 Section::make('Consignment Items')
@@ -267,7 +235,7 @@ class ConsignmentForm
                                     ->rows(2)
                                     ->columnSpanFull(),
                             ])
-                            ->columns(4)
+                            ->columns(1)
                             ->defaultItems(1)
                             ->addActionLabel('Add Item')
                             ->collapsible()
@@ -315,10 +283,14 @@ class ConsignmentForm
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);
                                             $price = floatval($item['price'] ?? 0);
-                                            $subtotal += ($qty * $price);
+                                             $subtotal += ($qty * $price);
                                         }
                                         
-                                        $tax = $subtotal * ($taxRate / 100);
+                                        // Tax calculated on (subtotal - discount)
+                                        $discount = floatval($get('discount') ?? $record->discount ?? 0);
+                                        $discountedAmount = $subtotal - $discount;
+                                        $tax = $discountedAmount * ($taxRate / 100);
+                                        
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
                                         return $currencySymbol . ' ' . number_format($tax, 2);
                                     })
@@ -343,15 +315,17 @@ class ConsignmentForm
                                             $subtotal += ($qty * $price);
                                         }
                                         
-                                        $tax = $subtotal * ($taxRate / 100);
+                                        // Tax on discounted amount
                                         $discount = floatval($get('discount') ?? $record->discount ?? 0);
+                                        $discountedAmount = $subtotal - $discount;
+                                        $tax = $discountedAmount * ($taxRate / 100);
                                         $shipping = floatval($get('shipping_cost') ?? $record->shipping_cost ?? 0);
-                                        $total = $subtotal + $tax - $discount + $shipping;
+                                        $total = $discountedAmount + $tax + $shipping;
                                         
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
                                         return $currencySymbol . ' ' . number_format($total, 2);
                                     })
-                                    ->helperText('Subtotal + Tax - Discount + Shipping'),
+                                    ->helperText('(Subtotal - Discount) + Tax + Shipping'),
                             ]),
                         
                         Hidden::make('subtotal')
@@ -373,6 +347,19 @@ class ConsignmentForm
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
+                                    ->minValue(0)
+                                    ->maxValue(function ($get) {
+                                        // Prevent discount from exceeding subtotal
+                                        $items = $get('../../items') ?? [];
+                                        $subtotal = 0;
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity_sent'] ?? 0);
+                                            $price = floatval($item['price'] ?? 0);
+                                            $subtotal += ($qty * $price);
+                                        }
+                                        return $subtotal > 0 ? $subtotal : 999999;
+                                    })
+                                    ->helperText('Cannot exceed subtotal')
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::calculateTotals($get, $set);
@@ -396,8 +383,19 @@ class ConsignmentForm
                     ->schema([
                         Textarea::make('notes')
                             ->label('Notes')
+                            ->default(function () {
+                                // Pre-fill notes from last consignment by this user
+                                $userId = auth()->id();
+                                return cache()->get("consignment_notes_{$userId}", '');
+                            })
+                            ->afterStateUpdated(function ($state) {
+                                // Save to cache when updated
+                                $userId = auth()->id();
+                                cache()->put("consignment_notes_{$userId}", $state, now()->addDays(30));
+                            })
+                            ->live(onBlur: true)
                             ->rows(5)
-                            ->helperText('Additional notes for this consignment')
+                            ->helperText('add memory, so notes can be pre-set on every new consignment')
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),
@@ -423,19 +421,30 @@ class ConsignmentForm
             $subtotal += ($qty * $price);
         }
         
-        // Calculate tax
-        $tax = $subtotal * ($taxRate / 100);
-        
         // Get discount and shipping
         $discount = floatval($get('discount') ?? 0);
         $shipping = floatval($get('shipping_cost') ?? 0);
         
+        // Calculate tax on discounted amount
+        $discountedAmount = $subtotal - $discount;
+        $tax = $discountedAmount * ($taxRate / 100);
+        
         // Calculate total
-        $total = $subtotal + $tax - $discount + $shipping;
+        $total = $discountedAmount + $tax + $shipping;
+        
+        // Calculate value tracking fields
+        $totalValue = $subtotal; // Total value of all sent items
+        $invoicedValue = 0; // Would be calculated from sold items (not available here)
+        $returnedValue = 0; // Would be calculated from returned items (not available here)
+        $balanceValue = $totalValue - $invoicedValue - $returnedValue;
         
         // Set the values
         $set('subtotal', $subtotal);
         $set('tax', $tax);
         $set('total', $total);
+        $set('total_value', $totalValue);
+        $set('invoiced_value', $invoicedValue);
+        $set('returned_value', $returnedValue);
+        $set('balance_value', $balanceValue);
     }
 }

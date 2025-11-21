@@ -116,6 +116,36 @@ class ConsignmentsTable
                         return $total;
                     }),
                 
+                TextColumn::make('total_value')
+                    ->label('Total Value')
+                    ->money($currency)
+                    ->sortable()
+                    ->tooltip('Total value of all sent items')
+                    ->toggleable(),
+                
+                TextColumn::make('invoiced_value')
+                    ->label('Invoiced Value')
+                    ->money($currency)
+                    ->sortable()
+                    ->tooltip('Value of items that have been invoiced')
+                    ->toggleable(),
+                
+                TextColumn::make('returned_value')
+                    ->label('Returned Value')
+                    ->money($currency)
+                    ->sortable()
+                    ->tooltip('Value of items that have been returned')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                
+                TextColumn::make('balance_value')
+                    ->label('Balance Value')
+                    ->money($currency)
+                    ->sortable()
+                    ->weight('bold')
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success')
+                    ->tooltip('Outstanding value (Total - Invoiced - Returned)')
+                    ->toggleable(),
+                
                 TextColumn::make('warehouse.warehouse_name')
                     ->label('Warehouse')
                     ->sortable()

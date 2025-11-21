@@ -28,10 +28,13 @@ class CreateConsignment extends CreateRecord
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
         $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
         
-        $tax = $subtotal * ($taxRate / 100);
         $discount = floatval($data['discount'] ?? 0);
         $shipping = floatval($data['shipping_cost'] ?? 0);
-        $total = $subtotal + $tax - $discount + $shipping;
+        
+        // Tax on discounted amount
+        $discountedAmount = $subtotal - $discount;
+        $tax = $discountedAmount * ($taxRate / 100);
+        $total = $discountedAmount + $tax + $shipping;
         
         // Set calculated values
         $data['subtotal'] = $subtotal;
@@ -46,6 +49,19 @@ class CreateConsignment extends CreateRecord
         // Set created_by
         $data['created_by'] = auth()->id();
         
+        // Save notes to cache for next consignment
+        if (!empty($data['notes'])) {
+            cache()->put("consignment_notes_{$data['created_by']}", $data['notes'], now()->addDays(30));
+        }
+        
         return $data;
+    }
+    
+    /**
+     * Redirect to list page after creation
+     */
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }
