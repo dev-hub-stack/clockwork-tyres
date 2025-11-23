@@ -23,6 +23,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/consignment/{consignment}/preview', [ConsignmentPdfController::class, 'preview'])->name('consignment.preview');
     Route::get('/warranty-claim/{warrantyClaim}/pdf', [WarrantyClaimPdfController::class, 'download'])->name('warranty-claim.pdf');
     Route::get('/warranty-claim/{warrantyClaim}/preview', [WarrantyClaimPdfController::class, 'preview'])->name('warranty-claim.preview');
+    
+    // Dashboard Order Routes - Delivery Note & Invoice Downloads
+    Route::get('/admin/orders/{order}/delivery-note', [App\Http\Controllers\OrderController::class, 'deliveryNote'])
+        ->name('orders.delivery-note');
+    Route::get('/admin/orders/{order}/invoice', [App\Http\Controllers\OrderController::class, 'invoice'])
+        ->name('orders.invoice');
 });
 
 // Product Variants Grid Routes (Tunerstop-style implementation)

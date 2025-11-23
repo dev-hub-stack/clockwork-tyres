@@ -2,268 +2,328 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} | {{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.6; background-color: #ffffff; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-        .logo { max-width: 200px; max-height: 80px; }
-        .logo-placeholder { width: 200px; height: 80px; background: #dc3545; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
-        h1 { font-size: 32px; font-weight: bold; margin: 0; }
-        .info-section { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-        .info-box h4 { font-weight: bold; margin-bottom: 5px; font-size: 12px; }
-        .info-box p { margin: 0; font-size: 11px; line-height: 1.4; }
-        .vehicle-section { background-color: #f8f9fa; padding: 15px; margin-bottom: 20px; border-left: 4px solid #007bff; }
-        .vehicle-section h4 { font-weight: bold; margin-bottom: 10px; font-size: 14px; }
-        .vehicle-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .vehicle-item strong { display: block; font-size: 11px; color: #666; margin-bottom: 3px; }
-        .vehicle-item span { font-size: 12px; font-weight: 600; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        thead { background-color: #f8f9fa; }
-        th { padding: 12px; border: 1px solid #ddd; text-align: left; font-weight: bold; font-size: 11px; }
-        td { padding: 10px; border: 1px solid #ddd; font-size: 11px; vertical-align: top; }
+        @page { margin: 0px; }
+        body { 
+            margin: 0; 
+            padding: 30px; 
+            font-family: 'Helvetica', 'Arial', sans-serif; 
+            font-size: 10px; 
+            color: #333; 
+            line-height: 1.4; 
+            background-color: white; 
+        }
+        .container { 
+            width: 100%; 
+            margin: 0 auto; 
+        }
+        
+        /* Table-based layout for PDF compatibility */
+        table.layout-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; border: none; }
+        table.layout-table td { border: none; vertical-align: top; padding: 0; }
+        
+        .header-table { margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .header-table td { vertical-align: middle; }
+        
+        .logo { max-width: 200px; max-height: 70px; }
+        
+        h1 { font-size: 24px; font-weight: bold; margin: 0; color: #333; }
+        
+        .info-table { margin-bottom: 20px; }
+        .info-table td { padding-right: 10px; width: 33.33%; }
+        .info-box h4 { font-weight: bold; margin-bottom: 5px; font-size: 11px; color: #333; }
+        .info-box p { margin: 0; font-size: 10px; line-height: 1.3; color: #555; }
+        
+        .vehicle-section { background-color: #f8f9fa; padding: 10px; margin-bottom: 20px; border-left: 4px solid #007bff; }
+        .vehicle-section h4 { font-weight: bold; margin-bottom: 8px; font-size: 12px; }
+        .vehicle-table td { padding: 5px 10px 5px 0; width: 25%; }
+        .vehicle-item strong { display: block; font-size: 9px; color: #666; margin-bottom: 2px; }
+        .vehicle-item span { font-size: 10px; font-weight: 600; }
+        
+        /* Data Tables */
+        table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
+        table.data-table thead { background-color: #f8f9fa; }
+        table.data-table th { padding: 8px 5px; border: 1px solid #ddd; text-align: left; font-weight: bold; font-size: 10px; overflow: hidden; }
+        table.data-table td { padding: 8px 5px; border: 1px solid #ddd; font-size: 10px; vertical-align: top; overflow: hidden; word-wrap: break-word; }
+        
         .text-center { text-align: center; }
         .text-right { text-align: right; }
-        .totals-section { display: flex; justify-content: space-between; margin-top: 30px; }
-        .notes { width: 55%; }
-        .totals { width: 40%; }
-        .totals table { margin: 0; }
-        .totals td { border: none; border-bottom: 1px solid #eee; padding: 8px; }
-        .totals .total-row { background-color: #f8f9fa; font-weight: bold; font-size: 14px; border-top: 2px solid #333; }
-        .footer { margin-top: 50px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
-        .small-text { font-size: 10px; color: #666; }
+        
+        /* Totals Section */
+        .totals-table { margin-top: 20px; }
+        .totals-table td.notes-cell { width: 60%; padding-right: 20px; }
+        .totals-table td.totals-cell { width: 40%; }
+        
+        .totals-calc-table { width: 100%; }
+        .totals-calc-table td { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 10px; }
+        .totals-calc-table .total-row td { border-top: 2px solid #333; font-weight: bold; font-size: 12px; color: #000; padding: 8px 0; }
+        
+        .footer { margin-top: 40px; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
+        .small-text { font-size: 9px; color: #666; }
         .brand-name { color: #007bff; font-weight: 600; }
+        
+        /* Helper for images in tables */
+        .product-img-container { width: 40px; height: 40px; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; }
+        .product-img { width: 100%; height: 100%; object-fit: cover; }
+        .no-image { width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999; text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
-        <div class="header">
-            <div>
-                <h1>{{ $documentType === 'quote' ? 'QUOTE' : 'INVOICE' }}</h1>
-                <p style="margin-top: 5px; font-size: 14px;">
-                    {{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}
-                </p>
-            </div>
-            <div>
-                @if($logo)
-                    <img src="{{ $logo }}" alt="Company Logo" class="logo">
-                @else
-                    <div class="logo-placeholder">
-                        {{ $companyName ?? 'TUNERSTOP' }}
-                    </div>
-                @endif
-            </div>
-        </div>
+        <table class="layout-table header-table">
+            <tr>
+                <td style="width: 50%;">
+                    <h1>{{ $documentType === 'quote' ? 'QUOTE' : ($documentType === 'delivery_note' ? 'DELIVERY NOTE' : 'INVOICE') }}</h1>
+                    <p style="margin-top: 5px; color: #666;">{{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</p>
+                </td>
+                <td style="width: 50%; text-align: right;">
+                    @if(!empty($logo))
+                        <img src="{{ $logo }}" alt="Company Logo" class="logo">
+                    @else
+                        <div class="logo-placeholder">LOGO</div>
+                    @endif
+                </td>
+            </tr>
+        </table>
 
         <!-- Company and Customer Info -->
-        <div class="info-section">
-            <!-- From -->
-            <div class="info-box">
-                <h4>From:</h4>
-                <p><strong>{{ $companyName ?? 'TunerStop LLC' }}</strong></p>
-                <p>{{ $companyAddress ?? '479 Jahanzeb Block street 14 Allama Iqbal Town' }}</p>
-                <p>Phone: {{ $companyPhone ?? '0334934247' }}</p>
-                <p>Email: {{ $companyEmail ?? 'admin@tunerStop.com' }}</p>
-                <p>Tax No: {{ $taxNumber ?? '66666684444' }}</p>
-            </div>
-
-            <!-- To -->
-            <div class="info-box">
-                <h4>To:</h4>
-                <p><strong>{{ $record->customer->business_name ?? $record->customer->name ?? 'Unknown Customer' }}</strong></p>
-                @if($record->customer)
-                    <p>Phone: {{ $record->customer->phone ?? 'N/A' }}</p>
-                    <p>Email: {{ $record->customer->email ?? 'N/A' }}</p>
-                @endif
-            </div>
-
-            <!-- Document Details -->
-            <div class="info-box">
-                <div style="margin-bottom: 15px;">
-                    <h4>{{ $documentType === 'quote' ? 'Quote' : 'Invoice' }} Date:</h4>
-                    <p>{{ $record->issue_date ? $record->issue_date->format('m/d/Y') : date('m/d/Y') }}</p>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <h4>{{ $documentType === 'quote' ? 'Valid Until:' : 'Due Date:' }}</h4>
-                    <p>{{ $record->valid_until ? $record->valid_until->format('m/d/Y') : 'N/A' }}</p>
-                </div>
-                @if($documentType === 'invoice')
-                    <div>
-                        <h4>Status:</h4>
-                        <p><strong>{{ strtoupper($record->payment_status?->value ?? 'PENDING') }}</strong></p>
+        <table class="layout-table info-table">
+            <tr>
+                <!-- From -->
+                <td>
+                    <div class="info-box">
+                        <h4>From:</h4>
+                        <p><strong>{{ $companyName }}</strong></p>
+                        <p>{!! nl2br(e($companyAddress)) !!}</p>
+                        <p>Phone: {{ $companyPhone }}</p>
+                        <p>Email: {{ $companyEmail }}</p>
+                        <p>Tax No: {{ $taxNumber }}</p>
                     </div>
-                @endif
-            </div>
-        </div>
+                </td>
+                
+                <!-- To -->
+                <td>
+                    <div class="info-box">
+                        <h4>To:</h4>
+                        <p><strong>{{ $record->customer->name ?? 'N/A' }}</strong></p>
+                        <p>Phone: {{ $record->customer->phone ?? 'N/A' }}</p>
+                        <p>Email: {{ $record->customer->email ?? 'N/A' }}</p>
+                    </div>
+                </td>
+                
+                <!-- Dates & Status -->
+                <td>
+                    <div class="info-box">
+                        @if($documentType === 'quote')
+                            <h4>Quote Date:</h4>
+                            <p>{{ $record->created_at->format('m/d/Y') }}</p>
+                            
+                            <h4 style="margin-top: 10px;">Valid Until:</h4>
+                            <p>{{ $record->valid_until ? \Carbon\Carbon::parse($record->valid_until)->format('m/d/Y') : 'N/A' }}</p>
+                        @else
+                            <h4>Invoice Date:</h4>
+                            <p>{{ $record->created_at->format('m/d/Y') }}</p>
+                            
+                            <h4 style="margin-top: 10px;">Due Date:</h4>
+                            <p>{{ $record->due_date ? \Carbon\Carbon::parse($record->due_date)->format('m/d/Y') : \Carbon\Carbon::parse($record->created_at)->addDays(30)->format('m/d/Y') }}</p>
+                        @endif
+                        
+                        <h4 style="margin-top: 10px;">Status:</h4>
+                        <p style="text-transform: uppercase;">{{ $record->status ?? 'N/A' }}</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
 
         <!-- Vehicle Information -->
         @if($record->vehicle_year || $record->vehicle_make || $record->vehicle_model || $record->vehicle_sub_model)
         <div class="vehicle-section">
             <h4>Vehicle Information</h4>
-            <div class="vehicle-grid">
-                <div class="vehicle-item">
-                    <strong>Year:</strong>
-                    <span>{{ $record->vehicle_year ?? 'N/A' }}</span>
-                </div>
-                <div class="vehicle-item">
-                    <strong>Make:</strong>
-                    <span>{{ $record->vehicle_make ?? 'N/A' }}</span>
-                </div>
-                <div class="vehicle-item">
-                    <strong>Model:</strong>
-                    <span>{{ $record->vehicle_model ?? 'N/A' }}</span>
-                </div>
-                <div class="vehicle-item">
-                    <strong>Sub Model:</strong>
-                    <span>{{ $record->vehicle_sub_model ?? 'N/A' }}</span>
-                </div>
-            </div>
+            <table class="vehicle-table" style="width: 100%;">
+                <tr>
+                    <td>
+                        <div class="vehicle-item">
+                            <strong>Year:</strong>
+                            <span>{{ $record->vehicle_year ?? '-' }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="vehicle-item">
+                            <strong>Make:</strong>
+                            <span>{{ $record->vehicle_make ?? '-' }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="vehicle-item">
+                            <strong>Model:</strong>
+                            <span>{{ $record->vehicle_model ?? '-' }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="vehicle-item">
+                            <strong>Sub Model:</strong>
+                            <span>{{ $record->vehicle_sub_model ?? '-' }}</span>
+                        </div>
+                    </td>
+                </tr>
+            </table>
         </div>
         @endif
 
         <!-- Line Items Table -->
-        <table>
+        <table class="data-table">
             <thead>
                 <tr>
                     <th style="width: 5%;">#</th>
-                    <th style="width: 50%;">Description</th>
-                    <th style="width: 10%;" class="text-center">SKU</th>
-                    <th style="width: 10%;" class="text-center">Qty</th>
-                    <th style="width: 12%;" class="text-right">Unit Price</th>
-                    <th style="width: 13%;" class="text-right">Total</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '65%' : '40%' }};">Description</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '20%' : '15%' }};" class="text-center">SKU</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '10%' : '8%' }};" class="text-center">Qty</th>
+                    @if($documentType !== 'delivery_note')
+                        <th style="width: 16%;" class="text-right">Unit Price</th>
+                        <th style="width: 16%;" class="text-right">Total</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
-                @forelse($record->items as $index => $item)
+                @foreach($record->items as $index => $item)
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td>
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                {{-- Product Image --}}
-                                @php
-                                    $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
-                                    $productImage = $variantData['image'] ?? null;
-                                    // Add CloudFront base URL if image doesn't start with http
-                                    if ($productImage && !str_starts_with($productImage, 'http')) {
-                                        $productImage = 'https://d3oet5ce3rdmse.cloudfront.net/' . ltrim($productImage, '/');
-                                    }
-                                @endphp
-                                @if($productImage)
-                                    <img src="{{ $productImage }}" 
-                                         alt="{{ $item->product_name }}" 
-                                         style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
-                                @else
-                                    <div style="width: 60px; height: 60px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #999; text-align: center; border: 1px solid #ddd;">
-                                        No<br>Image
-                                    </div>
-                                @endif
-                                
-                                {{-- Product Details --}}
-                                <div style="flex: 1;">
-                                    <strong>{{ $item->product_name ?? 'Unknown Product' }}</strong>
-                                    @if($item->brand_name)
-                                        <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
-                                    @endif
-                                    @if($item->product_description)
-                                        <br><span class="small-text">{{ Str::limit($item->product_description, 100) }}</span>
-                                    @endif
-                                    {{-- Warehouse Information --}}
-                                    @php
-                                        // Check if item has warehouse info from order_items or from consignment
-                                        $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
-                                        $isNonStock = empty($item->warehouse_id) && empty($item->consignment_item_id);
-                                    @endphp
-                                    @if($hasWarehouse && $item->warehouse)
-                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                            📦 Warehouse: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
-                                        </small>
-                                    @elseif(!empty($item->consignment_item_id))
-                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                            🤝 From Consignment
-                                        </small>
-                                    @elseif($isNonStock)
-                                        <br><small style="color: #666; font-size: 10px; display: inline-block; margin-top: 4px;">
-                                            ⚡ Non-Stock (Special Order)
-                                        </small>
-                                    @endif
-                                </div>
-                            </div>
+                            <table style="width: 100%; border: none;">
+                                <tr>
+                                    <td style="width: 50px; border: none; padding: 0;">
+                                        {{-- Product Image --}}
+                                        @php
+                                            $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
+                                            $productImage = $variantData['image'] ?? null;
+                                            if ($productImage && !str_starts_with($productImage, 'http')) {
+                                                $productImage = 'https://d3oet5ce3rdmse.cloudfront.net/' . ltrim($productImage, '/');
+                                            }
+                                        @endphp
+                                        <div class="product-img-container">
+                                            @if($productImage)
+                                                <img src="{{ $productImage }}" alt="Product" class="product-img">
+                                            @else
+                                                <div class="no-image">No<br>Img</div>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td style="border: none; padding: 0 0 0 10px; vertical-align: top;">
+                                        <strong>{{ $item->product_name ?? 'Unknown Product' }}</strong>
+                                        @if($item->brand_name)
+                                            <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
+                                        @endif
+                                        
+                                        @php
+                                            $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
+                                            $isNonStock = empty($item->warehouse_id) && empty($item->consignment_item_id);
+                                        @endphp
+                                        @if($hasWarehouse && $item->warehouse)
+                                            <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
+                                                📦 {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
+                                            </small>
+                                        @elseif(!empty($item->consignment_item_id))
+                                            <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
+                                                🤝 Consignment
+                                            </small>
+                                        @elseif($isNonStock)
+                                            <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
+                                                ⚡ Special Order
+                                            </small>
+                                        @endif
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                         <td class="text-center">
                             <span class="small-text">{{ $item->sku ?? 'N/A' }}</span>
                         </td>
-                        <td class="text-center">{{ $item->quantity ?? 1 }}</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($item->unit_price ?? 0, 2) }}</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($item->line_total ?? 0, 2) }}</td>
+                        <td class="text-center">{{ $item->quantity }}</td>
+                        @if($documentType !== 'delivery_note')
+                            <td class="text-right">
+                                {{ $currency->symbol ?? 'AED' }} {{ number_format($item->unit_price, 2) }}
+                            </td>
+                            <td class="text-right">
+                                {{ $currency->symbol ?? 'AED' }} {{ number_format($item->line_total, 2) }}
+                            </td>
+                        @endif
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="text-center" style="padding: 30px; color: #999; font-style: italic;">
-                            No items in this {{ $documentType }}
-                        </td>
-                    </tr>
-                @endforelse
+                @endforeach
             </tbody>
         </table>
 
-        <!-- Totals and Notes -->
-        <div class="totals-section">
-            <div class="notes">
-                @if($record->order_notes)
-                    <h4 style="margin-bottom: 10px;">Customer Notes</h4>
-                    <p style="line-height: 1.5; color: #666; font-size: 11px;">{{ $record->order_notes }}</p>
-                @endif
-                @if($record->internal_notes)
-                    <h4 style="margin-bottom: 10px; margin-top: 20px;">Internal Notes</h4>
-                    <p style="line-height: 1.5; color: #666; font-size: 11px;">{{ $record->internal_notes }}</p>
-                @endif
-            </div>
+        <!-- Totals & Notes -->
+        <table class="layout-table totals-table">
+            <tr>
+                <!-- Notes -->
+                <td class="notes-cell" style="vertical-align: top;">
+                    @if($documentType === 'delivery_note')
+                        @if($record->order_notes)
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="font-size: 11px; margin-bottom: 5px;">Order Notes</h4>
+                                <p style="font-size: 10px; color: #555; background: #f9f9f9; padding: 10px; border: 1px solid #eee; border-radius: 4px;">
+                                    {{ $record->order_notes }}
+                                </p>
+                            </div>
+                        @endif
+                    @endif
 
-            <div class="totals">
-                <table>
-                    <tr>
-                        <td style="font-weight: bold;">Subtotal:</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->subtotal ?? $record->sub_total ?? 0, 2) }}</td>
-                    </tr>
-                    @if(($record->shipping ?? 0) > 0)
-                    <tr>
-                        <td style="font-weight: bold;">Shipping:</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->shipping ?? 0, 2) }}</td>
-                    </tr>
+                    @if($record->notes)
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 11px; margin-bottom: 5px;">Customer Notes</h4>
+                            <p style="font-size: 10px; color: #555;">{{ $record->notes }}</p>
+                        </div>
                     @endif
-                    @if(($record->discount ?? 0) > 0)
-                    <tr>
-                        <td style="font-weight: bold;">Discount:</td>
-                        <td class="text-right">-{{ $currency }} {{ number_format($record->discount ?? 0, 2) }}</td>
-                    </tr>
+                    
+                    @if($record->internal_notes)
+                        <div>
+                            <h4 style="font-size: 11px; margin-bottom: 5px;">Internal Notes</h4>
+                            <p style="font-size: 10px; color: #555;">{{ $record->internal_notes }}</p>
+                        </div>
                     @endif
-                    <tr>
-                        <td style="font-weight: bold;">VAT ({{ $vatRate ?? 5 }}%):</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->tax ?? $record->vat ?? 0, 2) }}</td>
-                    </tr>
-                    <tr class="total-row">
-                        <td>Total:</td>
-                        <td class="text-right">{{ $currency }} {{ number_format($record->total ?? 0, 2) }}</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
+                </td>
+                
+                <!-- Totals -->
+                @if($documentType !== 'delivery_note')
+                <td class="totals-cell" style="vertical-align: top;">
+                    <table class="totals-calc-table">
+                        <tr>
+                            <td>Subtotal:</td>
+                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->sub_total, 2) }}</td>
+                        </tr>
+                        @if($record->discount > 0)
+                        <tr>
+                            <td>Discount:</td>
+                            <td class="text-right">-{{ $currency->symbol ?? 'AED' }} {{ number_format($record->discount, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($record->shipping > 0)
+                        <tr>
+                            <td>Shipping:</td>
+                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->shipping, 2) }}</td>
+                        </tr>
+                        @endif
+                        <tr>
+                            <td>VAT ({{ $vatRate }}%):</td>
+                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->vat, 2) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td>Total:</td>
+                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->total, 2) }}</td>
+                        </tr>
+                    </table>
+                </td>
+                @endif
+            </tr>
+        </table>
 
         <!-- Footer -->
         <div class="footer">
             <p>Thank you for your business!</p>
-            @if($companyEmail || $companyPhone)
-                <p>
-                    @if($companyEmail)Contact: {{ $companyEmail }}@endif
-                    @if($companyEmail && $companyPhone) | @endif
-                    @if($companyPhone)Phone: {{ $companyPhone }}@endif
-                </p>
-            @endif
+            <p>Contact: {{ $companyEmail }} | Phone: {{ $companyPhone }}</p>
         </div>
     </div>
 </body>
