@@ -33,7 +33,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,6 +59,11 @@ class InvoiceResource extends Resource
     protected static ?string $pluralModelLabel = 'Invoices';
 
     public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return false;
     }
@@ -662,16 +666,26 @@ class InvoiceResource extends Resource
                     ->tooltip('Record a payment received for this invoice')
                     ->visible(fn($record) => !$record->isFullyPaid())
                     ->form([
+                        Select::make('payment_type')
+                            ->label('Payment Type')
+                            ->options([
+                                'full' => 'Full Payment',
+                                'partial' => 'Partial Payment',
+                            ])
+                            ->required()
+                            ->default('full'),
+
                         TextInput::make('amount')
                             ->label('Amount')
                             ->numeric()
                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                             ->required()
                             ->default(fn($record) => $record->outstanding_amount)
+                            ->maxValue(fn($record) => $record->outstanding_amount)
                             ->helperText(function($record) {
                                 $currency = CurrencySetting::getBase();
                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
-                                return "Outstanding amount: {$currencySymbol} " . number_format($record->outstanding_amount, 2);
+                                return "Enter full or partial amount. Outstanding: {$currencySymbol} " . number_format($record->outstanding_amount, 2);
                             }),
                         
                         Select::make('payment_method')
@@ -713,6 +727,7 @@ class InvoiceResource extends Resource
                             'customer_id' => $record->customer_id,
                             'recorded_by' => auth()->id(),
                             'amount' => $data['amount'],
+                            'payment_type' => $data['payment_type'],
                             'payment_method' => $data['payment_method'],
                             'payment_date' => $data['payment_date'],
                             'reference_number' => $data['reference_number'] ?? null,
