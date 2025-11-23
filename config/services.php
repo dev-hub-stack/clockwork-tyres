@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'crm' => [
+        'api_key' => env('CRM_API_KEY'),
+    ],
+
 ];
