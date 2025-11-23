@@ -37,15 +37,6 @@ class AppServiceProvider extends ServiceProvider
         // Register observer for auto-generating order numbers
         Order::observe(OrderObserver::class);
 
-        // Add custom navigation item for Products Grid
-        Filament::serving(function () {
-            Filament::registerNavigationItems([
-                NavigationItem::make('Products Grid')
-                    ->url('/admin/products-grid')
-                    ->icon('heroicon-o-table-cells')
-                    ->group('Products')
-                    ->sort(3),
-            ]);
-        });
+
     }
 }

@@ -55,7 +55,8 @@ class AdminPanelProvider extends PanelProvider
                     ->url('/admin/products/images')
                     ->icon('heroicon-o-photo')
                     ->group('Products')
-                    ->sort(5),
+                    ->sort(5)
+                    ->visible(fn () => auth()->user()->can('view_products')),
             ])
             ->middleware([
                 EncryptCookies::class,

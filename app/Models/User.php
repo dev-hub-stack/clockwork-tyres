@@ -23,6 +23,8 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'last_login_at',
+        'last_login_ip',
     ];
 
     /**
@@ -44,8 +46,27 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the user's login history.
+     */
+    public function loginHistory(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserLoginHistory::class)->orderBy('logged_in_at', 'desc');
+    }
+
+    /**
+     * Get recent login history for the user.
+     */
+    public function getRecentLoginHistory(int $days = 30)
+    {
+        return $this->loginHistory()
+            ->where('logged_in_at', '>=', now()->subDays($days))
+            ->get();
     }
 
     /**
