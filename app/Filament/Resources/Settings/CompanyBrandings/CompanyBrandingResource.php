@@ -28,6 +28,26 @@ class CompanyBrandingResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'Settings';
     
     protected static ?string $navigationLabel = 'Company Branding';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_settings');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('edit_settings');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_settings');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_settings');
+    }
     
     protected static ?int $navigationSort = 1;
     

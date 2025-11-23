@@ -19,6 +19,16 @@ class ProductsGrid extends Page
 
     protected static ?string $navigationLabel = 'Products Grid';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->can('view_products');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()->can('view_products');
+    }
+
     protected string $view = 'filament.pages.products-grid';
 
     public $products_data = [];
