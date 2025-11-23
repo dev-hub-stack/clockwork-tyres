@@ -107,10 +107,10 @@
                             </td>
                             <td class="col-date" x-text="order.created_at"></td>
                             <td class="col-order">
-                                <a :href="'/admin/orders/' + order.id" class="link-pink" x-text="order.order_number" target="_blank"></a>
+                                <a :href="order.order_url" class="link-pink" x-text="order.order_number"></a>
                             </td>
                             <td class="col-customer">
-                                <a :href="'/admin/orders?customer=' + encodeURIComponent(order.customer_name)" class="link-pink" x-text="order.customer_name"></a>
+                                <a :href="order.customer_url" class="link-pink" x-text="order.customer_name"></a>
                             </td>
                             <td class="col-brand" x-text="order.wheel_brand"></td>
                             <td class="col-vehicle" x-text="order.vehicle"></td>

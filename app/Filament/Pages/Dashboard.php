@@ -119,6 +119,11 @@ class Dashboard extends Page
                 'customer_name' => $order->customer ? $order->customer->name : 'Unknown Customer',
                 'customer_phone' => $order->customer ? $order->customer->phone : '',
                 'customer_email' => $order->customer ? $order->customer->email : '',
+                'customer_id' => $order->customer_id,
+                'customer_url' => $order->customer_id 
+                    ? '/admin/invoices?filters[customer_id][value]=' . $order->customer_id
+                    : '#',
+                'order_url' => $this->getOrderUrl($order),
                 'wheel_brand' => $wheelBrand,
                 'vehicle' => $vehicle,
                 'tracking_number' => $order->tracking_number,
@@ -130,6 +135,21 @@ class Dashboard extends Page
                 'items' => $orderItems,
                 'order_notes' => $order->order_notes ?? '',
             ];
+        }
+    }
+    
+    /**
+     * Get the URL for an order based on its document type
+     */
+    protected function getOrderUrl($order): string
+    {
+        // Check document type to determine where to navigate
+        if ($order->document_type === 'quote') {
+            // Go to QuoteResource view page
+            return '/admin/quotes/' . $order->id;
+        } else {
+            // Go to InvoiceResource view page (not edit)
+            return '/admin/invoices/' . $order->id;
         }
     }
 }
