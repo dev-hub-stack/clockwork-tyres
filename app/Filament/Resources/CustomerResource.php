@@ -42,6 +42,26 @@ class CustomerResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Customers';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_customers');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_customers');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_customers');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_customers');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

@@ -41,7 +41,27 @@ class ProductModelResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $navigationLabel = 'Models';
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_products');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_products');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_products');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_products');
+    }
+
+    protected static ?string $navigationLabel = 'Models'; // Changed from ?string to string|UnitEnum|null
 
     protected static ?string $modelLabel = 'Product Model';
 

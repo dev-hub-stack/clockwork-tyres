@@ -58,15 +58,27 @@ class InvoiceResource extends Resource
     
     protected static ?string $pluralModelLabel = 'Invoices';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_invoices');
+    }
+
     public static function canCreate(): bool
     {
-        return false;
+        return auth()->user()->can('create_invoices');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_invoices');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return false;
+        return auth()->user()->can('delete_invoices');
     }
+
+
 
     /**
      * Global scope to only show invoices

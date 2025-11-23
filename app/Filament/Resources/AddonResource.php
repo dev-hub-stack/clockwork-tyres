@@ -24,20 +24,18 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
-use BackedEnum;
 use UnitEnum;
 
 class AddonResource extends Resource
 {
     protected static ?string $model = Addon::class;
 
-    protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-puzzle-piece';
+    protected static string|UnitEnum|null $navigationGroup = 'Products';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Products';
-
-    protected static ?int $navigationSort = 6;
-
-    protected static ?string $navigationLabel = 'Add Ons';
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_products');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -311,9 +309,7 @@ class AddonResource extends Resource
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->poll('30s');
+            ]);
     }
 
     public static function getRelations(): array

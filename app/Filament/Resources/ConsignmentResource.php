@@ -18,9 +18,33 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
+use UnitEnum;
+
 class ConsignmentResource extends Resource
 {
     protected static ?string $model = Consignment::class;
+
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_consignments');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_consignments');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_consignments');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_consignments');
+    }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 

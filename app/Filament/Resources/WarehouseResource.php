@@ -23,13 +23,17 @@ class WarehouseResource extends Resource
 {
     protected static ?string $model = Warehouse::class;
 
-    protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-building-storefront';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Inventory';
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_warehouses');
+    }
 
-    protected static ?int $navigationSort = 1;
-
-    protected static ?string $navigationLabel = 'Warehouses';
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_warehouses');
+    }
 
     public static function form(Schema $schema): Schema
     {

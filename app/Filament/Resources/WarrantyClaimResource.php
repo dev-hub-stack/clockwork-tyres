@@ -24,6 +24,26 @@ class WarrantyClaimResource extends Resource
     
     protected static ?string $recordTitleAttribute = 'claim_number';
     
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_warranty_claims');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_warranty_claims');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_warranty_claims');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_warranty_claims');
+    }
+    
     protected static ?string $navigationLabel = 'Warranty Claims';
     
     protected static ?string $modelLabel = 'Warranty Claim';

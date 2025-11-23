@@ -25,17 +25,14 @@ class AddonCategoryResource extends Resource
 {
     protected static ?string $model = AddonCategory::class;
 
-    protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-tag';
+    protected static ?string $pluralModelLabel = 'Addon Categories';
 
     protected static string|UnitEnum|null $navigationGroup = 'Products';
 
-    protected static ?int $navigationSort = 5;
-
-    protected static ?string $navigationLabel = 'Addon Categories';
-
-    protected static ?string $modelLabel = 'Addon Category';
-
-    protected static ?string $pluralModelLabel = 'Addon Categories';
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_categories');
+    }
 
     public static function form(Schema $schema): Schema
     {

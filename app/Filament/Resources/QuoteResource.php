@@ -49,6 +49,26 @@ class QuoteResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
     
     protected static ?string $navigationLabel = 'Quotes & Proformas';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_quotes');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_quotes');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_quotes');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_quotes');
+    }
     
     protected static string|UnitEnum|null $navigationGroup = 'Sales';
     

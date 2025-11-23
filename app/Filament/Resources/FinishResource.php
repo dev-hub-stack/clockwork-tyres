@@ -40,6 +40,26 @@ class FinishResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Products';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('view_products');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create_products');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('edit_products');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete_products');
+    }
+
     protected static ?int $navigationSort = 3;
 
     protected static ?string $pluralModelLabel = 'Finishes';
