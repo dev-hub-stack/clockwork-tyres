@@ -33,7 +33,6 @@ class ProductVariant extends Model
         'clearance_corner',
         'image', // Tunerstop uses 'image' (singular) not 'images'
         'supplier_stock',
-        'construction',
     ];
 
     protected $casts = [

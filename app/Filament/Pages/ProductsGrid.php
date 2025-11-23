@@ -69,7 +69,7 @@ class ProductsGrid extends Page
                     'product_full_name' => $product->brand->name . ' ' . $product->model->name . ' ' . ($variant->finish ?? ''),
                     'brand' => $product->brand->name ?? '',
                     'model' => $product->model->name ?? '',
-                    'finish' => $variant->finish ?? '',  // Load from variant's finish field (text column)
+                    'finish' => $variant->finishRelation->finish ?? $variant->finish ?? '',  // Try relationship first, then column
                     'construction' => $product->construction ?? '',  // From product table
                     'rim_width' => $variant->rim_width ?? '',
                     'rim_diameter' => $variant->rim_diameter ?? '',
@@ -84,7 +84,9 @@ class ProductsGrid extends Page
                     'us_retail_price' => $variant->us_retail_price ?? 0,
                     'uae_retail_price' => $variant->uae_retail_price ?? 0,
                     'sale_price' => $variant->sale_price ?? 0,
-                    'images' => $variant->image ?? '',  // Column name is 'image' not 'images'
+                    'images' => is_string($product->images) 
+                        ? implode(', ', json_decode($product->images, true) ?: []) 
+                        : implode(', ', $product->images ?? []),  // Display image paths
                     'inventory' => []
                 ];
 
