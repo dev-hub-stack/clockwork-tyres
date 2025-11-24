@@ -49,7 +49,12 @@ trap rollback_on_error ERR
 
 echo ""
 echo -e "${GREEN}Step 1: Running database migrations...${NC}"
+
+# Set trap ONLY for migrations
+trap rollback_on_error ERR
 sudo -u www-data php artisan migrate --force
+# Remove trap immediately after migrations succeed
+trap - ERR
 
 echo ""
 echo -e "${GREEN}Step 2: Running RolesAndPermissionsSeeder...${NC}"
@@ -66,10 +71,8 @@ echo ""
 echo -e "${GREEN}Step 4: Optimizing application...${NC}"
 sudo -u www-data php artisan config:cache
 sudo -u www-data php artisan route:cache
-sudo -u www-data php artisan view:cache
-
-# Remove trap as everything succeeded
-trap - ERR
+# Try view cache, but don't fail if it errors
+sudo -u www-data php artisan view:cache || echo -e "${YELLOW}Warning: View cache failed, continuing anyway${NC}"
 
 echo ""
 echo "=========================================="
