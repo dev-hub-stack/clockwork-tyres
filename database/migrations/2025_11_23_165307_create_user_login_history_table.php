@@ -21,18 +21,6 @@ return new class extends Migration
             
             $table->index(['user_id', 'logged_in_at']);
         });
-        
-        // Seed default settings
-        DB::table('system_settings')->insert([
-            [
-                'key' => 'login_history_retention_days',
-                'value' => '90',
-                'type' => 'integer',
-                'description' => 'Number of days to keep login history records',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
     }
 
     /**
