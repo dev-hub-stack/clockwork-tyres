@@ -31,6 +31,22 @@ if [ "$confirm" != "yes" ]; then
     exit 0
 fi
 
+# Function to rollback on error
+rollback_on_error() {
+    echo ""
+    echo -e "${RED}=========================================="
+    echo "❌ ERROR DETECTED - Rolling back migrations"
+    echo -e "==========================================${NC}"
+    echo ""
+    sudo -u www-data php artisan migrate:rollback --step=1 --force
+    echo ""
+    echo -e "${YELLOW}Migrations rolled back. Please check the error above.${NC}"
+    exit 1
+}
+
+# Set trap to call rollback function on error
+trap rollback_on_error ERR
+
 echo ""
 echo -e "${GREEN}Step 1: Running database migrations...${NC}"
 sudo -u www-data php artisan migrate --force
@@ -51,6 +67,9 @@ echo -e "${GREEN}Step 4: Optimizing application...${NC}"
 sudo -u www-data php artisan config:cache
 sudo -u www-data php artisan route:cache
 sudo -u www-data php artisan view:cache
+
+# Remove trap as everything succeeded
+trap - ERR
 
 echo ""
 echo "=========================================="
