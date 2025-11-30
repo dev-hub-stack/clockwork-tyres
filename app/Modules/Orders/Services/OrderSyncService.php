@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Log;
 class OrderSyncService
 {
     public function __construct(
-        protected OrderService $orderService
+        protected OrderService $orderService,
+        protected \App\Services\AddonSyncService $addonSyncService
     ) {}
 
     /**
@@ -146,8 +147,27 @@ class OrderSyncService
                 'discount' => $externalItem['discount'] ?? 0,
             ];
             
-            // Map external SKU to our product/variant
-            if (isset($externalItem['sku'])) {
+            // EMBEDDED SYNC: Handle addon data if present
+            if (isset($externalItem['addon_data'])) {
+                try {
+                    // Sync the addon (and its category) on the fly
+                    $addon = $this->addonSyncService->syncAddon($externalItem['addon_data']);
+                    
+                    // Map item to this addon
+                    $item['add_on_id'] = $addon->id;
+                    
+                    // Add addon-specific details to item if needed
+                    // (OrderService might need these if it stores extra item details)
+                } catch (\Exception $e) {
+                    Log::error("Failed to sync embedded addon for order item", [
+                        'sku' => $externalItem['sku'] ?? null,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Map external SKU to our product/variant (if not already mapped via embedded sync)
+            if (!isset($item['add_on_id']) && isset($externalItem['sku'])) {
                 $mapping = $this->mapSkuToProduct($externalItem['sku']);
                 if ($mapping) {
                     $item = array_merge($item, $mapping);
