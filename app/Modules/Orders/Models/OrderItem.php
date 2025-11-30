@@ -2,7 +2,7 @@
 
 namespace App\Modules\Orders\Models;
 
-use App\Modules\AddOns\Models\Addon;
+use App\Modules\Products\Models\AddOn;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Observers\OrderItemObserver;
 use App\Modules\Products\Models\Product;
@@ -102,7 +102,7 @@ class OrderItem extends Model
 
     public function addon(): BelongsTo
     {
-        return $this->belongsTo(Addon::class, 'add_on_id');
+        return $this->belongsTo(AddOn::class, 'add_on_id');
     }
 
     public function warehouse(): BelongsTo

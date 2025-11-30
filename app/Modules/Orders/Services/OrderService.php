@@ -3,7 +3,7 @@
 namespace App\Modules\Orders\Services;
 
 use App\Modules\Customers\Models\Customer;
-use App\Modules\AddOns\Models\Addon;
+use App\Modules\Products\Models\AddOn;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
@@ -146,7 +146,7 @@ class OrderService
             
         } elseif (isset($itemData['add_on_id'])) {
             // Addon
-            $addon = Addon::with(['category'])->findOrFail($itemData['add_on_id']);
+            $addon = AddOn::with(['category'])->findOrFail($itemData['add_on_id']);
             
             $item->add_on_id = $addon->id;
             
@@ -163,6 +163,26 @@ class OrderService
             $item->product_description = $addon->description;
             
             $item->unit_price = $itemData['unit_price'] ?? $addon->price;
+        } else {
+            // External sync items: Use denormalized data from itemData
+            // These items have external IDs stored in snapshots but no local FKs yet
+            $item->sku = $itemData['sku'] ?? null;
+            $item->product_name = $itemData['product_name'] ?? 'Unknown Product';
+            $item->product_description = $itemData['product_description'] ?? null;
+            $item->brand_name = $itemData['brand_name'] ?? null;
+            $item->model_name = $itemData['model_name'] ?? null;
+            $item->unit_price = $itemData['unit_price'] ?? 0;
+            
+            // Store snapshots if provided
+            if (isset($itemData['product_snapshot'])) {
+                $item->product_snapshot = $itemData['product_snapshot'];
+            }
+            if (isset($itemData['variant_snapshot'])) {
+                $item->variant_snapshot = $itemData['variant_snapshot'];
+            }
+            if (isset($itemData['addon_snapshot'])) {
+                $item->addon_snapshot = $itemData['addon_snapshot'];
+            }
         }
 
         // Calculate line total
