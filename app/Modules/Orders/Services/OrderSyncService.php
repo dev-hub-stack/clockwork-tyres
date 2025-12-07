@@ -22,7 +22,11 @@ class OrderSyncService
 {
     public function __construct(
         protected OrderService $orderService,
-        protected \App\Services\AddonSyncService $addonSyncService
+        protected \App\Services\AddonSyncService $addonSyncService,
+        protected \App\Services\BrandLookupService $brandService,
+        protected \App\Services\ModelLookupService $modelService,
+        protected \App\Services\FinishLookupService $finishService,
+        protected \App\Services\OrderProductSyncService $productSyncService
     ) {}
 
     /**
@@ -316,32 +320,58 @@ class OrderSyncService
                     continue; // Skip this item
                 }
             }
-            // CASE 2: Item is a PRODUCT (has product_id or external_product_id)
-            else if (isset($externalItem['product_id']) || isset($externalItem['external_product_id'])) {
-                // For now, we'll store the external IDs and denormalized data
-                // Later we can implement product sync similar to addon sync
-                
-                $item['product_snapshot'] = [
-                    'external_product_id' => $externalItem['product_id'] ?? $externalItem['external_product_id'],
-                    'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
-                    'external_source' => $externalItem['external_source'] ?? 'tunerstop',
-                    'name' => $externalItem['product_name'],
-                    'sku' => $externalItem['sku'],
-                    'brand_name' => $externalItem['brand_name'] ?? null,
-                    'model_name' => $externalItem['model_name'] ?? null,
-                    'variant_title' => $externalItem['variant_title'] ?? null,
-                ];
-                
-                // Try to map to existing product in CRM (if product sync is implemented)
-                $mapping = $this->mapSkuToProduct($externalItem['sku'] ?? '');
-                if ($mapping) {
-                    $item = array_merge($item, $mapping);
+            // CASE 2: Item is a PRODUCT (has product_id, external_product_id, or product_name)
+            else if (isset($externalItem['product_id']) || isset($externalItem['external_product_id']) || isset($externalItem['product_name'])) {
+                try {
+                    // NEW: Use OrderProductSyncService to find or create Product and Variant with FK linking
+                    $result = $this->productSyncService->findOrCreateFromOrderItem($externalItem);
+                    $product = $result['product'];
+                    $variant = $result['variant'];
+                    
+                    // Set FOREIGN KEYS (the key improvement!)
+                    $item['product_id'] = $product->id;
+                    $item['product_variant_id'] = $variant?->id;
+                    
+                    // Create product snapshot (for historical record)
+                    $item['product_snapshot'] = [
+                        'id' => $product->id,
+                        'external_product_id' => $externalItem['product_id'] ?? $externalItem['external_product_id'] ?? null,
+                        'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
+                        'external_source' => $externalItem['external_source'] ?? 'tunerstop',
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'brand_id' => $product->brand_id,
+                        'brand_name' => $externalItem['brand_name'] ?? null,
+                        'model_id' => $product->model_id,
+                        'model_name' => $externalItem['model_name'] ?? null,
+                        'variant_id' => $variant?->id,
+                        'variant_title' => $externalItem['variant_title'] ?? null,
+                    ];
+                    
+                    Log::info('OrderSyncService: Product item with FK linked', [
+                        'product_id' => $product->id,
+                        'variant_id' => $variant?->id,
+                        'sku' => $product->sku
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    Log::error("Failed to sync product for order item", [
+                        'sku' => $externalItem['sku'] ?? null,
+                        'error' => $e->getMessage()
+                    ]);
+                    
+                    // Fallback: Create snapshot without FK
+                    $item['product_snapshot'] = [
+                        'external_product_id' => $externalItem['product_id'] ?? $externalItem['external_product_id'] ?? null,
+                        'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
+                        'external_source' => $externalItem['external_source'] ?? 'tunerstop',
+                        'name' => $externalItem['product_name'],
+                        'sku' => $externalItem['sku'],
+                        'brand_name' => $externalItem['brand_name'] ?? null,
+                        'model_name' => $externalItem['model_name'] ?? null,
+                        'variant_title' => $externalItem['variant_title'] ?? null,
+                    ];
                 }
-                
-                Log::info('OrderSyncService: Product item prepared', [
-                    'product_name' => $externalItem['product_name'],
-                    'sku' => $externalItem['sku']
-                ]);
             }
             // CASE 3: Unknown item type
             else {
