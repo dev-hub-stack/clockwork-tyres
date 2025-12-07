@@ -174,6 +174,19 @@ class OrderProductSyncService
         $externalVariantId = $itemData['external_variant_id'] ?? null;
         $source = $itemData['external_source'] ?? 'tunerstop';
         
+        // Parse size if rim_width/diameter are missing
+        if ((empty($itemData['rim_width']) || empty($itemData['rim_diameter'])) && !empty($itemData['size'])) {
+            // Expected format: "18x8" or "18x8.5"
+            $parts = explode('x', strtolower($itemData['size']));
+            if (count($parts) === 2) {
+                $diameter = floatval(trim($parts[0]));
+                $width = floatval(trim($parts[1]));
+                
+                if (empty($itemData['rim_diameter'])) $itemData['rim_diameter'] = $diameter;
+                if (empty($itemData['rim_width'])) $itemData['rim_width'] = $width;
+            }
+        }
+        
         // 1. Try to find variant by SKU within this product
         if ($sku) {
             $variant = ProductVariant::where('product_id', $product->id)
