@@ -289,29 +289,39 @@ class OrderProductSyncService
         return $variant;
     }
     /**
-     * Handle product image - convert to CloudFront URL
+     * Handle product image download and storage
      */
     protected function handleProductImage($imageUrl)
     {
         if (empty($imageUrl)) return null;
         
-        // Extract filename
-        $filename = basename(parse_url($imageUrl, PHP_URL_PATH));
-        
-        // If filename is empty, return original
-        if (empty($filename)) return $imageUrl;
-        
-        // Get CloudFront Base URL from env
-        $baseUrl = env('S3IMAGES_URL');
-        
-        if (empty($baseUrl)) {
-            return $imageUrl; // Fallback if env not set
+        try {
+            // Check if it's a valid URL
+            if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                return $imageUrl; // Already a path?
+            }
+            
+            // Get filename
+            $filename = basename(parse_url($imageUrl, PHP_URL_PATH));
+            if (empty($filename)) {
+                $filename = 'product_' . uniqid() . '.jpg';
+            }
+            
+            // Download content
+            $content = @file_get_contents($imageUrl);
+            if ($content === false) {
+                Log::warning("OrderProductSync: Failed to download image: {$imageUrl}");
+                return $imageUrl; // Fallback to URL
+            }
+            
+            // Save to public/products
+            $path = 'products/' . $filename;
+            Storage::disk('public')->put($path, $content);
+            
+            return $path;
+        } catch (\Exception $e) {
+            Log::error("OrderProductSync: Image download error: " . $e->getMessage());
+            return $imageUrl;
         }
-        
-        // Ensure trailing slash
-        $baseUrl = rtrim($baseUrl, '/') . '/';
-        
-        // Return CloudFront URL (assuming products/ folder)
-        return $baseUrl . 'products/' . $filename;
     }
 }
