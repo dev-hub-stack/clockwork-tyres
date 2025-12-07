@@ -45,16 +45,45 @@ class OrderProductSyncService
     protected function findOrCreateProduct(array $itemData): Product
     {
         $sku = $itemData['sku'] ?? null;
+        $externalId = $itemData['external_product_id'] ?? null;
+        $source = $itemData['external_source'] ?? 'tunerstop';
         
-        // Try to find product by SKU first
+        // 1. Try to find product by SKU first
         if ($sku) {
             $product = Product::where('sku', $sku)->first();
             
             if ($product) {
-                Log::info('OrderProductSync: Product found by SKU', [
                     'product_id' => $product->id,
                     'sku' => $sku
                 ]);
+                
+                // Update existing product with new data
+                $product->update([
+                    'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : $product->images,
+                    'construction' => $itemData['construction'] ?? $product->construction,
+                ]);
+                
+                return $product;
+            }
+        }
+        
+        // 2. Try to find by External ID
+        if ($externalId) {
+            $product = Product::where('external_product_id', $externalId)
+                ->where('external_source', $source)
+                ->first();
+                
+            if ($product) {
+                    'product_id' => $product->id,
+                    'external_id' => $externalId
+                ]);
+                
+                // Update existing product with new data
+                $product->update([
+                    'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : $product->images,
+                    'construction' => $itemData['construction'] ?? $product->construction,
+                ]);
+                
                 return $product;
             }
         }
@@ -86,6 +115,20 @@ class OrderProductSyncService
             }
         }
         
+        // Generate SKU if missing
+        if (empty($sku)) {
+            if ($externalId) {
+                $sku = "TS-{$externalId}";
+                // Ensure uniqueness
+                if (Product::where('sku', $sku)->exists()) {
+                    $sku = "TS-{$externalId}-" . uniqid();
+                }
+            } else {
+                $sku = "TS-GEN-" . uniqid();
+            }
+            Log::info("OrderProductSync: Generated SKU for missing SKU", ['sku' => $sku]);
+        }
+
         // Create the product
         $productData = [
             'name' => $itemData['product_name'] ?? 'Unknown Product',
@@ -94,6 +137,11 @@ class OrderProductSyncService
             'model_id' => $model?->id,
             'price' => $itemData['unit_price'] ?? 0, // Required field
             'status' => true, // Active
+            'external_product_id' => $externalId,
+            'external_product_id' => $externalId,
+            'external_source' => $source,
+            'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : null,
+            'construction' => $itemData['construction'] ?? null,
         ];
         
         $product = Product::create($productData);
@@ -119,18 +167,47 @@ class OrderProductSyncService
     protected function findOrCreateVariant(array $itemData, Product $product): ?ProductVariant
     {
         $sku = $itemData['sku'] ?? null;
+        $externalVariantId = $itemData['external_variant_id'] ?? null;
+        $source = $itemData['external_source'] ?? 'tunerstop';
         
-        // Try to find variant by SKU within this product
+        // 1. Try to find variant by SKU within this product
         if ($sku) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('sku', $sku)
                 ->first();
             
             if ($variant) {
-                Log::info('OrderProductSync: Variant found by SKU', [
-                    'variant_id' => $variant->id,
                     'product_id' => $product->id,
                     'sku' => $sku
+                ]);
+                
+                // Update existing variant
+                $variant->update([
+                    'weight' => $itemData['weight'] ?? $variant->weight,
+                    'lipsize' => $itemData['lipsize'] ?? $variant->lipsize,
+                    'rim_width' => $itemData['rim_width'] ?? $variant->rim_width,
+                    'rim_diameter' => $itemData['rim_diameter'] ?? $variant->rim_diameter,
+                    'finish' => $itemData['finish'] ?? $variant->finish,
+                ]);
+                
+                return $variant;
+            }
+        }
+        
+        // 2. Try by External Variant ID
+        if ($externalVariantId) {
+            $variant = ProductVariant::where('external_variant_id', $externalVariantId)
+                ->where('external_source', $source)
+                ->first();
+                
+            if ($variant) {
+                // Update existing variant
+                $variant->update([
+                    'weight' => $itemData['weight'] ?? $variant->weight,
+                    'lipsize' => $itemData['lipsize'] ?? $variant->lipsize,
+                    'rim_width' => $itemData['rim_width'] ?? $variant->rim_width,
+                    'rim_diameter' => $itemData['rim_diameter'] ?? $variant->rim_diameter,
+                    'finish' => $itemData['finish'] ?? $variant->finish,
                 ]);
                 return $variant;
             }
@@ -147,6 +224,18 @@ class OrderProductSyncService
             return null;
         }
         
+        // Generate SKU if missing
+        if (empty($sku)) {
+            if ($externalVariantId) {
+                $sku = "TS-VAR-{$externalVariantId}";
+                if (ProductVariant::where('sku', $sku)->exists()) {
+                    $sku = "TS-VAR-{$externalVariantId}-" . uniqid();
+                }
+            } else {
+                $sku = "TS-VAR-GEN-" . uniqid();
+            }
+        }
+
         // Create variant
         $variantData = [
             'product_id' => $product->id,
@@ -154,6 +243,14 @@ class OrderProductSyncService
             'sku' => $sku,
             'size' => $itemData['size'] ?? null,
             'price' => $itemData['unit_price'] ?? $product->retail_price,
+            'external_variant_id' => $externalVariantId,
+            'external_variant_id' => $externalVariantId,
+            'external_source' => $source,
+            'weight' => $itemData['weight'] ?? null,
+            'lipsize' => $itemData['lipsize'] ?? null,
+            'rim_width' => $itemData['rim_width'] ?? null,
+            'rim_diameter' => $itemData['rim_diameter'] ?? null,
+            'finish' => $itemData['finish'] ?? null,
         ];
         
         $variant = ProductVariant::create($variantData);
