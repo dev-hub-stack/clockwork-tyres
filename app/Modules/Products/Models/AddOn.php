@@ -103,4 +103,28 @@ class AddOn extends Model
             $this->attributes['stock_status'] = $value;
         }
     }
+    /**
+     * Calculate price for a specific customer
+     * 
+     * @param int|object|null $customer
+     * @return float
+     */
+    public function getPriceForCustomer($customer): float
+    {
+        // TODO: Implement dealer pricing logic for addons
+        // For now, return standard price
+        return (float) $this->price;
+    }
+
+    /**
+     * Calculate discount for a specific customer
+     * 
+     * @param int|object|null $customer
+     * @return float
+     */
+    public function getDiscountForCustomer($customer): float
+    {
+        // TODO: Implement dealer discount logic for addons
+        return 0.0;
+    }
 }

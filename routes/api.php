@@ -13,3 +13,13 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/webhooks/products/sync', [ProductSyncController::class, 'sync']);
 Route::post('/webhooks/addon-categories/sync', [AddonCategorySyncController::class, 'sync']);
 Route::post('/webhooks/addons/sync', [AddonSyncController::class, 'sync']);
+
+// Order Sync Routes
+use App\Http\Controllers\Api\OrderSyncController;
+Route::post('/order-sync/comprehensive-sync', [OrderSyncController::class, 'sync']);
+Route::get('/order-sync/verify', [OrderSyncController::class, 'verify']);
+Route::get('/order-sync/test-connection', [OrderSyncController::class, 'testConnection']);
+
+// Debug Routes
+use App\Http\Controllers\Api\DebugController;
+Route::post('/debug/echo', [DebugController::class, 'echoPayload']);

@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Modules\AddOns\Models\Addon;
-use App\Modules\AddOns\Models\AddonCategory;
+use App\Modules\Products\Models\AddOn;
+use App\Modules\Products\Models\AddOnCategory;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -28,7 +28,7 @@ class AddonSnapshotService
      * @param int $quantity
      * @return array Snapshot data
      */
-    public static function createSnapshot(Addon $addon, ?int $customerId = null, int $quantity = 1): array
+    public static function createSnapshot(AddOn $addon, ?int $customerId = null, int $quantity = 1): array
     {
         try {
             // Get customer-specific price if customer ID provided
@@ -121,7 +121,7 @@ class AddonSnapshotService
         $snapshots = [];
 
         foreach ($addonData as $item) {
-            $addon = Addon::find($item['addon_id']);
+            $addon = AddOn::find($item['addon_id']);
             
             if (!$addon) {
                 Log::warning('AddonSnapshotService: Addon not found', [
@@ -228,10 +228,10 @@ class AddonSnapshotService
      * Useful for showing customers what changed since order was placed
      * 
      * @param array $snapshot
-     * @param Addon $currentAddon
+     * @param AddOn $currentAddon
      * @return array Changes detected
      */
-    public static function compareWithCurrent(array $snapshot, Addon $currentAddon): array
+    public static function compareWithCurrent(array $snapshot, AddOn $currentAddon): array
     {
         $changes = [];
 
