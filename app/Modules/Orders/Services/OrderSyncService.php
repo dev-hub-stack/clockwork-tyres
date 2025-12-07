@@ -76,7 +76,7 @@ class OrderSyncService
                 
                 
                 // Payment information
-                'payment_status' => $orderData['payment_status'] ?? 'pending',
+                'payment_status' => strtolower($orderData['payment_status'] ?? 'pending'),
                 'payment_method' => $orderData['payment_method'] ?? null,
                 'paid_amount' => $orderData['paid_amount'] ?? 0,
                 'outstanding_amount' => $orderData['outstanding_amount'] ?? 0,
@@ -92,11 +92,17 @@ class OrderSyncService
                 'vehicle_sub_model' => $orderData['vehicle_sub_model'] ?? $orderData['vehicle']['sub_model'] ?? null,
                 
                 // Notes
-                'order_notes' => $orderData['order_notes'] ?? "Synced from {$source} - Order ID: {$orderData['order_id']}",
+                'order_notes' => $orderData['customer_notes'] ?? $orderData['order_notes'] ?? null, // Fallback to null if empty
+                'internal_notes' => $orderData['internal_notes'] ?? null,
                 
                 // Items
                 'items' => $this->prepareOrderItems($orderData['items'] ?? []),
             ];
+            
+            // Force paid status if amount covers total (robustness check)
+            if (($preparedData['paid_amount'] ?? 0) >= ($preparedData['total'] ?? 0) && ($preparedData['total'] ?? 0) > 0) {
+                 $preparedData['payment_status'] = 'paid';
+            }
             
             // Create order using OrderService
             $order = $this->orderService->createOrder($preparedData);
@@ -129,6 +135,14 @@ class OrderSyncService
      */
     protected function findOrCreateCustomer(array $customerData, string $source, array $addresses = []): Customer
     {
+        // Log customer data for debugging
+        Log::info('OrderSyncService: Finding/Creating customer', [
+            'first_name' => $customerData['first_name'] ?? null,
+            'last_name' => $customerData['last_name'] ?? null,
+            'email' => $customerData['email'] ?? null,
+            'source' => $source
+        ]);
+
         // Try to find by email first
         if (isset($customerData['email'])) {
             $customer = Customer::where('email', $customerData['email'])->first();
@@ -139,6 +153,11 @@ class OrderSyncService
                     'last_name' => $customerData['last_name'] ?? $customer->last_name,
                     'phone' => $customerData['phone'] ?? $customer->phone,
                 ]);
+                
+                // Force update name if it's empty or "Unknown Customer"
+                if ($customer->name === 'Unknown Customer' && !empty($customerData['first_name'])) {
+                     Log::info('OrderSyncService: Customer updated', ['name' => $customer->name]);
+                }
                 
                 // Sync addresses for existing customer too
                 if (!empty($addresses)) {
@@ -171,19 +190,22 @@ class OrderSyncService
         
         // Create new customer
         $customer = Customer::create([
-            'name' => $customerData['name'] ?? $customerData['first_name'] . ' ' . $customerData['last_name'],
+            'customer_type' => 'retail', // Default to retail
+            'first_name' => $customerData['first_name'] ?? null,
+            'last_name' => $customerData['last_name'] ?? null,
             'email' => $customerData['email'] ?? null,
             'phone' => $customerData['phone'] ?? null,
-            'company' => $customerData['company'] ?? null,
-            'customer_type' => $source === 'wholesale' ? 'dealer' : 'retail',
-            'retail_customer_id' => $source === 'retail' ? ($customerData['customer_id'] ?? null) : null,
-            'wholesale_customer_id' => $source === 'wholesale' ? ($customerData['customer_id'] ?? null) : null,
+            'external_source' => $source,
+            'external_customer_id' => $customerData['id'] ?? null,
+            'status' => 'active'
         ]);
         
-        Log::info("Created new customer from external order", [
-            'customer_id' => $customer->id,
-            'source' => $source,
+        Log::info('OrderSyncService: Created customer', [
+            'id' => $customer->id, 
+            'first_name' => $customer->first_name,
+            'last_name' => $customer->last_name
         ]);
+
         
         // Sync customer addresses if provided
         if (!empty($addresses)) {
@@ -458,7 +480,10 @@ class OrderSyncService
             // Other fields
             'paid_amount' => $orderData['paid_amount'] ?? $order->paid_amount,
             'outstanding_amount' => $orderData['outstanding_amount'] ?? $order->outstanding_amount,
-            'order_notes' => $orderData['order_notes'] ?? $order->order_notes,
+            
+            // Notes
+            'order_notes' => $orderData['customer_notes'] ?? $orderData['order_notes'] ?? $order->order_notes,
+            'internal_notes' => $orderData['internal_notes'] ?? $order->internal_notes,
             
             // Vehicle info
             'vehicle_year' => $orderData['vehicle_year'] ?? $order->vehicle_year,
