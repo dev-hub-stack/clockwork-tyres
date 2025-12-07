@@ -53,6 +53,7 @@ class OrderProductSyncService
             $product = Product::where('sku', $sku)->first();
             
             if ($product) {
+                Log::info('OrderProductSync: Product found by SKU', [
                     'product_id' => $product->id,
                     'sku' => $sku
                 ]);
@@ -74,6 +75,7 @@ class OrderProductSyncService
                 ->first();
                 
             if ($product) {
+                Log::info('OrderProductSync: Product found by External ID', [
                     'product_id' => $product->id,
                     'external_id' => $externalId
                 ]);
@@ -177,6 +179,8 @@ class OrderProductSyncService
                 ->first();
             
             if ($variant) {
+                Log::info('OrderProductSync: Variant found by SKU', [
+                    'variant_id' => $variant->id,
                     'product_id' => $product->id,
                     'sku' => $sku
                 ]);
