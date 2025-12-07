@@ -21,11 +21,13 @@ class Product extends Model
         'images',
         'construction',
         'status',
+        'external_product_id',
+        'external_source',
     ];
 
-    protected $casts = [
         'price' => 'decimal:2',
         'status' => 'boolean',
+        'images' => 'collection',
     ];
 
     /**

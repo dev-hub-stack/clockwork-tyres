@@ -62,9 +62,9 @@ class VariantSnapshotService
             })->toArray() ?? [],
             
             // Primary image for quick access
-            'primary_image' => $variant->images?->where('is_primary', true)->first()?->url 
-                            ?? $variant->images?->first()?->url
-                            ?? $variant->product?->images?->first()?->url,
+            'primary_image' => $this->getImageUrl($variant->images?->where('is_primary', true)->first()) 
+                            ?? $this->getImageUrl($variant->images?->first())
+                            ?? $this->getImageUrl($variant->product?->images?->first()),
             
             // Product reference (parent product snapshot data)
             'product_id' => $variant->product_id,
@@ -207,5 +207,19 @@ class VariantSnapshotService
         }
         
         return $changes;
+    }
+    /**
+     * Helper to safely get image URL from various formats
+     * 
+     * @param mixed $image
+     * @return string|null
+     */
+    protected function getImageUrl($image): ?string
+    {
+        if (!$image) return null;
+        if (is_string($image)) return $image;
+        if (is_array($image)) return $image['url'] ?? null;
+        if (is_object($image)) return $image->url ?? null;
+        return null;
     }
 }
