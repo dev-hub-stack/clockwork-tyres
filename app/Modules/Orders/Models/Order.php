@@ -33,6 +33,7 @@ class Order extends Model
         'order_status',
         'payment_status',
         'payment_method',
+        'payment_gateway',
         
         // Relationships
         'customer_id',

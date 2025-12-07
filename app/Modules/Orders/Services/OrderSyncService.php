@@ -453,21 +453,18 @@ class OrderSyncService
             // Payment information  
             'payment_status' => $orderData['payment_status'] ?? $order->payment_status,
             'payment_method' => $orderData['payment_method'] ?? $order->payment_method,
+            'payment_gateway' => $orderData['payment_gateway'] ?? $order->payment_gateway,
+            
+            // Other fields
             'paid_amount' => $orderData['paid_amount'] ?? $order->paid_amount,
             'outstanding_amount' => $orderData['outstanding_amount'] ?? $order->outstanding_amount,
-            
-            // Order metadata
-            'order_status' => $orderData['order_status'] ?? $order->order_status,
-            'order_number' => $orderData['order_number'] ?? $order->order_number,
+            'order_notes' => $orderData['order_notes'] ?? $order->order_notes,
             
             // Vehicle info
             'vehicle_year' => $orderData['vehicle_year'] ?? $order->vehicle_year,
             'vehicle_make' => $orderData['vehicle_make'] ?? $order->vehicle_make,
             'vehicle_model' => $orderData['vehicle_model'] ?? $order->vehicle_model,
             'vehicle_sub_model' => $orderData['vehicle_sub_model'] ?? $order->vehicle_sub_model,
-            
-            // Notes
-            'order_notes' => $orderData['order_notes'] ?? $order->order_notes,
         ];
 
         Log::info("Order update payload", $updateData);
