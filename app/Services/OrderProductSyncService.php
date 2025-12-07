@@ -311,7 +311,8 @@ class OrderProductSyncService
             $content = @file_get_contents($imageUrl);
             if ($content === false) {
                 Log::warning("OrderProductSync: Failed to download image: {$imageUrl}");
-                return $imageUrl; // Fallback to URL
+                // Return relative path even if download fails (assuming it exists on S3)
+                return 'products/' . $filename;
             }
             
             // Save to public/products
@@ -321,7 +322,9 @@ class OrderProductSyncService
             return $path;
         } catch (\Exception $e) {
             Log::error("OrderProductSync: Image download error: " . $e->getMessage());
-            return $imageUrl;
+            // Return relative path on error too
+            $filename = basename(parse_url($imageUrl, PHP_URL_PATH));
+            return 'products/' . ($filename ?: 'unknown.jpg');
         }
     }
 }
