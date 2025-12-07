@@ -81,7 +81,7 @@ class ProductsGrid extends Page
                     'max_wheel_load' => $variant->max_wheel_load ?? '',
                     'weight' => $variant->weight ?? '',
                     'lipsize' => $variant->lipsize ?? '',
-                    'us_retail_price' => $variant->us_retail_price ?? 0,
+                    // 'us_retail_price' => $variant->us_retail_price ?? 0, // Hidden
                     'uae_retail_price' => $variant->uae_retail_price ?? 0,
                     'sale_price' => $variant->sale_price ?? 0,
                     'images' => is_string($product->images) 

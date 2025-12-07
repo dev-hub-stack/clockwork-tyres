@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Order Product Sync Service
@@ -192,6 +194,8 @@ class OrderProductSyncService
                     'rim_width' => $itemData['rim_width'] ?? $variant->rim_width,
                     'rim_diameter' => $itemData['rim_diameter'] ?? $variant->rim_diameter,
                     'finish' => $itemData['finish'] ?? $variant->finish,
+                    'uae_retail_price' => $itemData['unit_price'] ?? $variant->uae_retail_price,
+                    'us_retail_price' => 0,
                 ]);
                 
                 return $variant;
@@ -212,6 +216,8 @@ class OrderProductSyncService
                     'rim_width' => $itemData['rim_width'] ?? $variant->rim_width,
                     'rim_diameter' => $itemData['rim_diameter'] ?? $variant->rim_diameter,
                     'finish' => $itemData['finish'] ?? $variant->finish,
+                    'uae_retail_price' => $itemData['unit_price'] ?? $variant->uae_retail_price,
+                    'us_retail_price' => 0,
                 ]);
                 return $variant;
             }
@@ -255,6 +261,8 @@ class OrderProductSyncService
             'rim_width' => $itemData['rim_width'] ?? null,
             'rim_diameter' => $itemData['rim_diameter'] ?? null,
             'finish' => $itemData['finish'] ?? null,
+            'uae_retail_price' => $itemData['unit_price'] ?? 0,
+            'us_retail_price' => 0,
         ];
         
         $variant = ProductVariant::create($variantData);
@@ -266,5 +274,31 @@ class OrderProductSyncService
         ]);
         
         return $variant;
+    }
+    /**
+     * Handle product image - convert to CloudFront URL
+     */
+    protected function handleProductImage($imageUrl)
+    {
+        if (empty($imageUrl)) return null;
+        
+        // Extract filename
+        $filename = basename(parse_url($imageUrl, PHP_URL_PATH));
+        
+        // If filename is empty, return original
+        if (empty($filename)) return $imageUrl;
+        
+        // Get CloudFront Base URL from env
+        $baseUrl = env('S3IMAGES_URL');
+        
+        if (empty($baseUrl)) {
+            return $imageUrl; // Fallback if env not set
+        }
+        
+        // Ensure trailing slash
+        $baseUrl = rtrim($baseUrl, '/') . '/';
+        
+        // Return CloudFront URL (assuming products/ folder)
+        return $baseUrl . 'products/' . $filename;
     }
 }

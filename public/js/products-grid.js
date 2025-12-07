@@ -261,14 +261,7 @@ $(document).ready(function () {
             dataIndx: "lipsize",
             filter: { crules: [{ condition: 'equal' }] }
         },
-        {
-            title: "US Retail Price", 
-            width: 120, 
-            dataType: "float", 
-            align: "center", 
-            dataIndx: "us_retail_price",
-            filter: { crules: [{ condition: 'equal' }] }
-        },
+
         {
             title: "UAE Retail Price", 
             width: 130, 
