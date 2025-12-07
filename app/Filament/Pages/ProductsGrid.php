@@ -86,7 +86,7 @@ class ProductsGrid extends Page
                     'sale_price' => $variant->sale_price ?? 0,
                     'images' => is_string($product->images) 
                         ? implode(', ', json_decode($product->images, true) ?: []) 
-                        : implode(', ', $product->images ?? []),  // Display image paths
+                        : implode(', ', $product->images?->toArray() ?? []),  // Display image paths
                     'inventory' => []
                 ];
 
