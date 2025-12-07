@@ -25,6 +25,7 @@ class Product extends Model
         'external_source',
     ];
 
+    protected $casts = [
         'price' => 'decimal:2',
         'status' => 'boolean',
         'images' => 'collection',
