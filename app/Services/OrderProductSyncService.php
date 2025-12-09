@@ -62,7 +62,7 @@ class OrderProductSyncService
                 
                 // Update existing product with new data
                 $product->update([
-                    'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : $product->images,
+                    'images' => isset($itemData['product_image']) ? json_encode([$this->handleProductImage($itemData['product_image'])]) : $product->images,
                     'construction' => $itemData['construction'] ?? $product->construction,
                 ]);
                 
@@ -84,7 +84,7 @@ class OrderProductSyncService
                 
                 // Update existing product with new data
                 $product->update([
-                    'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : $product->images,
+                    'images' => isset($itemData['product_image']) ? json_encode([$this->handleProductImage($itemData['product_image'])]) : $product->images,
                     'construction' => $itemData['construction'] ?? $product->construction,
                 ]);
                 
@@ -144,7 +144,7 @@ class OrderProductSyncService
             'external_product_id' => $externalId,
             'external_product_id' => $externalId,
             'external_source' => $source,
-            'images' => isset($itemData['product_image']) ? json_encode([$itemData['product_image']]) : null,
+            'images' => isset($itemData['product_image']) ? json_encode([$this->handleProductImage($itemData['product_image'])]) : null,
             'construction' => $itemData['construction'] ?? null,
         ];
         
