@@ -214,6 +214,7 @@ class AddonResource extends Resource
 
                 TextColumn::make('full_details')
                     ->label('Product Details')
+                    ->state(fn (Addon $record) => $record->title) // Ensure state exists
                     ->searchable(['title', 'part_number', 'description'])
                     ->html()
                     ->formatStateUsing(function (Addon $record) {
