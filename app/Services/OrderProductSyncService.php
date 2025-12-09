@@ -295,10 +295,18 @@ class OrderProductSyncService
     {
         if (empty($imageUrl)) return null;
         
+        Log::info("OrderProductSync: Handling image", ['url' => $imageUrl]);
+
         try {
             // Check if it's a valid URL (or starts with http/https)
             // filter_var can fail on URLs with spaces, so we also check prefix
-            if (!filter_var($imageUrl, FILTER_VALIDATE_URL) && !Str::startsWith($imageUrl, ['http://', 'https://'])) {
+            $isUrl = filter_var($imageUrl, FILTER_VALIDATE_URL);
+            $startsWithHttp = Str::startsWith($imageUrl, ['http://', 'https://']);
+            
+            Log::info("OrderProductSync: URL Check", ['is_url' => $isUrl, 'starts_with_http' => $startsWithHttp]);
+
+            if (!$isUrl && !$startsWithHttp) {
+                Log::info("OrderProductSync: Not a URL, returning as is");
                 return $imageUrl; // Already a path?
             }
             
@@ -308,8 +316,19 @@ class OrderProductSyncService
                 $filename = 'product_' . uniqid() . '.jpg';
             }
             
+            Log::info("OrderProductSync: Filename extracted", ['filename' => $filename]);
+
             // Download content
-            $content = @file_get_contents($imageUrl);
+            // Handle spaces in URL by encoding them if needed, or just try raw
+            // file_get_contents usually needs spaces to be %20
+            $encodedUrl = str_replace(' ', '%20', $imageUrl);
+            
+            $content = @file_get_contents($encodedUrl);
+            if ($content === false) {
+                // Try raw URL if encoded failed
+                $content = @file_get_contents($imageUrl);
+            }
+            
             if ($content === false) {
                 Log::warning("OrderProductSync: Failed to download image: {$imageUrl}");
                 // Return relative path even if download fails (assuming it exists on S3)
@@ -320,6 +339,7 @@ class OrderProductSyncService
             $path = 'products/' . $filename;
             Storage::disk('public')->put($path, $content);
             
+            Log::info("OrderProductSync: Image saved", ['path' => $path]);
             return $path;
         } catch (\Exception $e) {
             Log::error("OrderProductSync: Image download error: " . $e->getMessage());

@@ -199,6 +199,10 @@
                                                                 <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">VAT:</span>
                                                                 <span>{{ $currency }} <span x-text="parseFloat(order.vat || 0).toFixed(2)"></span></span>
                                                             </div>
+                                                            <div style="margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                                                <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">Shipping:</span>
+                                                                <span>{{ $currency }} <span x-text="parseFloat(order.shipping || 0).toFixed(2)"></span></span>
+                                                            </div>
                                                             <div style="margin-bottom: 0.5rem; font-size: 0.875rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
                                                                 <span style="font-weight: 500; color: #6b7280; display: inline-block; width: 100px;">Total:</span>
                                                                 <span style="font-weight: 600;">{{ $currency }} <span x-text="parseFloat(order.total).toFixed(2)"></span></span>

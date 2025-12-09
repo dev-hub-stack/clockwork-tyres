@@ -131,6 +131,7 @@ class Dashboard extends Page
                 'outstanding_amount' => (float) ($order->outstanding_amount ?? 0),
                 'sub_total' => (float) ($order->sub_total ?? 0),
                 'vat' => (float) ($order->vat ?? 0),
+                'shipping' => (float) ($order->shipping ?? 0),
                 'total' => (float) ($order->total ?? 0),
                 'items' => $orderItems,
                 'order_notes' => $order->order_notes ?? '',
