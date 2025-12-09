@@ -296,8 +296,9 @@ class OrderProductSyncService
         if (empty($imageUrl)) return null;
         
         try {
-            // Check if it's a valid URL
-            if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+            // Check if it's a valid URL (or starts with http/https)
+            // filter_var can fail on URLs with spaces, so we also check prefix
+            if (!filter_var($imageUrl, FILTER_VALIDATE_URL) && !Str::startsWith($imageUrl, ['http://', 'https://'])) {
                 return $imageUrl; // Already a path?
             }
             
