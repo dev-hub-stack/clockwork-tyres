@@ -41,6 +41,7 @@ class AddonSyncService
             $addonData = $this->prepareAddonData($data, $category);
 
             // EDGE CASE 3: Use updateOrCreate for idempotency
+            Log::info('AddonSyncService: Data to save', ['data' => $addonData]);
             $addon = AddOn::updateOrCreate(
                 [
                     'external_addon_id' => $data['external_addon_id'],

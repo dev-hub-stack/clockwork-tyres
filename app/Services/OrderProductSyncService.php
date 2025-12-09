@@ -328,6 +328,24 @@ class OrderProductSyncService
                 // Try raw URL if encoded failed
                 $content = @file_get_contents($imageUrl);
             }
+
+            // Fallback to CloudFront/S3 if localhost/primary failed
+            if ($content === false) {
+                $s3Url = env('S3IMAGES_URL');
+                if ($s3Url) {
+                    // Construct CloudFront URL: S3IMAGES_URL + products/ + filename
+                    // Ensure S3IMAGES_URL ends with /
+                    $s3Url = rtrim($s3Url, '/') . '/products/' . rawurlencode($filename); // Encode filename for URL
+                    Log::info("OrderProductSync: Trying CloudFront URL", ['url' => $s3Url]);
+                    $content = @file_get_contents($s3Url);
+                    
+                    // Try without encoding if that failed (some servers handle spaces differently)
+                    if ($content === false) {
+                         $s3UrlRaw = rtrim(env('S3IMAGES_URL'), '/') . '/products/' . $filename;
+                         $content = @file_get_contents($s3UrlRaw);
+                    }
+                }
+            }
             
             if ($content === false) {
                 Log::warning("OrderProductSync: Failed to download image: {$imageUrl}");
