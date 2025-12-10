@@ -18,6 +18,7 @@ class OrderSyncController extends Controller
      */
     public function sync(Request $request)
     {
+        set_time_limit(300);
         try {
             $orderData = $request->all();
             $source = $request->input('external_source', 'tunerstop');
