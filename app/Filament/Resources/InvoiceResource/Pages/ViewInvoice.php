@@ -12,6 +12,27 @@ class ViewInvoice extends ViewRecord
 {
     protected static string $resource = InvoiceResource::class;
 
+    /**
+     * Get the title for the view page
+     * Shows invoice number in the header for clarity
+     */
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Invoice: ' . ($this->record->order_number ?? 'N/A');
+    }
+
+    /**
+     * Get the subheading with customer info
+     */
+    public function getSubheading(): string|null
+    {
+        $customer = $this->record->customer;
+        if ($customer) {
+            return 'Customer: ' . ($customer->business_name ?? $customer->full_name ?? $customer->name);
+        }
+        return null;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

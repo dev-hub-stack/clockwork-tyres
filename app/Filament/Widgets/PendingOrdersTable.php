@@ -26,7 +26,8 @@ class PendingOrdersTable extends BaseWidget
             ->query(
                 Order::query()
                     ->with(['customer', 'orderItems.productVariant.product.brand'])
-                    ->whereIn('order_status', ['pending', 'processing'])
+                    // Include shipped orders - they should remain visible until completed
+                    ->whereIn('order_status', ['pending', 'processing', 'shipped'])
                     ->orderBy('created_at', 'desc')
             )
             ->columns([

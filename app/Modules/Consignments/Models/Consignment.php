@@ -204,6 +204,9 @@ class Consignment extends Model
      */
     public function updateItemCounts(): void
     {
+        // Reload items relationship to get fresh data from database
+        $this->load('items');
+        
         $this->items_sent_count = $this->items->sum('quantity_sent');
         $this->items_sold_count = $this->items->sum('quantity_sold');
         $this->items_returned_count = $this->items->sum('quantity_returned');

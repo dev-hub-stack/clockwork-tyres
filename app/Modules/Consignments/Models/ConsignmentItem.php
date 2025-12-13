@@ -122,11 +122,12 @@ class ConsignmentItem extends Model
     }
 
     /**
-     * Get available quantity to return
+     * Get available quantity to return (items still with customer, not yet sold or returned)
      */
     public function getAvailableToReturn(): int
     {
-        return $this->quantity_sold;
+        // Return items that are with customer: sent - sold - already returned
+        return $this->quantity_sent - $this->quantity_sold - $this->quantity_returned;
     }
 
     /**
