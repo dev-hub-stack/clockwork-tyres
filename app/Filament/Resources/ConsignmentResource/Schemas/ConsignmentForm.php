@@ -150,11 +150,7 @@ class ConsignmentForm
                                 Hidden::make('sku'),
                                 Hidden::make('product_name'),
                                 Hidden::make('brand_name'),
-                                Hidden::make('tax_inclusive')
-                                    ->default(function () {
-                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
-                                    }),
+
                                 
                                 Select::make('warehouse_id')
                                     ->label('Warehouse')
@@ -227,6 +223,19 @@ class ConsignmentForm
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::calculateTotals($get, $set);
                                     })
+                                    ->visible(fn ($get) => $get('product_variant_id') !== null)
+                                    ->columnSpan(1),
+
+                                \Filament\Forms\Components\Toggle::make('tax_inclusive')
+                                    ->label('Tax Inclusive')
+                                    ->default(function () {
+                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                        return $taxSetting ? $taxSetting->tax_inclusive_default : true;
+                                    })
+                                    ->live()
+                                    ->reactive()
+                                    ->inline(false)
+                                    ->helperText('Is the price tax-inclusive?')
                                     ->visible(fn ($get) => $get('product_variant_id') !== null)
                                     ->columnSpan(1),
                                 

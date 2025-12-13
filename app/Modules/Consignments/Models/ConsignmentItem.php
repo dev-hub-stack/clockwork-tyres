@@ -37,6 +37,7 @@ class ConsignmentItem extends Model
         
         // Pricing
         'price',
+        'tax_inclusive',
         'actual_sale_price',
         
         // Status & Dates
@@ -52,6 +53,7 @@ class ConsignmentItem extends Model
         'quantity_sold' => 'integer',
         'quantity_returned' => 'integer',
         'price' => 'decimal:2',
+        'tax_inclusive' => 'boolean',
         'actual_sale_price' => 'decimal:2',
         'date_sold' => 'datetime',
         'date_returned' => 'datetime',
