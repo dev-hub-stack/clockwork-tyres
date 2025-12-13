@@ -90,6 +90,11 @@ class AddonSyncService
      */
     protected function handleDuplicatePartNumber(array $data): void
     {
+        // Skip check if part_number is null or empty
+        if (empty($data['part_number'])) {
+            return;
+        }
+
         $existingAddon = AddOn::where('part_number', $data['part_number'])
             ->where(function ($query) use ($data) {
                 $query->whereNull('external_source')

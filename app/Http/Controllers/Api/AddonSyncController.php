@@ -34,7 +34,7 @@ class AddonSyncController extends Controller
                 'external_addon_id' => 'required|integer',
                 'external_source' => 'required|string',
                 'title' => 'required|string|max:255',
-                'part_number' => 'required|string|max:255',
+                'part_number' => 'nullable|string|max:255',
                 'category' => 'required|array',
                 'category.external_id' => 'required|integer',
                 'category.slug' => 'required|string',
