@@ -66,7 +66,7 @@ class OrderSyncService
                 'external_source' => $source,
                 'tax_inclusive' => $orderData['tax_inclusive'] ?? true,
                 'currency' => $orderData['currency'] ?? 'USD',
-                'channel_id' => $orderData['channel_id'] ?? $this->getDefaultChannelId(),  // Default to Retail channel
+                'channel' => $orderData['channel'] ?? $this->getDefaultChannel(),  // Default to Retail channel
                 
                 // Financial fields
                 'sub_total' => $orderData['sub_total'] ?? 0,
@@ -590,13 +590,11 @@ class OrderSyncService
     }
 
     /**
-     * Get default channel ID (Retail)
-     * Note: Channel model doesn't exist yet, returns null
+     * Get default channel (Retail)
      */
-    protected function getDefaultChannelId(): ?int
+    protected function getDefaultChannel(): string
     {
-        // Channel model not implemented - return null for now
-        return null;
+        return 'Retail';
     }
 
     /**

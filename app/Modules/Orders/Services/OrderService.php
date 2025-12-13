@@ -47,6 +47,7 @@ class OrderService
                 'external_source' => $data['external_source'] ?? null,
                 'tax_inclusive' => $data['tax_inclusive'] ?? true,
                 'currency' => $data['currency'] ?? 'USD',
+                'channel' => $data['channel'] ?? null, // Added channel field
                 'shipping' => $data['shipping'] ?? 0,
                 'discount' => $data['discount'] ?? 0,
                 'vehicle_year' => $data['vehicle_year'] ?? null,
