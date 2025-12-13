@@ -110,11 +110,14 @@ class OrderSyncService
             
             // FORCE UPDATE TOTALS: createOrder recalculates totals based on items, 
             // which might be 0 or different from external source. We trust external source.
+            // ALSO: Auto-approve synced orders since they're already paid/confirmed from Tunerstop
             $order->update([
                 'sub_total' => $preparedData['sub_total'],
                 'tax' => $preparedData['tax'],
                 'vat' => $preparedData['tax'], // VAT = Tax for display purposes
                 'total' => $preparedData['total'],
+                'quote_status' => QuoteStatus::APPROVED, // Auto-approve for Convert to Invoice
+                'approved_at' => now(),
             ]);
             
             Log::info("External order synced successfully", [
