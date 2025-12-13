@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Models\Order;
 use Filament\Pages\Page;
 
@@ -32,14 +33,20 @@ class Dashboard extends Page
             $this->currency = 'AED';
         }
         
-        $this->pendingOrders = Order::whereIn('order_status', ['pending', 'processing'])->count();
+        // Filter: Only INVOICES (exclude quotes)
+        $this->pendingOrders = Order::where('document_type', DocumentType::INVOICE)
+            ->whereIn('order_status', ['pending', 'processing'])
+            ->count();
         
-        $this->monthlyRevenue = Order::where('order_status', 'completed')
+        $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
+            ->where('order_status', 'completed')
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('total');
         
-        $this->todayOrders = Order::whereDate('created_at', today())->count();
+        $this->todayOrders = Order::where('document_type', DocumentType::INVOICE)
+            ->whereDate('created_at', today())
+            ->count();
         
         $this->notifications = 0;
         // Calculate low stock + warranty + overdue - simplified to avoid column issues
@@ -63,8 +70,9 @@ class Dashboard extends Page
             // Skip if table doesn't exist
         }
 
-        // Get pending orders with relationships
-        $pendingOrdersList = Order::whereIn('order_status', ['pending', 'processing'])
+        // Get pending orders with relationships - ONLY INVOICES
+        $pendingOrdersList = Order::where('document_type', DocumentType::INVOICE)
+            ->whereIn('order_status', ['pending', 'processing'])
             ->with(['customer', 'items'])
             ->orderBy('created_at', 'desc')
             ->get();
