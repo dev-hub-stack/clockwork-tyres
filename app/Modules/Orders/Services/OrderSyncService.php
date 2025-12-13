@@ -591,12 +591,12 @@ class OrderSyncService
 
     /**
      * Get default channel ID (Retail)
+     * Note: Channel model doesn't exist yet, returns null
      */
     protected function getDefaultChannelId(): ?int
     {
-        // Find "Retail" channel or return null
-        $channel = \App\Modules\Settings\Models\Channel::where('name', 'Retail')->first();
-        return $channel?->id;
+        // Channel model not implemented - return null for now
+        return null;
     }
 
     /**
@@ -605,7 +605,7 @@ class OrderSyncService
     protected function getDefaultWarehouseId(): ?int
     {
         // Find "Non-Stock" warehouse or return null
-        $warehouse = \App\Modules\Settings\Models\Warehouse::where('name', 'Non-Stock')->first();
+        $warehouse = \App\Modules\Inventory\Models\Warehouse::where('name', 'Non-Stock')->first();
         return $warehouse?->id;
     }
 }
