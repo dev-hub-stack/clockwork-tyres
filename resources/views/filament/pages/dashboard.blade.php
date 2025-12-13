@@ -154,10 +154,10 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                <template x-for="item in order.items" :key="item.sku">
+                                                                <template x-for="(item, i) in order.items" :key="item.id || i">
                                                                     <tr>
                                                                         <td style="padding: 0.5rem; border-bottom: 1px solid #e5e7eb;" x-text="item.product_name"></td>
-                                                                        <td style="padding: 0.5rem; border-bottom: 1px solid #e5e7eb;" x-text="item.brand"></td>
+                                                                        <td style="padding: 0.5rem; border-bottom: 1px solid #e5e7eb;" x-text="item.brand_name || item.brand"></td>
                                                                         <td style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e5e7eb;" x-text="item.quantity"></td>
                                                                         <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="(item.unit_price || 0).toFixed(2)"></span></td>
                                                                         <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $currency }} <span x-text="(item.line_total || 0).toFixed(2)"></span></td>
