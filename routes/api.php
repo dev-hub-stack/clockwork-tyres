@@ -22,4 +22,7 @@ Route::get('/order-sync/test-connection', [OrderSyncController::class, 'testConn
 
 // Debug Routes
 use App\Http\Controllers\Api\DebugController;
+use App\Http\Controllers\Api\DiagnosticController;
 Route::post('/debug/echo', [DebugController::class, 'echoPayload']);
+Route::get('/diagnostic/addon-sync-check', [DiagnosticController::class, 'checkAddonSync']);
+Route::post('/diagnostic/addon-sync-test', [DiagnosticController::class, 'testAddonSync']);
