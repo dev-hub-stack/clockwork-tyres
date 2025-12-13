@@ -16,6 +16,20 @@ class Consignment extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * Default attribute values
+     */
+    protected $attributes = [
+        'subtotal' => 0,
+        'tax' => 0,
+        'discount' => 0,
+        'shipping_cost' => 0,
+        'total' => 0,
+        'items_sent_count' => 0,
+        'items_sold_count' => 0,
+        'items_returned_count' => 0,
+    ];
+
     protected $fillable = [
         // Core fields
         'consignment_number',
