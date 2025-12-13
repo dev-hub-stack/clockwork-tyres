@@ -232,13 +232,13 @@ class AddonResource extends Resource
 
                 TextColumn::make('wh2_california')
                     ->label('WH-2 California')
-                    ->default(500)
+                    ->default('-')
                     ->alignCenter()
                     ->sortable(),
 
                 TextColumn::make('wh1_chicago')
                     ->label('WH-1 Chicago')
-                    ->default(0)
+                    ->default('-')
                     ->alignCenter()
                     ->sortable(),
 

@@ -23,6 +23,9 @@ class AddOn extends Model
         'image',  // Maps to image_1
         'stock_status',
         'total_quantity',
+        // Warehouse stock
+        'wh2_california',
+        'wh1_chicago',
         // Category-specific fields
         'bolt_pattern',
         'width',

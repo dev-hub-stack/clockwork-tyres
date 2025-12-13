@@ -41,6 +41,8 @@ class AddonSyncController extends Controller
                 'stock_status' => 'nullable|in:in_stock,out_of_stock,pre_order',
                 'price' => 'nullable|numeric|min:0',
                 'wholesale_price' => 'nullable|numeric|min:0',
+                'wh2_california' => 'nullable|integer|min:0',
+                'wh1_chicago' => 'nullable|integer|min:0',
             ]);
 
             if ($validator->fails()) {

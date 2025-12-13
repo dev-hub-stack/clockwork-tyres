@@ -135,6 +135,10 @@ class AddonSyncService
             'stock_status' => $this->sanitizeStockStatus($data['stock_status'] ?? null),
             
             'description' => $data['description'] ?? null,
+            
+            // Warehouse stock
+            'wh2_california' => isset($data['wh2_california']) ? (int)$data['wh2_california'] : 0,
+            'wh1_chicago' => isset($data['wh1_chicago']) ? (int)$data['wh1_chicago'] : 0,
         ];
 
         // Add category-specific fields if present
