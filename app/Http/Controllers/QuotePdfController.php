@@ -7,38 +7,81 @@ use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\TaxSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class QuotePdfController extends Controller
 {
+    /**
+     * Helper to get logo path for PDF
+     */
+    private function getPdfLogoPath($companyBranding)
+    {
+        if (!$companyBranding || !$companyBranding->logo_path) {
+            return null;
+        }
+
+        // If using local storage, get the absolute system path
+        if (Storage::disk('public')->exists($companyBranding->logo_path)) {
+            return Storage::disk('public')->path($companyBranding->logo_path);
+        }
+
+        // Fallback to URL (e.g. S3) - DomPDF needs allow_url_fopen enabled
+        return $companyBranding->logo_url;
+    }
+
     public function download(Order $quote)
     {
-        // Get settings
-        $companyBranding = CompanyBranding::getActive();
-        $taxSetting = TaxSetting::getDefault();
-        
-        // Prepare data for the view
-        $data = [
-            'record' => $quote,
-            'documentType' => 'quote',
-            'companyName' => $companyBranding->company_name ?? 'TunerStop LLC',
-            'companyAddress' => $companyBranding->company_address ?? '',
-            'companyPhone' => $companyBranding->company_phone ?? '',
-            'companyEmail' => $companyBranding->company_email ?? '',
-            'taxNumber' => $companyBranding->tax_registration_number ?? '',
-            'logo' => $companyBranding ? $companyBranding->logo_url : null,
-            'currency' => 'AED',
-            'vatRate' => $taxSetting ? $taxSetting->rate : 5,
-        ];
-        
-        // Generate PDF
-        $pdf = Pdf::loadView('templates.invoice-preview', $data)
-            ->setPaper('a4', 'portrait')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true);
-        
-        // Download with quote number as filename
-        $filename = ($quote->quote_number ?? 'quote') . '.pdf';
-        
-        return $pdf->download($filename);
+        Log::info('Quote PDF download requested', ['quote_id' => $quote->id, 'quote_number' => $quote->quote_number]);
+
+        try {
+            // Get settings
+            $companyBranding = CompanyBranding::getActive();
+            $taxSetting = TaxSetting::getDefault();
+            
+            Log::info('Settings retrieved', [
+                'branding_found' => (bool)$companyBranding, 
+                'tax_found' => (bool)$taxSetting
+            ]);
+
+            // Get logo path compatible with DomPDF
+            $logoPath = $this->getPdfLogoPath($companyBranding);
+
+            // Prepare data for the view
+            $data = [
+                'record' => $quote,
+                'documentType' => 'quote',
+                'companyName' => $companyBranding->company_name ?? 'TunerStop LLC',
+                'companyAddress' => $companyBranding->company_address ?? '',
+                'companyPhone' => $companyBranding->company_phone ?? '',
+                'companyEmail' => $companyBranding->company_email ?? '',
+                'taxNumber' => $companyBranding->tax_registration_number ?? '',
+                'logo' => $logoPath,
+                'currency' => 'AED',
+                'vatRate' => $taxSetting ? $taxSetting->rate : 5,
+                'isPdf' => true, // Add this flag to hide buttons
+            ];
+            
+            Log::info('Generating PDF view');
+
+            // Generate PDF
+            $pdf = Pdf::loadView('templates.invoice-preview', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true);
+            
+            // Download with quote number as filename
+            $filename = ($quote->quote_number ?? 'quote') . '.pdf';
+            
+            Log::info('PDF generated, initiating download', ['filename' => $filename]);
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            Log::error('Error generating Quote PDF', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 }

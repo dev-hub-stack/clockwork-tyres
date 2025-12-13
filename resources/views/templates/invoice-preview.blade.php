@@ -85,7 +85,13 @@
     @if(!isset($isPdf) || !$isPdf)
     <div class="action-buttons">
         <button onclick="window.print()">🖨️ Print</button>
-        <button onclick="downloadPdf()">📥 Download PDF</button>
+        @if($documentType === 'quote')
+            <button onclick="window.open('{{ route('quote.pdf', $record->id) }}', '_blank'); event.stopPropagation();" style="cursor: pointer;">📥 Download PDF</button>
+        @elseif($documentType === 'invoice')
+            <button onclick="window.open('{{ route('orders.invoice', $record->id) }}?pdf=1', '_blank'); event.stopPropagation();" style="cursor: pointer;">📥 Download PDF</button>
+        @else
+             <button onclick="downloadPdf()">📥 Download PDF</button>
+        @endif
     </div>
     @endif
     
@@ -99,21 +105,23 @@
                 </td>
                 <td style="width: 40%; text-align: right;">
                     @if(!empty($logo))
-                        <img src="{{ $logo }}" alt="Company Logo" class="logo">
+                        <img src="{{ $logo }}" alt="Company Logo" class="logo" style="float: right;">
                     @else
-                        <div class="logo-placeholder">LOGO</div>
+                        <div class="logo-placeholder" style="float: right;">LOGO</div>
                     @endif
+                    <div style="clear: both;"></div>
+                    
+                    <!-- Company Details (below logo) -->
+                    <div style="margin-top: 10px; text-align: right;">
+                        <p style="margin: 0; font-size: 11px;"><strong>{{ $companyName }}</strong></p>
+                        <p style="margin: 2px 0; font-size: 9px; color: #555;">{!! nl2br(e($companyAddress)) !!}</p>
+                        <p style="margin: 2px 0; font-size: 9px; color: #555;">Phone: {{ $companyPhone }} | Email: {{ $companyEmail }}</p>
+                        <p style="margin: 2px 0; font-size: 9px; color: #555;">Tax No: {{ $taxNumber }}</p>
+                    </div>
                 </td>
             </tr>
         </table>
         
-        <!-- Company Details (below header) -->
-        <div class="company-section">
-            <p style="margin: 0;"><strong>{{ $companyName }}</strong></p>
-            <p style="margin: 2px 0; font-size: 9px; color: #555;">{!! nl2br(e($companyAddress)) !!}</p>
-            <p style="margin: 2px 0; font-size: 9px; color: #555;">Phone: {{ $companyPhone }} | Email: {{ $companyEmail }} | Tax No: {{ $taxNumber }}</p>
-        </div>
-
         <!-- Customer Info and Dates -->
         <table class="layout-table info-table">
             <tr>
@@ -244,10 +252,6 @@
                                             <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
                                                 🤝 Consignment
                                             </small>
-                                        @elseif($isNonStock)
-                                            <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
-                                                ⚡ Special Order
-                                            </small>
                                         @endif
                                     </td>
                                 </tr>
@@ -341,12 +345,15 @@
     
     @if(!isset($isPdf) || !$isPdf)
     <script>
-        function downloadPdf() {
+        // Define function in global scope
+        window.downloadPdf = function() {
             // Get current URL and add pdf=1 parameter
-            var url = window.location.href;
-            var separator = url.indexOf('?') !== -1 ? '&' : '?';
-            window.location.href = url + separator + 'pdf=1';
-        }
+            var url = new URL(window.location.href);
+            url.searchParams.set('pdf', '1');
+            
+            // Open in new tab to prevent closing the modal
+            window.open(url.toString(), '_blank');
+        };
     </script>
     @endif
 </body>
