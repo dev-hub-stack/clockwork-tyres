@@ -35,7 +35,7 @@ class Dashboard extends Page
         
         // Filter: Only INVOICES (exclude quotes)
         $this->pendingOrders = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing'])
+            ->whereIn('order_status', ['pending', 'processing', 'shipped'])
             ->count();
         
         $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
@@ -72,7 +72,7 @@ class Dashboard extends Page
 
         // Get pending orders with relationships - ONLY INVOICES
         $pendingOrdersList = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing'])
+            ->whereIn('order_status', ['pending', 'processing', 'shipped'])
             ->with(['customer', 'items'])
             ->orderBy('created_at', 'desc')
             ->get();
