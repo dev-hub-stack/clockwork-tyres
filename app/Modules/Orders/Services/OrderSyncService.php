@@ -605,7 +605,8 @@ class OrderSyncService
     protected function getDefaultWarehouseId(): ?int
     {
         // Find "Non-Stock" warehouse or return null
-        $warehouse = \App\Modules\Inventory\Models\Warehouse::where('name', 'Non-Stock')->first();
+        // Warehouse table uses 'warehouse_name' column, not 'name'
+        $warehouse = \App\Modules\Inventory\Models\Warehouse::where('warehouse_name', 'Non-Stock')->first();
         return $warehouse?->id;
     }
 }
