@@ -95,40 +95,41 @@ class QuoteResource extends Resource
             ->components([
                 Section::make('Quote Information')
                     ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                Select::make('customer_id')
-                                    ->label('Customer')
-                                    ->relationship('customer', 'business_name')
-                                    ->searchable(['business_name', 'first_name', 'last_name', 'email'])
-                                    ->required()
-                                    ->preload()
-                                    ->getOptionLabelFromRecordUsing(function ($record) {
-                                        $name = $record->business_name ?? $record->name ?? 'Unknown Customer';
-                                        $type = $record->customer_type ? '(' . ucfirst($record->customer_type) . ')' : '';
-                                        return trim("$name $type");
-                                    })
-                                    ->createOptionForm([
-                                        Select::make('customer_type')
-                                            ->label('Customer Type')
-                                            ->options([
-                                                'retail' => 'Retail',
-                                                'dealer' => 'Dealer',
-                                            ])
-                                            ->default('retail')
-                                            ->required(),
-                                        TextInput::make('business_name')->required(),
-                                        TextInput::make('first_name'),
-                                        TextInput::make('last_name'),
-                                        TextInput::make('email')->email(),
-                                        TextInput::make('phone'),
+                        // Full width customer field
+                        Select::make('customer_id')
+                            ->label('Customer')
+                            ->relationship('customer', 'business_name')
+                            ->searchable(['business_name', 'first_name', 'last_name', 'email'])
+                            ->required()
+                            ->preload()
+                            ->getOptionLabelFromRecordUsing(function ($record) {
+                                $name = $record->business_name ?? $record->name ?? 'Unknown Customer';
+                                $type = $record->customer_type ? '(' . ucfirst($record->customer_type) . ')' : '';
+                                return trim("$name $type");
+                            })
+                            ->createOptionForm([
+                                Select::make('customer_type')
+                                    ->label('Customer Type')
+                                    ->options([
+                                        'retail' => 'Retail',
+                                        'dealer' => 'Dealer',
                                     ])
-                                    ->createOptionUsing(function (array $data) {
-                                        return Customer::create($data)->id;
-                                    })
-                                    ->live()
-                                    ->columnSpan(1),
-                                
+                                    ->default('retail')
+                                    ->required(),
+                                TextInput::make('business_name')->required(),
+                                TextInput::make('first_name'),
+                                TextInput::make('last_name'),
+                                TextInput::make('email')->email(),
+                                TextInput::make('phone'),
+                            ])
+                            ->createOptionUsing(function (array $data) {
+                                return Customer::create($data)->id;
+                            })
+                            ->live()
+                            ->columnSpanFull(),
+                        
+                        Grid::make(2)
+                            ->schema([
                                 Select::make('representative_id')
                                     ->label('Sales Representative')
                                     ->relationship('representative', 'name')
@@ -394,12 +395,14 @@ class QuoteResource extends Resource
                                         return Number::currency($total, $currencyCode);
                                     }),
                             ])
-                            ->columns(1)
+                            ->columns(2)
                             ->defaultItems(1)
                             ->addActionLabel('Add Line Item')
                             ->reorderable()
-                            ->collapsible(),
-                    ]),
+                            ->collapsible()
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull(),
 
                 Section::make('Totals & Notes')
                     ->schema([

@@ -60,12 +60,13 @@ class OrderSyncService
             // Prepare order data
             $preparedData = [
                 'document_type' => DocumentType::QUOTE,
-                'quote_status' => QuoteStatus::DRAFT,
+                'quote_status' => QuoteStatus::SENT,  // Changed from DRAFT to SENT so approve/reject buttons show
                 'customer_id' => $customer->id,
                 'external_order_id' => $orderData['order_id'],
                 'external_source' => $source,
                 'tax_inclusive' => $orderData['tax_inclusive'] ?? true,
                 'currency' => $orderData['currency'] ?? 'USD',
+                'channel_id' => $orderData['channel_id'] ?? $this->getDefaultChannelId(),  // Default to Retail channel
                 
                 // Financial fields
                 'sub_total' => $orderData['sub_total'] ?? 0,
@@ -289,7 +290,7 @@ class OrderSyncService
                 'unit_price' => $externalItem['unit_price'] ?? $externalItem['price'] ?? 0,
                 'discount' => $externalItem['discount'] ?? 0,
                 'tax_inclusive' => $externalItem['tax_inclusive'] ?? true,
-                
+                'warehouse_id' => $externalItem['warehouse_id'] ?? $this->getDefaultWarehouseId(),  // Default to Non-Stock
                 
                 // Denormalized fields from external data
                 'sku' => $externalItem['sku'] ?? null,
@@ -583,5 +584,25 @@ class OrderSyncService
             'synced' => $synced,
             'failed' => $failed,
         ];
+    }
+
+    /**
+     * Get default channel ID (Retail)
+     */
+    protected function getDefaultChannelId(): ?int
+    {
+        // Find "Retail" channel or return null
+        $channel = \App\Modules\Settings\Models\Channel::where('name', 'Retail')->first();
+        return $channel?->id;
+    }
+
+    /**
+     * Get default warehouse ID (Non-Stock)
+     */
+    protected function getDefaultWarehouseId(): ?int
+    {
+        // Find "Non-Stock" warehouse or return null
+        $warehouse = \App\Modules\Settings\Models\Warehouse::where('name', 'Non-Stock')->first();
+        return $warehouse?->id;
     }
 }

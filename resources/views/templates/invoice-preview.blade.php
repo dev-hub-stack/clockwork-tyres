@@ -24,15 +24,17 @@
         table.layout-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; border: none; }
         table.layout-table td { border: none; vertical-align: top; padding: 0; }
         
-        .header-table { margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
-        .header-table td { vertical-align: middle; }
+        .header-table { margin-bottom: 15px; }
+        .header-table td { vertical-align: top; }
         
         .logo { max-width: 200px; max-height: 70px; }
         
         h1 { font-size: 24px; font-weight: bold; margin: 0; color: #333; }
         
+        .company-section { border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
+        
         .info-table { margin-bottom: 20px; }
-        .info-table td { padding-right: 10px; width: 33.33%; }
+        .info-table td { padding-right: 10px; width: 50%; }
         .info-box h4 { font-weight: bold; margin-bottom: 5px; font-size: 11px; color: #333; }
         .info-box p { margin: 0; font-size: 10px; line-height: 1.3; color: #555; }
         
@@ -68,18 +70,34 @@
         .product-img-container { width: 40px; height: 40px; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; }
         .product-img { width: 100%; height: 100%; object-fit: cover; }
         .no-image { width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999; text-align: center; }
+        
+        /* Print/Download buttons - hide on print */
+        .action-buttons { position: fixed; top: 10px; right: 10px; z-index: 1000; }
+        .action-buttons button { padding: 8px 16px; margin-left: 5px; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 12px; }
+        .action-buttons button:hover { background: #f0f0f0; }
+        @media print {
+            .action-buttons { display: none !important; }
+        }
     </style>
 </head>
 <body>
+    <!-- Action Buttons -->
+    @if(!isset($isPdf) || !$isPdf)
+    <div class="action-buttons">
+        <button onclick="window.print()">🖨️ Print</button>
+        <button onclick="downloadPdf()">📥 Download PDF</button>
+    </div>
+    @endif
+    
     <div class="container">
-        <!-- Header -->
+        <!-- Header with Logo on Right -->
         <table class="layout-table header-table">
             <tr>
-                <td style="width: 50%;">
+                <td style="width: 60%;">
                     <h1>{{ $documentType === 'quote' ? 'QUOTE' : ($documentType === 'delivery_note' ? 'DELIVERY NOTE' : 'INVOICE') }}</h1>
-                    <p style="margin-top: 5px; color: #666;">{{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</p>
+                    <p style="margin-top: 5px; font-size: 14px; font-weight: 600; color: #333;">{{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</p>
                 </td>
-                <td style="width: 50%; text-align: right;">
+                <td style="width: 40%; text-align: right;">
                     @if(!empty($logo))
                         <img src="{{ $logo }}" alt="Company Logo" class="logo">
                     @else
@@ -88,26 +106,21 @@
                 </td>
             </tr>
         </table>
+        
+        <!-- Company Details (below header) -->
+        <div class="company-section">
+            <p style="margin: 0;"><strong>{{ $companyName }}</strong></p>
+            <p style="margin: 2px 0; font-size: 9px; color: #555;">{!! nl2br(e($companyAddress)) !!}</p>
+            <p style="margin: 2px 0; font-size: 9px; color: #555;">Phone: {{ $companyPhone }} | Email: {{ $companyEmail }} | Tax No: {{ $taxNumber }}</p>
+        </div>
 
-        <!-- Company and Customer Info -->
+        <!-- Customer Info and Dates -->
         <table class="layout-table info-table">
             <tr>
-                <!-- From -->
+                <!-- Customer -->
                 <td>
                     <div class="info-box">
-                        <h4>From:</h4>
-                        <p><strong>{{ $companyName }}</strong></p>
-                        <p>{!! nl2br(e($companyAddress)) !!}</p>
-                        <p>Phone: {{ $companyPhone }}</p>
-                        <p>Email: {{ $companyEmail }}</p>
-                        <p>Tax No: {{ $taxNumber }}</p>
-                    </div>
-                </td>
-                
-                <!-- To -->
-                <td>
-                    <div class="info-box">
-                        <h4>To:</h4>
+                        <h4>Customer:</h4>
                         <p><strong>{{ $record->customer->name ?? 'N/A' }}</strong></p>
                         <p>Phone: {{ $record->customer->phone ?? 'N/A' }}</p>
                         <p>Email: {{ $record->customer->email ?? 'N/A' }}</p>
@@ -178,8 +191,7 @@
             <thead>
                 <tr>
                     <th style="width: 5%;">#</th>
-                    <th style="width: {{ $documentType === 'delivery_note' ? '65%' : '40%' }};">Description</th>
-                    <th style="width: {{ $documentType === 'delivery_note' ? '20%' : '15%' }};" class="text-center">SKU</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '85%' : '55%' }};">Description</th>
                     <th style="width: {{ $documentType === 'delivery_note' ? '10%' : '8%' }};" class="text-center">Qty</th>
                     @if($documentType !== 'delivery_note')
                         <th style="width: 16%;" class="text-right">Unit Price</th>
@@ -213,6 +225,9 @@
                                     </td>
                                     <td style="border: none; padding: 0 0 0 10px; vertical-align: top;">
                                         <strong>{{ $item->product_name ?? 'Unknown Product' }}</strong>
+                                        @if($item->sku)
+                                            <br><span class="small-text">SKU: {{ $item->sku }}</span>
+                                        @endif
                                         @if($item->brand_name)
                                             <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
                                         @endif
@@ -237,9 +252,6 @@
                                     </td>
                                 </tr>
                             </table>
-                        </td>
-                        <td class="text-center">
-                            <span class="small-text">{{ $item->sku ?? 'N/A' }}</span>
                         </td>
                         <td class="text-center">{{ $item->quantity }}</td>
                         @if($documentType !== 'delivery_note')
@@ -326,5 +338,16 @@
             <p>Contact: {{ $companyEmail }} | Phone: {{ $companyPhone }}</p>
         </div>
     </div>
+    
+    @if(!isset($isPdf) || !$isPdf)
+    <script>
+        function downloadPdf() {
+            // Get current URL and add pdf=1 parameter
+            var url = window.location.href;
+            var separator = url.indexOf('?') !== -1 ? '&' : '?';
+            window.location.href = url + separator + 'pdf=1';
+        }
+    </script>
+    @endif
 </body>
 </html>

@@ -53,7 +53,7 @@ class ManageSettings extends Page implements HasForms
             'company_website' => $companyBranding->company_website,
             'tax_registration_number' => $companyBranding->tax_registration_number,
             'commercial_registration' => $companyBranding->commercial_registration,
-            'logo_path' => $companyBranding->logo_path,
+            'logo_path' => $companyBranding->logo_path ? [$companyBranding->logo_path] : [],
             'invoice_prefix' => $companyBranding->invoice_prefix,
             'quote_prefix' => $companyBranding->quote_prefix,
             'order_prefix' => $companyBranding->order_prefix,
@@ -124,6 +124,9 @@ class ManageSettings extends Page implements HasForms
                             ->maxSize(10240)
                             ->disk('public')
                             ->directory('company-logos')
+                            ->visibility('public')
+                            ->preserveFilenames()
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
                             ->helperText('Upload your company logo (max 10MB). Recommended size: 200x200px')
                             ->columnSpanFull(),
                         TextInput::make('invoice_prefix')
@@ -238,6 +241,12 @@ class ManageSettings extends Page implements HasForms
         try {
             $data = $this->form->getState();
 
+            // Handle logo path - it comes as an array from FileUpload
+            $logoPath = $data['logo_path'] ?? null;
+            if (is_array($logoPath)) {
+                $logoPath = !empty($logoPath) ? reset($logoPath) : null;
+            }
+
             // Update or create Company Branding
             $companyBranding = CompanyBranding::getActive() ?? new CompanyBranding();
             $companyBranding->fill([
@@ -248,7 +257,7 @@ class ManageSettings extends Page implements HasForms
                 'company_website' => $data['company_website'],
                 'tax_registration_number' => $data['tax_registration_number'],
                 'commercial_registration' => $data['commercial_registration'],
-                'logo_path' => $data['logo_path'] ?? $companyBranding->logo_path,
+                'logo_path' => $logoPath ?: $companyBranding->logo_path,
                 'invoice_prefix' => $data['invoice_prefix'],
                 'quote_prefix' => $data['quote_prefix'],
                 'order_prefix' => $data['order_prefix'],
