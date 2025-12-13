@@ -3,27 +3,10 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
-use App\Livewire\Users\LoginHistoryWidget;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Resources\Pages\ViewRecord;
-
-class ViewUser extends ViewRecord
-{
-    protected static string $resource = UserResource::class;
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            EditAction::make(),
-            DeleteAction::make(),
-        ];
-    }
-    
     protected function getHeaderWidgets(): array
     {
         return [
-            LoginHistoryWidget::class,
+            //
         ];
     }
 }
