@@ -507,25 +507,44 @@ class Order extends Model
     public function calculateTotals(): void
     {
         $subTotal = 0;
+        $totalTax = 0;
+        $runningTotal = 0;
         $items = $this->items;
+        
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
         
         foreach ($items as $item) {
             $qty = $item->quantity ?? 0;
             $price = $item->unit_price ?? 0;
             $discount = $item->discount ?? 0;
-            $subTotal += ($qty * $price) - $discount;
+            $lineTotal = ($qty * $price) - $discount;
+            
+            // Check item's tax inclusive setting
+            // Fallback to order's setting if item's is null, or default to true
+            $isInclusive = $item->tax_inclusive ?? $this->tax_inclusive ?? true;
+            
+            if ($isInclusive) {
+                // Price includes tax
+                // Tax amount = Line Total - (Line Total / (1 + rate/100))
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $runningTotal += $lineTotal;
+            } else {
+                // Price excludes tax
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $runningTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalTax += $taxAmount;
+            $subTotal += $lineTotal;
         }
         
         $this->sub_total = $subTotal;
-        
-        // Calculate VAT
-        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        $this->vat = $this->sub_total * ($taxRate / 100);
-        $this->tax = $this->vat; // Map vat to tax field as well
+        $this->vat = $totalTax;
+        $this->tax = $totalTax; // Map vat to tax field as well
         
         // Calculate Total
-        $this->total = $this->sub_total + $this->vat + ($this->shipping ?? 0);
+        $this->total = $runningTotal + ($this->shipping ?? 0);
         
         $this->saveQuietly();
     }

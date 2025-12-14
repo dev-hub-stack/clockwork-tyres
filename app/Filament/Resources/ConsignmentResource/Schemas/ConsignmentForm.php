@@ -268,7 +268,8 @@ class ConsignmentForm
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);
                                             $price = floatval($item['price'] ?? 0);
-                                            $subtotal += ($qty * $price);
+                                            $lineTotal = $qty * $price;
+                                            $subtotal += $lineTotal;
                                         }
                                         
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
@@ -292,16 +293,20 @@ class ConsignmentForm
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);
                                             $price = floatval($item['price'] ?? 0);
-                                             $subtotal += ($qty * $price);
+                                            $lineTotal = $qty * $price;
+                                            
+                                            $isInclusive = $item['tax_inclusive'] ?? true;
+                                            
+                                            if ($isInclusive) {
+                                                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                                            } else {
+                                                $taxAmount = $lineTotal * ($taxRate / 100);
+                                            }
+                                            $totalTax += $taxAmount;
                                         }
                                         
-                                        // Tax calculated on (subtotal - discount)
-                                        $discount = floatval($get('discount') ?? $record->discount ?? 0);
-                                        $discountedAmount = $subtotal - $discount;
-                                        $tax = $discountedAmount * ($taxRate / 100);
-                                        
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
-                                        return $currencySymbol . ' ' . number_format($tax, 2);
+                                        return $currencySymbol . ' ' . number_format($totalTax, 2);
                                     })
                                     ->helperText(function () {
                                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
@@ -321,15 +326,21 @@ class ConsignmentForm
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);
                                             $price = floatval($item['price'] ?? 0);
-                                            $subtotal += ($qty * $price);
+                                            $lineTotal = $qty * $price;
+                                            
+                                            $isInclusive = $item['tax_inclusive'] ?? true;
+                                            
+                                            if ($isInclusive) {
+                                                $runningTotal += $lineTotal;
+                                            } else {
+                                                $taxAmount = $lineTotal * ($taxRate / 100);
+                                                $runningTotal += $lineTotal + $taxAmount;
+                                            }
                                         }
                                         
-                                        // Tax on discounted amount
                                         $discount = floatval($get('discount') ?? $record->discount ?? 0);
-                                        $discountedAmount = $subtotal - $discount;
-                                        $tax = $discountedAmount * ($taxRate / 100);
                                         $shipping = floatval($get('shipping_cost') ?? $record->shipping_cost ?? 0);
-                                        $total = $discountedAmount + $tax + $shipping;
+                                        $total = $runningTotal - $discount + $shipping;
                                         
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
                                         return $currencySymbol . ' ' . number_format($total, 2);
@@ -423,33 +434,51 @@ class ConsignmentForm
         // Calculate subtotal from items
         $items = $get('items') ?? [];
         $subtotal = 0;
+        $totalTax = 0;
+        $runningTotal = 0;
         
         foreach ($items as $item) {
             $qty = floatval($item['quantity_sent'] ?? 0);
             $price = floatval($item['price'] ?? 0);
-            $subtotal += ($qty * $price);
+            $lineTotal = $qty * $price;
+            
+            $isInclusive = $item['tax_inclusive'] ?? true;
+            
+            if ($isInclusive) {
+                // Price includes tax
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $runningTotal += $lineTotal;
+            } else {
+                // Price excludes tax
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $runningTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalTax += $taxAmount;
+            $subtotal += $lineTotal;
         }
         
         // Get discount and shipping
         $discount = floatval($get('discount') ?? 0);
         $shipping = floatval($get('shipping_cost') ?? 0);
         
-        // Calculate tax on discounted amount
-        $discountedAmount = $subtotal - $discount;
-        $tax = $discountedAmount * ($taxRate / 100);
-        
         // Calculate total
-        $total = $discountedAmount + $tax + $shipping;
+        // Note: Discount is usually applied before tax in exclusive systems, 
+        // but in inclusive systems it's applied to the gross amount.
+        // Here we subtract discount from the running total (which includes tax for inclusive items).
+        // If discount is tax-inclusive, this is correct.
+        
+        $total = $runningTotal - $discount + $shipping;
         
         // Calculate value tracking fields
         $totalValue = $subtotal; // Total value of all sent items
-        $invoicedValue = 0; // Would be calculated from sold items (not available here)
-        $returnedValue = 0; // Would be calculated from returned items (not available here)
+        $invoicedValue = 0; 
+        $returnedValue = 0; 
         $balanceValue = $totalValue - $invoicedValue - $returnedValue;
         
         // Set the values
         $set('subtotal', $subtotal);
-        $set('tax', $tax);
+        $set('tax', $totalTax);
         $set('total', $total);
         $set('total_value', $totalValue);
         $set('invoiced_value', $invoicedValue);

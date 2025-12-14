@@ -24,6 +24,7 @@ class Warehouse extends Model
         'email',
         'status',
         'is_primary',
+        'is_system',
     ];
 
     protected $casts = [
@@ -31,6 +32,7 @@ class Warehouse extends Model
         'lng' => 'decimal:8',
         'status' => 'integer',
         'is_primary' => 'boolean',
+        'is_system' => 'boolean',
     ];
 
     /**

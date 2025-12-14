@@ -38,8 +38,9 @@ class InventoryGrid extends Page
 
     protected function loadInventoryData(): void
     {
-        // Get all active warehouses
+        // Get all active warehouses (excluding system warehouses)
         $this->warehouses = Warehouse::where('status', 1)
+            ->where('is_system', false)
             ->orderBy('code')
             ->get();
 

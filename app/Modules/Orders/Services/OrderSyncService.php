@@ -66,7 +66,7 @@ class OrderSyncService
                 'external_source' => $source,
                 'tax_inclusive' => $orderData['tax_inclusive'] ?? true,
                 'currency' => $orderData['currency'] ?? 'USD',
-                'channel' => $orderData['channel'] ?? $this->getDefaultChannel(),  // Default to Retail channel
+                'channel' => !empty($orderData['channel']) ? $orderData['channel'] : $this->getDefaultChannel(),  // Default to Retail channel
                 
                 // Financial fields
                 'sub_total' => $orderData['sub_total'] ?? 0,

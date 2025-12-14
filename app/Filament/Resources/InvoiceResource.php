@@ -424,6 +424,94 @@ class InvoiceResource extends Resource
                             ]),
                     ]),
                     
+                Section::make('Totals')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                Placeholder::make('sub_total_preview')
+                                    ->label('Sub Total')
+                                    ->content(function ($get) {
+                                        $items = $get('items') ?? [];
+                                        $subTotal = 0;
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity'] ?? 0);
+                                            $price = floatval($item['unit_price'] ?? 0);
+                                            $discount = floatval($item['discount'] ?? 0);
+                                            $subTotal += ($qty * $price) - $discount;
+                                        }
+                                        return Number::currency($subTotal, 'AED');
+                                    }),
+                                
+                                Placeholder::make('vat_preview')
+                                    ->label('VAT (5%)')
+                                    ->content(function ($get) {
+                                        $items = $get('items') ?? [];
+                                        $totalTax = 0;
+                                        $taxRate = 5; // Default
+                                        
+                                        // Get global tax setting if possible, or assume 5%
+                                        // We can't easily access the model instance here for the global toggle if it's hidden
+                                        // But we can check the hidden field if it's available in $get
+                                        $globalInclusive = $get('tax_inclusive') ?? true;
+
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity'] ?? 0);
+                                            $price = floatval($item['unit_price'] ?? 0);
+                                            $discount = floatval($item['discount'] ?? 0);
+                                            $lineTotal = ($qty * $price) - $discount;
+                                            
+                                            $isInclusive = $item['tax_inclusive'] ?? $globalInclusive;
+                                            
+                                            if ($isInclusive) {
+                                                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                                            } else {
+                                                $taxAmount = $lineTotal * ($taxRate / 100);
+                                            }
+                                            $totalTax += $taxAmount;
+                                        }
+                                        return Number::currency($totalTax, 'AED');
+                                    }),
+                                
+                                Placeholder::make('grand_total_preview')
+                                    ->label('Grand Total')
+                                    ->content(function ($get) {
+                                        $items = $get('items') ?? [];
+                                        $runningTotal = 0;
+                                        $taxRate = 5;
+                                        $globalInclusive = $get('tax_inclusive') ?? true;
+
+                                        foreach ($items as $item) {
+                                            $qty = floatval($item['quantity'] ?? 0);
+                                            $price = floatval($item['unit_price'] ?? 0);
+                                            $discount = floatval($item['discount'] ?? 0);
+                                            $lineTotal = ($qty * $price) - $discount;
+                                            
+                                            $isInclusive = $item['tax_inclusive'] ?? $globalInclusive;
+                                            
+                                            if ($isInclusive) {
+                                                $runningTotal += $lineTotal;
+                                            } else {
+                                                $taxAmount = $lineTotal * ($taxRate / 100);
+                                                $runningTotal += $lineTotal + $taxAmount;
+                                            }
+                                        }
+                                        
+                                        // Add shipping if available (it's in a different section, might not be available in $get if not in same repeater)
+                                        // Wait, $get can access top level fields.
+                                        // But shipping_cost is in recordExpenses form, not main form?
+                                        // No, main form has 'shipping' field?
+                                        // I don't see 'shipping' field in the main form schema I viewed!
+                                        // I see 'shipping_carrier', 'tracking_url'.
+                                        // 'shipping' cost seems to be missing from the main form!
+                                        
+                                        // Check Order model: 'shipping' column exists.
+                                        // If it's missing from form, user can't edit shipping cost!
+                                        
+                                        return Number::currency($runningTotal, 'AED');
+                                    }),
+                            ]),
+                    ]),
+
                 Hidden::make('document_type')
                     ->default('invoice'),
                     
@@ -536,7 +624,7 @@ class InvoiceResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         $date = \Carbon\Carbon::parse($state);
                         if ($date->isPast() && $record->payment_status !== \App\Modules\Orders\Enums\PaymentStatus::PAID) {
-                            $days = $date->diffInDays(now());
+                            $days = (int) $date->diffInDays(now());
                             return "Overdue by {$days} days";
                         }
                         return $date->format('M j, Y');

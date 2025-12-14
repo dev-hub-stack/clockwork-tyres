@@ -186,15 +186,44 @@ class Consignment extends Model
      */
     public function calculateTotals(): void
     {
-        $this->subtotal = $this->items->sum(function ($item) {
-            return $item->quantity_sent * $item->price;
-        });
+        $subTotal = 0;
+        $totalTax = 0;
+        $runningTotal = 0;
+        
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        // Reload items to ensure fresh data
+        $this->load('items');
 
-        // Apply tax from organization settings
-        $this->tax = $this->subtotal * ($this->tax_rate / 100);
+        foreach ($this->items as $item) {
+            $qty = $item->quantity_sent ?? 0;
+            $price = $item->price ?? 0;
+            $lineTotal = $qty * $price;
+            
+            // Check item's tax inclusive setting
+            // Default to true if null (safe default for retail)
+            $isInclusive = $item->tax_inclusive ?? true;
+            
+            if ($isInclusive) {
+                // Price includes tax
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $runningTotal += $lineTotal;
+            } else {
+                // Price excludes tax
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $runningTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalTax += $taxAmount;
+            $subTotal += $lineTotal;
+        }
+
+        $this->subtotal = $subTotal;
+        $this->tax = $totalTax;
         
         // Calculate total
-        $this->total = $this->subtotal + $this->tax - $this->discount + $this->shipping_cost;
+        $this->total = $runningTotal - ($this->discount ?? 0) + ($this->shipping_cost ?? 0);
         
         $this->save();
     }
