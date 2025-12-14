@@ -151,7 +151,7 @@ class ConsignmentForm
                                                 $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
                                                 
                                                 // Trigger total calculation
-                                                self::calculateTotals($get, $set);
+                                                self::updateTotalsFromRepeater($get, $set);
                                             }
                                         }
                                     })
@@ -220,7 +220,7 @@ class ConsignmentForm
                                     ->minValue(1)
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
-                                        self::calculateTotals($get, $set);
+                                        self::updateTotalsFromRepeater($get, $set);
                                     })
                                     ->visible(fn ($get) => $get('product_variant_id') !== null)
                                     ->columnSpan(1),
@@ -232,7 +232,7 @@ class ConsignmentForm
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
-                                        self::calculateTotals($get, $set);
+                                        self::updateTotalsFromRepeater($get, $set);
                                     })
                                     ->visible(fn ($get) => $get('product_variant_id') !== null)
                                     ->columnSpan(1),
@@ -248,6 +248,9 @@ class ConsignmentForm
                                     ->inline(false)
                                     ->helperText('Is the price tax-inclusive?')
                                     ->visible(fn ($get) => $get('product_variant_id') !== null)
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        self::updateTotalsFromRepeater($get, $set);
+                                    })
                                     ->columnSpan(1),
                                 
                                 Textarea::make('notes')
@@ -274,17 +277,15 @@ class ConsignmentForm
                                     ->label('Subtotal')
                                     ->content(function ($get, $record) {
                                         $items = $record ? $record->items : ($get('items') ?? []);
-                                        $subtotal = 0;
-                                        
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity_sent'] ?? 0);
-                                            $price = floatval($item['price'] ?? 0);
-                                            $lineTotal = $qty * $price;
-                                            $subtotal += $lineTotal;
+                                        // Convert collection to array if needed
+                                        if (is_object($items) && method_exists($items, 'toArray')) {
+                                            $items = $items->toArray();
                                         }
                                         
+                                        $totals = self::calculateValues($items, 0, 0);
+                                        
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
-                                        return $currencySymbol . ' ' . number_format($subtotal, 2);
+                                        return $currencySymbol . ' ' . number_format($totals['sub_total'], 2);
                                     })
                                     ->helperText('Calculated from items'),
                                 
@@ -295,30 +296,16 @@ class ConsignmentForm
                                         return "Tax ({$taxRate}%)";
                                     })
                                     ->content(function ($get, $record) {
-                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-                                        
                                         $items = $record ? $record->items : ($get('items') ?? []);
-                                        $subtotal = 0;
-                                        $totalTax = 0;
-                                        
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity_sent'] ?? 0);
-                                            $price = floatval($item['price'] ?? 0);
-                                            $lineTotal = $qty * $price;
-                                            
-                                            $isInclusive = $item['tax_inclusive'] ?? true;
-                                            
-                                            if ($isInclusive) {
-                                                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                                            } else {
-                                                $taxAmount = $lineTotal * ($taxRate / 100);
-                                            }
-                                            $totalTax += $taxAmount;
+                                        // Convert collection to array if needed
+                                        if (is_object($items) && method_exists($items, 'toArray')) {
+                                            $items = $items->toArray();
                                         }
                                         
+                                        $totals = self::calculateValues($items, 0, 0);
+                                        
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
-                                        return $currencySymbol . ' ' . number_format($totalTax, 2);
+                                        return $currencySymbol . ' ' . number_format($totals['vat'], 2);
                                     })
                                     ->helperText(function () {
                                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
@@ -329,34 +316,19 @@ class ConsignmentForm
                                 \Filament\Forms\Components\Placeholder::make('total_display')
                                     ->label('Total')
                                     ->content(function ($get, $record) {
-                                        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-                                        
                                         $items = $record ? $record->items : ($get('items') ?? []);
-                                        $subtotal = 0;
-                                        $runningTotal = 0;
-                                        
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity_sent'] ?? 0);
-                                            $price = floatval($item['price'] ?? 0);
-                                            $lineTotal = $qty * $price;
-                                            
-                                            $isInclusive = $item['tax_inclusive'] ?? true;
-                                            
-                                            if ($isInclusive) {
-                                                $runningTotal += $lineTotal;
-                                            } else {
-                                                $taxAmount = $lineTotal * ($taxRate / 100);
-                                                $runningTotal += $lineTotal + $taxAmount;
-                                            }
+                                        // Convert collection to array if needed
+                                        if (is_object($items) && method_exists($items, 'toArray')) {
+                                            $items = $items->toArray();
                                         }
                                         
                                         $discount = floatval($get('discount') ?? $record->discount ?? 0);
                                         $shipping = floatval($get('shipping_cost') ?? $record->shipping_cost ?? 0);
-                                        $total = $runningTotal - $discount + $shipping;
+                                        
+                                        $totals = self::calculateValues($items, $shipping, $discount);
                                         
                                         $currencySymbol = \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED';
-                                        return $currencySymbol . ' ' . number_format($total, 2);
+                                        return $currencySymbol . ' ' . number_format($totals['total'], 2);
                                     })
                                     ->helperText('(Subtotal - Discount) + Tax + Shipping'),
                             ]),
@@ -395,7 +367,7 @@ class ConsignmentForm
                                     ->helperText('Cannot exceed subtotal')
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
-                                        self::calculateTotals($get, $set);
+                                        self::updateTotalsFromForm($get, $set);
                                     }),
                                 
                                 TextInput::make('shipping_cost')
@@ -405,7 +377,7 @@ class ConsignmentForm
                                     ->default(0)
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
-                                        self::calculateTotals($get, $set);
+                                        self::updateTotalsFromForm($get, $set);
                                     }),
                             ]),
                     ])
@@ -440,62 +412,110 @@ class ConsignmentForm
      */
     protected static function calculateTotals($get, $set): void
     {
-        // Get tax rate
-        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        // Calculate subtotal from items
         $items = $get('items') ?? [];
-        $subtotal = 0;
-        $totalTax = 0;
-        $runningTotal = 0;
-        
-        foreach ($items as $item) {
-            $qty = floatval($item['quantity_sent'] ?? 0);
-            $price = floatval($item['price'] ?? 0);
-            $lineTotal = $qty * $price;
-            
-            $isInclusive = $item['tax_inclusive'] ?? true;
-            
-            if ($isInclusive) {
-                // Price includes tax
-                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                $runningTotal += $lineTotal;
-            } else {
-                // Price excludes tax
-                $taxAmount = $lineTotal * ($taxRate / 100);
-                $runningTotal += $lineTotal + $taxAmount;
-            }
-            
-            $totalTax += $taxAmount;
-            $subtotal += $lineTotal;
-        }
-        
-        // Get discount and shipping
-        $discount = floatval($get('discount') ?? 0);
         $shipping = floatval($get('shipping_cost') ?? 0);
+        $discount = floatval($get('discount') ?? 0);
         
-        // Calculate total
-        // Note: Discount is usually applied before tax in exclusive systems, 
-        // but in inclusive systems it's applied to the gross amount.
-        // Here we subtract discount from the running total (which includes tax for inclusive items).
-        // If discount is tax-inclusive, this is correct.
-        
-        $total = $runningTotal - $discount + $shipping;
+        $totals = self::calculateValues($items, $shipping, $discount);
         
         // Calculate value tracking fields
-        $totalValue = $subtotal; // Total value of all sent items
+        $totalValue = $totals['sub_total']; // Total value of all sent items
         $invoicedValue = 0; 
         $returnedValue = 0; 
         $balanceValue = $totalValue - $invoicedValue - $returnedValue;
         
         // Set the values
-        $set('subtotal', $subtotal);
-        $set('tax', $totalTax);
-        $set('total', $total);
+        $set('subtotal', $totals['sub_total']);
+        $set('tax', $totals['vat']);
+        $set('total', $totals['total']);
         $set('total_value', $totalValue);
         $set('invoiced_value', $invoicedValue);
         $set('returned_value', $returnedValue);
         $set('balance_value', $balanceValue);
+    }
+
+    /**
+     * Update totals when called from inside the repeater
+     */
+    public static function updateTotalsFromRepeater($get, $set): void
+    {
+        $items = $get('../../items') ?? [];
+        $discount = floatval($get('../../discount') ?? 0);
+        $shipping = floatval($get('../../shipping_cost') ?? 0);
+        
+        $totals = self::calculateValues($items, $shipping, $discount);
+        
+        $set('../../subtotal', $totals['sub_total']);
+        $set('../../tax', $totals['vat']);
+        $set('../../total', $totals['total']);
+        
+        $set('../../total_value', $totals['sub_total']);
+        // Keep existing logic for now
+        $set('../../invoiced_value', 0);
+        $set('../../returned_value', 0);
+        $set('../../balance_value', $totals['sub_total']);
+    }
+
+    /**
+     * Update totals when called from the main form
+     */
+    public static function updateTotalsFromForm($get, $set): void
+    {
+        $items = $get('items') ?? [];
+        $discount = floatval($get('discount') ?? 0);
+        $shipping = floatval($get('shipping_cost') ?? 0);
+        
+        $totals = self::calculateValues($items, $shipping, $discount);
+        
+        $set('subtotal', $totals['sub_total']);
+        $set('tax', $totals['vat']);
+        $set('total', $totals['total']);
+        
+        $set('total_value', $totals['sub_total']);
+        $set('invoiced_value', 0);
+        $set('returned_value', 0);
+        $set('balance_value', $totals['sub_total']);
+    }
+
+    /**
+     * Calculate totals based on items and shipping
+     */
+    public static function calculateValues(array $items, float $shipping, float $discount = 0): array
+    {
+        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        $subtotal = 0;
+        $totalVat = 0;
+        $grandTotal = 0;
+        
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $taxInclusive = $item['tax_inclusive'] ?? true;
+            
+            $lineTotal = $qty * $price;
+            $subtotal += $lineTotal;
+            
+            if ($taxInclusive) {
+                // Tax is INCLUDED
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $grandTotal += $lineTotal;
+            } else {
+                // Tax is EXCLUDED
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $grandTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalVat += $taxAmount;
+        }
+        
+        $grandTotal = $grandTotal - $discount + $shipping;
+        
+        return [
+            'sub_total' => $subtotal,
+            'vat' => $totalVat,
+            'total' => $grandTotal,
+        ];
     }
 }

@@ -89,6 +89,49 @@ class QuoteResource extends Resource
             ->latest('issue_date');
     }
 
+    /**
+     * Calculate totals based on items and shipping
+     */
+    public static function calculateValues(array $items, float $shipping): array
+    {
+        $taxSetting = TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        $subtotal = 0;
+        $totalVat = 0;
+        $grandTotal = 0;
+        
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity'] ?? 0);
+            $price = floatval($item['unit_price'] ?? 0);
+            $discount = floatval($item['discount'] ?? 0);
+            $taxInclusive = $item['tax_inclusive'] ?? true;
+            
+            $lineTotal = ($qty * $price) - $discount;
+            $subtotal += $lineTotal;
+            
+            if ($taxInclusive) {
+                // Tax is INCLUDED
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $grandTotal += $lineTotal;
+            } else {
+                // Tax is EXCLUDED
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $grandTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalVat += $taxAmount;
+        }
+        
+        $grandTotal += $shipping;
+        
+        return [
+            'sub_total' => $subtotal,
+            'vat' => $totalVat,
+            'total' => $grandTotal,
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -418,7 +461,16 @@ class QuoteResource extends Resource
                                     ->required()
                                     ->minValue(1)
                                     ->live()
-                                    ->reactive(),
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = $get('../../items') ?? [];
+                                        $shipping = floatval($get('../../shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
+                                        
+                                        $set('../../sub_total', $totals['sub_total']);
+                                        $set('../../vat', $totals['vat']);
+                                        $set('../../total', $totals['total']);
+                                    }),
                                 
                                 TextInput::make('unit_price')
                                     ->label('Unit Price')
@@ -426,7 +478,16 @@ class QuoteResource extends Resource
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
                                     ->live()
-                                    ->reactive(),
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = $get('../../items') ?? [];
+                                        $shipping = floatval($get('../../shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
+                                        
+                                        $set('../../sub_total', $totals['sub_total']);
+                                        $set('../../vat', $totals['vat']);
+                                        $set('../../total', $totals['total']);
+                                    }),
                                 
                                 TextInput::make('discount')
                                     ->label('Discount')
@@ -434,7 +495,16 @@ class QuoteResource extends Resource
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
                                     ->live()
-                                    ->reactive(),
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = $get('../../items') ?? [];
+                                        $shipping = floatval($get('../../shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
+                                        
+                                        $set('../../sub_total', $totals['sub_total']);
+                                        $set('../../vat', $totals['vat']);
+                                        $set('../../total', $totals['total']);
+                                    }),
                                 
                                 \Filament\Forms\Components\Toggle::make('tax_inclusive')
                                     ->label('Tax Inclusive')
@@ -444,8 +514,18 @@ class QuoteResource extends Resource
                                     })
                                     ->live()
                                     ->reactive()
+                                    ->dehydrated()
                                     ->inline(false)
-                                    ->helperText('Is the price tax-inclusive?'),
+                                    ->helperText('Is the price tax-inclusive?')
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = $get('../../items') ?? [];
+                                        $shipping = floatval($get('../../shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
+                                        
+                                        $set('../../sub_total', $totals['sub_total']);
+                                        $set('../../vat', $totals['vat']);
+                                        $set('../../total', $totals['total']);
+                                    }),
                                 
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
@@ -494,18 +574,11 @@ class QuoteResource extends Resource
                                                 $currency = CurrencySetting::getBase();
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                                 
-                                                // Access items from the record or form state
-                                                $items = $record ? $record->items : ($get('items') ?? []);
-                                                $subtotal = 0;
+                                                $items = $get('items') ?? [];
+                                                $shipping = floatval($get('shipping') ?? 0);
+                                                $totals = self::calculateValues($items, $shipping);
                                                 
-                                                foreach ($items as $item) {
-                                                    $qty = floatval($item['quantity'] ?? 0);
-                                                    $price = floatval($item['unit_price'] ?? 0);
-                                                    $discount = floatval($item['discount'] ?? 0);
-                                                    $subtotal += ($qty * $price) - $discount;
-                                                }
-                                                
-                                                return $currencySymbol . ' ' . number_format($subtotal, 2);
+                                                return $currencySymbol . ' ' . number_format($totals['sub_total'], 2);
                                             }),
                                         
                                         Placeholder::make('vat_display')
@@ -519,44 +592,11 @@ class QuoteResource extends Resource
                                                 $currency = CurrencySetting::getBase();
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                                 
-                                                // Get tax rate from settings
-                                                $taxSetting = TaxSetting::getDefault();
-                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                                $items = $get('items') ?? [];
+                                                $shipping = floatval($get('shipping') ?? 0);
+                                                $totals = self::calculateValues($items, $shipping);
                                                 
-                                                // Calculate subtotal
-                                                $items = $record ? $record->items : ($get('items') ?? []);
-                                                $subtotal = 0;
-                                                
-                                                foreach ($items as $item) {
-                                                    $qty = floatval($item['quantity'] ?? 0);
-                                                    $price = floatval($item['unit_price'] ?? 0);
-                                                    $discount = floatval($item['discount'] ?? 0);
-                                                    $subtotal += ($qty * $price) - $discount;
-                                                }
-                                                
-                                                // Calculate VAT based on tax_inclusive flag per item
-                                                $totalVat = 0;
-                                                
-                                                foreach ($items as $item) {
-                                                    $qty = floatval($item['quantity'] ?? 0);
-                                                    $price = floatval($item['unit_price'] ?? 0);
-                                                    $discount = floatval($item['discount'] ?? 0);
-                                                    $taxInclusive = $item['tax_inclusive'] ?? true;
-                                                    
-                                                    $lineTotal = ($qty * $price) - $discount;
-                                                    
-                                                    if ($taxInclusive) {
-                                                        // Tax is INCLUDED in price, extract it
-                                                        $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                                                    } else {
-                                                        // Tax is NOT included, calculate it
-                                                        $taxAmount = $lineTotal * ($taxRate / 100);
-                                                    }
-                                                    
-                                                    $totalVat += $taxAmount;
-                                                }
-                                                
-                                                return $currencySymbol . ' ' . number_format($totalVat, 2);
+                                                return $currencySymbol . ' ' . number_format($totals['vat'], 2);
                                             }),
                                         
                                         Hidden::make('vat')
@@ -575,28 +615,13 @@ class QuoteResource extends Resource
                                             ->default(0)
                                             ->live()
                                             ->afterStateUpdated(function ($get, $set) {
-                                                // Get tax rate from settings
-                                                $taxSetting = TaxSetting::getDefault();
-                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-                                                
-                                                // Recalculate total when shipping changes
                                                 $items = $get('items') ?? [];
-                                                $subtotal = 0;
-                                                
-                                                foreach ($items as $item) {
-                                                    $qty = floatval($item['quantity'] ?? 0);
-                                                    $price = floatval($item['unit_price'] ?? 0);
-                                                    $discount = floatval($item['discount'] ?? 0);
-                                                    $subtotal += ($qty * $price) - $discount;
-                                                }
-                                                
-                                                $vat = $subtotal * ($taxRate / 100);
                                                 $shipping = floatval($get('shipping') ?? 0);
-                                                $total = $subtotal + $vat + $shipping;
+                                                $totals = self::calculateValues($items, $shipping);
                                                 
-                                                $set('sub_total', $subtotal);
-                                                $set('vat', $vat);
-                                                $set('total', $total);
+                                                $set('sub_total', $totals['sub_total']);
+                                                $set('vat', $totals['vat']);
+                                                $set('total', $totals['total']);
                                             }),
                                         
                                         Placeholder::make('total_display')
@@ -605,36 +630,11 @@ class QuoteResource extends Resource
                                                 $currency = CurrencySetting::getBase();
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                                 
-                                                // Get tax rate from settings
-                                                $taxSetting = TaxSetting::getDefault();
-                                                $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+                                                $items = $get('items') ?? [];
+                                                $shipping = floatval($get('shipping') ?? 0);
+                                                $totals = self::calculateValues($items, $shipping);
                                                 
-                                                // Calculate total based on tax_inclusive
-                                                $items = $record ? $record->items : ($get('items') ?? []);
-                                                $shipping = floatval($get('shipping') ?? $record->shipping ?? 0);
-                                                
-                                                $grandTotal = 0;
-                                                foreach ($items as $item) {
-                                                    $qty = floatval($item['quantity'] ?? 0);
-                                                    $price = floatval($item['unit_price'] ?? 0);
-                                                    $discount = floatval($item['discount'] ?? 0);
-                                                    $taxInclusive = $item['tax_inclusive'] ?? true;
-                                                    
-                                                    $lineTotal = ($qty * $price) - $discount;
-                                                    
-                                                    if ($taxInclusive) {
-                                                        // Already has tax, just add line total
-                                                        $grandTotal += $lineTotal;
-                                                    } else {
-                                                        // Need to add tax
-                                                        $lineTax = $lineTotal * ($taxRate / 100);
-                                                        $grandTotal += $lineTotal + $lineTax;
-                                                    }
-                                                }
-                                                
-                                                $grandTotal += $shipping;
-                                                
-                                                return $currencySymbol . ' ' . number_format($grandTotal, 2);
+                                                return $currencySymbol . ' ' . number_format($totals['total'], 2);
                                             })
                                             ->extraAttributes(['class' => 'font-bold text-lg']),
                                         

@@ -91,6 +91,49 @@ class InvoiceResource extends Resource
             ->latest('issue_date');
     }
 
+    /**
+     * Calculate totals based on items and shipping
+     */
+    public static function calculateValues(array $items, float $shipping): array
+    {
+        $taxSetting = TaxSetting::getDefault();
+        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        
+        $subtotal = 0;
+        $totalVat = 0;
+        $grandTotal = 0;
+        
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity'] ?? 0);
+            $price = floatval($item['unit_price'] ?? 0);
+            $discount = floatval($item['discount'] ?? 0);
+            $taxInclusive = $item['tax_inclusive'] ?? true;
+            
+            $lineTotal = ($qty * $price) - $discount;
+            $subtotal += $lineTotal;
+            
+            if ($taxInclusive) {
+                // Tax is INCLUDED
+                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
+                $grandTotal += $lineTotal;
+            } else {
+                // Tax is EXCLUDED
+                $taxAmount = $lineTotal * ($taxRate / 100);
+                $grandTotal += $lineTotal + $taxAmount;
+            }
+            
+            $totalVat += $taxAmount;
+        }
+        
+        $grandTotal += $shipping;
+        
+        return [
+            'sub_total' => $subtotal,
+            'vat' => $totalVat,
+            'total' => $grandTotal,
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -404,8 +447,22 @@ class InvoiceResource extends Resource
                                     })
                                     ->live()
                                     ->reactive()
+                                    ->dehydrated()
                                     ->inline(false)
-                                    ->helperText('Is the price tax-inclusive?'),
+                                    ->helperText('Is the price tax-inclusive?')
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = $get('../../items') ?? [];
+                                        // InvoiceResource doesn't have a shipping field in the form, so default to 0
+                                        $shipping = 0; 
+                                        $totals = self::calculateValues($items, $shipping);
+                                        
+                                        // InvoiceResource doesn't seem to have hidden total fields in the same way, 
+                                        // but we should trigger updates if there are any dependent fields.
+                                        // Based on the file content, there are placeholders in the 'Totals' section.
+                                        // Since placeholders use $get('items'), updating this state should trigger them if they are reactive.
+                                        // However, placeholders are not inputs, so we can't 'set' them.
+                                        // We just need to ensure the form state updates so the placeholders re-render.
+                                    }),
                                 
                                 Placeholder::make('line_total')
                                     ->label('Line Total')
@@ -474,83 +531,31 @@ class InvoiceResource extends Resource
                                     ->label('Sub Total')
                                     ->content(function ($get) {
                                         $items = $get('items') ?? [];
-                                        $subTotal = 0;
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity'] ?? 0);
-                                            $price = floatval($item['unit_price'] ?? 0);
-                                            $discount = floatval($item['discount'] ?? 0);
-                                            $subTotal += ($qty * $price) - $discount;
-                                        }
-                                        return Number::currency($subTotal, 'AED');
+                                        $totals = self::calculateValues($items, 0);
+                                        return Number::currency($totals['sub_total'], 'AED');
                                     }),
                                 
                                 Placeholder::make('vat_preview')
-                                    ->label('VAT (5%)')
+                                    ->label(function () {
+                                        $taxSetting = TaxSetting::getDefault();
+                                        $taxName = $taxSetting ? $taxSetting->name : 'VAT';
+                                        $taxRate = $taxSetting ? $taxSetting->rate : 5;
+                                        return "{$taxName} ({$taxRate}%)";
+                                    })
                                     ->content(function ($get) {
                                         $items = $get('items') ?? [];
-                                        $totalTax = 0;
-                                        $taxRate = 5; // Default
-                                        
-                                        // Get global tax setting if possible, or assume 5%
-                                        // We can't easily access the model instance here for the global toggle if it's hidden
-                                        // But we can check the hidden field if it's available in $get
-                                        $globalInclusive = $get('tax_inclusive') ?? true;
-
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity'] ?? 0);
-                                            $price = floatval($item['unit_price'] ?? 0);
-                                            $discount = floatval($item['discount'] ?? 0);
-                                            $lineTotal = ($qty * $price) - $discount;
-                                            
-                                            $isInclusive = $item['tax_inclusive'] ?? $globalInclusive;
-                                            
-                                            if ($isInclusive) {
-                                                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                                            } else {
-                                                $taxAmount = $lineTotal * ($taxRate / 100);
-                                            }
-                                            $totalTax += $taxAmount;
-                                        }
-                                        return Number::currency($totalTax, 'AED');
+                                        $totals = self::calculateValues($items, 0);
+                                        return Number::currency($totals['vat'], 'AED');
                                     }),
                                 
-                                Placeholder::make('grand_total_preview')
-                                    ->label('Grand Total')
+                                Placeholder::make('total_preview')
+                                    ->label('Total Amount')
                                     ->content(function ($get) {
                                         $items = $get('items') ?? [];
-                                        $runningTotal = 0;
-                                        $taxRate = 5;
-                                        $globalInclusive = $get('tax_inclusive') ?? true;
-
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity'] ?? 0);
-                                            $price = floatval($item['unit_price'] ?? 0);
-                                            $discount = floatval($item['discount'] ?? 0);
-                                            $lineTotal = ($qty * $price) - $discount;
-                                            
-                                            $isInclusive = $item['tax_inclusive'] ?? $globalInclusive;
-                                            
-                                            if ($isInclusive) {
-                                                $runningTotal += $lineTotal;
-                                            } else {
-                                                $taxAmount = $lineTotal * ($taxRate / 100);
-                                                $runningTotal += $lineTotal + $taxAmount;
-                                            }
-                                        }
-                                        
-                                        // Add shipping if available (it's in a different section, might not be available in $get if not in same repeater)
-                                        // Wait, $get can access top level fields.
-                                        // But shipping_cost is in recordExpenses form, not main form?
-                                        // No, main form has 'shipping' field?
-                                        // I don't see 'shipping' field in the main form schema I viewed!
-                                        // I see 'shipping_carrier', 'tracking_url'.
-                                        // 'shipping' cost seems to be missing from the main form!
-                                        
-                                        // Check Order model: 'shipping' column exists.
-                                        // If it's missing from form, user can't edit shipping cost!
-                                        
-                                        return Number::currency($runningTotal, 'AED');
-                                    }),
+                                        $totals = self::calculateValues($items, 0);
+                                        return Number::currency($totals['total'], 'AED');
+                                    })
+                                    ->extraAttributes(['class' => 'font-bold text-lg']),
                             ]),
                     ]),
 
