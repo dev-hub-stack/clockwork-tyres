@@ -103,6 +103,7 @@ class OrderSyncService
             // Force paid status if amount covers total (robustness check)
             if (($preparedData['paid_amount'] ?? 0) >= ($preparedData['total'] ?? 0) && ($preparedData['total'] ?? 0) > 0) {
                  $preparedData['payment_status'] = 'paid';
+                 $preparedData['outstanding_amount'] = 0;
             }
             
             // Create order using OrderService
@@ -118,6 +119,8 @@ class OrderSyncService
                 'total' => $preparedData['total'],
                 'quote_status' => QuoteStatus::APPROVED, // Auto-approve for Convert to Invoice
                 'approved_at' => now(),
+                'payment_status' => $preparedData['payment_status'], // Ensure payment status is persisted
+                'outstanding_amount' => $preparedData['outstanding_amount'], // Ensure outstanding amount is persisted
             ]);
             
             Log::info("External order synced successfully", [
