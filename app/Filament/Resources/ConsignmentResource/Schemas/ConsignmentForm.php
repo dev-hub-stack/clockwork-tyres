@@ -141,6 +141,25 @@ class ConsignmentForm
                                                 // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
                                                 $price = floatval($variant->uae_retail_price ?? 0);
                                                 
+                                                // Apply Dealer Pricing if applicable
+                                                $customerId = $get('../../customer_id');
+                                                if ($customerId) {
+                                                    $customer = \App\Modules\Customers\Models\Customer::find($customerId);
+                                                    if ($customer && $customer->isDealer()) {
+                                                        $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
+                                                        $pricing = $dealerService->calculateProductPrice(
+                                                            $customer,
+                                                            $price,
+                                                            $variant->product->model_id ?? null,
+                                                            $variant->product->brand_id ?? null
+                                                        );
+                                                        
+                                                        if ($pricing['discount_amount'] > 0) {
+                                                            $price = $pricing['final_price'];
+                                                        }
+                                                    }
+                                                }
+                                                
                                                 $set('sku', $variant->sku);
                                                 $set('product_name', $variant->product->name ?? '');
                                                 $set('brand_name', $variant->product->brand->name ?? '');

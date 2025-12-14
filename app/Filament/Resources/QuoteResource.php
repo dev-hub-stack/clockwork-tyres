@@ -355,6 +355,28 @@ class QuoteResource extends Resource
                                                     // Use uae_retail_price from tunerstop-admin
                                                     $price = floatval($variant->uae_retail_price ?? 0);
                                                     
+                                                    // Apply Dealer Pricing if applicable
+                                                    $customerId = $get('../../customer_id');
+                                                    if ($customerId) {
+                                                        $customer = \App\Modules\Customers\Models\Customer::find($customerId);
+                                                        if ($customer && $customer->isDealer()) {
+                                                            $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
+                                                            $pricing = $dealerService->calculateProductPrice(
+                                                                $customer,
+                                                                $price,
+                                                                $variant->product->model_id ?? null,
+                                                                $variant->product->brand_id ?? null
+                                                            );
+                                                            
+                                                            if ($pricing['discount_amount'] > 0) {
+                                                                $price = $pricing['final_price'];
+                                                                // We set the unit price to the discounted price to ensure totals are correct
+                                                                // regardless of quantity changes, as we don't have logic to auto-update
+                                                                // the discount field when quantity changes.
+                                                            }
+                                                        }
+                                                    }
+                                                    
                                                     $set('unit_price', $price);
                                                     $set('quantity', 1);
                                                     

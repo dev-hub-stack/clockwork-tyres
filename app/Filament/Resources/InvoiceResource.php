@@ -329,8 +329,33 @@ class InvoiceResource extends Resource
                                             $variant = ProductVariant::with('product')->find($state);
                                             if ($variant) {
                                                 // Use uae_retail_price from tunerstop-admin
-                                                // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
                                                 $price = floatval($variant->uae_retail_price ?? 0);
+                                                
+                                                // Apply Dealer Pricing if applicable
+                                                $customerId = $set->get('../../customer_id');
+                                                if ($customerId) {
+                                                    $customer = \App\Modules\Customers\Models\Customer::find($customerId);
+                                                    if ($customer && $customer->isDealer()) {
+                                                        $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
+                                                        $pricing = $dealerService->calculateProductPrice(
+                                                            $customer,
+                                                            $price,
+                                                            $variant->product->model_id ?? null,
+                                                            $variant->product->brand_id ?? null
+                                                        );
+                                                        
+                                                        // If discount applied, update price and maybe show info
+                                                        if ($pricing['discount_amount'] > 0) {
+                                                            $price = $pricing['final_price'];
+                                                            // We could set a discount field if we wanted to show it explicitly, 
+                                                            // but usually dealer price is the unit price.
+                                                            // Or we can set the discount field.
+                                                            // For invoices, we usually set unit_price to base and discount to amount.
+                                                            $set('discount', $pricing['discount_amount']);
+                                                        }
+                                                    }
+                                                }
+                                                
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);
                                                 
