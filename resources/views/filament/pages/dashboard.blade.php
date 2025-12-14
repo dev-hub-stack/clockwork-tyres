@@ -213,6 +213,12 @@
                                                                     <span style="font-size: 0.875rem;" x-text="order.order_notes"></span>
                                                                 </div>
                                                             </template>
+                                                            <template x-if="order.internal_notes">
+                                                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+                                                                    <span style="font-weight: 500; color: #6b7280; display: block; margin-bottom: 0.25rem;">Internal Notes:</span>
+                                                                    <span style="font-size: 0.875rem;" x-text="order.internal_notes"></span>
+                                                                </div>
+                                                            </template>
                                                         </div>
                                                         
                                                         <!-- Action Buttons -->
@@ -227,18 +233,14 @@
                                                                         style="width: 100%; padding: 0.625rem 1rem; background: #ec4899; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
                                                                     <span>📋</span> Download Invoice
                                                                 </button>
-                                                                <template x-if="order.outstanding_amount > 0">
-                                                                    <button @click="recordPayment(order)" 
-                                                                            style="width: 100%; padding: 0.625rem 1rem; background: #f59e0b; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
-                                                                        <span>💰</span> Record Balance Payment
-                                                                    </button>
-                                                                </template>
-                                                                <template x-if="order.payment_status === 'paid'">
-                                                                    <button @click="markAsDone(order.id)" 
-                                                                            style="width: 100%; padding: 0.625rem 1rem; background: #10b981; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
-                                                                        <span>✓</span> Mark Order as Done
-                                                                    </button>
-                                                                </template>
+                                                                <button @click="recordPayment(order)" 
+                                                                        style="width: 100%; padding: 0.625rem 1rem; background: #f59e0b; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
+                                                                    <span>💰</span> Record Balance Payment
+                                                                </button>
+                                                                <button @click="markAsDone(order.id)" 
+                                                                        style="width: 100%; padding: 0.625rem 1rem; background: #10b981; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
+                                                                    <span>✓</span> Mark Order as Done
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -388,6 +390,10 @@
                     },
 
                     recordPayment(order) {
+                        if (parseFloat(order.outstanding_amount) <= 0) {
+                            alert('Payment already completed for this order.');
+                            return;
+                        }
                         this.currentOrder = order;
                         this.paymentAmount = parseFloat(order.outstanding_amount).toFixed(2);
                         this.paymentMethod = 'cash';
@@ -460,6 +466,13 @@
                     },
 
                     async markAsDone(orderId) {
+                        // Check if order is fully paid
+                        const order = this.orders.find(o => o.id === orderId);
+                        if (order && parseFloat(order.outstanding_amount) > 0) {
+                            alert('Order cannot be marked as done until the balance payment is recorded.');
+                            return;
+                        }
+
                         if (!confirm('Mark this order as done?')) return;
 
                         try {

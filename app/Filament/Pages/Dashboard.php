@@ -129,7 +129,7 @@ class Dashboard extends Page
                 'customer_email' => $order->customer ? $order->customer->email : '',
                 'customer_id' => $order->customer_id,
                 'customer_url' => $order->customer_id 
-                    ? '/admin/invoices?filters[customer_id][value]=' . $order->customer_id
+                    ? '/admin/invoices?tableFilters[customer_id][value]=' . $order->customer_id
                     : '#',
                 'order_url' => $this->getOrderUrl($order),
                 'wheel_brand' => $wheelBrand,
