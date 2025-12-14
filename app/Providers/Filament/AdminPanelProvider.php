@@ -57,6 +57,31 @@ class AdminPanelProvider extends PanelProvider
                     ->group('Products')
                     ->sort(5)
                     ->visible(fn () => auth()->user()->can('view_products')),
+                
+                // Reports Group Header
+                NavigationItem::make('Sales Dashboard')
+                    ->url('/admin/sales-dashboard')
+                    ->icon('heroicon-o-chart-bar')
+                    ->group('Reports')
+                    ->sort(10),
+                
+                NavigationItem::make('Customer Analytics')
+                    ->url('/admin/customer-analytics')
+                    ->icon('heroicon-o-users')
+                    ->group('Reports')
+                    ->sort(11),
+                
+                NavigationItem::make('Product Performance')
+                    ->url('/admin/product-performance')
+                    ->icon('heroicon-o-cube')
+                    ->group('Reports')
+                    ->sort(12),
+                
+                NavigationItem::make('Geographic Sales')
+                    ->url('/admin/geographic-sales')
+                    ->icon('heroicon-o-globe-alt')
+                    ->group('Reports')
+                    ->sort(13),
             ])
             ->middleware([
                 EncryptCookies::class,

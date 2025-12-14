@@ -48,8 +48,9 @@ _ide_helper_models.php
 # Testing
 .phpunit.cache
 coverage/
-.coverage
-htmlcov/
+
+# Database Dumps
+tunerstop-data*.sql
 
 # Laravel specific
 storage/framework/cache/*

@@ -83,6 +83,27 @@ return [
             ]) : [],
         ],
 
+        // TunerStop Source Database (for historical data import)
+        'tunerstop_source' => [
+            'driver' => 'mysql',
+            'url' => env('TUNERSTOP_DB_URL'),
+            'host' => env('TUNERSTOP_DB_HOST', '127.0.0.1'),
+            'port' => env('TUNERSTOP_DB_PORT', '3306'),
+            'database' => env('TUNERSTOP_DB_DATABASE', 'tunerstop'),
+            'username' => env('TUNERSTOP_DB_USERNAME', 'root'),
+            'password' => env('TUNERSTOP_DB_PASSWORD', ''),
+            'unix_socket' => env('TUNERSTOP_DB_SOCKET', ''),
+            'charset' => env('TUNERSTOP_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('TUNERSTOP_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false, // Less strict for source data compatibility
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('TUNERSTOP_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
