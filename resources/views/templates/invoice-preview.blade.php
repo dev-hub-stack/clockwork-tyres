@@ -82,7 +82,7 @@
 </head>
 <body>
     <!-- Action Buttons -->
-    @if(!isset($isPdf) || !$isPdf)
+    @if((!isset($isPdf) || !$isPdf) && !request()->has('pdf'))
     <div class="action-buttons">
         <button onclick="window.print()">🖨️ Print</button>
         @if($documentType === 'quote')

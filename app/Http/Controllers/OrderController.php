@@ -55,6 +55,7 @@ class OrderController extends Controller
             'companyPhone' => $companyBranding->company_phone ?? '0334934247',
             'companyEmail' => $companyBranding->company_email ?? 'admin@tunerstop.com',
             'taxNumber' => $companyBranding->tax_registration_number ?? '66666684444',
+            'isPdf' => true,
         ])->setOption(['isRemoteEnabled' => true]);
         
         $filename = 'delivery-note-' . $order->order_number . '.pdf';
@@ -90,6 +91,7 @@ class OrderController extends Controller
             'companyPhone' => $companyBranding->company_phone ?? '0334934247',
             'companyEmail' => $companyBranding->company_email ?? 'admin@tunerstop.com',
             'taxNumber' => $companyBranding->tax_registration_number ?? '66666684444',
+            'isPdf' => true,
         ])->setOption(['isRemoteEnabled' => true]);
         
         $filename = $documentType . '-' . ($order->order_number ?? $order->quote_number) . '.pdf';
