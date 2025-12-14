@@ -26,7 +26,6 @@ return new class extends Migration
             \Illuminate\Support\Facades\DB::table('warehouses')->insert([
                 'warehouse_name' => 'Non-Stock',
                 'code' => 'NON-STOCK',
-                'location' => 'Virtual',
                 'status' => 1,
                 'is_system' => true,
                 'created_at' => now(),
