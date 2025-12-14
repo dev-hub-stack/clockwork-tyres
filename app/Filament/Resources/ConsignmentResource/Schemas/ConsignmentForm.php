@@ -27,7 +27,8 @@ class ConsignmentForm
                             ->disabled()
                             ->dehydrated(false)
                             ->placeholder('Auto-generated')
-                            ->helperText('Will be auto-generated upon creation'),
+                            ->helperText('Will be auto-generated upon creation')
+                            ->columnSpanFull(),
                         
                         Select::make('customer_id')
                             ->label('Customer')
@@ -40,30 +41,40 @@ class ConsignmentForm
                             ->preload()
                             ->required()
                             ->live()
-                            ->helperText('Select the customer receiving the consignment'),
+                            ->helperText('Select the customer receiving the consignment')
+                            ->columnSpanFull(),
                         
-                        Select::make('representative_id')
-                            ->label('Sales Representative')
-                            ->relationship('representative', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->helperText('Sales rep responsible for this consignment'),
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('representative_id')
+                                    ->label('Sales Representative')
+                                    ->relationship('representative', 'name')
+                                    ->searchable()
+                                    ->preload()
+                                    ->helperText('Sales rep responsible for this consignment')
+                                    ->columnSpan(1),
+                                
+                                DatePicker::make('issue_date')
+                                    ->label('Issue Date')
+                                    ->default(now())
+                                    ->required()
+                                    ->columnSpan(1),
+                            ]),
                         
-                        DatePicker::make('issue_date')
-                            ->label('Issue Date')
-                            ->default(now())
-                            ->required(),
-                        
-                        DatePicker::make('expected_return_date')
-                            ->label('Expected Return Date')
-                            ->helperText('When items are expected back (if not sold)'),
-                        
-                        TextInput::make('tracking_number')
-                            ->label('Tracking Number')
-                            ->maxLength(255)
-                            ->helperText('tracking number not required'),
-                    ])
-                    ->columns(2),
+                        Grid::make(2)
+                            ->schema([
+                                DatePicker::make('expected_return_date')
+                                    ->label('Expected Return Date')
+                                    ->helperText('When items are expected back (if not sold)')
+                                    ->columnSpan(1),
+                                
+                                TextInput::make('tracking_number')
+                                    ->label('Tracking Number')
+                                    ->maxLength(255)
+                                    ->helperText('tracking number not required')
+                                    ->columnSpan(1),
+                            ]),
+                    ]),
 
                 // Consignment Items Section
                 Section::make('Consignment Items')
@@ -289,6 +300,7 @@ class ConsignmentForm
                                         
                                         $items = $record ? $record->items : ($get('items') ?? []);
                                         $subtotal = 0;
+                                        $totalTax = 0;
                                         
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);
@@ -322,6 +334,7 @@ class ConsignmentForm
                                         
                                         $items = $record ? $record->items : ($get('items') ?? []);
                                         $subtotal = 0;
+                                        $runningTotal = 0;
                                         
                                         foreach ($items as $item) {
                                             $qty = floatval($item['quantity_sent'] ?? 0);

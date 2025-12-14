@@ -94,38 +94,78 @@ class InvoiceResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Invoice Information')
                     ->schema([
+                        // Full width customer field
+                        Select::make('customer_id')
+                            ->label('Customer')
+                            ->relationship('customer', 'business_name')
+                            ->searchable(['business_name', 'first_name', 'last_name', 'email'])
+                            ->required()
+                            ->preload()
+                            ->getOptionLabelFromRecordUsing(function ($record) {
+                                $name = $record->business_name ?? $record->name ?? 'Unknown Customer';
+                                $type = $record->customer_type ? '(' . ucfirst($record->customer_type) . ')' : '';
+                                return trim("$name $type");
+                            })
+                            ->createOptionForm([
+                                Select::make('customer_type')
+                                    ->label('Customer Type')
+                                    ->options([
+                                        'retail' => 'Retail',
+                                        'dealer' => 'Dealer',
+                                    ])
+                                    ->default('retail')
+                                    ->required(),
+                                TextInput::make('business_name')->required(),
+                                TextInput::make('first_name'),
+                                TextInput::make('last_name'),
+                                TextInput::make('email')->email(),
+                                TextInput::make('phone'),
+                            ])
+                            ->createOptionUsing(function (array $data) {
+                                return \App\Modules\Customers\Models\Customer::create($data)->id;
+                            })
+                            ->live()
+                            ->columnSpanFull(),
+                        
                         Grid::make(2)
                             ->schema([
-                                Select::make('customer_id')
-                                    ->label('Customer')
-                                    ->relationship('customer', 'business_name')
-                                    ->searchable(['business_name', 'first_name', 'last_name', 'email'])
-                                    ->required()
-                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer')
-                                    ->disabled(fn ($record) => $record !== null) // Can't change customer on existing invoice
-                                    ->columnSpan(1),
-                                
                                 Select::make('representative_id')
                                     ->label('Sales Representative')
                                     ->relationship('representative', 'name')
                                     ->searchable(['name', 'email'])
                                     ->preload()
                                     ->columnSpan(1),
+                                
+                                Select::make('channel')
+                                    ->label('Channel')
+                                    ->options([
+                                        'retail' => 'Retail',
+                                        'wholesale' => 'Wholesale',
+                                    ])
+                                    ->default('retail')
+                                    ->required()
+                                    ->columnSpan(1),
                             ]),
                         
-                        DatePicker::make('issue_date')
-                            ->label('Issue Date')
-                            ->required()
-                            ->default(now()),
-                        
-                        DatePicker::make('valid_until')
-                            ->label('Due Date')
-                            ->required()
-                            ->default(now()->addDays(30)),
-                        
+                        Grid::make(2)
+                            ->schema([
+                                DatePicker::make('issue_date')
+                                    ->label('Issue Date')
+                                    ->required()
+                                    ->default(now())
+                                    ->columnSpan(1),
+                                
+                                DatePicker::make('valid_until')
+                                    ->label('Due Date')
+                                    ->required()
+                                    ->default(now()->addDays(30))
+                                    ->columnSpan(1),
+                            ]),
+
                         Select::make('order_status')
                             ->label('Order Status')
                             ->options([
@@ -137,7 +177,8 @@ class InvoiceResource extends Resource
                             ])
                             ->default('pending')
                             ->required()
-                            ->hiddenOn('view'),
+                            ->hiddenOn('view')
+                            ->columnSpan(1),
                         
                         Select::make('payment_status')
                             ->label('Payment Status')
@@ -151,8 +192,9 @@ class InvoiceResource extends Resource
                             ->default('pending')
                             ->disabled() // Auto-calculated from payments
                             ->dehydrated(false)
-                            ->hiddenOn('view'),
-                    ])->columns(2),
+                            ->hiddenOn('view')
+                            ->columnSpan(1),
+                    ]),
 
                 Section::make('Vehicle Information')
                     ->schema([

@@ -64,7 +64,8 @@ class ConsignmentResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return ConsignmentForm::configure($schema);
+        return ConsignmentForm::configure($schema)
+            ->columns(1);
     }
 
     // Temporarily disabled - infolist components not working
