@@ -239,15 +239,15 @@ class QuoteResource extends Resource
 
                                         // Search Add-ons
                                         $addons = \App\Modules\Products\Models\AddOn::query()
-                                            ->where('name', 'like', "%{$search}%")
-                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->where('title', 'like', "%{$search}%")
+                                            ->orWhere('part_number', 'like', "%{$search}%")
                                             ->limit(20)
                                             ->get()
                                             ->mapWithKeys(fn($addon) => [
                                                 'addon_' . $addon->id => sprintf(
                                                     'ADDON: %s - %s (%s)',
-                                                    $addon->sku ?? 'NO-SKU',
-                                                    $addon->name,
+                                                    $addon->part_number ?? 'NO-PN',
+                                                    $addon->title,
                                                     $addon->category?->name ?? 'N/A'
                                                 )
                                             ]);
@@ -260,7 +260,7 @@ class QuoteResource extends Resource
                                         if (str_starts_with($value, 'addon_')) {
                                             $id = substr($value, 6);
                                             $addon = \App\Modules\Products\Models\AddOn::find($id);
-                                            return $addon ? sprintf('ADDON: %s - %s', $addon->sku, $addon->name) : 'Unknown Add-on';
+                                            return $addon ? sprintf('ADDON: %s - %s', $addon->part_number ?? 'NO-PN', $addon->title) : 'Unknown Add-on';
                                         }
                                         
                                         $id = str_starts_with($value, 'product_') ? substr($value, 8) : $value;
@@ -286,6 +286,7 @@ class QuoteResource extends Resource
                                             }
                                         }
                                     })
+                                    ->preload() // Enable preloading to show initial options
                                     ->afterStateUpdated(function ($state, $set, $get) {
                                         if ($state) {
                                             if (str_starts_with($state, 'addon_')) {
