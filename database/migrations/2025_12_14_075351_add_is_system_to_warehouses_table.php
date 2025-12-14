@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('warehouses', function (Blueprint $table) {
-            $table->boolean('is_system')->default(false)->after('status');
-        });
+        if (!Schema::hasColumn('warehouses', 'is_system')) {
+            Schema::table('warehouses', function (Blueprint $table) {
+                $table->boolean('is_system')->default(false)->after('status');
+            });
+        }
 
         // Seed or Update Non-Stock warehouse
         $exists = \Illuminate\Support\Facades\DB::table('warehouses')->where('code', 'NON-STOCK')->exists();
