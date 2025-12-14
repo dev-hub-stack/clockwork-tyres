@@ -201,11 +201,13 @@ class QuoteResource extends Resource
                         Repeater::make('items')
                             ->relationship('items')
                             ->schema([
-                                Select::make('product_variant_id')
-                                    ->label('Product')
+                                Select::make('item_selection')
+                                    ->label('Product / Add-on')
                                     ->searchable()
+                                    ->dehydrated(false) // Don't save this field directly
                                     ->getSearchResultsUsing(function (string $search) {
-                                        return ProductVariant::query()
+                                        // Search Products
+                                        $products = ProductVariant::query()
                                             ->with(['product.brand', 'product.model', 'product.finish'])
                                             ->where(function ($query) use ($search) {
                                                 $query->where('sku', 'like', "%{$search}%")
@@ -219,11 +221,11 @@ class QuoteResource extends Resource
                                                     ->orWhere('bolt_pattern', 'like', "%{$search}%")
                                                     ->orWhere('offset', 'like', "%{$search}%");
                                             })
-                                            ->limit(50)
+                                            ->limit(20)
                                             ->get()
                                             ->filter(fn($variant) => $variant->product !== null && $variant->sku !== null)
                                             ->mapWithKeys(fn($variant) => [
-                                                $variant->id => sprintf(
+                                                'product_' . $variant->id => sprintf(
                                                     '%s - %s | %s | %s | Size: %s | Bolt: %s | Offset: %s',
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
@@ -234,11 +236,35 @@ class QuoteResource extends Resource
                                                     $variant->offset ?? 'N/A'
                                                 )
                                             ]);
+
+                                        // Search Add-ons
+                                        $addons = \App\Modules\Products\Models\AddOn::query()
+                                            ->where('name', 'like', "%{$search}%")
+                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->limit(20)
+                                            ->get()
+                                            ->mapWithKeys(fn($addon) => [
+                                                'addon_' . $addon->id => sprintf(
+                                                    'ADDON: %s - %s (%s)',
+                                                    $addon->sku ?? 'NO-SKU',
+                                                    $addon->name,
+                                                    $addon->category?->name ?? 'N/A'
+                                                )
+                                            ]);
+
+                                        return $products->union($addons);
                                     })
                                     ->getOptionLabelUsing(function ($value) {
                                         if (!$value) return 'Unknown';
                                         
-                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($value);
+                                        if (str_starts_with($value, 'addon_')) {
+                                            $id = substr($value, 6);
+                                            $addon = \App\Modules\Products\Models\AddOn::find($id);
+                                            return $addon ? sprintf('ADDON: %s - %s', $addon->sku, $addon->name) : 'Unknown Add-on';
+                                        }
+                                        
+                                        $id = str_starts_with($value, 'product_') ? substr($value, 8) : $value;
+                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($id);
                                         if (!$variant || !$variant->product) return 'Unknown Product';
                                         
                                         return sprintf(
@@ -249,26 +275,59 @@ class QuoteResource extends Resource
                                             $variant->product->finish?->name ?? 'N/A'
                                         );
                                     })
+                                    ->afterStateHydrated(function ($component, $state, $record) {
+                                        // Load initial state from record (if editing)
+                                        // In a repeater, $record is the OrderItem instance
+                                        if ($record) {
+                                            if ($record->add_on_id) {
+                                                $component->state('addon_' . $record->add_on_id);
+                                            } elseif ($record->product_variant_id) {
+                                                $component->state('product_' . $record->product_variant_id);
+                                            }
+                                        }
+                                    })
                                     ->afterStateUpdated(function ($state, $set, $get) {
                                         if ($state) {
-                                            $variant = ProductVariant::with('product')->find($state);
-                                            if ($variant) {
-                                                // Use uae_retail_price from tunerstop-admin
-                                                // Dealer pricing discounts will be applied at order/invoice creation time by DealerPricingService
-                                                $price = floatval($variant->uae_retail_price ?? 0);
-                                                
-                                                $set('unit_price', $price);
-                                                $set('quantity', 1);
-                                                
-                                                // Set tax_inclusive from system setting
-                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                                $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                            if (str_starts_with($state, 'addon_')) {
+                                                $id = substr($state, 6);
+                                                $addon = \App\Modules\Products\Models\AddOn::find($id);
+                                                if ($addon) {
+                                                    $set('add_on_id', $id);
+                                                    $set('product_variant_id', null); // Clear product variant
+                                                    $set('unit_price', floatval($addon->price ?? 0));
+                                                    $set('quantity', 1);
+                                                    
+                                                    // Set tax_inclusive from system setting
+                                                    $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                    $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                                }
+                                            } else {
+                                                $id = str_starts_with($state, 'product_') ? substr($state, 8) : $state;
+                                                $variant = ProductVariant::with('product')->find($id);
+                                                if ($variant) {
+                                                    $set('product_variant_id', $id); // Ensure clean ID is set
+                                                    $set('add_on_id', null); // Clear addon
+                                                    
+                                                    // Use uae_retail_price from tunerstop-admin
+                                                    $price = floatval($variant->uae_retail_price ?? 0);
+                                                    
+                                                    $set('unit_price', $price);
+                                                    $set('quantity', 1);
+                                                    
+                                                    // Set tax_inclusive from system setting
+                                                    $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                    $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                                }
                                             }
                                         }
                                     })
                                     ->live()
                                     ->required()
                                     ->columnSpanFull(),
+                                
+                                // Hidden fields to store actual IDs
+                                \Filament\Forms\Components\Hidden::make('add_on_id'),
+                                \Filament\Forms\Components\Hidden::make('product_variant_id'),
                                 
                                 // Product Image Display
                                 \Filament\Forms\Components\ViewField::make('product_image')
@@ -283,6 +342,10 @@ class QuoteResource extends Resource
                                         $variantId = $get('product_variant_id');
                                         
                                         if (!$variantId) {
+                                            // If it's an addon, we might not need warehouse selection or it might be different
+                                            if ($get('add_on_id')) {
+                                                return ['' => 'Add-ons are non-stock / service items'];
+                                            }
                                             return ['' => 'Select product first'];
                                         }
                                         
