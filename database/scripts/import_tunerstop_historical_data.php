@@ -331,6 +331,15 @@ class TunerstopHistoricalDataImporter
         // Map status
         $orderStatus = $this->statusMap[$tsOrder->status] ?? OrderStatus::PENDING;
         
+        // Auto-complete old orders (before Nov 2025) unless cancelled
+        // This handles the requirement to mark fulfillment as completed for historical orders until Oct 2025
+        if ($orderStatus !== OrderStatus::CANCELLED) {
+            $orderDate = Carbon::parse($tsOrder->created_at);
+            if ($orderDate->lt('2025-11-01')) {
+                $orderStatus = OrderStatus::COMPLETED;
+            }
+        }
+        
         // Determine payment status based on paid_amount
         $paymentStatus = PaymentStatus::UNPAID;
         if ($tsOrder->paid_amount >= $tsOrder->total) {
