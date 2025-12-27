@@ -17,7 +17,8 @@ class GeographicSalesTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = DB::table('customers')
+        $query = Customer::query()
+            ->withoutGlobalScopes() // Prevent SoftDeletes from adding where customers.deleted_at is null to the subquery
             ->select(
                 'customers.city',
                 DB::raw('customers.city as id'),
@@ -29,13 +30,14 @@ class GeographicSalesTable extends BaseWidget
             ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
             ->where('customers.customer_type', 'retail')
             ->whereNotNull('customers.city')
-            ->whereNull('customers.deleted_at')
+            ->whereNull('customers.deleted_at') // Manually add it inside the subquery
             ->groupBy('customers.city');
 
         return $table
             ->query(
-                DB::table(DB::raw("({$query->toSql()}) as sub"))
-                    ->mergeBindings($query)
+                Customer::query()
+                    ->withoutGlobalScopes() // Prevent SoftDeletes from adding where customers.deleted_at is null to the outer query
+                    ->fromSub($query, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('city')

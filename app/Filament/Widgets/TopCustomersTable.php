@@ -17,7 +17,8 @@ class TopCustomersTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = DB::table('customers')
+        $query = Customer::query()
+            ->withoutGlobalScopes()
             ->select(
                 'customers.id',
                 'customers.first_name',
@@ -32,12 +33,14 @@ class TopCustomersTable extends BaseWidget
             ->where('orders.external_source', 'tunerstop_historical')
             ->where('customers.customer_type', 'retail')
             ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+            ->whereNull('customers.deleted_at')
             ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email');
 
         return $table
             ->query(
-                DB::table(DB::raw("({$query->toSql()}) as sub"))
-                    ->mergeBindings($query)
+                Customer::query()
+                    ->withoutGlobalScopes()
+                    ->fromSub($query, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')

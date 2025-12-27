@@ -16,7 +16,7 @@ class ProductPerformanceTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = DB::table('order_items')
+        $query = OrderItem::query()
             ->select(
                 DB::raw('order_items.sku as id'),
                 'order_items.sku',
@@ -38,8 +38,8 @@ class ProductPerformanceTable extends BaseWidget
 
         return $table
             ->query(
-                DB::table(DB::raw("({$query->toSql()}) as sub"))
-                    ->mergeBindings($query)
+                OrderItem::query()
+                    ->fromSub($query, 'order_items')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')

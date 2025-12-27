@@ -17,7 +17,8 @@ class CustomerAnalyticsTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = DB::table('customers')
+        $query = Customer::query()
+            ->withoutGlobalScopes()
             ->select(
                 'customers.id',
                 'customers.first_name',
@@ -34,12 +35,14 @@ class CustomerAnalyticsTable extends BaseWidget
             ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
             ->where('customers.customer_type', 'retail')
             ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+            ->whereNull('customers.deleted_at')
             ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone');
 
         return $table
             ->query(
-                DB::table(DB::raw("({$query->toSql()}) as sub"))
-                    ->mergeBindings($query)
+                Customer::query()
+                    ->withoutGlobalScopes()
+                    ->fromSub($query, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
