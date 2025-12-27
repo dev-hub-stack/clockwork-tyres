@@ -32,7 +32,7 @@ class GeographicSalesTable extends BaseWidget
                     ->where('customers.customer_type', 'retail')
                     ->whereNotNull('customers.city')
                     ->groupBy('customers.city')
-                    ->orderByDesc('total_revenue')
+                    ->orderByRaw('SUM(orders.total) DESC')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('city')
@@ -64,7 +64,6 @@ class GeographicSalesTable extends BaseWidget
                     ->money('AED')
                     ->sortable(),
             ])
-            ->heading('Sales by Geographic Location')
-            ->defaultSort('total_revenue', 'desc');
+            ->heading('Sales by Geographic Location');
     }
 }
