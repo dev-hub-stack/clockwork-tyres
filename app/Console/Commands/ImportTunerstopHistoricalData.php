@@ -564,7 +564,20 @@ class ImportTunerstopHistoricalData extends Command
                 ->where('external_source', 'tunerstop_historical')
                 ->exists();
 
-            if ($existing) return;
+            if ($existing) {
+                // Log skipped order for debug
+                \Log::info("[HISTORICAL IMPORT] Skipping order as already exists", [
+                    'external_order_id' => $tsOrder->id,
+                    'external_source' => 'tunerstop_historical',
+                ]);
+                $this->warn("   ⚠️ Skipped order ID {$tsOrder->id} (already exists)");
+                return;
+            } else {
+                \Log::info("[HISTORICAL IMPORT] Importing order", [
+                    'external_order_id' => $tsOrder->id,
+                    'external_source' => 'tunerstop_historical',
+                ]);
+            }
         }
 
         // Get customer from billing data
@@ -608,7 +621,6 @@ class ImportTunerstopHistoricalData extends Command
         if (!$this->dryRun) {
             // Generate unique order number (source has duplicates, so append ID)
             $orderNumber = 'TS-' . $tsOrder->id . '-' . substr($tsOrder->order_number, 0, 10);
-            
             $order = Order::create([
                 'document_type' => DocumentType::INVOICE,
                 'order_number' => $orderNumber,
@@ -635,14 +647,12 @@ class ImportTunerstopHistoricalData extends Command
                 'created_at' => $tsOrder->created_at,
                 'updated_at' => $tsOrder->updated_at,
             ]);
-
+            $this->importedOrders++; // Only increment if actually inserted
             $this->importOrderItems($order, $tsOrder->id);
         } else {
             // In dry-run, still count items
             $this->countOrderItems($tsOrder->id);
         }
-
-        $this->importedOrders++;
     }
 
     protected function importOrderItems(Order $order, int $tsOrderId): void
