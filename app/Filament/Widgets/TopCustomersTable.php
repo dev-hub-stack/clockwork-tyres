@@ -17,33 +17,34 @@ class TopCustomersTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $query = DB::table('customers')
+            ->select(
+                'customers.id',
+                'customers.first_name',
+                'customers.last_name',
+                'customers.email',
+                DB::raw('COUNT(orders.id) as total_orders'),
+                DB::raw('SUM(orders.total) as total_revenue'),
+                DB::raw('AVG(orders.total) as avg_order_value'),
+                DB::raw('MAX(orders.created_at) as last_order_date')
+            )
+            ->join('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('orders.external_source', 'tunerstop_historical')
+            ->where('customers.customer_type', 'retail')
+            ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+            ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email');
+
         return $table
             ->query(
-                Customer::query()
-                    ->select(
-                        'customers.id',
-                        'customers.first_name',
-                        'customers.last_name',
-                        'customers.email',
-                        DB::raw('COUNT(orders.id) as total_orders'),
-                        DB::raw('SUM(orders.total) as total_revenue'),
-                        DB::raw('AVG(orders.total) as avg_order_value'),
-                        DB::raw('MAX(orders.created_at) as last_order_date')
-                    )
-                    ->join('orders', 'customers.id', '=', 'orders.customer_id')
-                    ->where('orders.external_source', 'tunerstop_historical')
-                    ->where('customers.customer_type', 'retail')
-                    ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
-                    ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email')
-                    ->orderByDesc('total_revenue')
-                    ->limit(10)
+                DB::table(DB::raw("({$query->toSql()}) as sub"))
+                    ->mergeBindings($query)
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Customer')
                     ->searchable(['first_name', 'last_name'])
                     ->sortable()
-                    ->formatStateUsing(fn (Customer $record) => $record->first_name . ' ' . $record->last_name),
+                    ->formatStateUsing(fn ($record) => $record->first_name . ' ' . $record->last_name),
                 
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')

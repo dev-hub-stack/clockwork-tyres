@@ -16,28 +16,30 @@ class ProductPerformanceTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $query = DB::table('order_items')
+            ->select(
+                DB::raw('order_items.sku as id'),
+                'order_items.sku',
+                'order_items.product_name as name',
+                DB::raw("COALESCE(NULLIF(order_items.brand_name, ''), TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1))) as brand_name"),
+                DB::raw('COUNT(DISTINCT order_items.order_id) as times_sold'),
+                DB::raw('SUM(order_items.quantity) as total_quantity'),
+                DB::raw('SUM(order_items.line_total) as total_revenue'),
+                DB::raw('AVG(order_items.unit_price) as avg_price'),
+                DB::raw('COALESCE(products.price, MAX(order_items.unit_price)) as current_price'),
+                'order_items.product_id'
+            )
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->where('orders.external_source', 'tunerstop_historical')
+            ->whereNotNull('order_items.product_name')
+            ->where('order_items.product_name', '!=', '')
+            ->groupBy('order_items.sku', 'order_items.product_name', 'order_items.brand_name', 'order_items.product_id', 'products.price');
+
         return $table
             ->query(
-                DB::table('order_items')
-                    ->select(
-                        DB::raw('order_items.sku as id'), // Use SKU as ID instead of MIN(id)
-                        'order_items.sku',
-                        'order_items.product_name as name',
-                        DB::raw("COALESCE(NULLIF(order_items.brand_name, ''), TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1))) as brand_name"),
-                        DB::raw('COUNT(DISTINCT order_items.order_id) as times_sold'),
-                        DB::raw('SUM(order_items.quantity) as total_quantity'),
-                        DB::raw('SUM(order_items.line_total) as total_revenue'),
-                        DB::raw('AVG(order_items.unit_price) as avg_price'),
-                        DB::raw('COALESCE(products.price, MAX(order_items.unit_price)) as current_price'),
-                        'order_items.product_id'
-                    )
-                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                    ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-                    ->where('orders.external_source', 'tunerstop_historical')
-                    ->whereNotNull('order_items.product_name')
-                    ->where('order_items.product_name', '!=', '')
-                    ->groupBy('order_items.sku', 'order_items.product_name', 'order_items.brand_name', 'order_items.product_id', 'products.price')
-                    ->orderByRaw('SUM(order_items.line_total) DESC')
+                DB::table(DB::raw("({$query->toSql()}) as sub"))
+                    ->mergeBindings($query)
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')
@@ -72,12 +74,14 @@ class ProductPerformanceTable extends BaseWidget
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label('Total Revenue')
                     ->money('AED')
+                    ->sortable()
                     ->weight('bold')
                     ->color('success'),
-                
+
                 Tables\Columns\TextColumn::make('avg_price')
                     ->label('Avg Price')
-                    ->money('AED'),
+                    ->money('AED')
+                    ->sortable(),
                 
                 Tables\Columns\TextColumn::make('current_price')
                     ->label('Current Price')
@@ -87,6 +91,7 @@ class ProductPerformanceTable extends BaseWidget
                         : 'Last sold price (not in inventory)'),
             ])
             ->heading('Product Performance')
+            ->defaultSort('total_revenue', 'desc')
             ->paginated([10, 25, 50]);
     }
 }

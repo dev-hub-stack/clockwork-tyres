@@ -17,23 +17,25 @@ class GeographicSalesTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $query = DB::table('customers')
+            ->select(
+                'customers.city',
+                DB::raw('customers.city as id'),
+                DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
+                DB::raw('SUM(orders.total) as total_revenue'),
+                DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
+                DB::raw('AVG(orders.total) as avg_order_value')
+            )
+            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('customers.customer_type', 'retail')
+            ->whereNotNull('customers.city')
+            ->whereNull('customers.deleted_at')
+            ->groupBy('customers.city');
+
         return $table
             ->query(
-                DB::table('customers')
-                    ->select(
-                        'customers.city',
-                        DB::raw('customers.city as id'), // Use city as ID to avoid GROUP BY conflicts
-                        DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
-                        DB::raw('SUM(orders.total) as total_revenue'),
-                        DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
-                        DB::raw('AVG(orders.total) as avg_order_value')
-                    )
-                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
-                    ->where('customers.customer_type', 'retail')
-                    ->whereNotNull('customers.city')
-                    ->whereNull('customers.deleted_at')
-                    ->groupBy('customers.city')
-                    ->orderByRaw('SUM(orders.total) DESC')
+                DB::table(DB::raw("({$query->toSql()}) as sub"))
+                    ->mergeBindings($query)
             )
             ->columns([
                 Tables\Columns\TextColumn::make('city')
@@ -56,14 +58,16 @@ class GeographicSalesTable extends BaseWidget
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label('Revenue')
                     ->money('AED')
+                    ->sortable()
                     ->weight('bold')
                     ->color('success'),
-                
+
                 Tables\Columns\TextColumn::make('avg_order_value')
                     ->label('Avg Order')
-                    ->money('AED'),
+                    ->money('AED')
+                    ->sortable(),
             ])
             ->heading('Sales by Geographic Location')
-            ->paginated(false); // Disable pagination to prevent automatic ID sorting with GROUP BY
+            ->defaultSort('total_revenue', 'desc');
     }
 }
