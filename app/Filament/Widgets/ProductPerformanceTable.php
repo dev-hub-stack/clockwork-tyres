@@ -89,7 +89,6 @@ class ProductPerformanceTable extends BaseWidget
                         : 'Last sold price (not in inventory)'),
             ])
             ->heading('Product Performance')
-            ->defaultSort('total_revenue', 'desc')
             ->paginated([10, 25, 50]);
     }
 }
