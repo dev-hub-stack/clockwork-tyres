@@ -18,9 +18,9 @@ class ProductPerformanceTable extends BaseWidget
     {
         return $table
             ->query(
-                OrderItem::query()
+                DB::table('order_items')
                     ->select(
-                        DB::raw('MIN(order_items.id) as id'), // Need an ID for Filament
+                        DB::raw('order_items.sku as id'), // Use SKU as ID instead of MIN(id)
                         'order_items.sku',
                         'order_items.product_name as name',
                         DB::raw("COALESCE(NULLIF(order_items.brand_name, ''), TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1))) as brand_name"),

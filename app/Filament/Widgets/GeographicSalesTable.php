@@ -19,7 +19,7 @@ class GeographicSalesTable extends BaseWidget
     {
         return $table
             ->query(
-                Customer::query()
+                DB::table('customers')
                     ->select(
                         'customers.city',
                         DB::raw('customers.city as id'), // Use city as ID to avoid GROUP BY conflicts
@@ -31,6 +31,7 @@ class GeographicSalesTable extends BaseWidget
                     ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
                     ->where('customers.customer_type', 'retail')
                     ->whereNotNull('customers.city')
+                    ->whereNull('customers.deleted_at')
                     ->groupBy('customers.city')
                     ->orderByRaw('SUM(orders.total) DESC')
             )
