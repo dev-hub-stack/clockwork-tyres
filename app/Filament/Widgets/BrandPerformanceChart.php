@@ -22,10 +22,12 @@ class BrandPerformanceChart extends ChartWidget
         
         // Build date filter condition
         $dateCondition = '';
+        $bindings = [];
         if ($filter === 'year') {
             $dateCondition = "AND orders.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
         } elseif ($filter !== 'all') {
-            $dateCondition = "AND YEAR(orders.created_at) = " . intval($filter);
+            $dateCondition = "AND YEAR(orders.created_at) = ?";
+            $bindings[] = intval($filter);
         }
         
         // Use raw SQL to avoid MySQL strict mode issues
@@ -52,7 +54,7 @@ class BrandPerformanceChart extends ChartWidget
             LIMIT 10
         ";
         
-        $data = collect(DB::select($sql));
+        $data = collect(DB::select($sql, $bindings));
         
         return [
             'datasets' => [
