@@ -72,14 +72,12 @@ class ProductPerformanceTable extends BaseWidget
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label('Total Revenue')
                     ->money('AED')
-                    ->sortable()
                     ->weight('bold')
                     ->color('success'),
                 
                 Tables\Columns\TextColumn::make('avg_price')
                     ->label('Avg Price')
-                    ->money('AED')
-                    ->sortable(),
+                    ->money('AED'),
                 
                 Tables\Columns\TextColumn::make('current_price')
                     ->label('Current Price')

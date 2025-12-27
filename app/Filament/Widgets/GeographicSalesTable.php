@@ -62,6 +62,7 @@ class GeographicSalesTable extends BaseWidget
                     ->label('Avg Order')
                     ->money('AED'),
             ])
-            ->heading('Sales by Geographic Location');
+            ->heading('Sales by Geographic Location')
+            ->paginated(false); // Disable pagination to prevent automatic ID sorting with GROUP BY
     }
 }
