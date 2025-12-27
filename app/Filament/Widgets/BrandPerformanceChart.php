@@ -22,16 +22,18 @@ class BrandPerformanceChart extends ChartWidget
     {
         $filter = $this->filter;
         
-        $query = Brand::query()
+        // Extract brand from product_name (format: "Brand - Model Finish")
+        // or from product_snapshot JSON
+        $query = OrderItem::query()
             ->select(
-                'brands.name',
+                DB::raw("TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1)) as brand_name"),
                 DB::raw('SUM(order_items.line_total) as revenue'),
                 DB::raw('COUNT(DISTINCT order_items.id) as times_sold')
             )
-            ->leftJoin('products', 'brands.id', '=', 'products.brand_id')
-            ->leftJoin('order_items', 'products.id', '=', 'order_items.product_id')
-            ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
-            ->where('orders.external_source', 'tunerstop_historical');
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.external_source', 'tunerstop_historical')
+            ->whereNotNull('order_items.product_name')
+            ->where('order_items.product_name', '!=', '');
         
         // Apply date filter
         if ($filter === 'year') {
@@ -41,7 +43,8 @@ class BrandPerformanceChart extends ChartWidget
         }
         
         $data = $query
-            ->groupBy('brands.id', 'brands.name')
+            ->groupBy('brand_name')
+            ->havingRaw('brand_name IS NOT NULL AND brand_name != ""')
             ->orderByDesc('revenue')
             ->limit(10)
             ->get();
@@ -65,7 +68,7 @@ class BrandPerformanceChart extends ChartWidget
                     ],
                 ],
             ],
-            'labels' => $data->pluck('name')->toArray(),
+            'labels' => $data->pluck('brand_name')->toArray(),
         ];
     }
     
