@@ -22,7 +22,7 @@ class GeographicSalesTable extends BaseWidget
                 Customer::query()
                     ->select(
                         'customers.city',
-                        DB::raw('MIN(customers.id) as id'),
+                        DB::raw('customers.city as id'), // Use city as ID to avoid GROUP BY conflicts
                         DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
                         DB::raw('SUM(orders.total) as total_revenue'),
                         DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
