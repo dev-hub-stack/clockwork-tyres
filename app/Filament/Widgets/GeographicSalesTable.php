@@ -55,14 +55,12 @@ class GeographicSalesTable extends BaseWidget
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label('Revenue')
                     ->money('AED')
-                    ->sortable()
                     ->weight('bold')
                     ->color('success'),
                 
                 Tables\Columns\TextColumn::make('avg_order_value')
                     ->label('Avg Order')
-                    ->money('AED')
-                    ->sortable(),
+                    ->money('AED'),
             ])
             ->heading('Sales by Geographic Location');
     }
