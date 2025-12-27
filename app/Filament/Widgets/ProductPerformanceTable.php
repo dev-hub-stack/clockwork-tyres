@@ -37,7 +37,7 @@ class ProductPerformanceTable extends BaseWidget
                     ->whereNotNull('order_items.product_name')
                     ->where('order_items.product_name', '!=', '')
                     ->groupBy('order_items.sku', 'order_items.product_name', 'order_items.brand_name', 'order_items.product_id', 'products.price')
-                    ->orderByDesc('total_revenue')
+                    ->orderByRaw('SUM(order_items.line_total) DESC')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')
