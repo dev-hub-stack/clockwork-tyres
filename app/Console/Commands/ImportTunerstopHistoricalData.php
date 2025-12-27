@@ -368,20 +368,21 @@ class ImportTunerstopHistoricalData extends Command
     {
         $this->info('📦 Importing Customers from Billing Data...');
 
-        // Get unique customers from billing table
+        // Get unique customers from billing table - use MAX to get non-empty values
         $uniqueCustomers = DB::connection($this->sourceConnection)
             ->table('billing')
             ->select(
                 'email',
-                DB::raw('MIN(first_name) as first_name'),
-                DB::raw('MIN(last_name) as last_name'),
-                DB::raw('MIN(phone) as phone'),
-                DB::raw('MIN(country) as country'),
-                DB::raw('MIN(city) as city'),
+                DB::raw("MAX(NULLIF(first_name, '')) as first_name"),
+                DB::raw("MAX(NULLIF(last_name, '')) as last_name"),
+                DB::raw("MAX(NULLIF(phone, '')) as phone"),
+                DB::raw("MAX(NULLIF(country, '')) as country"),
+                DB::raw("MAX(NULLIF(city, '')) as city"),
                 DB::raw('MIN(created_at) as customer_since'),
                 DB::raw('COUNT(DISTINCT order_id) as order_count')
             )
             ->whereNotNull('email')
+            ->where('email', '!=', '')
             ->groupBy('email')
             ->orderBy('customer_since')
             ->get();
@@ -587,15 +588,49 @@ class ImportTunerstopHistoricalData extends Command
             ->first();
 
         $customer = null;
-        if ($billing && isset($this->customerEmailMap[$billing->email])) {
-            $customer = !$this->dryRun 
-                ? Customer::find($this->customerEmailMap[$billing->email])
-                : new Customer(['id' => 0]);
+        if ($billing && $billing->email) {
+            if (isset($this->customerEmailMap[$billing->email])) {
+                $customer = !$this->dryRun
+                    ? Customer::find($this->customerEmailMap[$billing->email])
+                    : new Customer(['id' => 0]);
+            } else if (!$this->dryRun) {
+                // Create customer on the fly if not found
+                $customer = Customer::create([
+                    'first_name' => $billing->first_name ?? 'Guest',
+                    'last_name' => $billing->last_name ?? 'Customer',
+                    'email' => $billing->email,
+                    'phone' => $billing->phone,
+                    'customer_type' => 'retail',
+                    'country' => $billing->country,
+                    'city' => $billing->city,
+                    'is_active' => true,
+                    'notes' => 'Imported from TunerStop historical order',
+                    'created_at' => $billing->created_at,
+                    'updated_at' => now(),
+                ]);
+                // Create address for this customer
+                AddressBook::create([
+                    'customer_id' => $customer->id,
+                    'address_type' => 1, // billing
+                    'nickname' => 'Billing Address',
+                    'first_name' => $billing->first_name,
+                    'last_name' => $billing->last_name,
+                    'address' => $billing->address,
+                    'city' => $billing->city,
+                    'state' => null,
+                    'country' => $billing->country ?? 'UAE',
+                    'zip_code' => null,
+                    'phone_no' => $billing->phone,
+                    'email' => $billing->email,
+                    'created_at' => $billing->created_at,
+                    'updated_at' => $billing->updated_at,
+                ]);
+                $this->customerEmailMap[$billing->email] = $customer->id;
+            }
         }
-
-        // Fallback to default if no customer found
+        // Fallback to default if no customer found or created
         if (!$customer) {
-            $customer = !$this->dryRun 
+            $customer = !$this->dryRun
                 ? $this->getOrCreateDefaultRetailCustomer()
                 : new Customer(['id' => 0]);
         }
