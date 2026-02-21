@@ -111,7 +111,12 @@ class AddonResource extends Resource
                             ->directory('addons')
                             ->visibility('public')
                             ->preserveFilenames()
-                            ->maxSize(2048),
+                            ->maxSize(2048)
+                            ->afterStateHydrated(function ($component, $state) {
+                                if ($state && str_starts_with($state, 'http')) {
+                                    $component->state(ltrim(parse_url($state, PHP_URL_PATH), '/'));
+                                }
+                            }),
 
                         FileUpload::make('image_2')
                             ->label('Image 2')
@@ -120,7 +125,12 @@ class AddonResource extends Resource
                             ->directory('addons')
                             ->visibility('public')
                             ->preserveFilenames()
-                            ->maxSize(2048),
+                            ->maxSize(2048)
+                            ->afterStateHydrated(function ($component, $state) {
+                                if ($state && str_starts_with($state, 'http')) {
+                                    $component->state(ltrim(parse_url($state, PHP_URL_PATH), '/'));
+                                }
+                            }),
                     ])
                     ->columns(2),
 

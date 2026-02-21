@@ -92,45 +92,27 @@ class Addon extends Model
     }
 
     /**
-     * Get relative path for image_1 from database
-     */
-    public function getImage1Attribute($value)
-    {
-        if ($value && str_starts_with($value, 'http')) {
-            return ltrim(parse_url($value, PHP_URL_PATH), '/');
-        }
-        return $value;
-    }
-
-    /**
      * Get full URL for image_1
      */
     public function getImage1UrlAttribute()
     {
-        $image1 = $this->image_1;
-        if (!$image1) {
+        $raw = $this->getRawOriginal('image_1');
+        if (!$raw) {
             return null;
         }
 
-        // Use CloudFront URL - check multiple env vars for compatibility
-        $cdnUrl = env('S3IMAGES_URL') ?? env('AWS_CLOUDFRONT_URL') ?? env('AWS_URL') ?? config('filesystems.disks.s3.url');
+        // If already a full URL, return it
+        if (str_starts_with($raw, 'http')) {
+            return $raw;
+        }
+
+        // Build from CloudFront/S3 config key (use config, not env() which breaks with cache)
+        $cdnUrl = config('filesystems.disks.s3.url');
         if ($cdnUrl) {
-            return rtrim($cdnUrl, '/') . '/' . ltrim($image1, '/');
+            return rtrim($cdnUrl, '/') . '/' . ltrim($raw, '/');
         }
 
-        // Fallback to Storage URL
-        return \Illuminate\Support\Facades\Storage::disk('s3')->url($image1);
-    }
-
-    /**
-     * Get relative path for image_2 from database
-     */
-    public function getImage2Attribute($value)
-    {
-        if ($value && str_starts_with($value, 'http')) {
-            return ltrim(parse_url($value, PHP_URL_PATH), '/');
-        }
-        return $value;
+        return null;
     }
 
     /**
@@ -138,19 +120,23 @@ class Addon extends Model
      */
     public function getImage2UrlAttribute()
     {
-        $image2 = $this->image_2;
-        if (!$image2) {
+        $raw = $this->getRawOriginal('image_2');
+        if (!$raw) {
             return null;
         }
 
-        // Use CloudFront URL - check multiple env vars for compatibility
-        $cdnUrl = env('S3IMAGES_URL') ?? env('AWS_CLOUDFRONT_URL') ?? env('AWS_URL') ?? config('filesystems.disks.s3.url');
-        if ($cdnUrl) {
-            return rtrim($cdnUrl, '/') . '/' . ltrim($image2, '/');
+        // If already a full URL, return it
+        if (str_starts_with($raw, 'http')) {
+            return $raw;
         }
 
-        // Fallback to Storage URL
-        return \Illuminate\Support\Facades\Storage::disk('s3')->url($image2);
+        // Build from CloudFront/S3 config key (use config, not env() which breaks with cache)
+        $cdnUrl = config('filesystems.disks.s3.url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/') . '/' . ltrim($raw, '/');
+        }
+
+        return null;
     }
 
     /**
