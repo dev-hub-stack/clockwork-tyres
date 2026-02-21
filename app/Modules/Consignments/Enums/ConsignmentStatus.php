@@ -25,7 +25,7 @@ enum ConsignmentStatus: string implements HasLabel, HasColor, HasIcon
             self::DELIVERED => 'Delivered',
             self::PARTIALLY_SOLD => 'Partially Sold',
             self::PARTIALLY_RETURNED => 'Partially Returned',
-            self::INVOICED_IN_FULL => 'Invoiced in Full',
+            self::INVOICED_IN_FULL => 'All Items Sold',
             self::RETURNED => 'Returned',
             self::CANCELLED => 'Cancelled',
         };
