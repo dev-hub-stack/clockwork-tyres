@@ -7,6 +7,7 @@ use App\Filament\Resources\ConsignmentResource\Actions\MarkAsSentAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordReturnAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordSaleAction;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
+use App\Modules\Orders\Models\Order as OrderModel;
 use App\Modules\Settings\Models\CurrencySetting;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -60,20 +61,69 @@ class ConsignmentsTable
                     }),
                 
                 BadgeColumn::make('status')
-                    ->label('Status')
+                    ->label('Items Status')
                     ->colors([
                         'secondary' => ConsignmentStatus::DRAFT->value,
-                        'primary' => ConsignmentStatus::SENT->value,
-                        'info' => ConsignmentStatus::DELIVERED->value,
-                        'warning' => [
+                        'primary'   => ConsignmentStatus::SENT->value,
+                        'info'      => ConsignmentStatus::DELIVERED->value,
+                        'warning'   => [
                             ConsignmentStatus::PARTIALLY_SOLD->value,
                             ConsignmentStatus::PARTIALLY_RETURNED->value,
                         ],
-                        'success' => ConsignmentStatus::INVOICED_IN_FULL->value,
-                        'gray' => ConsignmentStatus::RETURNED->value,
-                        'danger' => ConsignmentStatus::CANCELLED->value,
+                        'success'   => ConsignmentStatus::INVOICED_IN_FULL->value,
+                        'gray'      => ConsignmentStatus::RETURNED->value,
+                        'danger'    => ConsignmentStatus::CANCELLED->value,
                     ])
                     ->formatStateUsing(fn ($state) => $state ? $state->getLabel() : 'N/A'),
+
+                BadgeColumn::make('payment_status_badge')
+                    ->label('Payment')
+                    ->getStateUsing(function ($record) {
+                        $invoices = OrderModel::where('external_source', 'consignment')
+                            ->where('customer_id', $record->customer_id)
+                            ->where('document_type', 'invoice')
+                            ->whereRaw('order_notes LIKE ?', ["%{$record->consignment_number}%"])
+                            ->get();
+
+                        if ($invoices->isEmpty()) return 'not_invoiced';
+
+                        $totalInvoiced = $invoices->sum('total');
+                        $totalPaid     = $invoices->sum('paid_amount');
+
+                        if ($totalPaid <= 0)              return 'unpaid';
+                        if ($totalPaid >= $totalInvoiced) return 'paid';
+                        return 'partial';
+                    })
+                    ->colors([
+                        'gray'    => 'not_invoiced',
+                        'danger'  => 'unpaid',
+                        'warning' => 'partial',
+                        'success' => 'paid',
+                    ])
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'not_invoiced' => 'Not Invoiced',
+                        'unpaid'       => 'Unpaid',
+                        'partial'      => 'Partial Payment',
+                        'paid'         => 'Paid in Full',
+                        default        => '—',
+                    })
+                    ->tooltip(function ($record) use ($currency) {
+                        $invoices = OrderModel::where('external_source', 'consignment')
+                            ->where('customer_id', $record->customer_id)
+                            ->where('document_type', 'invoice')
+                            ->whereRaw('order_notes LIKE ?', ["%{$record->consignment_number}%"])
+                            ->get();
+
+                        if ($invoices->isEmpty()) return 'No invoice created yet';
+
+                        $totalInvoiced = $invoices->sum('total');
+                        $totalPaid     = $invoices->sum('paid_amount');
+                        $outstanding   = max(0, $totalInvoiced - $totalPaid);
+
+                        return "Invoiced: {$currency} " . number_format($totalInvoiced, 2)
+                             . ' | Paid: ' . number_format($totalPaid, 2)
+                             . ' | Outstanding: ' . number_format($outstanding, 2);
+                    }),
                 
                 TextColumn::make('items_counts')
                     ->label('Items (S/S/R)')
