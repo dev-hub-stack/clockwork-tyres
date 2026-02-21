@@ -309,11 +309,15 @@ class ImportTunerstopHistoricalData extends Command
                             ->first();
 
                         if ($product) {
-                            // Check if variant already exists by external_variant_id OR sku
-                            $existingVariant = ProductVariant::where(function($query) use ($variant) {
-                                $query->where('external_variant_id', $variant->id)
-                                      ->where('external_source', 'tunerstop');
-                            })->orWhere('sku', $variant->sku)->first();
+                            // Check if variant already exists by external_variant_id
+                            $existingVariant = ProductVariant::where('external_variant_id', $variant->id)
+                                ->where('external_source', 'tunerstop')
+                                ->first();
+                            
+                            // If not found by external ID, try by SKU
+                            if (!$existingVariant) {
+                                $existingVariant = ProductVariant::where('sku', $variant->sku)->first();
+                            }
                             
                             if ($existingVariant) {
                                 // Update existing variant
@@ -368,21 +372,20 @@ class ImportTunerstopHistoricalData extends Command
     {
         $this->info('📦 Importing Customers from Billing Data...');
 
-        // Get unique customers from billing table - use MAX to get non-empty values
+        // Get unique customers from billing table
         $uniqueCustomers = DB::connection($this->sourceConnection)
             ->table('billing')
             ->select(
                 'email',
-                DB::raw("MAX(NULLIF(first_name, '')) as first_name"),
-                DB::raw("MAX(NULLIF(last_name, '')) as last_name"),
-                DB::raw("MAX(NULLIF(phone, '')) as phone"),
-                DB::raw("MAX(NULLIF(country, '')) as country"),
-                DB::raw("MAX(NULLIF(city, '')) as city"),
+                DB::raw('MIN(first_name) as first_name'),
+                DB::raw('MIN(last_name) as last_name'),
+                DB::raw('MIN(phone) as phone'),
+                DB::raw('MIN(country) as country'),
+                DB::raw('MIN(city) as city'),
                 DB::raw('MIN(created_at) as customer_since'),
                 DB::raw('COUNT(DISTINCT order_id) as order_count')
             )
             ->whereNotNull('email')
-            ->where('email', '!=', '')
             ->groupBy('email')
             ->orderBy('customer_since')
             ->get();
@@ -565,20 +568,7 @@ class ImportTunerstopHistoricalData extends Command
                 ->where('external_source', 'tunerstop_historical')
                 ->exists();
 
-            if ($existing) {
-                // Log skipped order for debug
-                \Log::info("[HISTORICAL IMPORT] Skipping order as already exists", [
-                    'external_order_id' => $tsOrder->id,
-                    'external_source' => 'tunerstop_historical',
-                ]);
-                $this->warn("   ⚠️ Skipped order ID {$tsOrder->id} (already exists)");
-                return;
-            } else {
-                \Log::info("[HISTORICAL IMPORT] Importing order", [
-                    'external_order_id' => $tsOrder->id,
-                    'external_source' => 'tunerstop_historical',
-                ]);
-            }
+            if ($existing) return;
         }
 
         // Get customer from billing data
@@ -588,49 +578,15 @@ class ImportTunerstopHistoricalData extends Command
             ->first();
 
         $customer = null;
-        if ($billing && $billing->email) {
-            if (isset($this->customerEmailMap[$billing->email])) {
-                $customer = !$this->dryRun
-                    ? Customer::find($this->customerEmailMap[$billing->email])
-                    : new Customer(['id' => 0]);
-            } else if (!$this->dryRun) {
-                // Create customer on the fly if not found
-                $customer = Customer::create([
-                    'first_name' => $billing->first_name ?? 'Guest',
-                    'last_name' => $billing->last_name ?? 'Customer',
-                    'email' => $billing->email,
-                    'phone' => $billing->phone,
-                    'customer_type' => 'retail',
-                    'country' => $billing->country,
-                    'city' => $billing->city,
-                    'is_active' => true,
-                    'notes' => 'Imported from TunerStop historical order',
-                    'created_at' => $billing->created_at,
-                    'updated_at' => now(),
-                ]);
-                // Create address for this customer
-                AddressBook::create([
-                    'customer_id' => $customer->id,
-                    'address_type' => 1, // billing
-                    'nickname' => 'Billing Address',
-                    'first_name' => $billing->first_name,
-                    'last_name' => $billing->last_name,
-                    'address' => $billing->address,
-                    'city' => $billing->city,
-                    'state' => null,
-                    'country' => $billing->country ?? 'UAE',
-                    'zip_code' => null,
-                    'phone_no' => $billing->phone,
-                    'email' => $billing->email,
-                    'created_at' => $billing->created_at,
-                    'updated_at' => $billing->updated_at,
-                ]);
-                $this->customerEmailMap[$billing->email] = $customer->id;
-            }
+        if ($billing && isset($this->customerEmailMap[$billing->email])) {
+            $customer = !$this->dryRun 
+                ? Customer::find($this->customerEmailMap[$billing->email])
+                : new Customer(['id' => 0]);
         }
-        // Fallback to default if no customer found or created
+
+        // Fallback to default if no customer found
         if (!$customer) {
-            $customer = !$this->dryRun
+            $customer = !$this->dryRun 
                 ? $this->getOrCreateDefaultRetailCustomer()
                 : new Customer(['id' => 0]);
         }
@@ -656,6 +612,7 @@ class ImportTunerstopHistoricalData extends Command
         if (!$this->dryRun) {
             // Generate unique order number (source has duplicates, so append ID)
             $orderNumber = 'TS-' . $tsOrder->id . '-' . substr($tsOrder->order_number, 0, 10);
+            
             $order = Order::create([
                 'document_type' => DocumentType::INVOICE,
                 'order_number' => $orderNumber,
@@ -682,12 +639,14 @@ class ImportTunerstopHistoricalData extends Command
                 'created_at' => $tsOrder->created_at,
                 'updated_at' => $tsOrder->updated_at,
             ]);
-            $this->importedOrders++; // Only increment if actually inserted
+
             $this->importOrderItems($order, $tsOrder->id);
         } else {
             // In dry-run, still count items
             $this->countOrderItems($tsOrder->id);
         }
+
+        $this->importedOrders++;
     }
 
     protected function importOrderItems(Order $order, int $tsOrderId): void

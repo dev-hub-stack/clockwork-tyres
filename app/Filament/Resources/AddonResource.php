@@ -110,7 +110,14 @@ class AddonResource extends Resource
                             ->disk('s3')
                             ->directory('addons')
                             ->visibility('public')
-                            ->maxSize(2048),
+                            ->preserveFilenames()
+                            ->maxSize(2048)
+                            ->url(function ($record) {
+                                if (!$record || !$record->image_1) return null;
+                                if (str_starts_with($record->image_1, 'http')) return $record->image_1;
+                                $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
+                                return rtrim($cdnUrl, '/') . '/' . ltrim($record->image_1, '/');
+                            }),
 
                         FileUpload::make('image_2')
                             ->label('Image 2')
@@ -118,7 +125,14 @@ class AddonResource extends Resource
                             ->disk('s3')
                             ->directory('addons')
                             ->visibility('public')
-                            ->maxSize(2048),
+                            ->preserveFilenames()
+                            ->maxSize(2048)
+                            ->url(function ($record) {
+                                if (!$record || !$record->image_2) return null;
+                                if (str_starts_with($record->image_2, 'http')) return $record->image_2;
+                                $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
+                                return rtrim($cdnUrl, '/') . '/' . ltrim($record->image_2, '/');
+                            }),
                     ])
                     ->columns(2),
 
@@ -204,7 +218,10 @@ class AddonResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $warehouses = \App\Modules\Inventory\Models\Warehouse::where('status', 1)->orderBy('code')->get();
+        $warehouses = \App\Modules\Inventory\Models\Warehouse::where('status', 1)
+            ->where('code', '!=', 'NON-STOCK')
+            ->orderBy('code')
+            ->get();
 
         $columns = [
             ImageColumn::make('image_1_url')
