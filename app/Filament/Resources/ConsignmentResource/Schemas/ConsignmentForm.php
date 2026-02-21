@@ -382,18 +382,7 @@ class ConsignmentForm
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
                                     ->minValue(0)
-                                    ->maxValue(function ($get) {
-                                        // Prevent discount from exceeding subtotal
-                                        $items = $get('../../items') ?? [];
-                                        $subtotal = 0;
-                                        foreach ($items as $item) {
-                                            $qty = floatval($item['quantity_sent'] ?? 0);
-                                            $price = floatval($item['price'] ?? 0);
-                                            $subtotal += ($qty * $price);
-                                        }
-                                        return $subtotal > 0 ? $subtotal : 999999;
-                                    })
-                                    ->helperText('Cannot exceed subtotal')
+                                    ->helperText('Order-level discount amount')
                                     ->live()
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::updateTotalsFromForm($get, $set);
