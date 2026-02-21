@@ -328,15 +328,18 @@ class ConsignmentInvoiceService
     {
         // Create payment record - Payment model will automatically update order payment status
         Payment::create([
-            'order_id' => $invoice->id,
-            'customer_id' => $invoice->customer_id,
-            'recorded_by' => auth()->id(),
-            'amount' => $paymentData['amount'],
-            'payment_method' => $paymentData['method'],
-            'payment_date' => now(),
+            'order_id'         => $invoice->id,
+            'customer_id'      => $invoice->customer_id,
+            'recorded_by'      => auth()->id(),
+            'amount'           => $paymentData['amount'],
+            'payment_method'   => $paymentData['method'],
+            'payment_type'     => $paymentData['type'],
+            'payment_date'     => now(),
             'reference_number' => $paymentData['reference'] ?? null,
-            'notes' => 'Payment recorded during consignment sale',
-            'status' => 'completed',
+            'notes'            => $paymentData['type'] === 'partial'
+                                    ? 'Partial payment recorded during consignment sale'
+                                    : 'Full payment recorded during consignment sale',
+            'status'           => 'completed',
         ]);
         
         // Update order status based on payment type
@@ -362,17 +365,23 @@ class ConsignmentInvoiceService
     ): void {
         foreach ($soldItems as $itemData) {
             $item = $consignment->items()->find($itemData['item_id']);
-            
+
             if ($item) {
+                $newQtySold = $item->quantity_sold + $itemData['quantity'];
+                $available  = $item->quantity_sent - ($item->quantity_returned ?? 0);
+
+                // 'sold' only when ALL sent (non-returned) quantity has been invoiced
+                $newStatus = ($newQtySold >= $available) ? 'sold' : 'partially_sold';
+
                 $item->update([
-                    'quantity_sold'     => $item->quantity_sold + $itemData['quantity'],
+                    'quantity_sold'     => $newQtySold,
                     'actual_sale_price' => $itemData['price'],
-                    'status'            => 'sold',
+                    'status'            => $newStatus,
                     'date_sold'         => now(),
                 ]);
             }
         }
-        
+
         // Update consignment item counts
         $consignment->updateItemCounts();
     }

@@ -157,36 +157,83 @@ class RecordSaleAction
                     // Payment Information Section
                     Section::make('Payment Information')
                         ->schema([
+                            // Invoice total summary so user knows the amount due
+                            Placeholder::make('invoice_total_info')
+                                ->label('Invoice Total')
+                                ->content(function (callable $get) use ($currency) {
+                                    $items = $get('sold_items') ?? [];
+                                    $total = collect($items)->sum(
+                                        fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
+                                    );
+                                    return new \Illuminate\Support\HtmlString(
+                                        "<span class='text-lg font-bold text-success-600'>{$currency} " . number_format($total, 2) . "</span>"
+                                    );
+                                })
+                                ->helperText('Sum of all sold items above'),
+
                             Grid::make(2)
                                 ->schema([
                                     Select::make('payment_method')
                                         ->label('Payment Method')
                                         ->options([
-                                            'cash' => 'Cash',
-                                            'card' => 'Credit/Debit Card',
+                                            'cash'          => 'Cash',
+                                            'card'          => 'Credit/Debit Card',
                                             'bank_transfer' => 'Bank Transfer',
-                                            'check' => 'Check',
-                                            'other' => 'Other',
+                                            'check'         => 'Check',
+                                            'other'         => 'Other',
                                         ])
                                         ->required()
                                         ->default('cash'),
-                                    
+
                                     Select::make('payment_type')
                                         ->label('Payment Type')
                                         ->options([
-                                            'full' => 'Full Payment',
-                                            'partial' => 'Partial Payment',
+                                            'full'    => 'Full Payment',
+                                            'partial' => 'Partial Payment (deposit / instalment)',
                                         ])
                                         ->required()
-                                        ->default('full'),
-                                    
+                                        ->default('full')
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            if ($state === 'full') {
+                                                // Auto-fill with the invoice total
+                                                $items = $get('sold_items') ?? [];
+                                                $total = collect($items)->sum(
+                                                    fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
+                                                );
+                                                $set('payment_amount', round($total, 2));
+                                            } else {
+                                                // Clear so the user types the partial amount
+                                                $set('payment_amount', null);
+                                            }
+                                        })
+                                        ->helperText('Choose "Partial" if the customer is paying in instalments'),
+
                                     TextInput::make('payment_amount')
-                                        ->label("Payment Amount ({$currency})")
+                                        ->label("Amount Received ({$currency})")
                                         ->numeric()
                                         ->required()
                                         ->minValue(0)
                                         ->step(0.01)
-                                        ->helperText('Enter the amount received from customer'),
+                                        ->default(function (callable $get) {
+                                            // Default to full invoice total
+                                            $items = $get('sold_items') ?? [];
+                                            return round(collect($items)->sum(
+                                                fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
+                                            ), 2);
+                                        })
+                                        ->helperText(function (callable $get) use ($currency) {
+                                            $items = $get('sold_items') ?? [];
+                                            $total = collect($items)->sum(
+                                                fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
+                                            );
+                                            return "Invoice total: {$currency} " . number_format($total, 2)
+                                                . ' — enter less for a partial / deposit payment';
+                                        }),
+
+                                    TextInput::make('payment_reference')
+                                        ->label('Reference / Cheque No. (optional)')
+                                        ->maxLength(100),
                                 ]),
                         ]),
                     
@@ -223,9 +270,10 @@ class RecordSaleAction
 
                     // Prepare payment data
                     $paymentData = [
-                        'method' => $data['payment_method'],
-                        'type' => $data['payment_type'],
-                        'amount' => $data['payment_amount'],
+                        'method'    => $data['payment_method'],
+                        'type'      => $data['payment_type'],
+                        'amount'    => $data['payment_amount'],
+                        'reference' => $data['payment_reference'] ?? null,
                     ];
                     
                     // Call service to record sale and create invoice
@@ -238,12 +286,14 @@ class RecordSaleAction
                     );
                     
                     // Success notification
-                    $totalQty = collect($soldItems)->sum('quantity');
-                    
+                    $totalQty     = collect($soldItems)->sum('quantity');
+                    $paymentLabel = $paymentData['type'] === 'full' ? 'Full Payment' : 'Partial Payment';
+                    $currency     = CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+
                     Notification::make()
                         ->success()
                         ->title('Sale Recorded Successfully')
-                        ->body("Invoice #{$invoice->invoice_number} created with {$totalQty} items. Payment: {$paymentData['amount']}")
+                        ->body("Invoice #{$invoice->invoice_number} created for {$totalQty} item(s). {$paymentLabel}: {$currency} {$paymentData['amount']}")
                         ->send();
                     
                 } catch (\Exception $e) {
