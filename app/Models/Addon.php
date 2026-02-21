@@ -112,9 +112,14 @@ class Addon extends Model
             return null;
         }
 
-        // Use CloudFront/S3 URL from config
-        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
-        return rtrim($cdnUrl, '/') . '/' . ltrim($image1, '/');
+        // Use CloudFront URL - check multiple env vars for compatibility
+        $cdnUrl = env('S3IMAGES_URL') ?? env('AWS_CLOUDFRONT_URL') ?? env('AWS_URL') ?? config('filesystems.disks.s3.url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/') . '/' . ltrim($image1, '/');
+        }
+
+        // Fallback to Storage URL
+        return \Illuminate\Support\Facades\Storage::disk('s3')->url($image1);
     }
 
     /**
@@ -138,9 +143,14 @@ class Addon extends Model
             return null;
         }
 
-        // Use CloudFront/S3 URL from config
-        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
-        return rtrim($cdnUrl, '/') . '/' . ltrim($image2, '/');
+        // Use CloudFront URL - check multiple env vars for compatibility
+        $cdnUrl = env('S3IMAGES_URL') ?? env('AWS_CLOUDFRONT_URL') ?? env('AWS_URL') ?? config('filesystems.disks.s3.url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/') . '/' . ltrim($image2, '/');
+        }
+
+        // Fallback to Storage URL
+        return \Illuminate\Support\Facades\Storage::disk('s3')->url($image2);
     }
 
     /**
