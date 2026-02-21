@@ -44,7 +44,7 @@ class Customer extends Model
      */
     public function isDealer(): bool
     {
-        return $this->customer_type === 'dealer';
+        return in_array($this->customer_type, ['dealer', 'wholesale']);
     }
 
     /**

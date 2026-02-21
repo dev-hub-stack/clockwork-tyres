@@ -71,10 +71,8 @@ class CustomerResource extends Resource
                         Select::make('customer_type')
                             ->label('Customer Type')
                             ->options([
-                                'retail' => 'Retail Customer',
-                                'dealer' => 'Dealer (Activates Pricing)',
+                                'retail'    => 'Retail',
                                 'wholesale' => 'Wholesale',
-                                'corporate' => 'Corporate',
                             ])
                             ->required()
                             ->default('retail'),
@@ -185,9 +183,7 @@ class CustomerResource extends Resource
                     ->label('Type')
                     ->colors([
                         'success' => 'retail',
-                        'warning' => 'dealer',
                         'primary' => 'wholesale',
-                        'info' => 'corporate',
                     ]),
                 
                 Tables\Columns\TextColumn::make('email')
@@ -224,10 +220,8 @@ class CustomerResource extends Resource
                 SelectFilter::make('customer_type')
                     ->label('Type')
                     ->options([
-                        'retail' => 'Retail',
-                        'dealer' => 'Dealer',
+                        'retail'    => 'Retail',
                         'wholesale' => 'Wholesale',
-                        'corporate' => 'Corporate',
                     ]),
                 
                 SelectFilter::make('status')

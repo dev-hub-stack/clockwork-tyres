@@ -162,8 +162,8 @@ class InvoiceResource extends Resource
                                 Select::make('customer_type')
                                     ->label('Customer Type')
                                     ->options([
-                                        'retail' => 'Retail',
-                                        'dealer' => 'Dealer',
+                                        'retail'    => 'Retail',
+                                        'wholesale' => 'Wholesale',
                                     ])
                                     ->default('retail')
                                     ->required(),
