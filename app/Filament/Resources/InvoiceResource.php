@@ -1014,7 +1014,7 @@ class InvoiceResource extends Resource
                                         $currency = CurrencySetting::getBase();
                                         $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                         
-                                        $revenue = $record->total ?? 0;
+                                        $revenue = $record->sub_total ?? 0;
                                         $expenses = 
                                             floatval($get('cost_of_goods') ?? 0) +
                                             floatval($get('shipping_cost') ?? 0) +
@@ -1033,7 +1033,7 @@ class InvoiceResource extends Resource
                                             <div class='p-4 bg-gray-50 dark:bg-gray-800 rounded-lg'>
                                                 <div class='grid grid-cols-3 gap-4'>
                                                     <div>
-                                                        <p class='text-sm text-gray-600 dark:text-gray-400'>Revenue</p>
+                                                        <p class='text-sm text-gray-600 dark:text-gray-400'>Revenue (excl. VAT)</p>
                                                         <p class='text-lg font-semibold'>{$currencySymbol} " . number_format($revenue, 2) . "</p>
                                                     </div>
                                                     <div>

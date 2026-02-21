@@ -445,10 +445,10 @@ class Order extends Model
             ($this->bank_fee ?? 0) +
             ($this->credit_card_fee ?? 0);
 
-        $this->gross_profit = ($this->total ?? 0) - $this->total_expenses;
+        $this->gross_profit = ($this->sub_total ?? 0) - $this->total_expenses;
         
-        if ($this->total > 0) {
-            $this->profit_margin = ($this->gross_profit / $this->total) * 100;
+        if ($this->sub_total > 0) {
+            $this->profit_margin = ($this->gross_profit / $this->sub_total) * 100;
         } else {
             $this->profit_margin = 0;
         }
@@ -462,7 +462,7 @@ class Order extends Model
     public function getProfitData(): array
     {
         return [
-            'revenue' => $this->total,
+            'revenue' => $this->sub_total,
             'total_expenses' => $this->total_expenses,
             'gross_profit' => $this->gross_profit,
             'profit_margin' => round($this->profit_margin, 2),

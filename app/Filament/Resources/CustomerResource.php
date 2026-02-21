@@ -252,6 +252,7 @@ class CustomerResource extends Resource
     {
         return [
             RelationManagers\AddressesRelationManager::class,
+            RelationManagers\OrderHistoryRelationManager::class,
             RelationManagers\BrandPricingRulesRelationManager::class,
             RelationManagers\ModelPricingRulesRelationManager::class,
         ];

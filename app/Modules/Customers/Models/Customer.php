@@ -150,6 +150,14 @@ class Customer extends Model
     }
 
     /**
+     * Relationship: Orders / Quotes / Invoices
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Orders\Models\Order::class);
+    }
+
+    /**
      * Relationship: Country
      */
     public function country(): BelongsTo

@@ -13,9 +13,17 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Illuminate\Contracts\View\View;
 
 class BrandPricingRulesRelationManager extends RelationManager
 {
+    protected static bool $isLazy = true;
+
+    public function placeholder(): View
+    {
+        return view('components.loading-placeholder');
+    }
+
     protected static string $relationship = 'brandPricingRules';
 
     protected static ?string $title = 'Brand Pricing Rules';
