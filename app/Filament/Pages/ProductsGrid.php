@@ -66,9 +66,9 @@ class ProductsGrid extends Page
                     'id' => $variant->id,
                     'product_id' => $product->id,
                     'sku' => $variant->sku ?? '',
-                    'product_full_name' => $product->brand->name . ' ' . $product->model->name . ' ' . ($variant->finish ?? ''),
-                    'brand' => $product->brand->name ?? '',
-                    'model' => $product->model->name ?? '',
+                    'product_full_name' => trim(($product->brand?->name ?? '') . ' ' . ($product->model?->name ?? '') . ' ' . ($variant->finish ?? '')),
+                    'brand' => $product->brand?->name ?? '',
+                    'model' => $product->model?->name ?? '',
                     'finish' => $variant->finishRelation->finish ?? $variant->finish ?? '',  // Try relationship first, then column
                     'construction' => $product->construction ?? '',  // From product table
                     'rim_width' => $variant->rim_width ?? '',
