@@ -89,17 +89,6 @@ class WarrantyClaimViewSchema
                     ])
                     ->collapsible()
                     ->collapsed(),
-
-                // Activity History Section
-                Section::make('Activity History')
-                    ->schema([
-                        Placeholder::make('history_timeline')
-                            ->label('')
-                            ->content(fn ($record) => view('filament.resources.warranty-claim.components.history-timeline', [
-                                'record' => $record,
-                            ])),
-                    ])
-                    ->collapsible(),
             ]);
     }
 }

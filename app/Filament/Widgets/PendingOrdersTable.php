@@ -75,12 +75,15 @@ class PendingOrdersTable extends BaseWidget
                 Tables\Columns\TextColumn::make('tracking_number')
                     ->label('Import Tracking')
                     ->badge()
-                    ->color('info')
+                    ->color(fn (Order $record) => $record->tracking_url ? 'success' : 'info')
                     ->size('sm')
                     ->default('PENDING')
+                    ->wrap()
                     ->getStateUsing(fn (Order $record) => 
                         $record->tracking_number ?: 'FEDEX TBD'
-                    ),
+                    )
+                    ->url(fn (Order $record) => $record->tracking_url ?? null)
+                    ->openUrlInNewTab(),
                     
                 Tables\Columns\TextColumn::make('payment_status')
                     ->label('Payment')

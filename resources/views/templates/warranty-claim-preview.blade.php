@@ -506,17 +506,21 @@
             @foreach($claim->histories->sortByDesc('created_at') as $history)
                 <div class="timeline-item">
                     <div class="timeline-item-header">
-                        {{ $history->action_type }}
-                        @if($history->old_status || $history->new_status)
-                            ({{ $history->old_status ? $history->old_status->getLabel() : 'N/A' }} → {{ $history->new_status ? $history->new_status->getLabel() : 'N/A' }})
-                        @endif
+                        {{ $history->action_type->getLabel() }}
+                        <span style="font-size:10px;color:#666;">({{ $history->action_type->value }})</span>
                     </div>
                     <div class="timeline-item-meta">
-                        By: {{ $history->user?->name ?? 'System' }} | 
+                        {{ $history->description }}
+                    </div>
+                    <div class="timeline-item-meta">
+                        By: {{ $history->user?->name ?? 'System' }} |
                         {{ $history->created_at->format('d/m/Y H:i') }}
                     </div>
-                    @if($history->notes)
-                        <div class="timeline-item-notes">{{ $history->notes }}</div>
+                    @if(!empty($history->metadata['url']))
+                        <div class="timeline-item-notes">Link: {{ $history->metadata['url'] }}</div>
+                    @endif
+                    @if(!empty($history->metadata['notes']))
+                        <div class="timeline-item-notes">{{ $history->metadata['notes'] }}</div>
                     @endif
                 </div>
             @endforeach
