@@ -849,6 +849,28 @@ class QuoteResource extends Resource
                             ->send();
                     }),
                 
+                Action::make('mark_as_sent')
+                    ->label('Mark as Sent')
+                    ->icon('heroicon-o-check')
+                    ->color('gray')
+                    ->visible(fn($record) => $record->quote_status?->value === 'draft')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Quote as Sent')
+                    ->modalDescription('This will mark the quote as sent without sending an email. Use this if you delivered the quote manually or via another channel.')
+                    ->modalSubmitActionLabel('Yes, Mark as Sent')
+                    ->action(function ($record) {
+                        $record->update([
+                            'quote_status' => QuoteStatus::SENT,
+                            'sent_at' => now(),
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Quote Marked as Sent')
+                            ->body("Quote {$record->quote_number} has been marked as sent.")
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
