@@ -204,79 +204,84 @@ class AddonResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $warehouses = \App\Modules\Inventory\Models\Warehouse::where('status', 1)->orderBy('code')->get();
+
+        $columns = [
+            ImageColumn::make('image_1_url')
+                ->label('Image')
+                ->circular()
+                ->defaultImageUrl(url('/images/placeholder.png')),
+
+            TextColumn::make('full_details')
+                ->label('Product Details')
+                ->state(fn (Addon $record) => $record->title) // Ensure state exists
+                ->searchable(['title', 'part_number', 'description'])
+                ->html()
+                ->formatStateUsing(function (Addon $record) {
+                    $html = '<div class="space-y-1">';
+                    $html .= '<div class="font-semibold text-gray-900 dark:text-white">' . e($record->title) . '</div>';
+                    if ($record->part_number) {
+                        $html .= '<div class="text-sm text-gray-500">' . e($record->part_number) . '</div>';
+                    }
+                    if ($record->description) {
+                        $html .= '<div class="text-xs text-gray-400">' . Str::limit(e($record->description), 100) . '</div>';
+                    }
+                    return $html . '</div>';
+                })
+                ->wrap(),
+        ];
+
+        foreach ($warehouses as $warehouse) {
+            $columns[] = TextColumn::make('warehouse_' . $warehouse->id)
+                ->label($warehouse->name)
+                ->default('0')
+                ->alignCenter()
+                ->state(function (Addon $record) use ($warehouse) {
+                    $inventory = $record->inventories->where('warehouse_id', $warehouse->id)->first();
+                    return $inventory ? $inventory->quantity : 0;
+                });
+        }
+
+        $columns = array_merge($columns, [
+            TextColumn::make('category.name')
+                ->badge()
+                ->searchable()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+
+            TextColumn::make('price')
+                ->money('USD')
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+
+            TextColumn::make('total_quantity')
+                ->label('Qty')
+                ->alignCenter()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+
+            TextColumn::make('stock_status')
+                ->badge()
+                ->color(fn (int $state): string => match ($state) {
+                    1 => 'success',
+                    2 => 'danger',
+                    3 => 'warning',
+                    4 => 'gray',
+                    default => 'gray',
+                })
+                ->formatStateUsing(fn (int $state): string => match ($state) {
+                    1 => 'In Stock',
+                    2 => 'Out of Stock',
+                    3 => 'Backorder',
+                    4 => 'Discontinued',
+                    default => 'Unknown',
+                })
+                ->toggleable(isToggledHiddenByDefault: true),
+        ]);
+
         return $table
-            ->columns([
-                ImageColumn::make('image_1')
-                    ->label('Image')
-                    ->disk('s3')
-                    ->circular()
-                    ->defaultImageUrl(url('/images/placeholder.png')),
-
-                TextColumn::make('full_details')
-                    ->label('Product Details')
-                    ->state(fn (Addon $record) => $record->title) // Ensure state exists
-                    ->searchable(['title', 'part_number', 'description'])
-                    ->html()
-                    ->formatStateUsing(function (Addon $record) {
-                        $html = '<div class="space-y-1">';
-                        $html .= '<div class="font-semibold text-gray-900 dark:text-white">' . e($record->title) . '</div>';
-                        if ($record->part_number) {
-                            $html .= '<div class="text-sm text-gray-500">' . e($record->part_number) . '</div>';
-                        }
-                        if ($record->description) {
-                            $html .= '<div class="text-xs text-gray-400">' . Str::limit(e($record->description), 100) . '</div>';
-                        }
-                        return $html . '</div>';
-                    })
-                    ->wrap(),
-
-                TextColumn::make('wh2_california')
-                    ->label('WH-2 California')
-                    ->default('-')
-                    ->alignCenter()
-                    ->sortable(),
-
-                TextColumn::make('wh1_chicago')
-                    ->label('WH-1 Chicago')
-                    ->default('-')
-                    ->alignCenter()
-                    ->sortable(),
-
-                TextColumn::make('category.name')
-                    ->badge()
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('price')
-                    ->money('USD')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('total_quantity')
-                    ->label('Qty')
-                    ->alignCenter()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('stock_status')
-                    ->badge()
-                    ->color(fn (int $state): string => match ($state) {
-                        1 => 'success',
-                        2 => 'danger',
-                        3 => 'warning',
-                        4 => 'gray',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (int $state): string => match ($state) {
-                        1 => 'In Stock',
-                        2 => 'Out of Stock',
-                        3 => 'Backorder',
-                        4 => 'Discontinued',
-                        default => 'Unknown',
-                    })
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('inventories'))
+            ->columns($columns)
             ->filters([
                 SelectFilter::make('addon_category_id')
                     ->label('Category')
