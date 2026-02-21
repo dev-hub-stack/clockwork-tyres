@@ -3,11 +3,32 @@
 namespace App\Filament\Resources\ConsignmentResource\Pages;
 
 use App\Filament\Resources\ConsignmentResource;
+use App\Modules\Consignments\Models\Consignment;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 class CreateConsignment extends CreateRecord
 {
     protected static string $resource = ConsignmentResource::class;
+
+    /**
+     * Override to retry on duplicate consignment number (race condition safety net).
+     */
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+    {
+        $attempts = 0;
+        while (true) {
+            try {
+                return parent::handleRecordCreation($data);
+            } catch (UniqueConstraintViolationException $e) {
+                if (++$attempts >= 5) {
+                    throw $e;
+                }
+                // Regenerate a fresh number and retry
+                $data['consignment_number'] = Consignment::generateConsignmentNumber();
+            }
+        }
+    }
 
     /**
      * Mutate form data before creating the record

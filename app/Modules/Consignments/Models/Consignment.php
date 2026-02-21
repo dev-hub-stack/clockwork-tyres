@@ -330,23 +330,13 @@ class Consignment extends Model
         $prefix = 'CNS';
         $year = date('Y');
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix, $year) {
-            // Lock the latest row to prevent race conditions
-            $lastConsignment = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
-                ->orderByRaw('CAST(SUBSTRING_INDEX(consignment_number, \'-\', -1) AS UNSIGNED) DESC')
-                ->lockForUpdate()
-                ->first();
+        $maxNum = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
+            ->selectRaw('MAX(CAST(SUBSTRING_INDEX(consignment_number, \'-\', -1) AS UNSIGNED)) as max_num')
+            ->value('max_num');
 
-            $number = 1;
-            if ($lastConsignment && !empty($lastConsignment->consignment_number)) {
-                $parts = explode('-', $lastConsignment->consignment_number);
-                if (count($parts) === 3) {
-                    $number = intval($parts[2]) + 1;
-                }
-            }
+        $number = ($maxNum ?? 0) + 1;
 
-            return $prefix . '-' . $year . '-' . str_pad((string)$number, 4, '0', STR_PAD_LEFT);
-        });
+        return $prefix . '-' . $year . '-' . str_pad((string) $number, 4, '0', STR_PAD_LEFT);
     }
 
     /**
