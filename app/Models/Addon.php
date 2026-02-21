@@ -92,22 +92,40 @@ class Addon extends Model
     }
 
     /**
+     * Get relative path for image_1 from database
+     */
+    public function getImage1Attribute($value)
+    {
+        if ($value && str_starts_with($value, 'http')) {
+            return ltrim(parse_url($value, PHP_URL_PATH), '/');
+        }
+        return $value;
+    }
+
+    /**
      * Get full URL for image_1
      */
     public function getImage1UrlAttribute()
     {
-        if (!$this->image_1) {
+        $image1 = $this->image_1;
+        if (!$image1) {
             return null;
         }
 
-        // If it's already a full URL, return it
-        if (str_starts_with($this->image_1, 'http')) {
-            return $this->image_1;
-        }
-
         // Use CloudFront/S3 URL from config
-        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL'));
-        return rtrim($cdnUrl, '/') . '/' . ltrim($this->image_1, '/');
+        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
+        return rtrim($cdnUrl, '/') . '/' . ltrim($image1, '/');
+    }
+
+    /**
+     * Get relative path for image_2 from database
+     */
+    public function getImage2Attribute($value)
+    {
+        if ($value && str_starts_with($value, 'http')) {
+            return ltrim(parse_url($value, PHP_URL_PATH), '/');
+        }
+        return $value;
     }
 
     /**
@@ -115,18 +133,14 @@ class Addon extends Model
      */
     public function getImage2UrlAttribute()
     {
-        if (!$this->image_2) {
+        $image2 = $this->image_2;
+        if (!$image2) {
             return null;
         }
 
-        // If it's already a full URL, return it
-        if (str_starts_with($this->image_2, 'http')) {
-            return $this->image_2;
-        }
-
         // Use CloudFront/S3 URL from config
-        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL'));
-        return rtrim($cdnUrl, '/') . '/' . ltrim($this->image_2, '/');
+        $cdnUrl = config('filesystems.disks.s3.url', env('AWS_CLOUDFRONT_URL', ''));
+        return rtrim($cdnUrl, '/') . '/' . ltrim($image2, '/');
     }
 
     /**
