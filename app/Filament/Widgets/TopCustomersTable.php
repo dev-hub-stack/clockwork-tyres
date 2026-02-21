@@ -38,7 +38,7 @@ class TopCustomersTable extends BaseWidget
 
         return $table
             ->query(
-                Customer::query()->fromSub($subquery, 'customers')
+                Customer::query()->withTrashed()->fromSub($subquery, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
