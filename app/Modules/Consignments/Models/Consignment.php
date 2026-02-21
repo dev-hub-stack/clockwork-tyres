@@ -330,7 +330,8 @@ class Consignment extends Model
         $prefix = 'CNS';
         $year = date('Y');
 
-        $maxNum = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
+        $maxNum = self::withTrashed()
+            ->where('consignment_number', 'like', $prefix . '-' . $year . '-%')
             ->selectRaw('MAX(CAST(SUBSTRING_INDEX(consignment_number, \'-\', -1) AS UNSIGNED)) as max_num')
             ->value('max_num');
 
