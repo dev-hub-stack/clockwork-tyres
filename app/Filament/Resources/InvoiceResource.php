@@ -92,45 +92,37 @@ class InvoiceResource extends Resource
     }
 
     /**
-     * Calculate totals based on items and shipping
+     * Calculate totals based on items and shipping.
+     *
+     * Standard e-commerce formula:
+     *   items_total = Σ (qty × price − item_discount)
+     *   subtotal    = items_total + shipping
+     *   tax         = subtotal × rate%
+     *   total       = subtotal + tax
      */
     public static function calculateValues(array $items, float $shipping): array
     {
         $taxSetting = TaxSetting::getDefault();
         $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        $subtotal = 0;
-        $totalVat = 0;
-        $grandTotal = 0;
-        
+
+        $itemsTotal = 0;
+
         foreach ($items as $item) {
-            $qty = floatval($item['quantity'] ?? 0);
-            $price = floatval($item['unit_price'] ?? 0);
+            $qty      = floatval($item['quantity'] ?? 0);
+            $price    = floatval($item['unit_price'] ?? 0);
             $discount = floatval($item['discount'] ?? 0);
-            $taxInclusive = $item['tax_inclusive'] ?? true;
-            
-            $lineTotal = ($qty * $price) - $discount;
-            $subtotal += $lineTotal;
-            
-            if ($taxInclusive) {
-                // Tax is INCLUDED
-                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                $grandTotal += $lineTotal;
-            } else {
-                // Tax is EXCLUDED
-                $taxAmount = $lineTotal * ($taxRate / 100);
-                $grandTotal += $lineTotal + $taxAmount;
-            }
-            
-            $totalVat += $taxAmount;
+            $itemsTotal += ($qty * $price) - $discount;
         }
-        
-        $grandTotal += $shipping;
-        
+
+        $subtotal = max(0, $itemsTotal + $shipping);
+        $tax      = round($subtotal * ($taxRate / 100), 2);
+        $total    = round($subtotal + $tax, 2);
+
         return [
-            'sub_total' => $subtotal,
-            'vat' => $totalVat,
-            'total' => $grandTotal,
+            'sub_total'   => round($subtotal, 2),
+            'items_total' => round($itemsTotal, 2),
+            'vat'         => $tax,
+            'total'       => $total,
         ];
     }
 
@@ -555,11 +547,14 @@ class InvoiceResource extends Resource
                                 Placeholder::make('sub_total_preview')
                                     ->label('Sub Total')
                                     ->content(function ($get) {
+                                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
+                                        $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $totals = self::calculateValues($items, 0);
-                                        return Number::currency($totals['sub_total'], 'AED');
-                                    }),
-                                
+                                        return Number::currency($totals['sub_total'], $code);
+                                    })
+                                    ->helperText('Items − Discounts'),
+
                                 Placeholder::make('vat_preview')
                                     ->label(function () {
                                         $taxSetting = TaxSetting::getDefault();
@@ -568,18 +563,24 @@ class InvoiceResource extends Resource
                                         return "{$taxName} ({$taxRate}%)";
                                     })
                                     ->content(function ($get) {
+                                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
+                                        $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $totals = self::calculateValues($items, 0);
-                                        return Number::currency($totals['vat'], 'AED');
-                                    }),
-                                
+                                        return Number::currency($totals['vat'], $code);
+                                    })
+                                    ->helperText('Subtotal × rate%'),
+
                                 Placeholder::make('total_preview')
                                     ->label('Total Amount')
                                     ->content(function ($get) {
+                                        $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
+                                        $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $totals = self::calculateValues($items, 0);
-                                        return Number::currency($totals['total'], 'AED');
+                                        return Number::currency($totals['total'], $code);
                                     })
+                                    ->helperText('Subtotal + Tax')
                                     ->extraAttributes(['class' => 'font-bold text-lg']),
                             ]),
                     ]),

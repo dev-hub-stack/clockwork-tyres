@@ -90,45 +90,37 @@ class QuoteResource extends Resource
     }
 
     /**
-     * Calculate totals based on items and shipping
+     * Calculate totals based on items and shipping.
+     *
+     * Standard e-commerce formula:
+     *   items_total = Σ (qty × price − item_discount)
+     *   subtotal    = items_total + shipping
+     *   tax         = subtotal × rate%
+     *   total       = subtotal + tax
      */
     public static function calculateValues(array $items, float $shipping): array
     {
         $taxSetting = TaxSetting::getDefault();
         $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        $subtotal = 0;
-        $totalVat = 0;
-        $grandTotal = 0;
-        
+
+        $itemsTotal = 0;
+
         foreach ($items as $item) {
-            $qty = floatval($item['quantity'] ?? 0);
-            $price = floatval($item['unit_price'] ?? 0);
+            $qty      = floatval($item['quantity'] ?? 0);
+            $price    = floatval($item['unit_price'] ?? 0);
             $discount = floatval($item['discount'] ?? 0);
-            $taxInclusive = $item['tax_inclusive'] ?? true;
-            
-            $lineTotal = ($qty * $price) - $discount;
-            $subtotal += $lineTotal;
-            
-            if ($taxInclusive) {
-                // Tax is INCLUDED
-                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                $grandTotal += $lineTotal;
-            } else {
-                // Tax is EXCLUDED
-                $taxAmount = $lineTotal * ($taxRate / 100);
-                $grandTotal += $lineTotal + $taxAmount;
-            }
-            
-            $totalVat += $taxAmount;
+            $itemsTotal += ($qty * $price) - $discount;
         }
-        
-        $grandTotal += $shipping;
-        
+
+        $subtotal = max(0, $itemsTotal + $shipping);
+        $tax      = round($subtotal * ($taxRate / 100), 2);
+        $total    = round($subtotal + $tax, 2);
+
         return [
-            'sub_total' => $subtotal,
-            'vat' => $totalVat,
-            'total' => $grandTotal,
+            'sub_total'   => round($subtotal, 2),
+            'items_total' => round($itemsTotal, 2),
+            'vat'         => $tax,
+            'total'       => $total,
         ];
     }
 
@@ -595,14 +587,13 @@ class QuoteResource extends Resource
                                             ->content(function ($get, $record) {
                                                 $currency = CurrencySetting::getBase();
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
-                                                
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
                                                 $totals = self::calculateValues($items, $shipping);
-                                                
                                                 return $currencySymbol . ' ' . number_format($totals['sub_total'], 2);
-                                            }),
-                                        
+                                            })
+                                            ->helperText('Items − Discounts + Shipping'),
+
                                         Placeholder::make('vat_display')
                                             ->label(function () {
                                                 $taxSetting = TaxSetting::getDefault();
@@ -613,13 +604,12 @@ class QuoteResource extends Resource
                                             ->content(function ($get, $record) {
                                                 $currency = CurrencySetting::getBase();
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
-                                                
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
                                                 $totals = self::calculateValues($items, $shipping);
-                                                
                                                 return $currencySymbol . ' ' . number_format($totals['vat'], 2);
-                                            }),
+                                            })
+                                            ->helperText('Subtotal × rate%'),
                                         
                                         Hidden::make('vat')
                                             ->default(0),

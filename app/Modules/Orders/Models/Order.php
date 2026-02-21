@@ -506,46 +506,32 @@ class Order extends Model
      */
     public function calculateTotals(): void
     {
-        $subTotal = 0;
-        $totalTax = 0;
-        $runningTotal = 0;
-        $items = $this->items;
-        
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
         $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        foreach ($items as $item) {
-            $qty = $item->quantity ?? 0;
-            $price = $item->unit_price ?? 0;
+
+        // Standard e-commerce formula:
+        //   items_total = Σ (qty × price − item_discount)
+        //   subtotal    = items_total + shipping
+        //   tax         = subtotal × rate%
+        //   total       = subtotal + tax
+        $itemsTotal = 0;
+        foreach ($this->items as $item) {
+            $qty      = $item->quantity ?? 0;
+            $price    = $item->unit_price ?? 0;
             $discount = $item->discount ?? 0;
-            $lineTotal = ($qty * $price) - $discount;
-            
-            // Check item's tax inclusive setting
-            // Fallback to order's setting if item's is null, or default to true
-            $isInclusive = $item->tax_inclusive ?? $this->tax_inclusive ?? true;
-            
-            if ($isInclusive) {
-                // Price includes tax
-                // Tax amount = Line Total - (Line Total / (1 + rate/100))
-                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                $runningTotal += $lineTotal;
-            } else {
-                // Price excludes tax
-                $taxAmount = $lineTotal * ($taxRate / 100);
-                $runningTotal += $lineTotal + $taxAmount;
-            }
-            
-            $totalTax += $taxAmount;
-            $subTotal += $lineTotal;
+            $itemsTotal += ($qty * $price) - $discount;
         }
-        
+
+        $shipping     = floatval($this->shipping ?? 0);
+        $subTotal     = max(0, $itemsTotal + $shipping);
+        $totalTax     = round($subTotal * ($taxRate / 100), 2);
+        $runningTotal = round($subTotal + $totalTax, 2);
+
         $this->sub_total = $subTotal;
-        $this->vat = $totalTax;
-        $this->tax = $totalTax; // Map vat to tax field as well
-        
-        // Calculate Total
-        $this->total = $runningTotal + ($this->shipping ?? 0);
-        
+        $this->vat       = $totalTax;
+        $this->tax       = $totalTax;
+        $this->total     = $runningTotal;
+
         $this->saveQuietly();
     }
 }
