@@ -330,7 +330,7 @@ class Consignment extends Model
         $prefix = 'CNS';
         $year = date('Y');
         
-        $lastConsignment = self::whereYear('created_at', $year)
+        $lastConsignment = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
             ->orderBy('id', 'desc')
             ->first();
         
