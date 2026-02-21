@@ -101,26 +101,39 @@ class QuoteResource extends Resource
     public static function calculateValues(array $items, float $shipping): array
     {
         $taxSetting = TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $multiplier = 1 + ($taxRate / 100);
 
-        $itemsTotal = 0;
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
 
         foreach ($items as $item) {
-            $qty      = floatval($item['quantity'] ?? 0);
-            $price    = floatval($item['unit_price'] ?? 0);
-            $discount = floatval($item['discount'] ?? 0);
-            $itemsTotal += ($qty * $price) - $discount;
+            $qty          = floatval($item['quantity'] ?? 0);
+            $price        = floatval($item['unit_price'] ?? 0);
+            $lineDiscount = floatval($item['discount'] ?? 0);
+            $taxInclusive = $item['tax_inclusive'] ?? true;
+            $lineTotal    = ($qty * $price) - $lineDiscount;
+
+            if ($taxInclusive) {
+                $inclGross += $lineTotal;
+            } else {
+                $exclNet += $lineTotal;
+            }
         }
 
-        $subtotal = max(0, $itemsTotal + $shipping);
-        $tax      = round($subtotal * ($taxRate / 100), 2);
-        $total    = round($subtotal + $tax, 2);
+        // Inclusive: extract tax
+        $inclTax = $inclGross - ($inclGross / $multiplier);
+        $inclNet = $inclGross / $multiplier;
+
+        // Exclusive + shipping: add tax on top
+        $exclBase = $exclNet + $shipping;
+        $exclTax  = $exclBase * ($taxRate / 100);
 
         return [
-            'sub_total'   => round($subtotal, 2),
-            'items_total' => round($itemsTotal, 2),
-            'vat'         => $tax,
-            'total'       => $total,
+            'sub_total'   => round($inclNet  + $exclBase, 2),
+            'items_total' => round($inclGross + $exclNet,  2),
+            'vat'         => round($inclTax   + $exclTax,  2),
+            'total'       => round($inclGross  + $exclBase + $exclTax, 2),
         ];
     }
 

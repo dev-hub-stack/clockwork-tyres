@@ -508,30 +508,73 @@ class ConsignmentForm
      *   tax         = subtotal × rate%
      *   total       = subtotal + tax
      */
+    /**
+     * Calculate totals respecting per-item tax_inclusive flag.
+     *
+     * Tax-inclusive  → price already contains tax; tax is extracted, total stays the same.
+     * Tax-exclusive  → tax is added on top of price.
+     *
+     * Formula:
+     *   inclGross  = Σ(qty × price) for inclusive items
+     *   exclNet    = Σ(qty × price) for exclusive items
+     *
+     *   After order-level discount (proportional):
+     *     inclTax  = inclGross − inclGross / (1 + rate)   ← extracted
+     *     inclNet  = inclGross / (1 + rate)
+     *     exclBase = exclNet + shipping
+     *     exclTax  = exclBase × rate                      ← added on top
+     *
+     *   subtotal = inclNet + exclBase   (ex-tax amount)
+     *   vat      = inclTax + exclTax
+     *   total    = inclGross + exclBase + exclTax
+     */
     public static function calculateValues(array $items, float $shipping, float $discount = 0): array
     {
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $multiplier = 1 + ($taxRate / 100);
 
-        $itemsTotal = 0;
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
 
         foreach ($items as $item) {
-            $qty   = floatval($item['quantity_sent'] ?? 0);
-            $price = floatval($item['price'] ?? 0);
-            $itemsTotal += $qty * $price;
+            $qty          = floatval($item['quantity_sent'] ?? 0);
+            $price        = floatval($item['price'] ?? 0);
+            $taxInclusive = $item['tax_inclusive'] ?? true;
+            $lineTotal    = $qty * $price;
+
+            if ($taxInclusive) {
+                $inclGross += $lineTotal;
+            } else {
+                $exclNet += $lineTotal;
+            }
         }
 
-        // Subtotal: items minus discount plus shipping (cannot go below 0)
-        $subtotal = max(0, $itemsTotal - $discount + $shipping);
+        // Apply order-level discount proportionally across inclusive / exclusive pools
+        $itemsRaw = $inclGross + $exclNet;
+        if ($itemsRaw > 0 && $discount > 0) {
+            $ratio      = max(0, 1 - ($discount / $itemsRaw));
+            $inclGross  = $inclGross * $ratio;
+            $exclNet    = $exclNet   * $ratio;
+        }
 
-        $tax   = round($subtotal * ($taxRate / 100), 2);
-        $total = round($subtotal + $tax, 2);
+        // Inclusive items: extract tax from gross
+        $inclTax = $inclGross - ($inclGross / $multiplier);
+        $inclNet = $inclGross / $multiplier;
+
+        // Exclusive items + shipping: add tax on top
+        $exclBase = $exclNet + $shipping;
+        $exclTax  = $exclBase * ($taxRate / 100);
+
+        $subTotal   = round($inclNet  + $exclBase, 2);
+        $totalTax   = round($inclTax  + $exclTax,  2);
+        $grandTotal = round($inclGross + $exclBase + $exclTax, 2);
 
         return [
-            'sub_total'   => round($subtotal, 2),
-            'items_total' => round($itemsTotal, 2),
-            'vat'         => $tax,
-            'total'       => $total,
+            'sub_total'   => $subTotal,
+            'items_total' => round($itemsRaw, 2),
+            'vat'         => $totalTax,
+            'total'       => $grandTotal,
         ];
     }
 }

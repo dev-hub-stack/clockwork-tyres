@@ -188,36 +188,57 @@ class Consignment extends Model
     public function calculateTotals(): void
     {
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $multiplier = 1 + ($taxRate / 100);
 
         // Reload items to ensure fresh data
         $this->load('items');
 
-        // Standard e-commerce formula:
-        //   items_total = Σ (qty × price)
-        //   subtotal    = items_total − discount + shipping
-        //   tax         = subtotal × rate%
-        //   total       = subtotal + tax
-        $itemsTotal = 0;
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
+
         foreach ($this->items as $item) {
-            $qty   = $item->quantity_sent ?? 0;
-            $price = $item->price ?? 0;
-            $itemsTotal += $qty * $price;
+            $qty          = $item->quantity_sent ?? 0;
+            $price        = $item->price ?? 0;
+            $taxInclusive = $item->tax_inclusive ?? true;
+            $lineTotal    = $qty * $price;
+
+            if ($taxInclusive) {
+                $inclGross += $lineTotal;
+            } else {
+                $exclNet += $lineTotal;
+            }
         }
 
-        $discount     = floatval($this->discount ?? 0);
-        $shipping     = floatval($this->shipping_cost ?? 0);
+        $discount = floatval($this->discount ?? 0);
+        $shipping = floatval($this->shipping_cost ?? 0);
 
-        $subTotal     = max(0, $itemsTotal - $discount + $shipping);
-        $totalTax     = round($subTotal * ($taxRate / 100), 2);
-        $runningTotal = round($subTotal + $totalTax, 2);
+        // Apply order-level discount proportionally
+        $itemsRaw = $inclGross + $exclNet;
+        if ($itemsRaw > 0 && $discount > 0) {
+            $ratio     = max(0, 1 - ($discount / $itemsRaw));
+            $inclGross = $inclGross * $ratio;
+            $exclNet   = $exclNet   * $ratio;
+        }
+
+        // Inclusive: extract tax
+        $inclTax = $inclGross - ($inclGross / $multiplier);
+        $inclNet = $inclGross / $multiplier;
+
+        // Exclusive + shipping: add tax on top
+        $exclBase = $exclNet + $shipping;
+        $exclTax  = $exclBase * ($taxRate / 100);
+
+        $subTotal     = round($inclNet  + $exclBase, 2);
+        $totalTax     = round($inclTax  + $exclTax,  2);
+        $runningTotal = round($inclGross + $exclBase + $exclTax, 2);
 
         $this->subtotal = $subTotal;
         $this->tax      = $totalTax;
         $this->total    = $runningTotal;
 
         // total_value tracks the raw item value (before adjustments)
-        $this->total_value = $itemsTotal;
+        $this->total_value = $itemsRaw;
         
         // Re-calculate balance manually based on total_value and existing returned/invoiced totals
         $invoiced = floatval($this->invoiced_value ?? 0);

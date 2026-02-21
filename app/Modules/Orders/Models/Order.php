@@ -507,30 +507,40 @@ class Order extends Model
     public function calculateTotals(): void
     {
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $multiplier = 1 + ($taxRate / 100);
 
-        // Standard e-commerce formula:
-        //   items_total = Σ (qty × price − item_discount)
-        //   subtotal    = items_total + shipping
-        //   tax         = subtotal × rate%
-        //   total       = subtotal + tax
-        $itemsTotal = 0;
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
+
         foreach ($this->items as $item) {
-            $qty      = $item->quantity ?? 0;
-            $price    = $item->unit_price ?? 0;
-            $discount = $item->discount ?? 0;
-            $itemsTotal += ($qty * $price) - $discount;
+            $qty          = $item->quantity ?? 0;
+            $price        = $item->unit_price ?? 0;
+            $lineDiscount = $item->discount ?? 0;
+            $taxInclusive = $item->tax_inclusive ?? $this->tax_inclusive ?? true;
+            $lineTotal    = ($qty * $price) - $lineDiscount;
+
+            if ($taxInclusive) {
+                $inclGross += $lineTotal;
+            } else {
+                $exclNet += $lineTotal;
+            }
         }
 
-        $shipping     = floatval($this->shipping ?? 0);
-        $subTotal     = max(0, $itemsTotal + $shipping);
-        $totalTax     = round($subTotal * ($taxRate / 100), 2);
-        $runningTotal = round($subTotal + $totalTax, 2);
+        $shipping = floatval($this->shipping ?? 0);
 
-        $this->sub_total = $subTotal;
-        $this->vat       = $totalTax;
-        $this->tax       = $totalTax;
-        $this->total     = $runningTotal;
+        // Inclusive: extract tax
+        $inclTax = $inclGross - ($inclGross / $multiplier);
+        $inclNet = $inclGross / $multiplier;
+
+        // Exclusive + shipping: add tax on top
+        $exclBase = $exclNet + $shipping;
+        $exclTax  = $exclBase * ($taxRate / 100);
+
+        $this->sub_total = round($inclNet  + $exclBase, 2);
+        $this->vat       = round($inclTax  + $exclTax,  2);
+        $this->tax       = $this->vat;
+        $this->total     = round($inclGross + $exclBase + $exclTax, 2);
 
         $this->saveQuietly();
     }
