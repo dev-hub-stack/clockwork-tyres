@@ -20,6 +20,11 @@ class BrandPricingRulesRelationManager extends RelationManager
 
     protected static ?string $title = 'Brand Pricing Rules';
 
+    public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
+    {
+        return $ownerRecord->customer_type === 'wholesale';
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
