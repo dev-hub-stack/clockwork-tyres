@@ -329,21 +329,24 @@ class Consignment extends Model
     {
         $prefix = 'CNS';
         $year = date('Y');
-        
-        $lastConsignment = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
-            ->orderBy('id', 'desc')
-            ->first();
-        
-        $number = 1;
-        if ($lastConsignment && !empty($lastConsignment->consignment_number)) {
-            // Check if the consignment number has the expected format CNS-YYYY-XXXX
-            $parts = explode('-', $lastConsignment->consignment_number);
-            if (count($parts) === 3) {
-                $number = intval($parts[2]) + 1;
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix, $year) {
+            // Lock the latest row to prevent race conditions
+            $lastConsignment = self::where('consignment_number', 'like', $prefix . '-' . $year . '-%')
+                ->orderByRaw('CAST(SUBSTRING_INDEX(consignment_number, \'-\', -1) AS UNSIGNED) DESC')
+                ->lockForUpdate()
+                ->first();
+
+            $number = 1;
+            if ($lastConsignment && !empty($lastConsignment->consignment_number)) {
+                $parts = explode('-', $lastConsignment->consignment_number);
+                if (count($parts) === 3) {
+                    $number = intval($parts[2]) + 1;
+                }
             }
-        }
-        
-        return $prefix . '-' . $year . '-' . str_pad((string)$number, 4, '0', STR_PAD_LEFT);
+
+            return $prefix . '-' . $year . '-' . str_pad((string)$number, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     /**
