@@ -51,20 +51,6 @@ class ViewQuote extends ViewRecord
                         ->send();
                 }),
 
-            Actions\Action::make('approve')
-                ->label('Approve')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->visible(fn () => $this->record->quote_status === QuoteStatus::SENT)
-                ->requiresConfirmation()
-                ->action(function () {
-                    $this->record->update([
-                        'quote_status' => QuoteStatus::APPROVED,
-                        'approved_at' => now(),
-                    ]);
-                })
-                ->successNotificationTitle('Quote approved!'),
-
             Actions\Action::make('convert')
                 ->label('Convert to Invoice')
                 ->icon('heroicon-o-arrow-right-circle')

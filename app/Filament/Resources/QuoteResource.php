@@ -871,39 +871,6 @@ class QuoteResource extends Resource
                             ->send();
                     }),
 
-                Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn($record) => $record->quote_status?->value === 'sent')
-                    ->requiresConfirmation()
-                    ->modalHeading('Approve Quote')
-                    ->modalDescription('Approving this quote will allow it to be converted to an invoice.')
-                    ->form([
-                        Textarea::make('approval_notes')
-                            ->label('Approval Notes (Optional)')
-                            ->rows(3)
-                            ->placeholder('Any additional notes about this approval...'),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $record->update([
-                            'quote_status' => QuoteStatus::APPROVED,
-                            'approved_at' => now(),
-                            'notes' => isset($data['approval_notes']) ? 
-                                $record->notes . "\n\nApproval Notes: " . $data['approval_notes'] : 
-                                $record->notes,
-                        ]);
-                        
-                        // TODO: Notify sales team
-                        // Mail::to('sales@tunerstop.com')->send(new QuoteApprovedMail($record));
-                        
-                        \Filament\Notifications\Notification::make()
-                            ->title('Quote Approved')
-                            ->body("Quote {$record->quote_number} has been approved and is ready to convert to invoice")
-                            ->success()
-                            ->send();
-                    }),
-                
                 Action::make('convert')
                     ->label('Convert to Invoice')
                     ->icon('heroicon-o-arrow-right-circle')
@@ -923,34 +890,6 @@ class QuoteResource extends Resource
                         
                         // Redirect to invoice edit page
                         return redirect()->route('filament.admin.resources.invoices.edit', ['record' => $invoice]);
-                    }),
-                
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn($record) => $record->quote_status?->value === 'sent')
-                    ->requiresConfirmation()
-                    ->modalHeading('Reject Quote')
-                    ->modalDescription('This will mark the quote as rejected. Please provide a reason.')
-                    ->form([
-                        Textarea::make('rejection_reason')
-                            ->label('Rejection Reason')
-                            ->required()
-                            ->rows(3)
-                            ->placeholder('Why is this quote being rejected?'),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $record->update([
-                            'quote_status' => QuoteStatus::REJECTED,
-                            'notes' => $record->notes . "\n\nRejection Reason: " . $data['rejection_reason'],
-                        ]);
-                        
-                        \Filament\Notifications\Notification::make()
-                            ->title('Quote Rejected')
-                            ->body("Quote {$record->quote_number} has been marked as rejected")
-                            ->warning()
-                            ->send();
                     }),
                 
                 Action::make('duplicate')

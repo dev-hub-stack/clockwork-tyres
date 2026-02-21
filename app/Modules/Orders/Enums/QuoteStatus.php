@@ -57,7 +57,7 @@ enum QuoteStatus: string
      */
     public function canConvert(): bool
     {
-        return $this === self::APPROVED;
+        return $this === self::SENT;
     }
 
     /**

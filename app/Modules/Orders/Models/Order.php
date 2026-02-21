@@ -271,8 +271,8 @@ class Order extends Model
      */
     public function canConvertToInvoice(): bool
     {
-        return $this->isQuote() 
-            && $this->quote_status === QuoteStatus::APPROVED 
+        return $this->isQuote()
+            && $this->quote_status === QuoteStatus::SENT
             && !$this->is_quote_converted;
     }
 
