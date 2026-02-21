@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Modules\Products\Models\Product;
 use App\Modules\Orders\Models\OrderItem;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -16,30 +17,27 @@ class ProductPerformanceTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = OrderItem::query()
-            ->select(
-                DB::raw('order_items.sku as id'),
-                'order_items.sku',
-                'order_items.product_name as name',
-                DB::raw("COALESCE(NULLIF(order_items.brand_name, ''), TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1))) as brand_name"),
-                DB::raw('COUNT(DISTINCT order_items.order_id) as times_sold'),
-                DB::raw('SUM(order_items.quantity) as total_quantity'),
-                DB::raw('SUM(order_items.line_total) as total_revenue'),
-                DB::raw('AVG(order_items.unit_price) as avg_price'),
-                DB::raw('COALESCE(products.price, MAX(order_items.unit_price)) as current_price'),
-                'order_items.product_id'
-            )
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->where('orders.external_source', 'tunerstop_historical')
-            ->whereNotNull('order_items.product_name')
-            ->where('order_items.product_name', '!=', '')
-            ->groupBy('order_items.sku', 'order_items.product_name', 'order_items.brand_name', 'order_items.product_id', 'products.price');
-
         return $table
             ->query(
                 OrderItem::query()
-                    ->fromSub($query, 'order_items')
+                    ->select(
+                        'products.id',
+                        'products.name',
+                        'products.sku',
+                        'products.price',
+                        'brands.name as brand_name',
+                        DB::raw('COUNT(DISTINCT order_items.id) as times_sold'),
+                        DB::raw('SUM(order_items.quantity) as total_quantity'),
+                        DB::raw('SUM(order_items.line_total) as total_revenue'),
+                        DB::raw('AVG(order_items.line_total) as avg_line_value'),
+                        DB::raw('RANK() OVER (ORDER BY SUM(order_items.line_total) DESC) as revenue_rank')
+                    )
+                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                    ->join('products', 'order_items.product_id', '=', 'products.id')
+                    ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+                    ->where('orders.external_source', 'tunerstop_historical')
+                    ->groupBy('products.id', 'products.name', 'products.sku', 'products.price', 'brands.name')
+                    ->orderByDesc('total_revenue')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')
@@ -52,8 +50,7 @@ class ProductPerformanceTable extends BaseWidget
                     ->label('Product')
                     ->searchable()
                     ->limit(40)
-                    ->tooltip(fn ($record) => $record->name)
-                    ->description(fn ($record) => $record->product_id ? '🔗 Linked to inventory' : null),
+                    ->tooltip(fn ($record) => $record->name),
                 
                 Tables\Columns\TextColumn::make('brand_name')
                     ->label('Brand')
@@ -77,18 +74,15 @@ class ProductPerformanceTable extends BaseWidget
                     ->sortable()
                     ->weight('bold')
                     ->color('success'),
-
-                Tables\Columns\TextColumn::make('avg_price')
+                
+                Tables\Columns\TextColumn::make('avg_line_value')
                     ->label('Avg Price')
                     ->money('AED')
                     ->sortable(),
                 
-                Tables\Columns\TextColumn::make('current_price')
+                Tables\Columns\TextColumn::make('price')
                     ->label('Current Price')
-                    ->money('AED')
-                    ->tooltip(fn ($record) => $record->product_id 
-                        ? 'Live price from inventory' 
-                        : 'Last sold price (not in inventory)'),
+                    ->money('AED'),
             ])
             ->heading('Product Performance')
             ->defaultSort('total_revenue', 'desc')

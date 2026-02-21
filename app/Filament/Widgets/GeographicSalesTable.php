@@ -17,27 +17,22 @@ class GeographicSalesTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = Customer::query()
-            ->withoutGlobalScopes() // Prevent SoftDeletes from adding where customers.deleted_at is null to the subquery
-            ->select(
-                'customers.city',
-                DB::raw('customers.city as id'),
-                DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
-                DB::raw('SUM(orders.total) as total_revenue'),
-                DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
-                DB::raw('AVG(orders.total) as avg_order_value')
-            )
-            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
-            ->where('customers.customer_type', 'retail')
-            ->whereNotNull('customers.city')
-            ->whereNull('customers.deleted_at') // Manually add it inside the subquery
-            ->groupBy('customers.city');
-
         return $table
             ->query(
                 Customer::query()
-                    ->withoutGlobalScopes() // Prevent SoftDeletes from adding where customers.deleted_at is null to the outer query
-                    ->fromSub($query, 'customers')
+                    ->select(
+                        'customers.city',
+                        DB::raw('MIN(customers.id) as id'),
+                        DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
+                        DB::raw('SUM(orders.total) as total_revenue'),
+                        DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
+                        DB::raw('AVG(orders.total) as avg_order_value')
+                    )
+                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+                    ->where('customers.customer_type', 'retail')
+                    ->whereNotNull('customers.city')
+                    ->groupBy('customers.city')
+                    ->orderByDesc('total_revenue')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('city')
@@ -63,7 +58,7 @@ class GeographicSalesTable extends BaseWidget
                     ->sortable()
                     ->weight('bold')
                     ->color('success'),
-
+                
                 Tables\Columns\TextColumn::make('avg_order_value')
                     ->label('Avg Order')
                     ->money('AED')

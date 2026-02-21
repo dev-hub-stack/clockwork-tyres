@@ -17,38 +17,33 @@ class CustomerAnalyticsTable extends BaseWidget
     
     public function table(Table $table): Table
     {
-        $query = Customer::query()
-            ->withoutGlobalScopes()
-            ->select(
-                'customers.id',
-                'customers.first_name',
-                'customers.last_name',
-                'customers.email',
-                'customers.phone',
-                DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
-                DB::raw('SUM(orders.total) as lifetime_value'),
-                DB::raw('AVG(orders.total) as avg_order_value'),
-                DB::raw('MAX(orders.created_at) as last_order_date'),
-                DB::raw('MIN(orders.created_at) as first_order_date'),
-                DB::raw('DATEDIFF(NOW(), MAX(orders.created_at)) as days_since_order')
-            )
-            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
-            ->where('customers.customer_type', 'retail')
-            ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
-            ->whereNull('customers.deleted_at')
-            ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone');
-
         return $table
             ->query(
                 Customer::query()
-                    ->withoutGlobalScopes()
-                    ->fromSub($query, 'customers')
+                    ->select(
+                        'customers.id',
+                        'customers.first_name',
+                        'customers.last_name',
+                        'customers.email',
+                        'customers.phone',
+                        DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
+                        DB::raw('SUM(orders.total) as lifetime_value'),
+                        DB::raw('AVG(orders.total) as avg_order_value'),
+                        DB::raw('MAX(orders.created_at) as last_order_date'),
+                        DB::raw('MIN(orders.created_at) as first_order_date'),
+                        DB::raw('DATEDIFF(NOW(), MAX(orders.created_at)) as days_since_order')
+                    )
+                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+                    ->where('customers.customer_type', 'retail')
+                    ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+                    ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone')
+                    ->orderByDesc('lifetime_value')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Customer')
                     ->searchable(['first_name', 'last_name'])
-                    ->formatStateUsing(fn ($record) => $record->first_name . ' ' . $record->last_name),
+                    ->formatStateUsing(fn (Customer $record) => $record->first_name . ' ' . $record->last_name),
                 
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')

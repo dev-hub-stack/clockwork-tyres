@@ -22,7 +22,7 @@ class TopProductsChart extends ChartWidget
     {
         $filter = $this->filter;
         
-        $query = DB::table('order_items')
+        $query = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->where('orders.external_source', 'tunerstop_historical');

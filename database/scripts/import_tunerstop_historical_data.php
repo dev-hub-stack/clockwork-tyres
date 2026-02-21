@@ -339,7 +339,7 @@ class TunerstopHistoricalDataImporter
                 $orderStatus = OrderStatus::COMPLETED;
             }
         }
-        
+
         // Determine payment status based on paid_amount
         $paymentStatus = PaymentStatus::UNPAID;
         if ($tsOrder->paid_amount >= $tsOrder->total) {

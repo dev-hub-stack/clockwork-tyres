@@ -61,12 +61,11 @@ class RevenueByMonthChart extends ChartWidget
             ->whereBetween('created_at', [$startDate, $endDate])
             ->select(
                 DB::raw('DATE_FORMAT(created_at, "%b %Y") as month'),
-                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month_sort'),
                 DB::raw('SUM(total) as revenue'),
                 DB::raw('COUNT(*) as orders')
             )
-            ->groupBy('month', 'month_sort')
-            ->orderBy('month_sort')
+            ->groupBy('month')
+            ->orderBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m")'))
             ->get();
         
         return [

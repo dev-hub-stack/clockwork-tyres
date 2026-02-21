@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Modules\Products\Models\Brand;
+use App\Modules\Orders\Models\OrderItem;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 
@@ -20,41 +22,29 @@ class BrandPerformanceChart extends ChartWidget
     {
         $filter = $this->filter;
         
-        // Build date filter condition
-        $dateCondition = '';
-        $bindings = [];
+        $query = Brand::query()
+            ->select(
+                'brands.name',
+                DB::raw('SUM(order_items.line_total) as revenue'),
+                DB::raw('COUNT(DISTINCT order_items.id) as times_sold')
+            )
+            ->leftJoin('products', 'brands.id', '=', 'products.brand_id')
+            ->leftJoin('order_items', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.external_source', 'tunerstop_historical');
+        
+        // Apply date filter
         if ($filter === 'year') {
-            $dateCondition = "AND orders.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+            $query->where('orders.created_at', '>=', now()->subYear());
         } elseif ($filter !== 'all') {
-            $dateCondition = "AND YEAR(orders.created_at) = ?";
-            $bindings[] = intval($filter);
+            $query->whereYear('orders.created_at', $filter);
         }
         
-        // Use raw SQL to avoid MySQL strict mode issues
-        $sql = "
-            SELECT 
-                brand_derived as brand_name,
-                SUM(line_total) as revenue,
-                COUNT(*) as times_sold
-            FROM (
-                SELECT 
-                    order_items.line_total,
-                    COALESCE(
-                        NULLIF(order_items.brand_name, ''), 
-                        TRIM(SUBSTRING_INDEX(order_items.product_name, ' - ', 1))
-                    ) as brand_derived
-                FROM order_items
-                INNER JOIN orders ON order_items.order_id = orders.id
-                WHERE orders.external_source = 'tunerstop_historical'
-                {$dateCondition}
-            ) as subquery
-            WHERE brand_derived IS NOT NULL AND brand_derived != ''
-            GROUP BY brand_derived
-            ORDER BY revenue DESC
-            LIMIT 10
-        ";
-        
-        $data = collect(DB::select($sql, $bindings));
+        $data = $query
+            ->groupBy('brands.id', 'brands.name')
+            ->orderByDesc('revenue')
+            ->limit(10)
+            ->get();
         
         return [
             'datasets' => [
@@ -75,7 +65,7 @@ class BrandPerformanceChart extends ChartWidget
                     ],
                 ],
             ],
-            'labels' => $data->pluck('brand_name')->toArray(),
+            'labels' => $data->pluck('name')->toArray(),
         ];
     }
     

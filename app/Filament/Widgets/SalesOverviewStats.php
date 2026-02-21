@@ -104,7 +104,6 @@ class SalesOverviewStats extends BaseWidget
             )
             ->groupBy('month')
             ->orderBy('month')
-            ->get()
             ->pluck('revenue')
             ->toArray();
         
@@ -124,7 +123,6 @@ class SalesOverviewStats extends BaseWidget
             )
             ->groupBy('month')
             ->orderBy('month')
-            ->get()
             ->pluck('orders')
             ->toArray();
         
