@@ -60,6 +60,41 @@ class ConsignmentItem extends Model
     ];
 
     /**
+     * Auto-populate product_snapshot with variant specs whenever an item is saved.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (ConsignmentItem $item) {
+            if (!$item->product_variant_id) {
+                return;
+            }
+
+            $variant = \App\Modules\Products\Models\ProductVariant::with(['finishRelation', 'product.finish'])
+                ->find($item->product_variant_id);
+
+            if (!$variant) {
+                return;
+            }
+
+            $snapshot = is_array($item->product_snapshot) ? $item->product_snapshot : [];
+
+            $finishName = $variant->finishRelation?->finish
+                ?? $variant->product?->finish?->finish
+                ?? (is_array($snapshot['finish'] ?? null) ? ($snapshot['finish']['finish'] ?? null) : null)
+                ?? $variant->getRawOriginal('finish');
+
+            $snapshot['specifications'] = [
+                'size'         => $variant->size,
+                'bolt_pattern' => $variant->bolt_pattern,
+                'offset'       => $variant->offset,
+                'finish'       => $finishName,
+            ];
+
+            $item->product_snapshot = $snapshot;
+        });
+    }
+
+    /**
      * Get the consignment that owns this item
      */
     public function consignment(): BelongsTo

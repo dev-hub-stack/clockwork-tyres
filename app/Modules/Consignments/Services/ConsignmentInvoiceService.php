@@ -281,17 +281,18 @@ class ConsignmentInvoiceService
         // Build product snapshot with variant specs so they appear on invoice preview/PDF
         $snapshot = $consignmentItem->product_snapshot ?? [];
         if ($consignmentItem->product_variant_id) {
-            $variant = \App\Modules\Products\Models\ProductVariant::with('finishRelation')
+            $variant = \App\Modules\Products\Models\ProductVariant::with(['finishRelation', 'product.finish'])
                 ->find($consignmentItem->product_variant_id);
             if ($variant) {
                 $existingSnap = is_array($snapshot) ? $snapshot : [];
                 $finishName = $variant->finishRelation?->finish
+                    ?? $variant->product?->finish?->finish
                     ?? (is_array($existingSnap['finish'] ?? null) ? ($existingSnap['finish']['finish'] ?? null) : null)
                     ?? $variant->getRawOriginal('finish');
                 $snapshot['specifications'] = [
                     'size'         => $variant->size,
                     'bolt_pattern' => $variant->bolt_pattern,
-                    'offset'       => $variant->offset ? '+' . $variant->offset : null,
+                    'offset'       => $variant->offset,
                     'finish'       => $finishName,
                 ];
             }

@@ -247,7 +247,6 @@
                                             $specLabels = [
                                                 'size'         => 'Size',
                                                 'bolt_pattern' => 'Bolt Pattern',
-                                                'offset'       => 'Offset',
                                                 'finish'       => 'Finish',
                                             ];
                                         @endphp
@@ -256,6 +255,9 @@
                                                 <br><span class="small-text" style="color:#555;">{{ $label }}: {{ $specs[$key] }}</span>
                                             @endif
                                         @endforeach
+                                        @if(!empty($specs['offset']))
+                                            <br><span class="small-text" style="color:#555;">Offset: ET{{ $specs['offset'] }}</span>
+                                        @endif
 
                                         @php
                                             $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
