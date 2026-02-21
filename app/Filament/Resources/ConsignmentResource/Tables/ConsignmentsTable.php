@@ -146,11 +146,18 @@ class ConsignmentsTable
                     ->tooltip('Outstanding value (Total - Invoiced - Returned)')
                     ->toggleable(),
                 
-                TextColumn::make('warehouse.warehouse_name')
+                TextColumn::make('warehouse_from_items')
                     ->label('Warehouse')
-                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        if (!$record->items || $record->items->count() === 0) return 'N/A';
+                        
+                        // Get unique warehouse names from items
+                        return $record->items->map(function ($item) {
+                            return $item->warehouse->warehouse_name ?? null;
+                        })->filter()->unique()->implode(', ');
+                    })
                     ->toggleable()
-                    ->limit(20),
+                    ->limit(30),
                 
                 TextColumn::make('representative.name')
                     ->label('Representative')

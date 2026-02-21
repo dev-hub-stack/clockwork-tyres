@@ -14,32 +14,23 @@ class CreateConsignment extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Calculate totals from items
+        // Calculate totals using centralized method from ConsignmentForm
         $items = $data['items'] ?? [];
-        $subtotal = 0;
-        
-        foreach ($items as $item) {
-            $qty = floatval($item['quantity_sent'] ?? 0);
-            $price = floatval($item['price'] ?? 0);
-            $subtotal += ($qty * $price);
-        }
-        
-        // Get tax rate from settings
-        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        $discount = floatval($data['discount'] ?? 0);
         $shipping = floatval($data['shipping_cost'] ?? 0);
+        $discount = floatval($data['discount'] ?? 0);
         
-        // Tax on discounted amount
-        $discountedAmount = $subtotal - $discount;
-        $tax = $discountedAmount * ($taxRate / 100);
-        $total = $discountedAmount + $tax + $shipping;
+        $totals = \App\Filament\Resources\ConsignmentResource\Schemas\ConsignmentForm::calculateValues($items, $shipping, $discount);
         
-        // Set calculated values
-        $data['subtotal'] = $subtotal;
-        $data['tax'] = $tax;
-        $data['total'] = $total;
+        // Set basic totals
+        $data['subtotal'] = $totals['sub_total'];
+        $data['tax'] = $totals['vat'];
+        $data['total'] = $totals['total'];
+        
+        // Set value tracking fields for consignments
+        $data['total_value'] = $totals['sub_total'];
+        $data['invoiced_value'] = 0;
+        $data['returned_value'] = 0;
+        $data['balance_value'] = $totals['sub_total'];
         
         // Generate consignment number if not set
         if (empty($data['consignment_number'])) {

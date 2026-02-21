@@ -53,29 +53,28 @@ class EditConsignment extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Calculate totals from items
+        // Calculate totals using centralized method from ConsignmentForm
         $items = $data['items'] ?? [];
-        $subtotal = 0;
-        
-        foreach ($items as $item) {
-            $qty = floatval($item['quantity_sent'] ?? 0);
-            $price = floatval($item['price'] ?? 0);
-            $subtotal += ($qty * $price);
-        }
-        
-        // Get tax rate from settings
-        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
-        $tax = $subtotal * ($taxRate / 100);
-        $discount = floatval($data['discount'] ?? 0);
         $shipping = floatval($data['shipping_cost'] ?? 0);
-        $total = $subtotal + $tax - $discount + $shipping;
+        $discount = floatval($data['discount'] ?? 0);
+        
+        $totals = \App\Filament\Resources\ConsignmentResource\Schemas\ConsignmentForm::calculateValues($items, $shipping, $discount);
         
         // Set calculated values
-        $data['subtotal'] = $subtotal;
-        $data['tax'] = $tax;
-        $data['total'] = $total;
+        $data['subtotal'] = $totals['sub_total'];
+        $data['tax'] = $totals['vat'];
+        $data['total'] = $totals['total'];
+        
+        // Only update total value to reflect current total sent items.
+        // DO NOT overwrite invoiced_value or returned_value, as these are managed by
+        // RecordSaleAction and RecordReturnAction respectively.
+        $data['total_value'] = $totals['sub_total'];
+        
+        // Re-calculate balance manually instead of trusting the form defaults
+        $invoiced = floatval($this->record->invoiced_value ?? 0);
+        $returned = floatval($this->record->returned_value ?? 0);
+        
+        $data['balance_value'] = $totals['sub_total'] - $invoiced - $returned;
         
         return $data;
     }
