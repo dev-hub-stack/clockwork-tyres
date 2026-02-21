@@ -187,47 +187,37 @@ class Consignment extends Model
      */
     public function calculateTotals(): void
     {
-        $subTotal = 0;
-        $totalTax = 0;
-        $runningTotal = 0;
-        
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
         $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5;
-        
+
         // Reload items to ensure fresh data
         $this->load('items');
 
+        // Standard e-commerce formula:
+        //   items_total = Σ (qty × price)
+        //   subtotal    = items_total − discount + shipping
+        //   tax         = subtotal × rate%
+        //   total       = subtotal + tax
+        $itemsTotal = 0;
         foreach ($this->items as $item) {
-            $qty = $item->quantity_sent ?? 0;
+            $qty   = $item->quantity_sent ?? 0;
             $price = $item->price ?? 0;
-            $lineTotal = $qty * $price;
-            
-            // Check item's tax inclusive setting
-            // Default to true if null (safe default for retail)
-            $isInclusive = $item->tax_inclusive ?? true;
-            
-            if ($isInclusive) {
-                // Price includes tax
-                $taxAmount = $lineTotal - ($lineTotal / (1 + ($taxRate / 100)));
-                $runningTotal += $lineTotal;
-            } else {
-                // Price excludes tax
-                $taxAmount = $lineTotal * ($taxRate / 100);
-                $runningTotal += $lineTotal + $taxAmount;
-            }
-            
-            $totalTax += $taxAmount;
-            $subTotal += $lineTotal;
+            $itemsTotal += $qty * $price;
         }
 
+        $discount     = floatval($this->discount ?? 0);
+        $shipping     = floatval($this->shipping_cost ?? 0);
+
+        $subTotal     = max(0, $itemsTotal - $discount + $shipping);
+        $totalTax     = round($subTotal * ($taxRate / 100), 2);
+        $runningTotal = round($subTotal + $totalTax, 2);
+
         $this->subtotal = $subTotal;
-        $this->tax = $totalTax;
-        
-        // Calculate total
-        $this->total = $runningTotal - ($this->discount ?? 0) + ($this->shipping_cost ?? 0);
-        
-        // Update total_value to the value of all items sent (subtotal of items before discount/shipping)
-        $this->total_value = $subTotal;
+        $this->tax      = $totalTax;
+        $this->total    = $runningTotal;
+
+        // total_value tracks the raw item value (before adjustments)
+        $this->total_value = $itemsTotal;
         
         // Re-calculate balance manually based on total_value and existing returned/invoiced totals
         $invoiced = floatval($this->invoiced_value ?? 0);
