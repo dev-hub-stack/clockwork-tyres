@@ -29,6 +29,28 @@ class ViewQuote extends ViewRecord
                 })
                 ->successNotificationTitle('Quote sent successfully!'),
 
+            Actions\Action::make('mark_as_sent')
+                ->label('Mark as Sent')
+                ->icon('heroicon-o-check')
+                ->color('gray')
+                ->visible(fn () => $this->record->quote_status === QuoteStatus::DRAFT)
+                ->requiresConfirmation()
+                ->modalHeading('Mark Quote as Sent')
+                ->modalDescription('This will mark the quote as sent without sending an email. Use this if you shared the quote manually or via another channel.')
+                ->modalSubmitActionLabel('Yes, Mark as Sent')
+                ->action(function () {
+                    $this->record->update([
+                        'quote_status' => QuoteStatus::SENT,
+                        'sent_at' => now(),
+                    ]);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Quote Marked as Sent')
+                        ->body("Quote {$this->record->quote_number} has been marked as sent.")
+                        ->success()
+                        ->send();
+                }),
+
             Actions\Action::make('approve')
                 ->label('Approve')
                 ->icon('heroicon-o-check-circle')

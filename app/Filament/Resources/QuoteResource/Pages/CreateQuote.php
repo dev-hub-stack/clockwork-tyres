@@ -28,15 +28,13 @@ class CreateQuote extends CreateRecord
         $data['tax_inclusive'] = $data['tax_inclusive'] ?? false;
         
         // Calculate totals from line items and populate product details
-        $subtotal = 0;
         if (isset($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as &$item) {
                 $qty = floatval($item['quantity'] ?? 0);
                 $price = floatval($item['unit_price'] ?? 0);
                 $discount = floatval($item['discount'] ?? 0);
                 $lineTotal = ($qty * $price) - $discount;
-                $subtotal += $lineTotal;
-                
+
                 // Set line_total for this item
                 $item['line_total'] = $lineTotal;
                 
@@ -59,15 +57,44 @@ class CreateQuote extends CreateRecord
             }
         }
         
-        // Calculate VAT from settings
-        $vat = $subtotal * ($taxRate / 100);
-        
-        $data['sub_total'] = $subtotal;
-        $data['vat'] = $vat;
-        $data['shipping'] = floatval($data['shipping'] ?? 0);
-        $data['discount'] = floatval($data['discount'] ?? 0);
-        $data['total'] = $subtotal + $vat + $data['shipping'] - $data['discount'];
-        
+        // Calculate totals respecting per-item tax_inclusive flag
+        $multiplier = 1 + ($taxRate / 100);
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
+
+        if (isset($data['items']) && is_array($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $qty          = floatval($item['quantity'] ?? 0);
+                $price        = floatval($item['unit_price'] ?? 0);
+                $lineDiscount = floatval($item['discount'] ?? 0);
+                $taxInclusive = (bool) ($item['tax_inclusive'] ?? true);
+                $lineTotal    = ($qty * $price) - $lineDiscount;
+
+                if ($taxInclusive) {
+                    $inclGross += $lineTotal;
+                } else {
+                    $exclNet += $lineTotal;
+                }
+            }
+        }
+
+        $shipping = floatval($data['shipping'] ?? 0);
+        $discount = floatval($data['discount'] ?? 0);
+
+        // Inclusive: extract tax, total stays the same
+        $inclTax = $inclGross - ($inclGross / $multiplier);
+        $inclNet = $inclGross / $multiplier;
+
+        // Exclusive + shipping − discount: add tax on top
+        $exclBase = $exclNet + $shipping - $discount;
+        $exclTax  = $exclBase * ($taxRate / 100);
+
+        $data['sub_total'] = round($inclNet  + $exclBase, 2);
+        $data['vat']       = round($inclTax  + $exclTax,  2);
+        $data['shipping']  = $shipping;
+        $data['discount']  = $discount;
+        $data['total']     = round($inclGross + $exclBase + $exclTax, 2);
+
         return $data;
     }
     
