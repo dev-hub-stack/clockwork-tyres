@@ -17,7 +17,12 @@ class GeographicSales extends Page
     protected static string | UnitEnum | null $navigationGroup = 'Reports';
     
     protected static ?int $navigationSort = 4;
-    
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view_reports') ?? false;
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [

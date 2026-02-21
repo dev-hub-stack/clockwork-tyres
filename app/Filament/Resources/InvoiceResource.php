@@ -217,13 +217,12 @@ class InvoiceResource extends Resource
                         Select::make('order_status')
                             ->label('Order Status')
                             ->options([
-                                'pending' => 'Pending',
                                 'processing' => 'Processing',
-                                'shipped' => 'Shipped',
-                                'completed' => 'Completed',
-                                'cancelled' => 'Cancelled',
+                                'shipped'    => 'Shipped',
+                                'delivered'  => 'Delivered',
+                                'cancelled'  => 'Cancelled',
                             ])
-                            ->default('pending')
+                            ->default('processing')
                             ->required()
                             ->hiddenOn('view')
                             ->columnSpan(1),
@@ -679,7 +678,7 @@ class InvoiceResource extends Resource
                     ->label('Profit')
                     ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->color(fn($state) => $state >= 0 ? 'success' : 'danger')
-                    ->visible(fn() => auth()->user()->hasRole(['admin', 'accountant']))
+                    ->visible(fn() => auth()->user()?->can('view_expenses') ?? false)
                     ->sortable()
                     ->toggleable()
                     ->tooltip(function($record) {
@@ -695,13 +694,14 @@ class InvoiceResource extends Resource
                     ->label('Margin %')
                     ->suffix('%')
                     ->color(fn($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger'))
+                    ->visible(fn() => auth()->user()?->can('view_expenses') ?? false)
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('total_expenses')
                     ->label('Expenses')
                     ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
-                    ->visible(fn() => auth()->user()->hasRole(['admin', 'accountant']))
+                    ->visible(fn() => auth()->user()?->can('view_expenses') ?? false)
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 
@@ -748,11 +748,12 @@ class InvoiceResource extends Resource
                 SelectFilter::make('order_status')
                     ->label('Order Status')
                     ->options([
-                        'pending' => 'Pending',
+                        'pending'    => 'Pending',
                         'processing' => 'Processing',
-                        'shipped' => 'Shipped',
-                        'completed' => 'Completed',
-                        'cancelled' => 'Cancelled',
+                        'shipped'    => 'Shipped',
+                        'delivered'  => 'Delivered',
+                        'completed'  => 'Completed',
+                        'cancelled'  => 'Cancelled',
                     ]),
                 
                 SelectFilter::make('customer_id')
@@ -940,9 +941,9 @@ class InvoiceResource extends Resource
                     ->icon('heroicon-o-calculator')
                     ->color('warning')
                     ->tooltip('Record costs and expenses to calculate profit margin')
-                    ->visible(fn($record) => 
-                        auth()->user()->hasRole(['admin', 'accountant']) &&
-                        (in_array($record->payment_status->value, ['paid', 'partial']) || 
+                    ->visible(fn($record) =>
+                        (auth()->user()?->can('view_expenses') ?? false) &&
+                        (in_array($record->payment_status->value, ['paid', 'partial']) ||
                         $record->order_status->value === 'completed')
                     )
                     ->form([

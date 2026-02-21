@@ -31,7 +31,8 @@
             .col-customer { width: 13%; }
             .col-brand { width: 13%; }
             .col-vehicle { width: 13%; }
-            .col-tracking { width: 10%; text-align: center; }
+            .col-tracking { width: 14%; text-align: center; word-break: break-all; white-space: normal; overflow: visible !important; text-overflow: unset !important; }
+            .col-status  { width: 10%; text-align: center; }
             .col-payment { width: 10%; text-align: center; }
             .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
             .badge-blue { background: #dbeafe; color: #1e40af; }
@@ -71,15 +72,39 @@
                 <h2>{{ $todayOrders }}</h2>
             </div>
             <div class="stat-card card-orange">
-                <p>Notifications</p>
+                <p>Pending Warranty Claims</p>
                 <h2>{{ $notifications }}</h2>
             </div>
         </div>
 
         <!-- Order Sheet Table -->
         <div class="order-table" x-data="orderSheet()">
-            <div class="table-header">
+            <div class="table-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
                 <h3>Pending Orders - Order Sheet</h3>
+                <!-- Tabs -->
+                <div style="display:flex; gap:0.5rem;">
+                    <button @click="activeTab='delivery'"
+                        :style="activeTab==='delivery' ? 'background:#3b82f6;color:white;' : 'background:#e5e7eb;color:#374151;'"
+                        style="padding:0.4rem 1rem; border:none; border-radius:9999px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.2s;">
+                        🚚 Pending Delivery
+                        <span style="margin-left:0.4rem; background:rgba(0,0,0,0.12); border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem;"
+                            x-text="pendingDeliveryOrders.length"></span>
+                    </button>
+                    <button @click="activeTab='payment'"
+                        :style="activeTab==='payment' ? 'background:#f59e0b;color:white;' : 'background:#e5e7eb;color:#374151;'"
+                        style="padding:0.4rem 1rem; border:none; border-radius:9999px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.2s;">
+                        💰 Pending Payment
+                        <span style="margin-left:0.4rem; background:rgba(0,0,0,0.12); border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem;"
+                            x-text="pendingPaymentOrders.length"></span>
+                    </button>
+                    <button @click="activeTab='all'"
+                        :style="activeTab==='all' ? 'background:#6b7280;color:white;' : 'background:#e5e7eb;color:#374151;'"
+                        style="padding:0.4rem 1rem; border:none; border-radius:9999px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.2s;">
+                        📋 View All
+                        <span style="margin-left:0.4rem; background:rgba(0,0,0,0.12); border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem;"
+                            x-text="orders.length"></span>
+                    </button>
+                </div>
             </div>
 
             <table>
@@ -92,10 +117,11 @@
                         <th class="col-brand">Wheel Brand</th>
                         <th class="col-vehicle">Vehicle</th>
                         <th class="col-tracking">Tracking</th>
+                        <th class="col-status">Status</th>
                         <th class="col-payment">Payment</th>
                     </tr>
                 </thead>
-                <template x-for="(order, index) in orders" :key="order.id">
+                <template x-for="(order, index) in filteredOrders" :key="order.id">
                     <tbody>
                         <!-- Main Order Row -->
                         <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -115,7 +141,29 @@
                             <td class="col-brand" x-text="order.wheel_brand"></td>
                             <td class="col-vehicle" x-text="order.vehicle"></td>
                             <td class="col-tracking">
-                                <span class="badge badge-blue" x-text="order.tracking_number || 'PENDING'"></span>
+                                <template x-if="order.tracking_url">
+                                    <a :href="order.tracking_url" target="_blank" rel="noopener" class="badge badge-green" x-text="order.tracking_number || 'PENDING'" style="text-decoration:none; word-break:break-all; white-space:normal;"></a>
+                                </template>
+                                <template x-if="!order.tracking_url">
+                                    <span class="badge badge-blue" x-text="order.tracking_number || 'PENDING'" style="word-break:break-all; white-space:normal;"></span>
+                                </template>
+                            </td>
+                            <td class="col-status">
+                                <template x-if="order.order_status === 'processing'">
+                                    <span class="badge badge-blue">PROCESSING</span>
+                                </template>
+                                <template x-if="order.order_status === 'shipped'">
+                                    <span class="badge" style="background:#ede9fe;color:#5b21b6;">SHIPPED</span>
+                                </template>
+                                <template x-if="order.order_status === 'delivered'">
+                                    <span class="badge badge-green">DELIVERED</span>
+                                </template>
+                                <template x-if="order.order_status === 'pending'">
+                                    <span class="badge badge-yellow">PENDING</span>
+                                </template>
+                                <template x-if="order.order_status === 'cancelled'">
+                                    <span class="badge badge-red">CANCELLED</span>
+                                </template>
                             </td>
                             <td class="col-payment">
                                 <template x-if="order.payment_status === 'paid'">
@@ -370,6 +418,19 @@
             function orderSheet() {
                 return {
                     orders: @json($orders),
+                    activeTab: 'delivery',
+                    
+                    get pendingDeliveryOrders() {
+                        return this.orders.filter(o => ['pending','processing','shipped'].includes(o.order_status));
+                    },
+                    get pendingPaymentOrders() {
+                        return this.orders.filter(o => o.order_status === 'delivered' && o.payment_status !== 'paid');
+                    },
+                    get filteredOrders() {
+                        if (this.activeTab === 'delivery') return this.pendingDeliveryOrders;
+                        if (this.activeTab === 'payment') return this.pendingPaymentOrders;
+                        return this.orders;
+                    },
                     expandedRows: {},
                     showPaymentModal: false,
                     currentOrder: null,

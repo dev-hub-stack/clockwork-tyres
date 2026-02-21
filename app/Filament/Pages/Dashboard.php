@@ -35,7 +35,7 @@ class Dashboard extends Page
         
         // Filter: Only INVOICES (exclude quotes)
         $this->pendingOrders = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing', 'shipped'])
+            ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
             ->count();
         
         $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
@@ -49,20 +49,9 @@ class Dashboard extends Page
             ->count();
         
         $this->notifications = 0;
-        // Calculate low stock + warranty + overdue - simplified to avoid column issues
-        try {
-            if (\Schema::hasTable('product_inventories')) {
-                $this->notifications += \DB::table('product_inventories')
-                    ->where('quantity', '<', 10) // Simple threshold
-                    ->count();
-            }
-        } catch (\Exception $e) {
-            // Skip if table structure doesn't match
-        }
-        
         try {
             if (\Schema::hasTable('warranty_claims')) {
-                $this->notifications += \DB::table('warranty_claims')
+                $this->notifications = \DB::table('warranty_claims')
                     ->where('status', 'pending')
                     ->count();
             }
@@ -72,7 +61,7 @@ class Dashboard extends Page
 
         // Get pending orders with relationships - ONLY INVOICES
         $pendingOrdersList = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing', 'shipped'])
+            ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
             ->with(['customer', 'items'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -135,7 +124,9 @@ class Dashboard extends Page
                 'wheel_brand' => $wheelBrand,
                 'vehicle' => $vehicle,
                 'tracking_number' => $order->tracking_number,
-                'payment_status' => $order->payment_status ?? 'pending',
+                'tracking_url'    => $order->tracking_url,
+                'order_status'    => $order->order_status ?? 'pending',
+                'payment_status'  => $order->payment_status ?? 'pending',
                 'outstanding_amount' => (float) ($order->outstanding_amount ?? 0),
                 'sub_total' => (float) ($order->sub_total ?? 0),
                 'vat' => (float) ($order->vat ?? 0),

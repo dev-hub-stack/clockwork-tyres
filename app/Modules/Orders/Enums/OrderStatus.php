@@ -7,6 +7,7 @@ enum OrderStatus: string
     case PENDING = 'pending';
     case PROCESSING = 'processing';
     case SHIPPED = 'shipped';
+    case DELIVERED = 'delivered';
     case COMPLETED = 'completed';
     case CANCELLED = 'cancelled';
 
@@ -19,6 +20,7 @@ enum OrderStatus: string
             self::PENDING => 'Pending',
             self::PROCESSING => 'Processing',
             self::SHIPPED => 'Shipped',
+            self::DELIVERED => 'Delivered',
             self::COMPLETED => 'Completed',
             self::CANCELLED => 'Cancelled',
         };
@@ -33,6 +35,7 @@ enum OrderStatus: string
             self::PENDING => 'warning',
             self::PROCESSING => 'info',
             self::SHIPPED => 'primary',
+            self::DELIVERED => 'success',
             self::COMPLETED => 'success',
             self::CANCELLED => 'danger',
         };
@@ -47,6 +50,7 @@ enum OrderStatus: string
             self::PENDING => 'heroicon-o-clock',
             self::PROCESSING => 'heroicon-o-cog',
             self::SHIPPED => 'heroicon-o-truck',
+            self::DELIVERED => 'heroicon-o-check-circle',
             self::COMPLETED => 'heroicon-o-check-badge',
             self::CANCELLED => 'heroicon-o-x-circle',
         };
@@ -92,7 +96,8 @@ enum OrderStatus: string
         return match($this) {
             self::PENDING => [self::PROCESSING, self::CANCELLED],
             self::PROCESSING => [self::SHIPPED, self::CANCELLED],
-            self::SHIPPED => [self::COMPLETED],
+            self::SHIPPED => [self::DELIVERED, self::CANCELLED],
+            self::DELIVERED => [self::COMPLETED],
             self::COMPLETED => [],
             self::CANCELLED => [],
         };

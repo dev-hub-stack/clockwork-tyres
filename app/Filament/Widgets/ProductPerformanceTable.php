@@ -19,7 +19,7 @@ class ProductPerformanceTable extends BaseWidget
     {
         return $table
             ->query(
-                OrderItem::query()
+                Product::query()
                     ->select(
                         'products.id',
                         'products.name',
@@ -32,8 +32,8 @@ class ProductPerformanceTable extends BaseWidget
                         DB::raw('AVG(order_items.line_total) as avg_line_value'),
                         DB::raw('RANK() OVER (ORDER BY SUM(order_items.line_total) DESC) as revenue_rank')
                     )
+                    ->join('order_items', 'products.id', '=', 'order_items.product_id')
                     ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                    ->join('products', 'order_items.product_id', '=', 'products.id')
                     ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
                     ->where('orders.external_source', 'tunerstop_historical')
                     ->groupBy('products.id', 'products.name', 'products.sku', 'products.price', 'brands.name')

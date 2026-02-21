@@ -74,16 +74,14 @@ class PendingOrdersTable extends BaseWidget
                     
                 Tables\Columns\TextColumn::make('tracking_number')
                     ->label('Import Tracking')
-                    ->badge()
-                    ->color(fn (Order $record) => $record->tracking_url ? 'success' : 'info')
                     ->size('sm')
-                    ->default('PENDING')
+                    ->weight('bold')
                     ->wrap()
-                    ->getStateUsing(fn (Order $record) => 
+                    ->copyable()
+                    ->copyMessage('Tracking number copied')
+                    ->getStateUsing(fn (Order $record) =>
                         $record->tracking_number ?: 'FEDEX TBD'
-                    )
-                    ->url(fn (Order $record) => $record->tracking_url ?? null)
-                    ->openUrlInNewTab(),
+                    ),
                     
                 Tables\Columns\TextColumn::make('payment_status')
                     ->label('Payment')
@@ -108,7 +106,17 @@ class PendingOrdersTable extends BaseWidget
                         return 'PENDING';
                     }),
             ])
+            ->recordAction(null)
             ->actions([
+                // Track Shipment
+                Tables\Actions\Action::make('track_shipment')
+                    ->label('Track')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->size('sm')
+                    ->visible(fn (Order $record) => (bool) $record->tracking_url)
+                    ->url(fn (Order $record) => $record->tracking_url)
+                    ->openUrlInNewTab(),
                 // Record Balance Payment
                 Tables\Actions\Action::make('record_payment')
                     ->label('Record Balance Payment')
