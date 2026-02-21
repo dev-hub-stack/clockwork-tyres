@@ -363,6 +363,22 @@ class ConsignmentForm
                         Hidden::make('total')
                             ->default(0)
                             ->dehydrated(true),
+                            
+                        Hidden::make('total_value')
+                            ->default(0)
+                            ->dehydrated(true),
+                            
+                        Hidden::make('invoiced_value')
+                            ->default(0)
+                            ->dehydrated(true),
+                            
+                        Hidden::make('returned_value')
+                            ->default(0)
+                            ->dehydrated(true),
+                            
+                        Hidden::make('balance_value')
+                            ->default(0)
+                            ->dehydrated(true),
                         
                         Grid::make(2)
                             ->schema([
@@ -406,20 +422,24 @@ class ConsignmentForm
                 Section::make('Notes')
                     ->schema([
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Customer Notes')
+                            ->helperText('Visible on the consignment document (PDF/preview).')
                             ->default(function () {
-                                // Pre-fill notes from last consignment by this user
                                 $userId = auth()->id();
                                 return cache()->get("consignment_notes_{$userId}", '');
                             })
                             ->afterStateUpdated(function ($state) {
-                                // Save to cache when updated
                                 $userId = auth()->id();
                                 cache()->put("consignment_notes_{$userId}", $state, now()->addDays(30));
                             })
                             ->live(onBlur: true)
-                            ->rows(5)
-                            ->helperText('add memory, so notes can be pre-set on every new consignment')
+                            ->rows(4)
+                            ->columnSpanFull(),
+
+                        Textarea::make('internal_notes')
+                            ->label('Internal Notes')
+                            ->helperText('Internal use only — NOT shown on the consignment document.')
+                            ->rows(3)
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),

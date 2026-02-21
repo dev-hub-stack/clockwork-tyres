@@ -76,6 +76,17 @@ class EditConsignment extends EditRecord
         
         $data['balance_value'] = $totals['sub_total'] - $invoiced - $returned;
         
+        \Illuminate\Support\Facades\Log::info('EditConsignment mutateFormDataBeforeSave:', $data);
+        
         return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        // Recalculate totals AFTER relationship items are saved by Filament
+        $this->record->calculateTotals();
+        $this->record->updateItemCounts();
+
+        \Illuminate\Support\Facades\Log::info('EditConsignment afterSave DB record:', $this->record->refresh()->toArray());
     }
 }

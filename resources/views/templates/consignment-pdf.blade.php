@@ -446,12 +446,15 @@
                     </span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Channel:</span>
-                    <span class="info-value">{{ ucfirst($consignment->channel) }}</span>
-                </div>
-                <div class="info-row">
                     <span class="info-label">Warehouse:</span>
-                    <span class="info-value">{{ $consignment->warehouse?->warehouse_name ?? 'N/A' }}</span>
+                    <span class="info-value">
+                        @php
+                            $warehouseName = $consignment->warehouse?->warehouse_name
+                                ?? $consignment->items->first()?->warehouse?->warehouse_name
+                                ?? null;
+                        @endphp
+                        {{ $warehouseName ?? 'N/A' }}
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Created:</span>
@@ -472,7 +475,7 @@
     <!-- Summary Statistics -->
     <div class="summary-section clearfix">
         <div class="summary-box">
-            <div class="summary-value">{{ $consignment->items->sum('quantity') }}</div>
+            <div class="summary-value">{{ $consignment->items->sum('quantity_sent') }}</div>
             <div class="summary-label">Items Sent</div>
         </div>
         <div class="summary-box">
@@ -484,7 +487,7 @@
             <div class="summary-label">Items Returned</div>
         </div>
         <div class="summary-box">
-            <div class="summary-value">{{ $currency }} {{ number_format($consignment->total, 2) }}</div>
+            <div class="summary-value">{{ $currency }} {{ number_format($consignment->total_value ?? $consignment->total, 2) }}</div>
             <div class="summary-label">Total Value</div>
         </div>
     </div>
@@ -507,24 +510,36 @@
                 <tr>
                     <td>
                         <div class="item-name">{{ $item->product_name }}</div>
-                        @if($item->product?->brand?->name)
-                            <div class="item-description">{{ $item->product->brand->name }}</div>
+                        @if($item->brand_name)
+                            <div class="item-description">{{ $item->brand_name }}</div>
                         @endif
-                        @if($item->product?->sku)
-                            <div class="sku-badge">SKU: {{ $item->product->sku }}</div>
+                        @php
+                            $specs = $item->product_snapshot['specifications'] ?? [];
+                            $specParts = array_filter([
+                                $specs['size'] ?? null,
+                                $specs['bolt_pattern'] ?? null,
+                                isset($specs['offset']) ? 'ET'.$specs['offset'] : null,
+                                $specs['finish'] ?? ($item->product_snapshot['finish_name'] ?? null),
+                            ]);
+                        @endphp
+                        @if(!empty($specParts))
+                            <div class="item-description">{{ implode(' | ', $specParts) }}</div>
+                        @endif
+                        @if($item->sku)
+                            <div class="sku-badge">SKU: {{ $item->sku }}</div>
                         @endif
                     </td>
-                    <td class="text-center">{{ $item->quantity }}</td>
-                    <td class="text-right">{{ $currency }} {{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-right">{{ $currency }} {{ number_format($item->total, 2) }}</td>
+                    <td class="text-center">{{ $item->quantity_sent }}</td>
+                    <td class="text-right">{{ $currency }} {{ number_format($item->price, 2) }}</td>
+                    <td class="text-right">{{ $currency }} {{ number_format($item->quantity_sent * $item->price, 2) }}</td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity_sold }}</span>
+                        <span class="quantity-badge">{{ $item->quantity_sold ?? 0 }}</span>
                     </td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity_returned }}</span>
+                        <span class="quantity-badge">{{ $item->quantity_returned ?? 0 }}</span>
                     </td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ $item->quantity - $item->quantity_sold + $item->quantity_returned }}</span>
+                        <span class="quantity-badge">{{ ($item->quantity_sent ?? 0) - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0) }}</span>
                     </td>
                 </tr>
             @empty
@@ -560,7 +575,7 @@
     @if($consignment->notes)
         <div class="notes-section">
             <div class="notes-box">
-                <h3>Notes</h3>
+                <h3>Customer Notes</h3>
                 <p>{{ $consignment->notes }}</p>
             </div>
         </div>

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ConsignmentResource\Tables;
 
 use App\Filament\Resources\ConsignmentResource\Actions\CancelConsignmentAction;
-use App\Filament\Resources\ConsignmentResource\Actions\ConvertToInvoiceAction;
 use App\Filament\Resources\ConsignmentResource\Actions\MarkAsSentAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordReturnAction;
 use App\Filament\Resources\ConsignmentResource\Actions\RecordSaleAction;
@@ -277,9 +276,6 @@ class ConsignmentsTable
                 
                 RecordReturnAction::make()
                     ->tooltip('Mark items as returned'),
-                
-                ConvertToInvoiceAction::make()
-                    ->tooltip('Create invoice for sold items'),
                 
                 Action::make('print_pdf')
                     ->label('Print PDF')

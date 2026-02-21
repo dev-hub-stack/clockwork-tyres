@@ -239,10 +239,26 @@
                                         @if($item->brand_name)
                                             <br><span class="small-text">Brand: <span class="brand-name">{{ $item->brand_name }}</span></span>
                                         @endif
-                                        
+
+                                        @php
+                                            $snap = is_array($item->product_snapshot) ? $item->product_snapshot
+                                                  : (is_string($item->product_snapshot) ? json_decode($item->product_snapshot, true) : []);
+                                            $specs = $snap['specifications'] ?? [];
+                                            $specLabels = [
+                                                'size'         => 'Size',
+                                                'bolt_pattern' => 'Bolt Pattern',
+                                                'offset'       => 'Offset',
+                                                'finish'       => 'Finish',
+                                            ];
+                                        @endphp
+                                        @foreach($specLabels as $key => $label)
+                                            @if(!empty($specs[$key]))
+                                                <br><span class="small-text" style="color:#555;">{{ $label }}: {{ $specs[$key] }}</span>
+                                            @endif
+                                        @endforeach
+
                                         @php
                                             $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
-                                            $isNonStock = empty($item->warehouse_id) && empty($item->consignment_item_id);
                                         @endphp
                                         @if($hasWarehouse && $item->warehouse)
                                             <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
@@ -322,9 +338,13 @@
                             <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->shipping, 2) }}</td>
                         </tr>
                         @endif
+                        @php
+                            // tax and vat are aliased columns — use whichever is populated
+                            $vatAmount = $record->tax ?? $record->vat ?? 0;
+                        @endphp
                         <tr>
                             <td>VAT ({{ $vatRate }}%):</td>
-                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->vat, 2) }}</td>
+                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($vatAmount, 2) }}</td>
                         </tr>
                         <tr class="total-row">
                             <td>Total:</td>

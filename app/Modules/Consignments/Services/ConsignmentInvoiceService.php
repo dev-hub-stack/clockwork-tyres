@@ -5,6 +5,7 @@ namespace App\Modules\Consignments\Services;
 use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
+use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Orders\Models\Payment;
@@ -53,12 +54,12 @@ class ConsignmentInvoiceService
             
             // 6. Log the action
             Log::info('Consignment sale recorded and invoice created', [
-                'consignment_id' => $consignment->id,
+                'consignment_id'     => $consignment->id,
                 'consignment_number' => $consignment->consignment_number,
-                'invoice_id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'total_amount' => $totals['total'],
-                'payment_amount' => $paymentData['amount'],
+                'invoice_id'         => $invoice->id,
+                'invoice_number'     => $invoice->order_number,
+                'total_amount'       => $totals['total'],
+                'payment_amount'     => $paymentData['amount'],
             ]);
             
             return $invoice;
@@ -201,58 +202,49 @@ class ConsignmentInvoiceService
         // Generate invoice number
         $invoiceNumber = $this->generateInvoiceNumber();
         
+        // Resolve warehouse: consignment has no warehouse_id (it's per-item),
+        // so fall back to the first sold item's warehouse.
+        $firstSoldItem = $consignment->items()->find($soldItems[0]['item_id'] ?? null);
+        $warehouseId = $consignment->warehouse_id
+            ?? $firstSoldItem?->warehouse_id;
+
         // Prepare invoice data
         $invoiceData = [
-            'invoice_number' => $invoiceNumber,
-            'customer_id' => $consignment->customer_id,
+            'document_type'     => DocumentType::INVOICE,
+            'order_number'      => $invoiceNumber,
+            'customer_id'       => $consignment->customer_id,
             'representative_id' => $consignment->representative_id,
-            'warehouse_id' => $consignment->warehouse_id,
-            'created_by' => auth()->id(),
-            
-            // Customer info (snapshot)
-            'customer_name' => $consignment->customer->business_name ?? $consignment->customer->full_name,
-            'customer_email' => $consignment->customer->email,
-            'customer_phone' => $consignment->customer->phone,
-            'customer_address' => $consignment->customer->address,
-            
-            // Vehicle info
-            'vehicle_year' => $consignment->vehicle_year,
-            'vehicle_make' => $consignment->vehicle_make,
-            'vehicle_model' => $consignment->vehicle_model,
-            'vehicle_sub_model' => $consignment->vehicle_sub_model,
-            
+            'warehouse_id'      => $warehouseId,
+            'created_by'        => auth()->id(),
+
             // Financial
-            'subtotal' => $totals['subtotal'],
-            'tax' => $totals['tax'],
-            'tax_rate' => $totals['tax_rate'],
-            'shipping' => 0,
-            'discount' => 0,
-            'discount_type' => 'none',
-            'total' => $totals['total'],
-            'amount_paid' => 0, // Will be updated by Payment model
-            'balance_due' => $totals['total'],
-            
+            'sub_total'         => $totals['subtotal'],
+            'tax'               => $totals['tax'],
+            'vat'               => $totals['tax'],  // vat mirrors tax (both store the VAT amount)
+            'shipping'          => 0,
+            'discount'          => 0,
+            'total'             => $totals['total'],
+            'paid_amount'       => 0,
+            'outstanding_amount'=> $totals['total'],
+
             // Status
-            'order_status' => 'pending', // Will be updated by recordPayment
-            'payment_status' => 'pending', // Will be updated by Payment model
-            
-            // Currency - use settings
-            'currency' => CurrencySetting::getBase()?->currency_symbol ?? ($consignment->currency ?? 'AED'),
-            
+            'order_status'      => 'pending',
+            'payment_status'    => 'pending',
+
+            // Currency
+            'currency'          => CurrencySetting::getBase()?->currency_symbol ?? 'AED',
+
             // Dates
-            'invoice_date' => now()->toDateString(),
-            'issue_date' => now()->toDateString(),
-            'due_date' => now()->addDays(30)->toDateString(),
-            'sent_at' => now(),
-            
+            'issue_date'        => now()->toDateString(),
+            'valid_until'       => now()->addDays(30)->toDateString(),
+            'sent_at'           => now(),
+
             // Notes
-            'notes' => $notes ?? "Generated from Consignment {$consignment->consignment_number}",
-            'terms' => 'Payment due on delivery',
-            
-            // Metadata
-            'channel' => $consignment->channel ?? 'retail',
-            'source' => 'consignment',
-            'external_invoice_references' => "CONSIGNMENT:{$consignment->consignment_number}",
+            'order_notes'       => $notes ?? "Generated from Consignment {$consignment->consignment_number}",
+
+            // Source tracking
+            'channel'           => $consignment->channel ?? 'retail',
+            'external_source'   => 'consignment',
         ];
         
         // Create invoice
@@ -262,7 +254,7 @@ class ConsignmentInvoiceService
         foreach ($soldItems as $itemData) {
             $consignmentItem = $consignment->items()->find($itemData['item_id']);
             
-            $this->createInvoiceItem($invoice, $consignmentItem, $itemData);
+            $this->createInvoiceItem($invoice, $consignmentItem, $itemData, $totals);
         }
         
         return $invoice;
@@ -271,49 +263,59 @@ class ConsignmentInvoiceService
     /**
      * Create invoice item from consignment item
      */
-    protected function createInvoiceItem(Order $invoice, ConsignmentItem $consignmentItem, array $itemData): OrderItem
+    protected function createInvoiceItem(Order $invoice, ConsignmentItem $consignmentItem, array $itemData, array $totals = []): OrderItem
     {
         $quantity = $itemData['quantity'];
         $price = $itemData['price'];
-        
+        $taxRate = $totals['tax_rate'] ?? 5.0;
+
         // Handle tax-inclusive pricing
         if ($consignmentItem->tax_inclusive ?? false) {
-            $taxRate = $invoice->tax_rate ?? 5.0;
+            // Price entered includes VAT — extract the ex-VAT amount for line items
             $priceExcludingTax = $price / (1 + ($taxRate / 100));
         } else {
+            // Price is already ex-VAT
             $priceExcludingTax = $price;
         }
-        
+
+        // Build product snapshot with variant specs so they appear on invoice preview/PDF
+        $snapshot = $consignmentItem->product_snapshot ?? [];
+        if ($consignmentItem->product_variant_id) {
+            $variant = \App\Modules\Products\Models\ProductVariant::with('finishRelation')
+                ->find($consignmentItem->product_variant_id);
+            if ($variant) {
+                $existingSnap = is_array($snapshot) ? $snapshot : [];
+                $finishName = $variant->finishRelation?->finish
+                    ?? (is_array($existingSnap['finish'] ?? null) ? ($existingSnap['finish']['finish'] ?? null) : null)
+                    ?? $variant->getRawOriginal('finish');
+                $snapshot['specifications'] = [
+                    'size'         => $variant->size,
+                    'bolt_pattern' => $variant->bolt_pattern,
+                    'offset'       => $variant->offset ? '+' . $variant->offset : null,
+                    'finish'       => $finishName,
+                ];
+            }
+        }
+
         return OrderItem::create([
-            'order_id' => $invoice->id,
-            'product_id' => $consignmentItem->product_id,
-            'product_variant_id' => $consignmentItem->product_variant_id,
-            'add_on_id' => $consignmentItem->add_on_id,
-            'external_product_id' => $consignmentItem->external_product_id,
-            'external_source' => $consignmentItem->external_source,
-            
-            // Product info
-            'name' => $consignmentItem->name,
-            'sku' => $consignmentItem->sku,
-            'description' => $this->buildProductDescription($consignmentItem),
-            
+            'order_id'            => $invoice->id,
+            'product_variant_id'  => $consignmentItem->product_variant_id,
+            'warehouse_id'        => $consignmentItem->warehouse_id,
+
+            // Product info from denormalized fields
+            'product_name'        => $consignmentItem->product_name,
+            'sku'                 => $consignmentItem->sku,
+            'brand_name'          => $consignmentItem->brand_name,
+
+            // Snapshot with specifications (size, bolt pattern, offset, finish)
+            'product_snapshot'    => $snapshot,
+
             // Pricing
-            'quantity' => $quantity,
-            'unit_price' => $priceExcludingTax,
-            'total_price' => $quantity * $priceExcludingTax,
-            
-            // Product details
-            'brand_name' => $consignmentItem->brand_name,
-            'model_name' => $consignmentItem->model_name,
-            'finish_name' => $consignmentItem->finish_name,
-            'size' => $consignmentItem->size,
-            'bolt_pattern' => $consignmentItem->bolt_pattern,
-            'offset' => $consignmentItem->offset,
-            
-            // Metadata
-            'item_type' => !empty($consignmentItem->add_on_id) ? 'addon' : 'product',
-            'tax_inclusive' => $consignmentItem->tax_inclusive ?? false,
-            'consignment_item_id' => $consignmentItem->id, // Link back to consignment
+            'quantity'            => $quantity,
+            'unit_price'          => $priceExcludingTax,
+            'tax_inclusive'       => false, // tax already extracted; line_total is ex-VAT
+            'discount'            => 0,
+            'line_total'          => round($quantity * $priceExcludingTax, 2),
         ]);
     }
     
@@ -362,10 +364,10 @@ class ConsignmentInvoiceService
             
             if ($item) {
                 $item->update([
-                    'quantity_sold' => $item->quantity_sold + $itemData['quantity'],
-                    'sale_price' => $itemData['price'],
-                    'invoice_id' => $invoice->id,
-                    'status' => 'sold',
+                    'quantity_sold'     => $item->quantity_sold + $itemData['quantity'],
+                    'actual_sale_price' => $itemData['price'],
+                    'status'            => 'sold',
+                    'date_sold'         => now(),
                 ]);
             }
         }
@@ -380,23 +382,34 @@ class ConsignmentInvoiceService
     protected function updateConsignmentStatusAfterSale(Consignment $consignment): void
     {
         $consignment->refresh();
-        
+
+        // Recalculate invoiced_value from sold items
+        $invoicedValue = $consignment->items->sum(function ($item) {
+            return ($item->quantity_sold ?? 0) * ($item->price ?? 0);
+        });
+        $returnedValue = floatval($consignment->returned_value ?? 0);
+        $totalValue    = floatval($consignment->total_value ?? 0);
+
+        $consignment->update([
+            'invoiced_value' => $invoicedValue,
+            'balance_value'  => $totalValue - $invoicedValue - $returnedValue,
+        ]);
+
         // Determine new status
         if ($consignment->items_sold_count >= $consignment->items_sent_count) {
             $newStatus = ConsignmentStatus::INVOICED_IN_FULL;
         } elseif ($consignment->items_sold_count > 0) {
             $newStatus = ConsignmentStatus::PARTIALLY_SOLD;
         } else {
-            $newStatus = $consignment->status; // Keep current status
+            $newStatus = $consignment->status;
         }
-        
+
         if ($newStatus !== $consignment->status) {
             $consignment->update(['status' => $newStatus]);
-            
-            // Log status change in history
+
             $consignment->histories()->create([
-                'action' => 'sale_recorded',
-                'description' => 'Items sold and invoice created',
+                'action'       => 'sale_recorded',
+                'description'  => 'Items sold and invoice created',
                 'performed_by' => auth()->id(),
             ]);
         }
@@ -450,13 +463,19 @@ class ConsignmentInvoiceService
     {
         $prefix = 'INV';
         $year = date('Y');
-        
-        $lastInvoice = Order::whereYear('created_at', $year)
+
+        $lastInvoice = Order::invoices()
+            ->whereYear('created_at', $year)
             ->orderBy('id', 'desc')
             ->first();
-        
-        $number = $lastInvoice ? intval(substr($lastInvoice->invoice_number, -4)) + 1 : 1;
-        
-        return $prefix . '-' . $year . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+
+        $lastNumber = 0;
+        if ($lastInvoice && $lastInvoice->order_number) {
+            // Extract trailing digits, e.g. "INV-2026-0004" → 4
+            preg_match('/(\d+)$/', $lastInvoice->order_number, $matches);
+            $lastNumber = isset($matches[1]) ? intval($matches[1]) : 0;
+        }
+
+        return $prefix . '-' . $year . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
     }
 }

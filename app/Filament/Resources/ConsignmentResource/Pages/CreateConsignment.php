@@ -49,6 +49,15 @@ class CreateConsignment extends CreateRecord
     }
     
     /**
+     * Recalculate totals AFTER relationship items are saved by Filament
+     */
+    protected function afterCreate(): void
+    {
+        $this->record->calculateTotals();
+        $this->record->updateItemCounts();
+    }
+
+    /**
      * Redirect to list page after creation
      */
     protected function getRedirectUrl(): string

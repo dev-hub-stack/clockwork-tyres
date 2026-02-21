@@ -448,10 +448,6 @@
                     </span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Channel:</span>
-                    <span class="info-value">{{ ucfirst($consignment->channel) }}</span>
-                </div>
-                <div class="info-row">
                     <span class="info-label">Warehouse:</span>
                     <span class="info-value">{{ $consignment->warehouse?->warehouse_name ?? 'N/A' }}</span>
                 </div>
@@ -522,6 +518,18 @@
                         <div class="item-name">{{ $item->product_name }}</div>
                         @if($item->brand_name)
                             <div class="item-description">{{ $item->brand_name }}</div>
+                        @endif
+                        @php
+                            $specs = $item->product_snapshot['specifications'] ?? [];
+                            $specParts = array_filter([
+                                $specs['size'] ?? null,
+                                $specs['bolt_pattern'] ?? null,
+                                isset($specs['offset']) ? 'ET'.$specs['offset'] : null,
+                                $specs['finish'] ?? ($item->product_snapshot['finish_name'] ?? null),
+                            ]);
+                        @endphp
+                        @if(!empty($specParts))
+                            <div class="item-description">{{ implode(' | ', $specParts) }}</div>
                         @endif
                         @if($item->sku)
                             <div class="sku-badge">SKU: {{ $item->sku }}</div>
@@ -609,7 +617,7 @@
     @if($consignment->notes)
         <div class="notes-section">
             <div class="notes-box">
-                <h3>Notes</h3>
+                <h3>Customer Notes</h3>
                 <p>{{ $consignment->notes }}</p>
             </div>
         </div>

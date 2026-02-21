@@ -72,6 +72,7 @@ class Consignment extends Model
         
         // Notes
         'notes',
+        'internal_notes',
         'terms_conditions',
         
         // Conversion
@@ -224,6 +225,14 @@ class Consignment extends Model
         
         // Calculate total
         $this->total = $runningTotal - ($this->discount ?? 0) + ($this->shipping_cost ?? 0);
+        
+        // Update total_value to the value of all items sent (subtotal of items before discount/shipping)
+        $this->total_value = $subTotal;
+        
+        // Re-calculate balance manually based on total_value and existing returned/invoiced totals
+        $invoiced = floatval($this->invoiced_value ?? 0);
+        $returned = floatval($this->returned_value ?? 0);
+        $this->balance_value = $this->total_value - $invoiced - $returned;
         
         $this->save();
     }

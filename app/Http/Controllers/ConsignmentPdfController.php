@@ -13,7 +13,7 @@ class ConsignmentPdfController extends Controller
     public function download(Consignment $consignment)
     {
         // Load relationships
-        $consignment->load(['customer', 'warehouse', 'representative', 'items']);
+        $consignment->load(['customer', 'warehouse', 'representative', 'items', 'items.warehouse']);
         
         // Get settings
         $companyBranding = CompanyBranding::getActive();
