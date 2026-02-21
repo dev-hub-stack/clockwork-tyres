@@ -17,22 +17,23 @@ class GeographicSalesTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $subquery = DB::table('customers')
+            ->select(
+                'customers.city',
+                DB::raw('MIN(customers.id) as id'),
+                DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
+                DB::raw('SUM(orders.total) as total_revenue'),
+                DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
+                DB::raw('AVG(orders.total) as avg_order_value')
+            )
+            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('customers.customer_type', 'retail')
+            ->whereNotNull('customers.city')
+            ->groupBy('customers.city');
+
         return $table
             ->query(
-                Customer::query()
-                    ->select(
-                        'customers.city',
-                        DB::raw('MIN(customers.id) as id'),
-                        DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
-                        DB::raw('SUM(orders.total) as total_revenue'),
-                        DB::raw('COUNT(DISTINCT customers.id) as customer_count'),
-                        DB::raw('AVG(orders.total) as avg_order_value')
-                    )
-                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
-                    ->where('customers.customer_type', 'retail')
-                    ->whereNotNull('customers.city')
-                    ->groupBy('customers.city')
-                    ->orderByDesc('total_revenue')
+                Customer::query()->fromSub($subquery, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('city')

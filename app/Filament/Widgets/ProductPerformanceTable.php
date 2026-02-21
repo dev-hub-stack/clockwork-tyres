@@ -17,27 +17,28 @@ class ProductPerformanceTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $subquery = DB::table('products')
+            ->select(
+                'products.id',
+                'products.name',
+                'products.sku',
+                'products.price',
+                'brands.name as brand_name',
+                DB::raw('COUNT(DISTINCT order_items.id) as times_sold'),
+                DB::raw('SUM(order_items.quantity) as total_quantity'),
+                DB::raw('SUM(order_items.line_total) as total_revenue'),
+                DB::raw('AVG(order_items.line_total) as avg_line_value'),
+                DB::raw('RANK() OVER (ORDER BY SUM(order_items.line_total) DESC) as revenue_rank')
+            )
+            ->join('order_items', 'products.id', '=', 'order_items.product_id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->where('orders.external_source', 'tunerstop_historical')
+            ->groupBy('products.id', 'products.name', 'products.sku', 'products.price', 'brands.name');
+
         return $table
             ->query(
-                Product::query()
-                    ->select(
-                        'products.id',
-                        'products.name',
-                        'products.sku',
-                        'products.price',
-                        'brands.name as brand_name',
-                        DB::raw('COUNT(DISTINCT order_items.id) as times_sold'),
-                        DB::raw('SUM(order_items.quantity) as total_quantity'),
-                        DB::raw('SUM(order_items.line_total) as total_revenue'),
-                        DB::raw('AVG(order_items.line_total) as avg_line_value'),
-                        DB::raw('RANK() OVER (ORDER BY SUM(order_items.line_total) DESC) as revenue_rank')
-                    )
-                    ->join('order_items', 'products.id', '=', 'order_items.product_id')
-                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                    ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
-                    ->where('orders.external_source', 'tunerstop_historical')
-                    ->groupBy('products.id', 'products.name', 'products.sku', 'products.price', 'brands.name')
-                    ->orderByDesc('total_revenue')
+                Product::query()->fromSub($subquery, 'products')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')

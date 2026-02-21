@@ -17,26 +17,28 @@ class TopCustomersTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $subquery = DB::table('customers')
+            ->select(
+                'customers.id',
+                'customers.first_name',
+                'customers.last_name',
+                'customers.email',
+                DB::raw('COUNT(orders.id) as total_orders'),
+                DB::raw('SUM(orders.total) as total_revenue'),
+                DB::raw('AVG(orders.total) as avg_order_value'),
+                DB::raw('MAX(orders.created_at) as last_order_date')
+            )
+            ->join('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('orders.external_source', 'tunerstop_historical')
+            ->where('customers.customer_type', 'retail')
+            ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+            ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email')
+            ->orderByDesc('total_revenue')
+            ->limit(10);
+
         return $table
             ->query(
-                Customer::query()
-                    ->select(
-                        'customers.id',
-                        'customers.first_name',
-                        'customers.last_name',
-                        'customers.email',
-                        DB::raw('COUNT(orders.id) as total_orders'),
-                        DB::raw('SUM(orders.total) as total_revenue'),
-                        DB::raw('AVG(orders.total) as avg_order_value'),
-                        DB::raw('MAX(orders.created_at) as last_order_date')
-                    )
-                    ->join('orders', 'customers.id', '=', 'orders.customer_id')
-                    ->where('orders.external_source', 'tunerstop_historical')
-                    ->where('customers.customer_type', 'retail')
-                    ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
-                    ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email')
-                    ->orderByDesc('total_revenue')
-                    ->limit(10)
+                Customer::query()->fromSub($subquery, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')

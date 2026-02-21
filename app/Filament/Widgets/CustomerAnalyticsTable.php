@@ -17,27 +17,28 @@ class CustomerAnalyticsTable extends BaseWidget
     
     public function table(Table $table): Table
     {
+        $subquery = DB::table('customers')
+            ->select(
+                'customers.id',
+                'customers.first_name',
+                'customers.last_name',
+                'customers.email',
+                'customers.phone',
+                DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
+                DB::raw('SUM(orders.total) as lifetime_value'),
+                DB::raw('AVG(orders.total) as avg_order_value'),
+                DB::raw('MAX(orders.created_at) as last_order_date'),
+                DB::raw('MIN(orders.created_at) as first_order_date'),
+                DB::raw('DATEDIFF(NOW(), MAX(orders.created_at)) as days_since_order')
+            )
+            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('customers.customer_type', 'retail')
+            ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
+            ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone');
+
         return $table
             ->query(
-                Customer::query()
-                    ->select(
-                        'customers.id',
-                        'customers.first_name',
-                        'customers.last_name',
-                        'customers.email',
-                        'customers.phone',
-                        DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
-                        DB::raw('SUM(orders.total) as lifetime_value'),
-                        DB::raw('AVG(orders.total) as avg_order_value'),
-                        DB::raw('MAX(orders.created_at) as last_order_date'),
-                        DB::raw('MIN(orders.created_at) as first_order_date'),
-                        DB::raw('DATEDIFF(NOW(), MAX(orders.created_at)) as days_since_order')
-                    )
-                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
-                    ->where('customers.customer_type', 'retail')
-                    ->where('customers.email', '!=', 'historical-tunerstop@retail.local')
-                    ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone')
-                    ->orderByDesc('lifetime_value')
+                Customer::query()->fromSub($subquery, 'customers')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
