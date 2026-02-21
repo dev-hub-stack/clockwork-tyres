@@ -6,7 +6,7 @@ use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\TaxSetting;
-use Barryvdh\DomPDF\Facade\PDF;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ConsignmentPdfController extends Controller
 {
@@ -45,7 +45,7 @@ class ConsignmentPdfController extends Controller
         ];
         
         // Generate PDF
-        $pdf = PDF::loadView('templates.consignment-pdf', $data)
+        $pdf = Pdf::loadView('templates.consignment-pdf', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
