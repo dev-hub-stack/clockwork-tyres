@@ -43,22 +43,22 @@ class ProductModelResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_products') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('create_products') ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('edit_products') ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('delete_products') ?? false;
     }
 
     protected static ?string $navigationLabel = 'Models'; // Changed from ?string to string|UnitEnum|null

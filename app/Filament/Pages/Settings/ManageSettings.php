@@ -33,7 +33,7 @@ class ManageSettings extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_settings') ?? false;
     }
 
     protected string $view = 'filament.pages.settings.manage-settings';

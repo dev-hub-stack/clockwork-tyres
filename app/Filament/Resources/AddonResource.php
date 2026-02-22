@@ -34,7 +34,7 @@ class AddonResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_products') ?? false;
     }
 
     public static function form(Schema $schema): Schema

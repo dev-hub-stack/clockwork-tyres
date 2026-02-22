@@ -23,7 +23,7 @@ class InventoryGrid extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_inventory') ?? false;
     }
 
     protected string $view = 'filament.pages.inventory-grid';

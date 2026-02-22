@@ -21,12 +21,12 @@ class ProductsGrid extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_products') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_products') ?? false;
     }
 
     protected string $view = 'filament.pages.products-grid';

@@ -30,22 +30,22 @@ class SystemSettingResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_settings') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('edit_settings') ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('edit_settings') ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('edit_settings') ?? false;
     }
 
     public static function form(Schema $schema): Schema

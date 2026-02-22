@@ -28,22 +28,22 @@ class ConsignmentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('view_consignments') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('create_consignments') ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('edit_consignments') ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can() ?? false;
+        return auth()->user()?->can('delete_consignments') ?? false;
     }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
