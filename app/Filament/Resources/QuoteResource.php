@@ -590,14 +590,14 @@ class QuoteResource extends Resource
                             ->addActionLabel('Add Line Item')
                             ->reorderable()
                             ->collapsible()
-                            ->mutateRelationshipDataBeforeCreate(function (array $data): array {
+                            ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
                                 $qty = floatval($data['quantity'] ?? 0);
                                 $price = floatval($data['unit_price'] ?? 0);
                                 $discount = floatval($data['discount'] ?? 0);
                                 $data['line_total'] = ($qty * $price) - $discount;
                                 return $data;
                             })
-                            ->mutateRelationshipDataBeforeSave(function (array $data): array {
+                            ->mutateRelationshipDataBeforeSaveUsing(function (array $data): array {
                                 $qty = floatval($data['quantity'] ?? 0);
                                 $price = floatval($data['unit_price'] ?? 0);
                                 $discount = floatval($data['discount'] ?? 0);
