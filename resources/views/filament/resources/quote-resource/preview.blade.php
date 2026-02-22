@@ -61,7 +61,7 @@
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Proforma Invoice</h2>
             
             <x-filament::badge size="lg" :color="$record->quote_status?->color() ?? 'gray'">
-                {{ $record->quote_status?->label() ?? 'N/A' }}
+                {{ $record->quote_status?->label() ?? 'Draft' }}
             </x-filament::badge>
             
             <div class="mt-4 space-y-1 text-sm">
@@ -135,9 +135,20 @@
                     <td class="px-4 py-4">
                         @php $snap = $item->variant_snapshot ?? []; @endphp
                         <div class="flex items-start gap-3">
-                            @if(!empty($snap['image']))
-                                <img src="{{ $snap['image'] }}" alt="{{ $item->product_name }}"
+                            @php
+                                $imageUrl = $snap['image'] ?? null;
+                                // Handle relative storage paths
+                                if ($imageUrl && !str_starts_with($imageUrl, 'http')) {
+                                    $imageUrl = \Illuminate\Support\Facades\Storage::url($imageUrl);
+                                }
+                            @endphp
+                            @if($imageUrl)
+                                <img src="{{ $imageUrl }}" alt="{{ $item->product_name }}"
                                      style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;flex-shrink:0;">
+                            @else
+                                <div style="width:56px;height:56px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:#9ca3af;text-align:center;">
+                                    No<br>Img
+                                </div>
                             @endif
                             <div>
                                 <div class="text-sm font-medium text-gray-900">{{ $item->product_name }}</div>
@@ -195,9 +206,19 @@
             </div>
             @endif
             
+            @php
+                // Calculate VAT on-the-fly if DB value is 0 (handles old records)
+                $displayVat = floatval($record->vat);
+                if ($displayVat == 0 && floatval($record->total) > 0 && floatval($record->sub_total) > 0) {
+                    $displayVat = round(floatval($record->total) - floatval($record->sub_total), 2);
+                }
+                if ($displayVat == 0 && floatval($record->sub_total) > 0) {
+                    $displayVat = round(floatval($record->sub_total) * ($taxRate / 100), 2);
+                }
+            @endphp
             <div class="flex justify-between text-sm">
                 <span class="text-gray-600">{{ $taxName }} ({{ number_format($taxRate, 0) }}%):</span>
-                <span class="font-medium">{{ Number::currency($record->vat, $record->currency ?? 'AED') }}</span>
+                <span class="font-medium">{{ Number::currency($displayVat, $record->currency ?? 'AED') }}</span>
             </div>
             
             <div class="border-t pt-2 flex justify-between text-base font-bold">

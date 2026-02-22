@@ -278,7 +278,7 @@ class QuoteResource extends Resource
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
                                                     $variant->product->model?->name ?? 'N/A',
-                                                    $variant->product->finish?->name ?? 'N/A',
+                                                    $variant->finish ?? ($variant->product->finish?->name ?? 'N/A'),
                                                     $variant->size ?? 'N/A',
                                                     $variant->bolt_pattern ?? 'N/A',
                                                     $variant->offset ?? 'N/A'
@@ -320,7 +320,7 @@ class QuoteResource extends Resource
                                             $variant->sku ?? 'NO-SKU',
                                             $variant->product->brand?->name ?? 'N/A',
                                             $variant->product->model?->name ?? 'N/A',
-                                            $variant->product->finish?->name ?? 'N/A'
+                                            $variant->finish ?? ($variant->product->finish?->name ?? 'N/A')
                                         );
                                     })
                                     ->afterStateHydrated(function ($component, $state, $record) {

@@ -88,11 +88,20 @@ class EditQuote extends EditRecord
         $exclBase = $exclNet + $shipping - $discount;
         $exclTax  = $exclBase * ($taxRate / 100);
 
-        $data['sub_total'] = round($inclNet  + $exclBase, 2);
-        $data['vat']       = round($inclTax  + $exclTax,  2);
+        $subTotal = round($inclNet  + $exclBase, 2);
+        $vat      = round($inclTax  + $exclTax,  2);
+        $total    = round($inclGross + $exclBase + $exclTax, 2);
+
+        // Fallback: derive VAT from total - sub_total if calculation gave 0
+        if ($vat == 0 && $total > 0 && $subTotal > 0) {
+            $vat = round($total - $subTotal, 2);
+        }
+
+        $data['sub_total'] = $subTotal;
+        $data['vat']       = $vat;
         $data['shipping']  = $shipping;
         $data['discount']  = $discount;
-        $data['total']     = round($inclGross + $exclBase + $exclTax, 2);
+        $data['total']     = $total;
 
         return $data;
     }
@@ -111,6 +120,11 @@ class EditQuote extends EditRecord
     {
         $record->refresh();
 
+        // Don't overwrite totals if no items — would reset correct values to 0
+        if ($record->items->isEmpty()) {
+            return;
+        }
+
         $taxSetting = TaxSetting::getDefault();
         $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
         $multiplier = 1 + ($taxRate / 100);
@@ -121,7 +135,8 @@ class EditQuote extends EditRecord
         foreach ($record->items as $item) {
             // Always compute fresh — never trust stored line_total (may be stale/0)
             $lineTotal    = (floatval($item->quantity) * floatval($item->unit_price)) - floatval($item->discount ?? 0);
-            $taxInclusive = (bool) $item->tax_inclusive;
+            // Default to tax-inclusive (true) when not explicitly set
+            $taxInclusive = isset($item->tax_inclusive) ? (bool) $item->tax_inclusive : true;
 
             // Fix the stored line_total on the item as well
             $item->timestamps = false;
@@ -142,10 +157,19 @@ class EditQuote extends EditRecord
         $exclBase = $exclNet + $shipping - $discount;
         $exclTax  = $exclBase * ($taxRate / 100);
 
+        $subTotal = round($inclNet  + $exclBase, 2);
+        $vat      = round($inclTax  + $exclTax,  2);
+        $total    = round($inclGross + $exclBase + $exclTax, 2);
+
+        // Fallback: derive VAT from total - sub_total if calculation gave 0
+        if ($vat == 0 && $total > 0 && $subTotal > 0) {
+            $vat = round($total - $subTotal, 2);
+        }
+
         $record->update([
-            'sub_total' => round($inclNet  + $exclBase, 2),
-            'vat'       => round($inclTax  + $exclTax,  2),
-            'total'     => round($inclGross + $exclBase + $exclTax, 2),
+            'sub_total' => $subTotal,
+            'vat'       => $vat,
+            'total'     => $total,
         ]);
     }
 }
