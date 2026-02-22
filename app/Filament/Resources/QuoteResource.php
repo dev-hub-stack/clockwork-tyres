@@ -100,6 +100,13 @@ class QuoteResource extends Resource
      */
     public static function calculateValues(array $items, float $shipping): array
     {
+        // Cache within a single request/render cycle to avoid repeated DB queries
+        static $cache = [];
+        $cacheKey = md5(serialize($items) . '|' . $shipping);
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
         $taxSetting = TaxSetting::getDefault();
         $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
         $multiplier = 1 + ($taxRate / 100);
@@ -129,12 +136,15 @@ class QuoteResource extends Resource
         $exclBase = $exclNet + $shipping;
         $exclTax  = $exclBase * ($taxRate / 100);
 
-        return [
+        $result = [
             'sub_total'   => round($inclNet  + $exclBase, 2),
             'items_total' => round($inclGross + $exclNet,  2),
             'vat'         => round($inclTax   + $exclTax,  2),
             'total'       => round($inclGross  + $exclBase + $exclTax, 2),
         ];
+
+        $cache[$cacheKey] = $result;
+        return $result;
     }
 
     public static function form(Schema $schema): Schema
@@ -583,7 +593,8 @@ class QuoteResource extends Resource
                                         $discount = floatval($get('discount') ?? 0);
                                         $total = ($qty * $price) - $discount;
                                         return Number::currency($total, $currencyCode);
-                                    }),
+                                    })
+                                    ->extraAttributes(['wire:loading.class' => 'opacity-40 animate-pulse', 'class' => 'transition-opacity duration-150']),
                             ])
                             ->columns(2)
                             ->defaultItems(1)
@@ -638,7 +649,8 @@ class QuoteResource extends Resource
                                                 $totals = self::calculateValues($items, $shipping);
                                                 return $currencySymbol . ' ' . number_format($totals['sub_total'], 2);
                                             })
-                                            ->helperText('Items − Discounts + Shipping'),
+                                            ->helperText('Items − Discounts + Shipping')
+                                            ->extraAttributes(['wire:loading.class' => 'opacity-40 animate-pulse', 'class' => 'transition-opacity duration-150']),
 
                                         Placeholder::make('vat_display')
                                             ->label(function () {
@@ -655,7 +667,8 @@ class QuoteResource extends Resource
                                                 $totals = self::calculateValues($items, $shipping);
                                                 return $currencySymbol . ' ' . number_format($totals['vat'], 2);
                                             })
-                                            ->helperText('Subtotal × rate%'),
+                                            ->helperText('Subtotal × rate%')
+                                            ->extraAttributes(['wire:loading.class' => 'opacity-40 animate-pulse', 'class' => 'transition-opacity duration-150']),
                                         
                                         Hidden::make('vat')
                                             ->default(0),
@@ -694,7 +707,7 @@ class QuoteResource extends Resource
                                                 
                                                 return $currencySymbol . ' ' . number_format($totals['total'], 2);
                                             })
-                                            ->extraAttributes(['class' => 'font-bold text-lg']),
+                                            ->extraAttributes(['class' => 'font-bold text-lg transition-opacity duration-150', 'wire:loading.class' => 'opacity-40 animate-pulse']),
                                         
                                         Hidden::make('sub_total')->default(0),
                                         Hidden::make('total')->default(0),

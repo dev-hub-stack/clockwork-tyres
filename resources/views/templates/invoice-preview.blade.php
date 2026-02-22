@@ -153,7 +153,12 @@
                         @endif
                         
                         <h4 style="margin-top: 10px;">Status:</h4>
-                        <p style="text-transform: uppercase;">{{ $record->status ?? 'N/A' }}</p>
+                        @php
+                            $statusLabel = ($documentType === 'quote')
+                                ? ($record->quote_status?->label() ?? 'Draft')
+                                : ($record->order_status?->label() ?? 'N/A');
+                        @endphp
+                        <p style="text-transform: uppercase;">{{ $statusLabel }}</p>
                     </div>
                 </td>
             </tr>
@@ -195,6 +200,7 @@
         @endif
 
         <!-- Line Items Table -->
+        @php $currSym = is_string($currency) ? $currency : ($currency->symbol ?? 'AED'); @endphp
         <table class="data-table">
             <thead>
                 <tr>
@@ -241,23 +247,27 @@
                                         @endif
 
                                         @php
-                                            $snap = is_array($item->product_snapshot) ? $item->product_snapshot
-                                                  : (is_string($item->product_snapshot) ? json_decode($item->product_snapshot, true) : []);
-                                            $specs = $snap['specifications'] ?? [];
-                                            $specLabels = [
-                                                'size'         => 'Size',
-                                                'bolt_pattern' => 'Bolt Pattern',
-                                                'finish'       => 'Finish',
-                                            ];
-                                        @endphp
-                                        @foreach($specLabels as $key => $label)
-                                            @if(!empty($specs[$key]))
-                                                <br><span class="small-text" style="color:#555;">{{ $label }}: {{ $specs[$key] }}</span>
-                                            @endif
-                                        @endforeach
-                                        @if(!empty($specs['offset']))
-                                            <br><span class="small-text" style="color:#555;">Offset: ET{{ $specs['offset'] }}</span>
-                                        @endif
+                            // Read specs from variant_snapshot (direct columns)
+                            $vsnap = is_array($item->variant_snapshot) ? $item->variant_snapshot
+                                   : (is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : []);
+                            // Fallback: try product_snapshot specifications
+                            if (empty($vsnap)) {
+                                $psnap = is_array($item->product_snapshot) ? $item->product_snapshot
+                                       : (is_string($item->product_snapshot) ? json_decode($item->product_snapshot, true) : []);
+                                $vsnap = $psnap['specifications'] ?? [];
+                            }
+                        @endphp
+                        @if(!empty($vsnap['finish']))
+                            <br><span class="small-text" style="color:#555;">Finish: {{ $vsnap['finish'] }}</span>
+                        @endif
+                        @if(!empty($vsnap['size']))
+                            <br><span class="small-text" style="color:#555;">Size: {{ $vsnap['size'] }}</span>
+                        @endif
+                        @if(!empty($vsnap['bolt_pattern']))
+                            <br><span class="small-text" style="color:#555;">Bolt: {{ $vsnap['bolt_pattern'] }}</span>
+                        @endif
+                        @if(!empty($vsnap['offset']))
+                            <br><span class="small-text" style="color:#555;">Offset: ET{{ $vsnap['offset'] }}</span>
 
                                         @php
                                             $hasWarehouse = !empty($item->warehouse) || !empty($item->warehouse_id);
@@ -278,10 +288,10 @@
                         <td class="text-center">{{ $item->quantity }}</td>
                         @if($documentType !== 'delivery_note')
                             <td class="text-right">
-                                {{ $currency->symbol ?? 'AED' }} {{ number_format($item->unit_price, 2) }}
+                                {{ $currSym }} {{ number_format($item->unit_price, 2) }}
                             </td>
                             <td class="text-right">
-                                {{ $currency->symbol ?? 'AED' }} {{ number_format($item->line_total, 2) }}
+                                {{ $currSym }} {{ number_format($item->line_total, 2) }}
                             </td>
                         @endif
                     </tr>
@@ -324,33 +334,43 @@
                 @if($documentType !== 'delivery_note')
                 <td class="totals-cell" style="vertical-align: top;">
                     <table class="totals-calc-table">
+                        @php $sym = $currSym; @endphp
                         <tr>
                             <td>Subtotal:</td>
-                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->sub_total, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($record->sub_total, 2) }}</td>
                         </tr>
                         @if($record->discount > 0)
                         <tr>
                             <td>Discount:</td>
-                            <td class="text-right">-{{ $currency->symbol ?? 'AED' }} {{ number_format($record->discount, 2) }}</td>
+                            <td class="text-right">-{{ $sym }} {{ number_format($record->discount, 2) }}</td>
                         </tr>
                         @endif
                         @if($record->shipping > 0)
                         <tr>
                             <td>Shipping:</td>
-                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->shipping, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($record->shipping, 2) }}</td>
                         </tr>
                         @endif
                         @php
                             // tax and vat are aliased columns — use whichever is populated
-                            $vatAmount = $record->tax ?? $record->vat ?? 0;
+                            $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
+                            // On-the-fly VAT for old records where DB stores 0
+                            $subTotalVal = floatval($record->sub_total ?? 0);
+                            $totalVal    = floatval($record->total ?? 0);
+                            if ($vatAmount == 0 && $totalVal > 0 && $subTotalVal > 0) {
+                                $vatAmount = round($totalVal - $subTotalVal, 2);
+                            }
+                            if ($vatAmount == 0 && $subTotalVal > 0) {
+                                $vatAmount = round($subTotalVal * (floatval($vatRate) / 100), 2);
+                            }
                         @endphp
                         <tr>
                             <td>VAT ({{ $vatRate }}%):</td>
-                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($vatAmount, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($vatAmount, 2) }}</td>
                         </tr>
                         <tr class="total-row">
                             <td>Total:</td>
-                            <td class="text-right">{{ $currency->symbol ?? 'AED' }} {{ number_format($record->total, 2) }}</td>
+                            <td class="text-right">{{ $currSym }} {{ number_format($record->total, 2) }}</td>
                         </tr>
                     </table>
                 </td>
