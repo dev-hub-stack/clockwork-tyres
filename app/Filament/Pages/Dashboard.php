@@ -34,8 +34,10 @@ class Dashboard extends Page
         }
         
         // Filter: Only INVOICES (exclude quotes)
+        // Pending orders = not yet (delivered AND paid) — i.e. still active
         $this->pendingOrders = Order::where('document_type', DocumentType::INVOICE)
             ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
+            ->where(fn($q) => $q->where('order_status', '!=', 'delivered')->orWhere('payment_status', '!=', 'paid'))
             ->count();
         
         $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
@@ -60,8 +62,10 @@ class Dashboard extends Page
         }
 
         // Get pending orders with relationships - ONLY INVOICES
+        // Exclude orders where delivered + paid (those are "complete")
         $pendingOrdersList = Order::where('document_type', DocumentType::INVOICE)
             ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
+            ->where(fn($q) => $q->where('order_status', '!=', 'delivered')->orWhere('payment_status', '!=', 'paid'))
             ->with(['customer', 'items'])
             ->orderBy('created_at', 'desc')
             ->get();

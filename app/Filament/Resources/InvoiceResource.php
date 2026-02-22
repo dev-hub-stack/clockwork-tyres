@@ -152,7 +152,6 @@ class InvoiceResource extends Resource
                             ->relationship('customer', 'business_name')
                             ->searchable(['business_name', 'first_name', 'last_name', 'email'])
                             ->required()
-                            ->preload()
                             ->getOptionLabelFromRecordUsing(function ($record) {
                                 $name = $record->business_name ?? $record->name ?? 'Unknown Customer';
                                 $type = $record->customer_type ? '(' . ucfirst($record->customer_type) . ')' : '';
@@ -1124,47 +1123,21 @@ class InvoiceResource extends Resource
                     }),
                 
                 Action::make('markCompleted')
-                    ->label('Complete Order')
+                    ->label('Mark as Delivered')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn($record) => $record->order_status->value === 'shipped')
+                    ->visible(fn($record) => in_array($record->order_status->value, ['pending', 'processing', 'shipped']))
                     ->requiresConfirmation()
-                    ->modalHeading('Complete Order')
-                    ->modalDescription('Mark this order as completed. Ensure payment has been received and customer is satisfied.')
-                    ->form([
-                        Select::make('payment_status')
-                            ->label('Payment Status')
-                            ->options([
-                                'paid' => 'Paid in Full',
-                                'partial' => 'Partially Paid',
-                                'pending' => 'Payment Pending',
-                            ])
-                            ->default(fn($record) => $record->isFullyPaid() ? 'paid' : 'pending')
-                            ->required(),
-                        
-                        Textarea::make('completion_notes')
-                            ->label('Completion Notes (Optional)')
-                            ->rows(2)
-                            ->placeholder('Any final notes about this order...'),
-                    ])
+                    ->modalHeading('Mark as Delivered')
+                    ->modalDescription('Confirm that this order has been delivered to the customer. Payment can be updated separately.')
                     ->action(function ($record, array $data) {
                         $record->update([
-                            'order_status' => OrderStatus::COMPLETED,
-                            'payment_status' => PaymentStatus::from($data['payment_status']),
+                            'order_status' => OrderStatus::DELIVERED,
                         ]);
                         
-                        if (!empty($data['completion_notes'])) {
-                            $record->update([
-                                'notes' => $record->notes . "\n\nCompletion Notes: " . $data['completion_notes'],
-                            ]);
-                        }
-                        
-                        // TODO: Send completion email to customer
-                        // Mail::to($record->customer->email)->send(new OrderCompletedMail($record));
-                        
                         Notification::make()
-                            ->title('Order Completed')
-                            ->body("Order {$record->order_number} has been marked as completed")
+                            ->title('Order Marked as Delivered')
+                            ->body("Order {$record->order_number} has been marked as delivered")
                             ->success()
                             ->send();
                     }),

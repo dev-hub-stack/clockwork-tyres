@@ -421,10 +421,12 @@
                     activeTab: 'delivery',
                     
                     get pendingDeliveryOrders() {
+                        // Orders not yet delivered (still in transit/processing)
                         return this.orders.filter(o => ['pending','processing','shipped'].includes(o.order_status));
                     },
                     get pendingPaymentOrders() {
-                        return this.orders.filter(o => o.order_status === 'delivered' && o.payment_status !== 'paid');
+                        // Any order with outstanding payment (partial or pending) — regardless of delivery status
+                        return this.orders.filter(o => o.payment_status === 'partial' || o.payment_status === 'pending');
                     },
                     get filteredOrders() {
                         if (this.activeTab === 'delivery') return this.pendingDeliveryOrders;

@@ -83,11 +83,13 @@ class ConsignmentService
             // Determine price
             $price = $itemData['price'] ?? $this->calculateItemPrice($variant, $consignment->customer_id);
 
+            $warehouseId = $itemData['warehouse_id'] ?? null;
+
             // Create consignment item
             ConsignmentItem::create([
                 'consignment_id' => $consignment->id,
                 'product_variant_id' => $variant->id,
-                'warehouse_id' => $itemData['warehouse_id'] ?? null,
+                'warehouse_id' => $warehouseId,
                 'product_snapshot' => $snapshot,
                 
                 // Denormalized fields
@@ -111,6 +113,15 @@ class ConsignmentService
                 // Notes
                 'notes' => $itemData['notes'] ?? null,
             ]);
+
+            // Deduct from warehouse inventory when consignment items are sent out
+            $quantitySent = $itemData['quantity_sent'] ?? $itemData['quantity'] ?? 1;
+            if ($warehouseId && $quantitySent > 0) {
+                ProductInventory::where([
+                    'warehouse_id' => $warehouseId,
+                    'product_variant_id' => $variant->id,
+                ])->decrement('quantity', $quantitySent);
+            }
         }
     }
 
@@ -205,6 +216,15 @@ class ConsignmentService
             $consignment->updateItemCounts();
             $consignment->updateStatusBasedOnItems();
 
+            // Recalculate returned_value so balance_value reflects returned items correctly
+            $consignment->load('items');
+            $returnedValue = $consignment->items->sum(
+                fn($item) => ($item->quantity_returned ?? 0) * ($item->price ?? 0)
+            );
+            $consignment->returned_value = $returnedValue;
+            $consignment->save();
+            $consignment->calculateTotals();
+
             // Log return
             $this->logHistory($consignment, 'return_recorded', 'Items returned to warehouse', [
                 'items_count' => count($returnedItems),
@@ -243,17 +263,42 @@ class ConsignmentService
     }
 
     /**
-     * Cancel consignment
+     * Cancel consignment — restores inventory for unsold/unreturned items and zeros all values
      */
     public function cancelConsignment(Consignment $consignment, string $reason = ''): void
     {
-        $consignment->update([
-            'status' => ConsignmentStatus::CANCELLED,
-        ]);
+        DB::transaction(function () use ($consignment, $reason) {
+            // Restore warehouse inventory for items still out (sent - returned)
+            $consignment->load('items');
+            foreach ($consignment->items as $item) {
+                $remaining = ($item->quantity_sent ?? 0) - ($item->quantity_returned ?? 0);
+                if ($remaining > 0 && $item->warehouse_id && $item->product_variant_id) {
+                    ProductInventory::where([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->increment('quantity', $remaining);
+                }
+            }
 
-        $this->logHistory($consignment, 'cancelled', $reason ?: 'Consignment cancelled', [
-            'reason' => $reason,
-        ]);
+            // Zero out all counts and financial values
+            $consignment->update([
+                'status'               => ConsignmentStatus::CANCELLED,
+                'items_sent_count'     => 0,
+                'items_sold_count'     => 0,
+                'items_returned_count' => 0,
+                'total_value'          => 0,
+                'invoiced_value'       => 0,
+                'returned_value'       => 0,
+                'balance_value'        => 0,
+                'subtotal'             => 0,
+                'tax'                  => 0,
+                'total'                => 0,
+            ]);
+
+            $this->logHistory($consignment, 'cancelled', $reason ?: 'Consignment cancelled', [
+                'reason' => $reason,
+            ]);
+        });
     }
 
     /**

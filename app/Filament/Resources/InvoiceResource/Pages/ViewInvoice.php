@@ -71,14 +71,16 @@ class ViewInvoice extends ViewRecord
                 }),
 
             Actions\Action::make('markCompleted')
-                ->label('Complete Order')
+                ->label('Mark as Delivered')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
-                ->visible(fn () => $this->record->order_status->value === 'shipped')
+                ->visible(fn () => in_array($this->record->order_status->value, ['pending', 'processing', 'shipped']))
                 ->requiresConfirmation()
+                ->modalHeading('Mark as Delivered')
+                ->modalDescription('Confirm that this order has been delivered to the customer.')
                 ->action(function () {
                     $this->record->update([
-                        'order_status' => OrderStatus::COMPLETED,
+                        'order_status' => OrderStatus::DELIVERED,
                     ]);
                 }),
 

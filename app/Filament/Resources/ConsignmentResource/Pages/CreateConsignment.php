@@ -35,6 +35,9 @@ class CreateConsignment extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Ensure shipping_cost is never null (DB column is NOT NULL)
+        $data['shipping_cost'] = floatval($data['shipping_cost'] ?? 0);
+
         // Calculate totals using centralized method from ConsignmentForm
         $items = $data['items'] ?? [];
         $shipping = floatval($data['shipping_cost'] ?? 0);

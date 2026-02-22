@@ -38,10 +38,9 @@ class ConsignmentForm
                                 $name = $record->business_name ?? ($record->first_name . ' ' . $record->last_name) ?? 'Unknown Customer';
                                 return trim($name);
                             })
-                            ->preload()
                             ->required()
                             ->live()
-                            ->helperText('Select the customer receiving the consignment')
+                            ->helperText('Type to search for a customer')
                             ->columnSpanFull(),
                         
                         Grid::make(2)
