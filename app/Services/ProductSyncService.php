@@ -68,33 +68,52 @@ class ProductSyncService
         $name = $data['name'] ?? 'Unknown Brand';
         $slug = $data['slug'] ?? Str::slug($name);
 
-        return Brand::firstOrCreate(
-            ['slug' => $slug],
-            ['name' => $name, 'is_active' => true]
-        );
+        try {
+            return Brand::firstOrCreate(
+                ['name' => $name],
+                ['slug' => $slug, 'is_active' => true]
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Race condition: another concurrent request inserted first
+            if ($e->errorInfo[1] === 1062) {
+                return Brand::where('name', $name)->first();
+            }
+            throw $e;
+        }
     }
 
     protected function syncModel(array $data, int $brandId): ProductModel
     {
         $name = $data['name'] ?? 'Unknown Model';
         // ProductModel in CRM uses 'name' and has no 'slug' column
-        return ProductModel::firstOrCreate(
-            ['name' => $name], 
-            [
-                'brand_id' => $brandId,
-                'is_active' => true
-            ]
-        );
+        try {
+            return ProductModel::firstOrCreate(
+                ['name' => $name, 'brand_id' => $brandId],
+                ['is_active' => true]
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->errorInfo[1] === 1062) {
+                return ProductModel::where('name', $name)->where('brand_id', $brandId)->first();
+            }
+            throw $e;
+        }
     }
 
     protected function syncFinish(array $data): Finish
     {
         $name = $data['name'] ?? 'Standard';
         // Finish in CRM uses 'finish' column for the name and has no 'slug'
-        return Finish::firstOrCreate(
-            ['finish' => $name],
-            ['status' => 1]
-        );
+        try {
+            return Finish::firstOrCreate(
+                ['finish' => $name],
+                ['status' => 1]
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->errorInfo[1] === 1062) {
+                return Finish::where('finish', $name)->first();
+            }
+            throw $e;
+        }
     }
 
     protected function syncVariants(Product $product, array $variants): void
