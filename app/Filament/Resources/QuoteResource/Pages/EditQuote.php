@@ -119,8 +119,13 @@ class EditQuote extends EditRecord
         $exclNet   = 0.0;
 
         foreach ($record->items as $item) {
-            $lineTotal    = floatval($item->line_total);
+            // Always compute fresh — never trust stored line_total (may be stale/0)
+            $lineTotal    = (floatval($item->quantity) * floatval($item->unit_price)) - floatval($item->discount ?? 0);
             $taxInclusive = (bool) $item->tax_inclusive;
+
+            // Fix the stored line_total on the item as well
+            $item->timestamps = false;
+            $item->update(['line_total' => $lineTotal]);
 
             if ($taxInclusive) {
                 $inclGross += $lineTotal;

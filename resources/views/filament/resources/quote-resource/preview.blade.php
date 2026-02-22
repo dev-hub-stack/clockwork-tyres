@@ -1,8 +1,14 @@
 @php
     use App\Modules\Settings\Models\CompanyBranding;
-    
+    use App\Modules\Settings\Models\TaxSetting;
+    use Illuminate\Support\Number;
+
+    $branding    = CompanyBranding::getActive();
+    $taxSetting  = TaxSetting::getDefault();
+    $taxRate     = $taxSetting ? floatval($taxSetting->rate) : 5;
+    $taxName     = $taxSetting ? $taxSetting->name : 'VAT';
+
     // Fetch business details from active company branding
-    $branding = CompanyBranding::getActive();
     
     if ($branding) {
         $companyName = $branding->company_name;
@@ -127,28 +133,30 @@
                         {{ $index + 1 }}
                     </td>
                     <td class="px-4 py-4">
-                        <div class="text-sm font-medium text-gray-900">{{ $item->product_name }}</div>
-                        @if($item->sku)
-                            <div class="text-xs text-gray-500">SKU: {{ $item->sku }}</div>
-                        @endif
-                        @if($item->variant_snapshot)
-                            <div class="text-xs text-gray-600 mt-1">
-                                @if(isset($item->variant_snapshot['size']))
-                                    Size: {{ $item->variant_snapshot['size'] }}
+                        @php $snap = $item->variant_snapshot ?? []; @endphp
+                        <div class="flex items-start gap-3">
+                            @if(!empty($snap['image']))
+                                <img src="{{ $snap['image'] }}" alt="{{ $item->product_name }}"
+                                     style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;flex-shrink:0;">
+                            @endif
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ $item->product_name }}</div>
+                                @if($item->brand_name)
+                                    <div class="text-xs text-gray-500">Brand: {{ $item->brand_name }}</div>
                                 @endif
-                                @if(isset($item->variant_snapshot['bolt_pattern']))
-                                    | Bolt Pattern: {{ $item->variant_snapshot['bolt_pattern'] }}
+                                @if($item->sku)
+                                    <div class="text-xs text-gray-500">SKU: {{ $item->sku }}</div>
                                 @endif
-                                @if(isset($item->variant_snapshot['offset']))
-                                    | Offset: {{ $item->variant_snapshot['offset'] }}
+                                @if(!empty($snap['finish']) || !empty($snap['size']) || !empty($snap['bolt_pattern']) || !empty($snap['offset']))
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        @if(!empty($snap['finish']))Finish: {{ $snap['finish'] }}@endif
+                                        @if(!empty($snap['size'])) | Size: {{ $snap['size'] }}@endif
+                                        @if(!empty($snap['bolt_pattern'])) | Bolt: {{ $snap['bolt_pattern'] }}@endif
+                                        @if(!empty($snap['offset'])) | Offset: {{ $snap['offset'] }}@endif
+                                    </div>
                                 @endif
                             </div>
-                        @endif
-                        @if($item->tax_inclusive && $item->tax_amount > 0)
-                            <div class="text-xs text-gray-500 mt-1">
-                                VAT on Sales ({{ number_format(($item->tax_amount / ($item->unit_price * $item->quantity - $item->discount)) * 100, 0) }}%)
-                            </div>
-                        @endif
+                        </div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         {{ $item->quantity }}
@@ -187,12 +195,10 @@
             </div>
             @endif
             
-            @if($record->vat > 0)
             <div class="flex justify-between text-sm">
-                <span class="text-gray-600">VAT:</span>
+                <span class="text-gray-600">{{ $taxName }} ({{ number_format($taxRate, 0) }}%):</span>
                 <span class="font-medium">{{ Number::currency($record->vat, $record->currency ?? 'AED') }}</span>
             </div>
-            @endif
             
             <div class="border-t pt-2 flex justify-between text-base font-bold">
                 <span class="text-gray-900">Total:</span>
