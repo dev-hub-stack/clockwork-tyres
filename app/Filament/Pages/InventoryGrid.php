@@ -3,9 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Modules\Inventory\Models\Warehouse;
-use App\Modules\Inventory\Models\ProductInventory;
-use App\Modules\Products\Models\Product;
-use App\Modules\Products\Models\ProductVariant;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use UnitEnum;
@@ -44,70 +41,97 @@ class InventoryGrid extends Page
             ->orderBy('code')
             ->get();
 
-        // Get all products with their variants and inventory
-        // Using the EXACT same structure as old Reporting system
-        $products = Product::with([
-            'brand',
-            'model',
-            'finish',
-            'variants' => function ($query) {
-                $query->with([
-                    'inventories.warehouse',
-                    'consignmentItems' => function($q) {
-                        $q->whereHas('consignment', function($query) {
-                            $query->whereIn('status', ['sent', 'delivered', 'partially_sold']);
-                        });
-                    },
-                    'consignmentItems.consignment.customer'
-                ]);
-            }
-        ])
-        ->whereHas('variants')
-        ->get();
+        // ── 1. Single flat JOIN for all variant + product metadata ────────────
+        // Replaces: Product::with([brand, model, finish, variants=>with([inventories, consignmentItems...])])
+        // Old: hundreds of ORM queries over 51k variants
+        // New: 1 query
+        $variants = DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
+            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->leftJoin('finishes as f', 'f.id', '=', 'p.finish_id')
+            ->select(
+                'pv.id',
+                'pv.product_id',
+                'pv.sku',
+                'pv.size',
+                'pv.rim_width',
+                'pv.rim_diameter',
+                'pv.bolt_pattern',
+                'pv.offset',
+                'pv.hub_bore',
+                'b.name as brand',
+                'm.name as model',
+                'f.finish as finish'
+            )
+            ->whereNotNull('pv.sku')
+            ->orderBy('b.name')
+            ->orderBy('m.name')
+            ->orderBy('pv.sku')
+            ->get()
+            ->keyBy('id');
 
+        if ($variants->isEmpty()) {
+            $this->products_data = [];
+            return;
+        }
+
+        $variantIds = $variants->keys()->toArray();
+
+        // ── 2. One query for all inventory rows ───────────────────────────────
+        $inventoryRows = DB::table('product_inventories')
+            ->whereIn('product_variant_id', $variantIds)
+            ->select('product_variant_id', 'warehouse_id', 'quantity', 'eta', 'eta_qty')
+            ->get()
+            ->groupBy('product_variant_id');
+
+        // ── 3. One aggregate query for consignment stock ──────────────────────
+        // Replaces: consignmentItems.consignment.customer eager load per variant
+        $consignmentStock = DB::table('consignment_items as ci')
+            ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
+            ->whereIn('ci.product_variant_id', $variantIds)
+            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold'])
+            ->whereNull('ci.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->select(
+                'ci.product_variant_id',
+                DB::raw('SUM(ci.quantity_sent - ci.quantity_sold - ci.quantity_returned) as consignment_qty')
+            )
+            ->groupBy('ci.product_variant_id')
+            ->pluck('consignment_qty', 'product_variant_id');
+
+        // ── 4. Assemble rows in PHP (no more nested loops with ORM calls) ─────
         $this->products_data = [];
 
-        foreach ($products as $product) {
-            foreach ($product->variants as $variant) {
-                $row = [
-                    'id' => $variant->id,
-                    'product_id' => $product->id,
-                    'sku' => $variant->sku ?? '',
-                    'product_full_name' => ($product->brand?->name ?? 'N/A') . ' ' . ($product->model?->name ?? 'N/A') . ' ' . ($product->finish?->name ?? 'N/A'),
-                    'brand' => $product->brand?->name ?? '',
-                    'model' => $product->model?->name ?? '',
-                    'finish' => $product->finish?->name ?? '',
-                    'size' => $variant->size ?? '',
-                    'rim_width' => $variant->rim_width ?? '',
-                    'rim_diameter' => $variant->rim_diameter ?? '',
-                    'bolt_pattern' => $variant->bolt_pattern ?? '',
-                    'offset' => $variant->offset ?? '',
-                    'hub_bore' => $variant->hub_bore ?? '',
-                    'inventory' => []
-                ];
+        foreach ($variants as $variant) {
+            $invRows   = $inventoryRows->get($variant->id, collect());
+            $csnQty    = (int) ($consignmentStock[$variant->id] ?? 0);
 
-                // Add inventory data for each warehouse (matching old system structure)
-                foreach ($variant->inventories as $inventory) {
-                    $row['inventory'][] = [
-                        'warehouse_id' => $inventory->warehouse_id,
-                        'quantity' => $inventory->quantity ?? 0,
-                        'eta' => $inventory->eta ?? '',
-                        'eta_qty' => $inventory->eta_qty ?? 0,
-                    ];
-                }
+            $inventoryArr = $invRows->map(fn($i) => [
+                'warehouse_id' => $i->warehouse_id,
+                'quantity'     => $i->quantity ?? 0,
+                'eta'          => $i->eta ?? '',
+                'eta_qty'      => $i->eta_qty ?? 0,
+            ])->values()->toArray();
 
-                // Calculate total incoming stock (sum of all ETA quantities across warehouses)
-                $row['incoming_stock'] = $variant->inventories->sum('eta_qty') ?? 0;
-
-                // Calculate total consignment stock (sent - sold - returned for active consignments)
-                $consignmentQty = 0;
-                foreach ($variant->consignmentItems as $item) {
-                    $consignmentQty += ($item->quantity_sent - $item->quantity_sold - $item->quantity_returned);
-                }
-                $row['consignment_stock'] = $consignmentQty;
-
-                $this->products_data[] = $row;
-            }
+            $this->products_data[] = [
+                'id'               => $variant->id,
+                'product_id'       => $variant->product_id,
+                'sku'              => $variant->sku ?? '',
+                'product_full_name'=> trim(($variant->brand ?? 'N/A') . ' ' . ($variant->model ?? 'N/A') . ' ' . ($variant->finish ?? 'N/A')),
+                'brand'            => $variant->brand ?? '',
+                'model'            => $variant->model ?? '',
+                'finish'           => $variant->finish ?? '',
+                'size'             => $variant->size ?? '',
+                'rim_width'        => $variant->rim_width ?? '',
+                'rim_diameter'     => $variant->rim_diameter ?? '',
+                'bolt_pattern'     => $variant->bolt_pattern ?? '',
+                'offset'           => $variant->offset ?? '',
+                'hub_bore'         => $variant->hub_bore ?? '',
+                'inventory'        => $inventoryArr,
+                'incoming_stock'   => $invRows->sum('eta_qty'),
+                'consignment_stock'=> $csnQty,
+            ];
         }
     }
 
