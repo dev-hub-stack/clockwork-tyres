@@ -194,4 +194,97 @@ class InventoryApiController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Return all inventory grid data as JSON.
+     * Called via AJAX from the inventory grid page — avoids inlining 51k rows
+     * into the Livewire snapshot.
+     */
+    public function gridData()
+    {
+        // 1. All variants with product metadata (1 query)
+        $variants = DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
+            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->leftJoin('finishes as f', 'f.id', '=', 'p.finish_id')
+            ->select(
+                'pv.id',
+                'pv.product_id',
+                'pv.sku',
+                'pv.size',
+                'pv.rim_width',
+                'pv.rim_diameter',
+                'pv.bolt_pattern',
+                'pv.offset',
+                'pv.hub_bore',
+                'b.name as brand',
+                'm.name as model',
+                'f.finish as finish'
+            )
+            ->whereNotNull('pv.sku')
+            ->orderBy('b.name')
+            ->orderBy('m.name')
+            ->orderBy('pv.sku')
+            ->get()
+            ->keyBy('id');
+
+        if ($variants->isEmpty()) {
+            return response()->json([]);
+        }
+
+        // 2. All inventory rows (1 query via JOIN, no IN clause)
+        $inventoryRows = DB::table('product_inventories as pi')
+            ->join('product_variants as pv2', 'pv2.id', '=', 'pi.product_variant_id')
+            ->whereNotNull('pv2.sku')
+            ->select('pi.product_variant_id', 'pi.warehouse_id', 'pi.quantity', 'pi.eta', 'pi.eta_qty')
+            ->get()
+            ->groupBy('product_variant_id');
+
+        // 3. Consignment aggregate (1 query)
+        $consignmentStock = DB::table('consignment_items as ci')
+            ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
+            ->join('product_variants as pv3', 'pv3.id', '=', 'ci.product_variant_id')
+            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold'])
+            ->whereNull('ci.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->whereNotNull('pv3.sku')
+            ->select(
+                'ci.product_variant_id',
+                DB::raw('SUM(ci.quantity_sent - ci.quantity_sold - ci.quantity_returned) as consignment_qty')
+            )
+            ->groupBy('ci.product_variant_id')
+            ->pluck('consignment_qty', 'product_variant_id');
+
+        // 4. Assemble
+        $rows = [];
+        foreach ($variants as $variant) {
+            $invRows = $inventoryRows->get($variant->id, collect());
+            $rows[] = [
+                'id'                => $variant->id,
+                'product_id'        => $variant->product_id,
+                'sku'               => $variant->sku ?? '',
+                'product_full_name' => trim(($variant->brand ?? 'N/A') . ' ' . ($variant->model ?? 'N/A') . ' ' . ($variant->finish ?? 'N/A')),
+                'brand'             => $variant->brand ?? '',
+                'model'             => $variant->model ?? '',
+                'finish'            => $variant->finish ?? '',
+                'size'              => $variant->size ?? '',
+                'rim_width'         => $variant->rim_width ?? '',
+                'rim_diameter'      => $variant->rim_diameter ?? '',
+                'bolt_pattern'      => $variant->bolt_pattern ?? '',
+                'offset'            => $variant->offset ?? '',
+                'hub_bore'          => $variant->hub_bore ?? '',
+                'inventory'         => $invRows->map(fn($i) => [
+                    'warehouse_id' => $i->warehouse_id,
+                    'quantity'     => $i->quantity ?? 0,
+                    'eta'          => $i->eta ?? '',
+                    'eta_qty'      => $i->eta_qty ?? 0,
+                ])->values()->toArray(),
+                'incoming_stock'    => $invRows->sum('eta_qty'),
+                'consignment_stock' => (int) ($consignmentStock[$variant->id] ?? 0),
+            ];
+        }
+
+        return response()->json($rows);
+    }
 }
