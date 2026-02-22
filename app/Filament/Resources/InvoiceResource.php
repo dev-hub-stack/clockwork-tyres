@@ -306,7 +306,7 @@ class InvoiceResource extends Resource
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
                                                     $variant->product->model?->name ?? 'N/A',
-                                                    $variant->product->finish?->name ?? 'N/A',
+                                                    $variant->finish ?? 'N/A',
                                                     $variant->size ?? 'N/A',
                                                     $variant->bolt_pattern ?? 'N/A',
                                                     $variant->offset ?? 'N/A'
@@ -324,7 +324,7 @@ class InvoiceResource extends Resource
                                             $variant->sku ?? 'NO-SKU',
                                             $variant->product->brand?->name ?? 'N/A',
                                             $variant->product->model?->name ?? 'N/A',
-                                            $variant->product->finish?->name ?? 'N/A'
+                                            $variant->finish ?? 'N/A'
                                         );
                                     })
                                     ->afterStateUpdated(function ($state, Set $set) {
