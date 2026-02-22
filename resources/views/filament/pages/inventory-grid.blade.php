@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<div>
     <!-- CSRF Token for AJAX requests -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
@@ -284,12 +285,11 @@
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-    <!-- Embed data (EXACT structure from old Reporting system) -->
+    <!-- Warehouse data (small, inline) — variant data loaded via AJAX -->
     <script>
-        var api_data = @json($this->products_data);
+        var api_data = []; // populated via AJAX after page renders
         var allWarehouses = @json($this->warehouses);
-        console.log('✅ Loaded ' + api_data.length + ' product variants');
-        console.log('✅ Loaded ' + allWarehouses.length + ' warehouses');
+        console.log('✅ Loaded ' + allWarehouses.length + ' warehouses (inventory data will load via AJAX)');
     </script>
 
     <!-- Inventory Grid JavaScript (MATCHING old Reporting system) -->
@@ -391,6 +391,23 @@
         }
 
         $(document).ready(function () {
+            // Show loading overlay while fetching the 51k-row inventory dataset
+            var $invLoading = $('<div id="inv-loading" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;"><div style="background:#fff;padding:40px 60px;border-radius:10px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.3);"><div class="spinner-border text-primary" style="width:3rem;height:3rem;border-width:.3rem;"></div><h5 class="mt-3 mb-1">Loading Inventory Grid</h5><p class="text-muted mb-0">Fetching inventory data&hellip;</p></div></div>');
+            $('body').append($invLoading);
+
+            // Fetch all inventory data from dedicated JSON endpoint
+            // (avoids embedding / Livewire-serializing 51k rows in the page)
+            $.get('{{ route("admin.api.inventory.grid-data") }}')
+                .done(function(response) {
+                    api_data = response;
+                    $invLoading.remove();
+                    initInventoryGrid();
+                })
+                .fail(function(xhr) {
+                    $invLoading.html('<div style="background:#fff;padding:40px 60px;border-radius:10px;text-align:center;"><h5 class="text-danger">Failed to load inventory data</h5><p class="text-muted">' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Server error') + '</p><button class="btn btn-primary mt-2" onclick="location.reload()">Retry</button></div>');
+                });
+
+            function initInventoryGrid() {
             // Prepare data - EXACT structure from old Reporting system (lines 269-274)
             var data = [];
             api_data.forEach(function(element, index) {
@@ -678,6 +695,7 @@
                 let warehouse = $(this).data('warehouse');
                 loadIncomingModal(sku, warehouse);
             });
+            } // end initInventoryGrid()
         });
 
         // ============================================
@@ -939,4 +957,5 @@
     <!-- Bootstrap 5 JS (required for modals) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+</div>
 </x-filament-panels::page>
