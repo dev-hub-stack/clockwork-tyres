@@ -31,22 +31,22 @@ class CompanyBrandingResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view_settings');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->can('edit_settings');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('edit_settings');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('edit_settings');
+        return auth()->user()?->can() ?? false;
     }
     
     protected static ?int $navigationSort = 1;

@@ -60,22 +60,22 @@ class InvoiceResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view_invoices');
+        return auth()->user()?->can('view_invoices') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->can('create_invoices');
+        return auth()->user()?->can('create_invoices') ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('edit_invoices');
+        return auth()->user()?->can('edit_invoices') ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('delete_invoices');
+        return auth()->user()?->can('delete_invoices') ?? false;
     }
 
 

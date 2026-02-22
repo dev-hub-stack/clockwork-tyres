@@ -64,21 +64,21 @@ class UserResource extends Resource
     
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view_users');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->can('create_users');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('edit_users');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('delete_users');
+        return auth()->user()?->can() ?? false;
     }
 }

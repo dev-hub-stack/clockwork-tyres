@@ -31,7 +31,7 @@ class AddonCategoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view_categories');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function form(Schema $schema): Schema

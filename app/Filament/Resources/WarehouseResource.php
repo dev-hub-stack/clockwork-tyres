@@ -27,12 +27,12 @@ class WarehouseResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view_warehouses');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->can('delete_warehouses');
+        return auth()->user()?->can() ?? false;
     }
 
     public static function form(Schema $schema): Schema
