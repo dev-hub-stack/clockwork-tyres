@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\DB;
 use UnitEnum;
 use BackedEnum;
 
@@ -29,7 +28,7 @@ class InventoryGrid extends Page
 
     public function mount(): void
     {
-        // Only load warehouses (small list) â€” variant data is loaded via AJAX
+        // Only load warehouses (small list) — variant data is loaded via AJAX
         // after page renders to avoid serializing 51k rows in Livewire snapshot
         $this->warehouses = Warehouse::where('status', 1)
             ->where('is_system', false)
