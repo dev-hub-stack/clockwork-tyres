@@ -76,23 +76,23 @@ class InventoryGrid extends Page
             return;
         }
 
-        $variantIds = $variants->keys()->toArray();
-
         // ── 2. One query for all inventory rows ───────────────────────────────
-        $inventoryRows = DB::table('product_inventories')
-            ->whereIn('product_variant_id', $variantIds)
-            ->select('product_variant_id', 'warehouse_id', 'quantity', 'eta', 'eta_qty')
+        // Use a JOIN to the same filtered variant set instead of a 51k-item IN clause
+        $inventoryRows = DB::table('product_inventories as pi')
+            ->join('product_variants as pv2', 'pv2.id', '=', 'pi.product_variant_id')
+            ->whereNotNull('pv2.sku')
+            ->select('pi.product_variant_id', 'pi.warehouse_id', 'pi.quantity', 'pi.eta', 'pi.eta_qty')
             ->get()
             ->groupBy('product_variant_id');
 
         // ── 3. One aggregate query for consignment stock ──────────────────────
-        // Replaces: consignmentItems.consignment.customer eager load per variant
         $consignmentStock = DB::table('consignment_items as ci')
             ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
-            ->whereIn('ci.product_variant_id', $variantIds)
+            ->join('product_variants as pv3', 'pv3.id', '=', 'ci.product_variant_id')
             ->whereIn('c.status', ['sent', 'delivered', 'partially_sold'])
             ->whereNull('ci.deleted_at')
             ->whereNull('c.deleted_at')
+            ->whereNotNull('pv3.sku')
             ->select(
                 'ci.product_variant_id',
                 DB::raw('SUM(ci.quantity_sent - ci.quantity_sold - ci.quantity_returned) as consignment_qty')
