@@ -489,7 +489,12 @@ class QuoteResource extends Resource
                                     ->minValue(1)
                                     ->live()
                                     ->reactive()
-                                    ->afterStateUpdated(function ($get, $set) {
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $qty = floatval($state ?? 0);
+                                        $price = floatval($get('unit_price') ?? 0);
+                                        $discount = floatval($get('discount') ?? 0);
+                                        $set('line_total', ($qty * $price) - $discount);
+                                        
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
                                         $totals = self::calculateValues($items, $shipping);
@@ -506,7 +511,12 @@ class QuoteResource extends Resource
                                     ->required()
                                     ->live()
                                     ->reactive()
-                                    ->afterStateUpdated(function ($get, $set) {
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $qty = floatval($get('quantity') ?? 0);
+                                        $price = floatval($state ?? 0);
+                                        $discount = floatval($get('discount') ?? 0);
+                                        $set('line_total', ($qty * $price) - $discount);
+                                        
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
                                         $totals = self::calculateValues($items, $shipping);
@@ -523,7 +533,12 @@ class QuoteResource extends Resource
                                     ->default(0)
                                     ->live()
                                     ->reactive()
-                                    ->afterStateUpdated(function ($get, $set) {
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $qty = floatval($get('quantity') ?? 0);
+                                        $price = floatval($get('unit_price') ?? 0);
+                                        $discount = floatval($state ?? 0);
+                                        $set('line_total', ($qty * $price) - $discount);
+                                        
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
                                         $totals = self::calculateValues($items, $shipping);
@@ -554,7 +569,11 @@ class QuoteResource extends Resource
                                         $set('../../total', $totals['total']);
                                     }),
                                 
-                                Placeholder::make('line_total')
+                                Hidden::make('line_total')
+                                    ->default(0)
+                                    ->dehydrated(),
+                                
+                                Placeholder::make('line_total_display')
                                     ->label('Line Total')
                                     ->content(function ($get) {
                                         $currency = CurrencySetting::getBase();
@@ -571,6 +590,20 @@ class QuoteResource extends Resource
                             ->addActionLabel('Add Line Item')
                             ->reorderable()
                             ->collapsible()
+                            ->mutateRelationshipDataBeforeCreate(function (array $data): array {
+                                $qty = floatval($data['quantity'] ?? 0);
+                                $price = floatval($data['unit_price'] ?? 0);
+                                $discount = floatval($data['discount'] ?? 0);
+                                $data['line_total'] = ($qty * $price) - $discount;
+                                return $data;
+                            })
+                            ->mutateRelationshipDataBeforeSave(function (array $data): array {
+                                $qty = floatval($data['quantity'] ?? 0);
+                                $price = floatval($data['unit_price'] ?? 0);
+                                $discount = floatval($data['discount'] ?? 0);
+                                $data['line_total'] = ($qty * $price) - $discount;
+                                return $data;
+                            })
                             ->columnSpanFull(),
                     ])
                     ->columnSpanFull(),

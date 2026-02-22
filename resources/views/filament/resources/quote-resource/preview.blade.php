@@ -54,8 +54,8 @@
         <div class="text-right">
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Proforma Invoice</h2>
             
-            <x-filament::badge size="lg" :color="$record->quote_status->color()">
-                {{ $record->quote_status->label() }}
+            <x-filament::badge size="lg" :color="$record->quote_status?->color() ?? 'gray'">
+                {{ $record->quote_status?->label() ?? 'N/A' }}
             </x-filament::badge>
             
             <div class="mt-4 space-y-1 text-sm">
