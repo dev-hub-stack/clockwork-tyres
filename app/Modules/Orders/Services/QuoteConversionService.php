@@ -42,11 +42,6 @@ class QuoteConversionService
                 throw new \Exception('Can only convert documents of type QUOTE. Current type: ' . $quote->document_type->value);
             }
             
-            // Validation: Must be approved
-            if ($quote->quote_status !== QuoteStatus::APPROVED) {
-                throw new \Exception('Quote must be APPROVED before conversion. Current status: ' . $quote->quote_status->value);
-            }
-            
             // Validation: Not already converted
             if ($quote->is_quote_converted) {
                 throw new \Exception('This quote has already been converted to invoice');
@@ -72,6 +67,7 @@ class QuoteConversionService
                 'converted_to_invoice_id' => $quote->id,  // Self-reference
                 'order_status' => OrderStatus::PROCESSING,   // Initialize order workflow and trigger stock reduction
                 'order_number' => $this->generateInvoiceNumber(), // Generate new invoice number
+                'issue_date' => $quote->issue_date ?? now(),
             ]);
             
             // Recalculate totals to ensure accuracy

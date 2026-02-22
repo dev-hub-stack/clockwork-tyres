@@ -924,7 +924,7 @@ class QuoteResource extends Resource
                     ->visible(fn($record) => $record->canConvertToInvoice())
                     ->requiresConfirmation()
                     ->modalHeading('Convert Quote to Invoice')
-                    ->modalDescription('This will create an invoice from this approved quote. The quote will remain in the system for reference.')
+                    ->modalDescription('This will convert this quote into an invoice and start the order workflow.')
                     ->action(function ($record) {
                         $invoice = app(QuoteConversionService::class)->convertQuoteToInvoice($record);
                         
