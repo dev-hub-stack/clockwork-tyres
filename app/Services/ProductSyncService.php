@@ -85,15 +85,15 @@ class ProductSyncService
     protected function syncModel(array $data, int $brandId): ProductModel
     {
         $name = $data['name'] ?? 'Unknown Model';
-        // ProductModel in CRM uses 'name' and has no 'slug' column
+        // 'models' table has no brand_id column — name is the unique key
         try {
             return ProductModel::firstOrCreate(
-                ['name' => $name, 'brand_id' => $brandId],
+                ['name' => $name],
                 ['is_active' => true]
             );
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->errorInfo[1] === 1062) {
-                return ProductModel::where('name', $name)->where('brand_id', $brandId)->first();
+                return ProductModel::where('name', $name)->first();
             }
             throw $e;
         }
