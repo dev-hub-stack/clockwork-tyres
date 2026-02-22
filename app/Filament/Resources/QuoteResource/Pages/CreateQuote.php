@@ -98,13 +98,49 @@ class CreateQuote extends CreateRecord
         return $data;
     }
     
+    protected function afterCreate(): void
+    {
+        $this->recalculateTotals($this->getRecord());
+    }
+
+    private function recalculateTotals(\App\Modules\Orders\Models\Order $record): void
+    {
+        $record->refresh();
+
+        $taxSetting = TaxSetting::getDefault();
+        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+        $multiplier = 1 + ($taxRate / 100);
+
+        $inclGross = 0.0;
+        $exclNet   = 0.0;
+
+        foreach ($record->items as $item) {
+            $lineTotal    = floatval($item->line_total);
+            $taxInclusive = (bool) $item->tax_inclusive;
+
+            if ($taxInclusive) {
+                $inclGross += $lineTotal;
+            } else {
+                $exclNet += $lineTotal;
+            }
+        }
+
+        $shipping = floatval($record->shipping ?? 0);
+        $discount = floatval($record->discount ?? 0);
+
+        $inclTax  = $inclGross - ($inclGross / $multiplier);
+        $inclNet  = $inclGross / $multiplier;
+        $exclBase = $exclNet + $shipping - $discount;
+        $exclTax  = $exclBase * ($taxRate / 100);
+
+        $record->update([
+            'sub_total' => round($inclNet  + $exclBase, 2),
+            'vat'       => round($inclTax  + $exclTax,  2),
+            'total'     => round($inclGross + $exclBase + $exclTax, 2),
+        ]);
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('view', ['record' => $this->getRecord()]);
     }
-    
-    protected function getCreatedNotificationTitle(): ?string
-    {
-        return 'Quote created successfully!';
-    }
-}
