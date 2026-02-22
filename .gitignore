@@ -49,6 +49,14 @@ _ide_helper_models.php
 .phpunit.cache
 coverage/
 
+# Debug / one-off scripts (never commit to production)
+check_*.php
+fix_*.php
+test_*.php
+migrate_*.php
+logs.txt
+cors.json
+
 # Database Dumps
 tunerstop-data*.sql
 
