@@ -197,6 +197,7 @@ class Consignment extends Model
         \Illuminate\Support\Facades\Log::debug('Consignment::calculateTotals - Items loaded', [
             'consignment_id' => $this->id,
             'items_count' => $this->items->count(),
+            'items_raw' => $this->items->toArray(),
         ]);
 
         $inclGross = 0.0;
@@ -207,6 +208,14 @@ class Consignment extends Model
             $price        = $item->price ?? 0;
             $taxInclusive = $item->tax_inclusive ?? true;
             $lineTotal    = $qty * $price;
+            
+            \Illuminate\Support\Facades\Log::debug('Consignment::calculateTotals - Processing item', [
+                'item_id' => $item->id,
+                'qty' => $qty,
+                'price' => $price,
+                'tax_inclusive' => $taxInclusive,
+                'line_total' => $lineTotal,
+            ]);
 
             if ($taxInclusive) {
                 $inclGross += $lineTotal;
