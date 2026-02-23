@@ -545,6 +545,10 @@ class Order extends Model
         $this->vat       = round($inclTax  + $exclTax,  2);
         $this->tax       = $this->vat;
         $this->total     = round($inclGross + $exclBase + $exclTax, 2);
+        
+        // Update outstanding amount based on total and paid amount
+        $totalPaid = $this->paid_amount ?? 0;
+        $this->outstanding_amount = max(0, $this->total - $totalPaid);
 
         $this->saveQuietly();
     }

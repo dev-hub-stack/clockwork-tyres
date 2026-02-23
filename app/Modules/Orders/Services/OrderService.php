@@ -241,12 +241,17 @@ class OrderService
         // Calculate final total
         $total = $subTotal + $taxAmount + $vatAmount + $order->shipping - $order->discount;
         
+        // Calculate outstanding amount: if no payments made, outstanding = total
+        $totalPaid = $order->paid_amount ?? 0;
+        $outstandingAmount = max(0, $total - $totalPaid);
+        
         // Update order
         $order->update([
             'sub_total' => $subTotal,
             'tax' => $taxAmount,
             'vat' => $vatAmount,
             'total' => $total,
+            'outstanding_amount' => $outstandingAmount,
         ]);
     }
 
