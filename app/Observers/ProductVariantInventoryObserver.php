@@ -42,7 +42,7 @@ class ProductVariantInventoryObserver
                 $inventory = ProductInventory::updateOrCreate(
                     [
                         'warehouse_id' => $warehouse->id,
-                        'variant_id' => $variant->id,
+                        'product_variant_id' => $variant->id,
                     ],
                     [
                         'quantity' => 0,
@@ -73,7 +73,7 @@ class ProductVariantInventoryObserver
     {
         try {
             // Delete all inventory records for this variant
-            $deletedCount = ProductInventory::where('variant_id', $variant->id)->delete();
+            $deletedCount = ProductInventory::where('product_variant_id', $variant->id)->delete();
             
             if ($deletedCount > 0) {
                 Log::info("Deleted {$deletedCount} inventory records for variant {$variant->id} (SKU: {$variant->sku})");

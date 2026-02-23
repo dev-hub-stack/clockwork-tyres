@@ -10,6 +10,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
 {
     case SENT = 'sent';
     case SOLD = 'sold';
+    case PARTIALLY_SOLD = 'partially_sold';
     case RETURNED = 'returned';
     case CANCELLED = 'cancelled';
 
@@ -18,6 +19,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
         return match ($this) {
             self::SENT => 'Sent',
             self::SOLD => 'Sold',
+            self::PARTIALLY_SOLD => 'Partially Sold',
             self::RETURNED => 'Returned',
             self::CANCELLED => 'Cancelled',
         };
@@ -28,6 +30,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
         return match ($this) {
             self::SENT => 'info',
             self::SOLD => 'success',
+            self::PARTIALLY_SOLD => 'warning',
             self::RETURNED => 'warning',
             self::CANCELLED => 'gray',
         };
@@ -38,6 +41,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
         return match ($this) {
             self::SENT => 'heroicon-o-paper-airplane',
             self::SOLD => 'heroicon-o-check-circle',
+            self::PARTIALLY_SOLD => 'heroicon-o-clock',
             self::RETURNED => 'heroicon-o-arrow-uturn-left',
             self::CANCELLED => 'heroicon-o-x-circle',
         };
@@ -48,7 +52,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
      */
     public function canBeSold(): bool
     {
-        return $this === self::SENT;
+        return in_array($this, [self::SENT, self::PARTIALLY_SOLD]);
     }
 
     /**
@@ -56,7 +60,7 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
      */
     public function canBeReturned(): bool
     {
-        return in_array($this, [self::SENT, self::SOLD]);
+        return in_array($this, [self::SENT, self::SOLD, self::PARTIALLY_SOLD]);
     }
 
     /**
@@ -65,5 +69,13 @@ enum ConsignmentItemStatus: string implements HasLabel, HasColor, HasIcon
     public function isFinal(): bool
     {
         return in_array($this, [self::SOLD, self::RETURNED, self::CANCELLED]);
+    }
+
+    /**
+     * Check if item is partially sold
+     */
+    public function isPartiallySold(): bool
+    {
+        return $this === self::PARTIALLY_SOLD;
     }
 }

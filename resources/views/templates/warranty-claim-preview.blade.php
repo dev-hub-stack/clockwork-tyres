@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warranty Claim - {{ $claim->claim_number ?? 'WC-' . $claim->id }}</title>
+    <title>Warranty Claim - {{ $claim->claim_number ?? 'WC-' . ($claim->id ?? 'N/A') }}</title>
     <style>
         * {
             margin: 0;
@@ -333,25 +333,25 @@
     <div class="header">
         <div class="header-left">
             <h1>WARRANTY CLAIM</h1>
-            <div class="subtitle">{{ $claim->claim_number ?? 'WC-' . $claim->id }}</div>
+            <div class="subtitle">{{ $claim->claim_number ?? 'WC-' . ($claim->id ?? 'N/A') }}</div>
         </div>
         
         <div class="header-right">
-            @if($logo)
+            @if($logo ?? false)
                 <img src="{{ $logo }}" alt="Company Logo" class="logo">
             @else
                 <div class="logo-placeholder">
-                    {{ $companyName }}
+                    {{ $companyName ?? 'Company' }}
                 </div>
             @endif
             <div class="company-info">
-                @if($companyAddress)
+                @if($companyAddress ?? false)
                     <p>{{ $companyAddress }}</p>
                 @endif
-                @if($companyPhone)
+                @if($companyPhone ?? false)
                     <p>Phone: {{ $companyPhone }}</p>
                 @endif
-                @if($companyEmail)
+                @if($companyEmail ?? false)
                     <p>Email: {{ $companyEmail }}</p>
                 @endif
                 <p>Generated: {{ now()->format('d/m/Y H:i') }}</p>
@@ -366,10 +366,14 @@
                 <div class="info-row">
                     <span class="info-label">Name:</span>
                     <span class="info-value">
-                        {{ $claim->customer?->business_name 
-                            ?? ($claim->customer?->first_name . ' ' . $claim->customer?->last_name)
-                            ?? $claim->customer?->email 
-                            ?? 'N/A' }}
+                        @if($claim ?? false)
+                            {{ $claim->customer?->business_name 
+                                ?? ($claim->customer?->first_name . ' ' . $claim->customer?->last_name)
+                                ?? $claim->customer?->email 
+                                ?? 'N/A' }}
+                        @else
+                            N/A
+                        @endif
                     </span>
                 </div>
                 <div class="info-row">
@@ -380,7 +384,7 @@
                     <span class="info-label">Phone:</span>
                     <span class="info-value">{{ $claim->customer?->phone ?? 'N/A' }}</span>
                 </div>
-                @if($claim->invoice)
+                @if($claim->invoice ?? false)
                     <div class="info-row">
                         <span class="info-label">Invoice #:</span>
                         <span class="info-value">{{ $claim->invoice->invoice_number ?? 'N/A' }}</span>
@@ -395,9 +399,13 @@
                 <div class="info-row">
                     <span class="info-label">Status:</span>
                     <span class="info-value">
-                        <span class="status-badge status-{{ str_replace('_', '-', $claim->status->value) }}">
-                            {{ $claim->status->getLabel() }}
-                        </span>
+                        @if($claim->status ?? false)
+                            <span class="status-badge status-{{ str_replace('_', '-', $claim->status->value) }}">
+                                {{ $claim->status->getLabel() }}
+                            </span>
+                        @else
+                            <span class="status-badge status-draft">Draft</span>
+                        @endif
                     </span>
                 </div>
                 <div class="info-row">
@@ -408,7 +416,7 @@
                     <span class="info-label">Created:</span>
                     <span class="info-value">{{ $claim->created_at?->format('d/m/Y H:i') ?? 'N/A' }}</span>
                 </div>
-                @if($claim->resolution_date)
+                @if($claim->resolution_date ?? false)
                     <div class="info-row">
                         <span class="info-label">Resolved:</span>
                         <span class="info-value">{{ $claim->resolution_date->format('d/m/Y') }}</span>
@@ -429,7 +437,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($claim->items as $item)
+            @forelse($claim->items ?? [] as $item)
                 <tr>
                     <td>
                         <div class="item-name">{{ $item->product_name }}</div>
@@ -460,7 +468,7 @@
     </table>
 
     <!-- Customer Issue Description -->
-    @if($claim->issue_description)
+    @if($claim->issue_description ?? false)
         <div class="notes-section">
             <div class="notes-box">
                 <h3>Issue Description</h3>
@@ -470,7 +478,7 @@
     @endif
 
     <!-- Customer Notes -->
-    @if($claim->customer_notes)
+    @if($claim->customer_notes ?? false)
         <div class="notes-section">
             <div class="notes-box">
                 <h3>Customer Notes</h3>
@@ -480,7 +488,7 @@
     @endif
 
     <!-- Internal Notes -->
-    @if($claim->internal_notes)
+    @if($claim->internal_notes ?? false)
         <div class="notes-section">
             <div class="notes-box">
                 <h3>Internal Notes</h3>
@@ -490,7 +498,7 @@
     @endif
 
     <!-- Photo/Video Links -->
-    @if($claim->photo_video_links)
+    @if($claim->photo_video_links ?? false)
         <div class="notes-section">
             <div class="notes-box">
                 <h3>Photo/Video Links</h3>
@@ -500,7 +508,7 @@
     @endif
 
     <!-- Activity History -->
-    @if(($includeHistory ?? true) && $claim->histories && $claim->histories->count() > 0)
+    @if(($includeHistory ?? true) && ($claim->histories ?? false) && $claim->histories->count() > 0)
         <div class="timeline-section">
             <h3>Activity History</h3>
             @foreach($claim->histories->sortByDesc('created_at') as $history)
@@ -532,7 +540,7 @@
         @if($companyEmail)
             <p>For questions regarding this warranty claim, please contact us at {{ $companyEmail }}</p>
         @endif
-        <p>&copy; {{ date('Y') }} {{ $companyName }}. All rights reserved.</p>
+        <p>&copy; {{ date('Y') }} {{ $companyName ?? 'Company' }}. All rights reserved.</p>
     </div>
 </body>
 </html>
