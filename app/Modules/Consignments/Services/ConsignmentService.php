@@ -17,6 +17,7 @@ use App\Modules\Products\Models\ProductVariant;
 use App\Services\ProductSnapshotService;
 use App\Services\VariantSnapshotService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ConsignmentService
 {
