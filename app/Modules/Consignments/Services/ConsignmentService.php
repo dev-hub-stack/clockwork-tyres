@@ -114,14 +114,8 @@ class ConsignmentService
                 'notes' => $itemData['notes'] ?? null,
             ]);
 
-            // Deduct from warehouse inventory when consignment items are sent out
-            $quantitySent = $itemData['quantity_sent'] ?? $itemData['quantity'] ?? 1;
-            if ($warehouseId && $quantitySent > 0) {
-                ProductInventory::where([
-                    'warehouse_id' => $warehouseId,
-                    'product_variant_id' => $variant->id,
-                ])->decrement('quantity', $quantitySent);
-            }
+            // Note: Inventory is deducted when consignment is marked as SENT, not on creation
+            // This allows draft consignments to be created without affecting inventory
         }
     }
 
@@ -205,9 +199,9 @@ class ConsignmentService
                     
                     $item->markAsReturned($quantity);
 
-                    // Update inventory if requested
-                    if ($updateInventory && $consignment->warehouse_id) {
-                        $this->updateInventoryForReturn($item, $quantity, $consignment->warehouse_id);
+                    // Update inventory if requested - use item's warehouse, not consignment's
+                    if ($updateInventory && $item->warehouse_id) {
+                        $this->updateInventoryForReturn($item, $quantity, $item->warehouse_id);
                     }
                 }
             }
@@ -234,19 +228,31 @@ class ConsignmentService
     }
 
     /**
-     * Mark consignment as sent
+     * Mark consignment as sent - deducts inventory from warehouses
      */
     public function markAsSent(Consignment $consignment, ?string $trackingNumber = null): void
     {
-        $consignment->update([
-            'status' => ConsignmentStatus::SENT,
-            'sent_at' => now(),
-            'tracking_number' => $trackingNumber,
-        ]);
+        DB::transaction(function () use ($consignment, $trackingNumber) {
+            // Deduct inventory from warehouses for each item
+            foreach ($consignment->items as $item) {
+                if ($item->warehouse_id && $item->quantity_sent > 0) {
+                    ProductInventory::where([
+                        'warehouse_id' => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->decrement('quantity', $item->quantity_sent);
+                }
+            }
 
-        $this->logHistory($consignment, 'status_changed', 'Consignment marked as sent', [
-            'tracking_number' => $trackingNumber,
-        ]);
+            $consignment->update([
+                'status' => ConsignmentStatus::SENT,
+                'sent_at' => now(),
+                'tracking_number' => $trackingNumber,
+            ]);
+
+            $this->logHistory($consignment, 'status_changed', 'Consignment marked as sent - inventory deducted', [
+                'tracking_number' => $trackingNumber,
+            ]);
+        });
     }
 
     /**
