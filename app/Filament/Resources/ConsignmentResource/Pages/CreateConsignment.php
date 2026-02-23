@@ -17,6 +17,13 @@ class CreateConsignment extends CreateRecord
      */
     protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
+        // Debug: Log the data received
+        \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - Data received', [
+            'total_value' => $data['total_value'] ?? 'NOT SET',
+            'subtotal' => $data['subtotal'] ?? 'NOT SET',
+            'total' => $data['total'] ?? 'NOT SET',
+        ]);
+        
         $attempts = 0;
         while (true) {
             try {
@@ -63,6 +70,11 @@ class CreateConsignment extends CreateRecord
                     'status' => $data['status'] ?? \App\Modules\Consignments\Enums\ConsignmentStatus::DRAFT,
                     'items' => $items,
                 ];
+                
+                \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - ConsignmentData', [
+                    'total_value' => $consignmentData['total_value'],
+                    'subtotal' => $consignmentData['subtotal'],
+                ]);
                 
                 return $service->createConsignment($consignmentData);
             } catch (UniqueConstraintViolationException $e) {
