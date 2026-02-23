@@ -68,7 +68,19 @@ class ConsignmentService
             ]);
 
             // Calculate totals
+            Log::debug('ConsignmentService::createConsignment - About to calculate totals', [
+                'consignment_id' => $consignment->id,
+                'current_total_value' => $consignment->total_value,
+                'items_count_before_calc' => $consignment->items->count(),
+            ]);
+            
             $consignment->calculateTotals();
+            
+            Log::debug('ConsignmentService::createConsignment - After calculateTotals', [
+                'consignment_id' => $consignment->id,
+                'new_total_value' => $consignment->fresh()->total_value,
+            ]);
+            
             $consignment->updateItemCounts();
 
             // Log creation
