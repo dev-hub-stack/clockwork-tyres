@@ -83,10 +83,13 @@ class EditConsignment extends EditRecord
 
     protected function afterSave(): void
     {
-        // Recalculate totals AFTER relationship items are saved by Filament
-        $this->record->calculateTotals();
+        // Items and totals are already handled in mutateFormDataBeforeSave
+        // Just update item counts since those depend on the saved items
         $this->record->updateItemCounts();
+        
+        // Refresh to get latest data
+        $this->record->refresh();
 
-        \Illuminate\Support\Facades\Log::info('EditConsignment afterSave DB record:', $this->record->refresh()->toArray());
+        \Illuminate\Support\Facades\Log::info('EditConsignment afterSave DB record:', $this->record->toArray());
     }
 }
