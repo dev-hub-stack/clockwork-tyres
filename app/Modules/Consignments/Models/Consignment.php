@@ -193,6 +193,11 @@ class Consignment extends Model
 
         // Reload items to ensure fresh data
         $this->load('items');
+        
+        \Illuminate\Support\Facades\Log::debug('Consignment::calculateTotals - Items loaded', [
+            'consignment_id' => $this->id,
+            'items_count' => $this->items->count(),
+        ]);
 
         $inclGross = 0.0;
         $exclNet   = 0.0;

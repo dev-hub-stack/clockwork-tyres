@@ -56,6 +56,14 @@ class ConsignmentService
 
             // Refresh consignment to load newly created items
             $consignment = $consignment->fresh();
+            
+            // Debug: Check if items exist before calculating totals
+            $itemCount = $consignment->items()->count();
+            Log::debug('ConsignmentService::createConsignment - Before calculateTotals', [
+                'consignment_id' => $consignment->id,
+                'item_count_query' => $itemCount,
+                'item_count_loaded' => $consignment->items->count(),
+            ]);
 
             // Calculate totals
             $consignment->calculateTotals();
