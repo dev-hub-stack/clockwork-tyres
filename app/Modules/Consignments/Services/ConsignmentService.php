@@ -54,6 +54,9 @@ class ConsignmentService
                 $this->addItems($consignment, $data['items']);
             }
 
+            // Refresh consignment to load newly created items
+            $consignment = $consignment->fresh();
+
             // Calculate totals
             $consignment->calculateTotals();
             $consignment->updateItemCounts();
