@@ -312,7 +312,7 @@ class ConsignmentInfolist
                                         TextEntry::make('created_at')
                                             ->label('When')
                                             ->dateTime()
-                                            ->description(fn ($record) => $record->user ? "By: {$record->user->name}" : null)
+                                            ->description(fn ($record) => $record->performedBy ? "By: {$record->performedBy->name}" : null)
                                             ->columnSpan(1),
                                     ]),
                             ])

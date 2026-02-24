@@ -56,7 +56,7 @@ class ConsignmentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer', 'warehouse', 'representative', 'items.productVariant', 'histories.user'])
+            ->with(['customer', 'warehouse', 'representative', 'items.productVariant', 'histories.performedBy'])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
