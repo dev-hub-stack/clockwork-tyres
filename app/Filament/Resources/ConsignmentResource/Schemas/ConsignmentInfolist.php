@@ -37,8 +37,7 @@ class ConsignmentInfolist
                                 
                                 TextEntry::make('customer.business_name')
                                     ->label('Customer')
-                                    ->icon('heroicon-o-user')
-                                    ->url(fn ($record) => $record->customer ? route('filament.admin.resources.customers.view', $record->customer) : null),
+                                    ->icon('heroicon-o-user'),
                                 
                                 TextEntry::make('representative.name')
                                     ->label('Sales Representative')
