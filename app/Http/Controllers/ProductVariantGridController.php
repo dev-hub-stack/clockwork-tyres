@@ -96,9 +96,13 @@ class ProductVariantGridController extends Controller
         
         try {
             $changes = $request->input('list', []);
+            \Log::info('SaveBatch called with changes:', $changes);
+            
             $addList = $changes['addList'] ?? [];
             $updateList = $changes['updateList'] ?? [];
             $deleteList = $changes['deleteList'] ?? [];
+            
+            \Log::info('Processing - Add: ' . count($addList) . ', Update: ' . count($updateList) . ', Delete: ' . count($deleteList));
             
             $results = [
                 'addList' => [],
@@ -141,6 +145,8 @@ class ProductVariantGridController extends Controller
             // Process updates
             foreach ($updateList as $index => $data) {
                 try {
+                    \Log::info('Updating variant ' . ($data['id'] ?? 'unknown') . ':', $data);
+                    
                     if (!isset($data['id'])) {
                         $results['errors'][] = "Row {$index}: Missing variant ID";
                         continue;
@@ -148,7 +154,7 @@ class ProductVariantGridController extends Controller
                     
                     $variant = ProductVariant::findOrFail($data['id']);
                     
-                    $variant->update([
+                    $updateData = [
                         'sku' => $data['sku'],
                         'finish_id' => $data['finish_id'] ?? null,
                         'size' => $data['size'] ?? null,
@@ -166,10 +172,17 @@ class ProductVariantGridController extends Controller
                         'sale_price' => $data['sale_price'] ?? null,
                         'clearance_corner' => $data['clearance_corner'] ?? 0,
                         'supplier_stock' => $data['supplier_stock'] ?? 0,
-                    ]);
+                    ];
+                    
+                    \Log::info('Update data for variant ' . $data['id'] . ':', $updateData);
+                    
+                    $variant->update($updateData);
+                    
+                    \Log::info('Successfully updated variant ' . $data['id']);
                     
                     $results['updateList'][] = $data;
                 } catch (\Exception $e) {
+                    \Log::error('Error updating variant ' . ($data['id'] ?? 'unknown') . ': ' . $e->getMessage());
                     $results['errors'][] = "Row {$index} (ID: {$data['id']}): " . $e->getMessage();
                 }
             }

@@ -56,7 +56,9 @@ class ConsignmentService
             }
 
             // Refresh consignment to load newly created items
-            $consignment = $consignment->fresh(['items']);
+            // Use find() to get a completely fresh instance with all relationships
+            $consignment = Consignment::find($consignment->id);
+            $consignment->load('items');
             
             // Debug: Check if items exist before calculating totals
             $itemCount = $consignment->items()->count();
@@ -95,10 +97,26 @@ class ConsignmentService
      */
     public function addItems(Consignment $consignment, array $items): void
     {
-        foreach ($items as $itemData) {
+        \Log::debug('ConsignmentService::addItems - Starting', [
+            'consignment_id' => $consignment->id,
+            'items_count' => count($items),
+            'items_data' => $items
+        ]);
+        
+        foreach ($items as $index => $itemData) {
+            \Log::debug('ConsignmentService::addItems - Processing item ' . $index, [
+                'item_data' => $itemData,
+                'product_variant_id' => $itemData['product_variant_id'] ?? 'NOT SET',
+                'quantity_sent' => $itemData['quantity_sent'] ?? $itemData['quantity'] ?? 1,
+                'price' => $itemData['price'] ?? 0
+            ]);
+            
             $variant = ProductVariant::find($itemData['product_variant_id']);
             
             if (!$variant) {
+                \Log::warning('ConsignmentService::addItems - Variant not found', [
+                    'product_variant_id' => $itemData['product_variant_id']
+                ]);
                 continue;
             }
 
@@ -109,9 +127,17 @@ class ConsignmentService
             $price = $itemData['price'] ?? $this->calculateItemPrice($variant, $consignment->customer_id);
 
             $warehouseId = $itemData['warehouse_id'] ?? null;
+            
+            \Log::debug('ConsignmentService::addItems - About to create item', [
+                'consignment_id' => $consignment->id,
+                'product_variant_id' => $variant->id,
+                'quantity_sent' => $itemData['quantity_sent'] ?? $itemData['quantity'] ?? 1,
+                'price' => $price,
+                'warehouse_id' => $warehouseId
+            ]);
 
             // Create consignment item
-            ConsignmentItem::create([
+            $consignmentItem = ConsignmentItem::create([
                 'consignment_id' => $consignment->id,
                 'product_variant_id' => $variant->id,
                 'warehouse_id' => $warehouseId,
@@ -138,10 +164,22 @@ class ConsignmentService
                 // Notes
                 'notes' => $itemData['notes'] ?? null,
             ]);
+            
+            \Log::debug('ConsignmentService::addItems - Item created', [
+                'consignment_item_id' => $consignmentItem->id,
+                'consignment_id' => $consignmentItem->consignment_id,
+                'quantity_sent' => $consignmentItem->quantity_sent,
+                'price' => $consignmentItem->price
+            ]);
 
             // Note: Inventory is deducted when consignment is marked as SENT, not on creation
             // This allows draft consignments to be created without affecting inventory
         }
+        
+        \Log::debug('ConsignmentService::addItems - Completed', [
+            'consignment_id' => $consignment->id,
+            'final_item_count' => $consignment->items()->count()
+        ]);
     }
 
     /**

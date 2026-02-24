@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 class RecordReturnAction
 {
@@ -182,7 +183,15 @@ class RecordReturnAction
                         ->columns(1),
                 ];
             })
-            ->action(function (Consignment $record, array $data) {
+            ->action(function (Consignment $record, array $data, ConsignmentReturnService $service) {
+                \Log::info('RecordReturnAction called', [
+                    'consignment_id' => $record->id,
+                    'consignment_number' => $record->consignment_number,
+                    'action' => 'record_return',
+                    'returned_items_count' => count($data['returned_items'] ?? []),
+                    'return_reason' => $data['return_reason'] ?? null,
+                ]);
+                
                 try {
                     // Filter out items with missing data
                     $returnedItems = collect($data['returned_items'] ?? [])

@@ -21,7 +21,7 @@ class InventoryApiController extends Controller
             
             $consignments = ConsignmentItem::where('product_variant_id', $variant->id)
                 ->whereHas('consignment', function($q) {
-                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold']);
+                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold', 'partially_returned']);
                 })
                 ->with('consignment.customer')
                 ->get()
@@ -111,7 +111,7 @@ class InventoryApiController extends Controller
             
             $consignments = ConsignmentItem::where('product_variant_id', $variant->id)
                 ->whereHas('consignment', function($q) {
-                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold']);
+                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold', 'partially_returned']);
                 })
                 ->with('consignment.customer')
                 ->get()
@@ -245,7 +245,7 @@ class InventoryApiController extends Controller
         $consignmentStock = DB::table('consignment_items as ci')
             ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
             ->join('product_variants as pv3', 'pv3.id', '=', 'ci.product_variant_id')
-            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold'])
+            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold', 'partially_returned'])
             ->whereNull('ci.deleted_at')
             ->whereNull('c.deleted_at')
             ->whereNotNull('pv3.sku')

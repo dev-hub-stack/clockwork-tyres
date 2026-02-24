@@ -32,8 +32,20 @@ class CreateConsignment extends CreateRecord
                 
                 // Prepare items data for the service
                 $items = [];
-                foreach ($data['items'] ?? [] as $item) {
-                    $items[] = [
+                \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - Processing items for service', [
+                    'items_from_data' => $data['items'] ?? 'NOT SET',
+                    'items_count' => count($data['items'] ?? [])
+                ]);
+                
+                foreach ($data['items'] ?? [] as $index => $item) {
+                    \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - Processing item ' . $index, [
+                        'original_item_data' => $item,
+                        'product_variant_id' => $item['product_variant_id'] ?? 'NOT SET',
+                        'quantity_sent' => $item['quantity_sent'] ?? $item['quantity'] ?? 'NOT SET',
+                        'price' => $item['price'] ?? 'NOT SET'
+                    ]);
+                    
+                    $processedItem = [
                         'product_variant_id' => $item['product_variant_id'],
                         'quantity_sent' => $item['quantity_sent'] ?? $item['quantity'] ?? 1,
                         'warehouse_id' => $item['warehouse_id'] ?? $data['warehouse_id'] ?? null,
@@ -44,7 +56,19 @@ class CreateConsignment extends CreateRecord
                         'notes' => $item['notes'] ?? null,
                         'tax_inclusive' => $item['tax_inclusive'] ?? true,
                     ];
+                    
+                    \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - Processed item ' . $index, [
+                        'processed_item_data' => $processedItem,
+                        'quantity_sent_final' => $processedItem['quantity_sent']
+                    ]);
+                    
+                    $items[] = $processedItem;
                 }
+                
+                \Illuminate\Support\Facades\Log::debug('CreateConsignment::handleRecordCreation - Final items array', [
+                    'items_count' => count($items),
+                    'items_data' => $items
+                ]);
                 
                 $consignmentData = [
                     'consignment_number' => $data['consignment_number'] ?? Consignment::generateConsignmentNumber(),
@@ -92,13 +116,24 @@ class CreateConsignment extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Debug: Log the items data
+        \Illuminate\Support\Facades\Log::debug('CreateConsignment::mutateFormDataBeforeCreate - Items data', [
+            'items_count' => count($data['items'] ?? []),
+            'items_data' => $data['items'] ?? 'NOT SET',
+            'all_data_keys' => array_keys($data)
+        ]);
+        
         // Ensure shipping_cost is never null (DB column is NOT NULL)
         $data['shipping_cost'] = floatval($data['shipping_cost'] ?? 0);
 
-        // Calculate totals using centralized method from ConsignmentForm
         $items = $data['items'] ?? [];
         $shipping = floatval($data['shipping_cost'] ?? 0);
         $discount = floatval($data['discount'] ?? 0);
+        
+        \Illuminate\Support\Facades\Log::debug('CreateConsignment::mutateFormDataBeforeCreate - Processing items', [
+            'items_count' => count($items),
+            'items_array' => $items
+        ]);
         
         $totals = \App\Filament\Resources\ConsignmentResource\Schemas\ConsignmentForm::calculateValues($items, $shipping, $discount);
         
@@ -107,11 +142,35 @@ class CreateConsignment extends CreateRecord
         $data['tax'] = $totals['vat'];
         $data['total'] = $totals['total'];
         
+        // Calculate total_value as raw item value (quantity × price)
+        $totalValue = 0;
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $totalValue += $qty * $price;
+            
+            \Illuminate\Support\Facades\Log::debug('CreateConsignment::mutateFormDataBeforeCreate - Item calculation', [
+                'item' => $item,
+                'quantity' => $qty,
+                'price' => $price,
+                'item_total' => $qty * $price,
+                'running_total' => $totalValue
+            ]);
+        }
+        $totalValue = round($totalValue, 2);
+        
         // Set value tracking fields for consignments
-        $data['total_value'] = $totals['sub_total'];
+        $data['total_value'] = $totalValue;
         $data['invoiced_value'] = 0;
         $data['returned_value'] = 0;
-        $data['balance_value'] = $totals['sub_total'];
+        $data['balance_value'] = $totalValue;
+        
+        \Illuminate\Support\Facades\Log::debug('CreateConsignment::mutateFormDataBeforeCreate - Final totals', [
+            'total_value' => $totalValue,
+            'subtotal' => $data['subtotal'],
+            'total' => $data['total'],
+            'items_processed' => count($items)
+        ]);
         
         // Generate consignment number if not set
         if (empty($data['consignment_number'])) {

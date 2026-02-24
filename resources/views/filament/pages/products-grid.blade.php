@@ -170,6 +170,14 @@
         }
     </style>
     
+    <!-- Performance Notice -->
+    <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+        <strong><i class="bi bi-exclamation-triangle"></i> Performance Notice:</strong> 
+        For optimal performance, this page now loads <strong>up to 1000 product variants</strong> at a time.
+        If you need to view all products, use the <strong>search and filter</strong> functionality in the grid.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    
     <!-- Sidebar Collapse Help Alert -->
     <div class="alert alert-info alert-dismissible fade show mb-3" role="alert" style="background: #e0f2fe; border-color: #0ea5e9;">
         <strong><i class="bi bi-info-circle"></i> Tip:</strong> 

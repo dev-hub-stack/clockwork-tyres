@@ -260,7 +260,20 @@ class ConsignmentInfolist
                                 Group::make([
                                     TextEntry::make('items_available_count')
                                         ->label('Items Available')
-                                        ->getStateUsing(fn ($record) => $record->items_sent_count - $record->items_sold_count - $record->items_returned_count)
+                                        ->getStateUsing(function ($record) {
+                                            $available = $record->items_sent_count - $record->items_sold_count - $record->items_returned_count;
+                                            
+                                            \Log::debug('ConsignmentInfolist::items_available_count calculation', [
+                                                'consignment_id' => $record->id,
+                                                'consignment_number' => $record->consignment_number,
+                                                'items_sent_count' => $record->items_sent_count,
+                                                'items_sold_count' => $record->items_sold_count,
+                                                'items_returned_count' => $record->items_returned_count,
+                                                'calculated_available' => $available,
+                                            ]);
+                                            
+                                            return $available;
+                                        })
                                         ->size('xl')
                                         ->weight('bold')
                                         ->color('primary')

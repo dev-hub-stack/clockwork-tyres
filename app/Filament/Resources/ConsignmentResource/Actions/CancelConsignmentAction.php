@@ -7,6 +7,7 @@ use App\Modules\Consignments\Services\ConsignmentService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 class CancelConsignmentAction
 {
@@ -33,6 +34,13 @@ class CancelConsignmentAction
                     ->helperText('This reason will be logged in the consignment history'),
             ])
             ->action(function (Consignment $record, array $data, ConsignmentService $service) {
+                \Log::info('CancelConsignmentAction called', [
+                    'consignment_id' => $record->id,
+                    'consignment_number' => $record->consignment_number,
+                    'action' => 'cancel_consignment',
+                    'reason' => $data['reason'] ?? null,
+                ]);
+                
                 try {
                     // Additional validation
                     if ($record->items_sold_count > 0) {

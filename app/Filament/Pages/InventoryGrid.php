@@ -89,7 +89,7 @@ class InventoryGrid extends Page
         $consignmentStock = DB::table('consignment_items as ci')
             ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
             ->join('product_variants as pv3', 'pv3.id', '=', 'ci.product_variant_id')
-            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold'])
+            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold', 'partially_returned'])
             ->whereNull('ci.deleted_at')
             ->whereNull('c.deleted_at')
             ->whereNotNull('pv3.sku')

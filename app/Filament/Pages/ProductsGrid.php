@@ -7,6 +7,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
 use Filament\Pages\Page;
 use BackedEnum;
+use Illuminate\Support\Facades\Cache;
 use UnitEnum;
 
 class ProductsGrid extends Page
@@ -41,36 +42,50 @@ class ProductsGrid extends Page
     
     protected function loadProductsData(): void
     {
-        // Get all active warehouses
-        $this->warehouses = Warehouse::where('status', 1)
-            ->orderBy('code')
-            ->get();
+        // Get all active warehouses (cache this as it doesn't change often)
+        $this->warehouses = Cache::remember('active_warehouses', 3600, function () {
+            return Warehouse::where('status', 1)
+                ->orderBy('code')
+                ->get();
+        });
 
-        // Get all products with their variants and inventory
-        $products = Product::with([
+        // Load products with proper eager loading and pagination
+        $query = Product::with([
             'brand',
             'model',
-            'finish',
             'variants' => function ($query) {
-                $query->with(['inventories.warehouse']);
+                $query->with([
+                    'finishRelation', // Eager load finish relationship to avoid N+1
+                    'inventories.warehouse'
+                ]);
             }
         ])
-        ->whereHas('variants')
-        ->get();
+        ->whereHas('variants');
+
+        // Apply pagination - load only 1000 records at a time to prevent timeout
+        $products = $query->limit(1000)->get();
 
         $this->products_data = [];
 
         foreach ($products as $product) {
             foreach ($product->variants as $variant) {
+                // Pre-load finish data to avoid individual queries
+                $finishName = '';
+                if ($variant->finishRelation) {
+                    $finishName = $variant->finishRelation->finish;
+                } elseif (isset($variant->finish)) {
+                    $finishName = $variant->finish;
+                }
+
                 $row = [
                     'id' => $variant->id,
                     'product_id' => $product->id,
                     'sku' => $variant->sku ?? '',
-                    'product_full_name' => trim(($product->brand?->name ?? '') . ' ' . ($product->model?->name ?? '') . ' ' . ($variant->finish ?? '')),
+                    'product_full_name' => trim(($product->brand?->name ?? '') . ' ' . ($product->model?->name ?? '') . ' ' . $finishName),
                     'brand' => $product->brand?->name ?? '',
                     'model' => $product->model?->name ?? '',
-                    'finish' => $variant->finishRelation->finish ?? $variant->finish ?? '',  // Try relationship first, then column
-                    'construction' => $product->construction ?? '',  // From product table
+                    'finish' => $finishName,
+                    'construction' => $product->construction ?? '',
                     'rim_width' => $variant->rim_width ?? '',
                     'rim_diameter' => $variant->rim_diameter ?? '',
                     'size' => $variant->size ?? '',
@@ -81,12 +96,11 @@ class ProductsGrid extends Page
                     'max_wheel_load' => $variant->max_wheel_load ?? '',
                     'weight' => $variant->weight ?? '',
                     'lipsize' => $variant->lipsize ?? '',
-                    // 'us_retail_price' => $variant->us_retail_price ?? 0, // Hidden
                     'uae_retail_price' => $variant->uae_retail_price ?? 0,
                     'sale_price' => $variant->sale_price ?? 0,
                     'images' => is_string($product->images) 
                         ? implode(', ', json_decode($product->images, true) ?: []) 
-                        : implode(', ', $product->images?->toArray() ?? []),  // Display image paths
+                        : implode(', ', $product->images?->toArray() ?? []),
                     'inventory' => []
                 ];
 

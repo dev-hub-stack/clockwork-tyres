@@ -22,8 +22,19 @@ function saveChanges() {
         return false;
     }
     
-    if (!$.active && grid.isDirty() && grid.isValidChange({ allowInvalid: true }).valid) {
+    // Check if there are any changes to save
+    if (grid.isDirty()) {
         var gridChanges = grid.getChanges({ format: 'byVal' });
+        
+        console.log('🔄 Saving changes:', gridChanges);
+        
+        // Only proceed if there are actual changes
+        if (!gridChanges || (!gridChanges.updateList || gridChanges.updateList.length === 0) && 
+            (!gridChanges.addList || gridChanges.addList.length === 0) && 
+            (!gridChanges.deleteList || gridChanges.deleteList.length === 0)) {
+            console.log('ℹ️ No actual changes to save');
+            return false;
+        }
         
         // Post changes to server
         $.ajax({
@@ -37,6 +48,161 @@ function saveChanges() {
             url: "/admin/products/grid/save-batch",
             data: { list: gridChanges },
             success: function (changes) {
+                console.log('✅ Save successful:', changes);
+                
+                // Show success message
+                if (changes.errors && changes.errors.length > 0) {
+                    alert('Some changes had errors:\n' + changes.errors.join('\n'));
+                } else {
+                    // Show brief success indicator
+                    grid.option("strLoading", "Saved!");
+                    setTimeout(() => {
+                        grid.option("strLoading", $.paramquery.pqGrid.defaults.strLoading);
+                    }, 1000);
+                    
+                    // Update grid data locally instead of page reload
+                    if (changes.updateList && changes.updateList.length > 0) {
+                        console.log('🔄 Attempting to update grid locally...');
+                        
+                        // Method 1: Try to update local data first
+                        var dataModel = grid.option('dataModel');
+                        var data = dataModel.data;
+                        var updatedCount = 0;
+                        
+                        changes.updateList.forEach(function(updatedRow) {
+                            // Find the row in the grid data and update it
+                            for (var i = 0; i < data.length; i++) {
+                                if (data[i].id == updatedRow.id) {
+                                    console.log('🔄 Updating row', i, 'with new data:', updatedRow);
+                                    // Update the row data with new values
+                                    Object.assign(data[i], updatedRow);
+                                    console.log('✅ Row updated:', data[i]);
+                                    updatedCount++;
+                                    break;
+                                }
+                            }
+                        });
+                        
+                        console.log('📊 Updated', updatedCount, 'rows in grid');
+                        
+                        // Try to refresh the grid
+                        try {
+                            grid.refreshDataAndView();
+                            console.log('🔄 Grid refreshed');
+                            
+                            // Check if the update worked by verifying a specific cell
+                            setTimeout(function() {
+                                var testRow = changes.updateList[0];
+                                var rowIndx = grid.getRowIndx({ rowData: testRow });
+                                var cellValue = grid.getCellData({ rowIndx: rowIndx, dataIndx: 'uae_retail_price' });
+                                
+                                console.log('🔍 Verification - Expected:', testRow.uae_retail_price, 'Actual:', cellValue);
+                                
+                                if (cellValue != testRow.uae_retail_price) {
+                                    console.log('❌ Local update failed, forcing cell update...');
+                                    
+                                    // Force update the specific cell
+                                    changes.updateList.forEach(function(updatedRow) {
+                                        var rowIndx = grid.getRowIndx({ rowData: updatedRow });
+                                        if (rowIndx !== undefined) {
+                                            // Update UAE Retail Price
+                                            grid.updateCell({
+                                                rowIndx: rowIndx,
+                                                dataIndx: 'uae_retail_price',
+                                                newVal: updatedRow.uae_retail_price
+                                            });
+                                            console.log('🔄 Forced cell update for uae_retail_price:', updatedRow.uae_retail_price);
+                                            
+                                            // Update Sale Price
+                                            grid.updateCell({
+                                                rowIndx: rowIndx,
+                                                dataIndx: 'sale_price',
+                                                newVal: updatedRow.sale_price
+                                            });
+                                            console.log('🔄 Forced cell update for sale_price:', updatedRow.sale_price);
+                                            
+                                            // Update the underlying data as well
+                                            var dataModel = grid.option('dataModel');
+                                            var data = dataModel.data;
+                                            for (var i = 0; i < data.length; i++) {
+                                                if (data[i].id == updatedRow.id) {
+                                                    data[i].uae_retail_price = updatedRow.uae_retail_price;
+                                                    data[i].sale_price = updatedRow.sale_price;
+                                                    console.log('✅ Updated underlying data for row', i);
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            // Refresh the grid
+                                            setTimeout(function() {
+                                                grid.refresh();
+                                                console.log('🔄 Grid refreshed after forced cell update');
+                                                
+                                                // Verify again
+                                                setTimeout(function() {
+                                                    var newCellValue = grid.getCellData({ rowIndx: rowIndx, dataIndx: 'uae_retail_price' });
+                                                    console.log('🔍 Final verification - Expected:', testRow.uae_retail_price, 'Actual:', newCellValue);
+                                                    
+                                                    if (newCellValue == testRow.uae_retail_price) {
+                                                        console.log('✅ Cell update successful!');
+                                                    } else {
+                                                        console.log('❌ Cell update still failed, fetching fresh data...');
+                                                        fetchFreshData();
+                                                    }
+                                                }, 200);
+                                            }, 100);
+                                        }
+                                    });
+                                } else {
+                                    console.log('✅ Local update successful!');
+                                }
+                            }, 500);
+                            
+                        } catch (error) {
+                            console.error('❌ Grid update error:', error);
+                            fetchFreshData();
+                        }
+                    }
+                    
+                    // Function to fetch fresh data from server
+                    function fetchFreshData() {
+                        console.log('🌐 Fetching fresh data from server...');
+                        
+                        $.ajax({
+                            url: '/admin/products-grid',
+                            method: 'GET',
+                            dataType: 'html',
+                            success: function(html) {
+                                console.log('✅ Fresh data fetched, updating grid...');
+                                // Extract the data from the HTML response
+                                var dataMatch = html.match(/var data = (\[.*?\]);/);
+                                if (dataMatch) {
+                                    try {
+                                        var freshData = JSON.parse(dataMatch[1]);
+                                        console.log('� Fresh data loaded:', freshData.length, 'rows');
+                                        
+                                        // Update the grid with fresh data
+                                        var dataModel = grid.option('dataModel');
+                                        dataModel.data = freshData;
+                                        grid.refreshDataAndView();
+                                        console.log('✅ Grid updated with fresh data!');
+                                    } catch (e) {
+                                        console.error('❌ Error parsing fresh data:', e);
+                                        location.reload();
+                                    }
+                                } else {
+                                    console.error('❌ Could not extract data from response');
+                                    location.reload();
+                                }
+                            },
+                            error: function() {
+                                console.error('❌ Failed to fetch fresh data');
+                                location.reload();
+                            }
+                        });
+                    }
+                }
+                
                 grid.history({method: 'reset'});
                 grid.commit({ type: 'add', rows: changes.addList });
                 grid.commit({ type: 'update', rows: changes.updateList });
@@ -47,16 +213,25 @@ function saveChanges() {
                 grid.option("strLoading", $.paramquery.pqGrid.defaults.strLoading);
             },
             error: function (errors) {
+                console.error('❌ Save failed:', errors);
+                
                 errorMessage = "";
                 if (errors.responseJSON && errors.responseJSON.errors) {
                     errors.responseJSON.errors.forEach(function(element, index) {
-                        errorMessage += element;
+                        errorMessage += element + "\n";
                     });
-                    console.log(errorMessage);
+                    alert('Save failed:\n' + errorMessage);
+                } else if (errors.responseJSON && errors.responseJSON.message) {
+                    alert('Save failed:\n' + errors.responseJSON.message);
+                } else {
+                    alert('Save failed. Please check console for details.');
                 }
+                
                 clearInterval(interval);
             }
         });
+    } else {
+        console.log('ℹ️ No changes to save');
     }
 }
 
@@ -494,8 +669,27 @@ $(document).ready(function () {
         },
         
         change: function (evt, ui) {
+            console.log('🔄 Change detected:', ui);
             // Auto-save changes (add, update, delete) to server
             saveChanges();
+        },
+        
+        // Add cellEdit event for single cell changes
+        cellEdit: function (evt, ui) {
+            console.log('✏️ Cell edited:', ui);
+            // Save immediately after cell edit
+            setTimeout(() => {
+                saveChanges();
+            }, 500);
+        },
+        
+        // Add editorStop event for when user finishes editing
+        editorStop: function (evt, ui) {
+            console.log('📝 Editor stopped:', ui);
+            // Save when user stops editing (presses Enter or clicks away)
+            setTimeout(() => {
+                saveChanges();
+            }, 200);
         },
         
         destroy: function () {

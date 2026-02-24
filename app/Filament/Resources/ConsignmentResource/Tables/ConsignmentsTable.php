@@ -135,6 +135,18 @@ class ConsignmentsTable
                         $sold = $items->sum('quantity_sold') ?? 0;
                         $returned = $items->sum('quantity_returned') ?? 0;
                         
+                        \Log::debug('ConsignmentsTable::items_counts calculation', [
+                            'consignment_id' => $record->id,
+                            'consignment_number' => $record->consignment_number,
+                            'items_sent_count_db' => $record->items_sent_count,
+                            'items_sold_count_db' => $record->items_sold_count,
+                            'items_returned_count_db' => $record->items_returned_count,
+                            'items_fresh_sent' => $sent,
+                            'items_fresh_sold' => $sold,
+                            'items_fresh_returned' => $returned,
+                            'display_format' => sprintf('%d/%d/%d', $sent, $sold, $returned),
+                        ]);
+                        
                         return sprintf('%d/%d/%d', $sent, $sold, $returned);
                     })
                     ->description(fn () => 'Sent/Sold/Returned')

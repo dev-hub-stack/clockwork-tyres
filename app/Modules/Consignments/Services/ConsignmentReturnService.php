@@ -179,6 +179,13 @@ class ConsignmentReturnService
     {
         $consignment->refresh();
         
+        Log::debug('ConsignmentReturnService::updateConsignmentStatusAfterReturn', [
+            'consignment_id' => $consignment->id,
+            'items_sent_count' => $consignment->items_sent_count,
+            'items_sold_count' => $consignment->items_sold_count,
+            'items_returned_count' => $consignment->items_returned_count,
+        ]);
+        
         // Determine new status based on items
         $newStatus = null;
         
@@ -199,15 +206,20 @@ class ConsignmentReturnService
             $newStatus = ConsignmentStatus::PARTIALLY_SOLD;
         }
         
+        Log::debug('ConsignmentReturnService::updateConsignmentStatusAfterReturn - Status determined', [
+            'consignment_id' => $consignment->id,
+            'new_status' => $newStatus?->value,
+            'current_status' => $consignment->status?->value,
+        ]);
+        
         // Update status if changed
         if ($newStatus && $newStatus !== $consignment->status) {
             $consignment->update(['status' => $newStatus]);
             
-            // Log status change in history
-            $consignment->histories()->create([
-                'action' => 'status_changed',
-                'description' => 'Items returned to warehouse',
-                'performed_by' => auth()->id(),
+            Log::debug('ConsignmentReturnService::updateConsignmentStatusAfterReturn - Status updated', [
+                'consignment_id' => $consignment->id,
+                'old_status' => $consignment->status?->value,
+                'new_status' => $newStatus?->value,
             ]);
         }
     }

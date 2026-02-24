@@ -202,6 +202,7 @@ class Consignment extends Model
 
         $inclGross = 0.0;
         $exclNet   = 0.0;
+        $itemsRawValue = 0.0;
 
         foreach ($this->items as $item) {
             $qty          = $item->quantity_sent ?? 0;
@@ -216,6 +217,9 @@ class Consignment extends Model
                 'tax_inclusive' => $taxInclusive,
                 'line_total' => $lineTotal,
             ]);
+
+            // Track the raw item value (quantity × price)
+            $itemsRawValue += $lineTotal;
 
             if ($taxInclusive) {
                 $inclGross += $lineTotal;
@@ -252,7 +256,8 @@ class Consignment extends Model
         $this->total    = $runningTotal;
 
         // total_value tracks the raw item value (before adjustments)
-        $this->total_value = $itemsRaw;
+        // Use the actual calculated raw value from items
+        $this->total_value = round($itemsRawValue, 2);
         
         // Re-calculate balance manually based on total_value and existing returned/invoiced totals
         $invoiced = floatval($this->invoiced_value ?? 0);
@@ -270,10 +275,32 @@ class Consignment extends Model
         // Reload items relationship to get fresh data from database
         $this->load('items');
         
-        $this->items_sent_count = $this->items->sum('quantity_sent');
-        $this->items_sold_count = $this->items->sum('quantity_sold');
-        $this->items_returned_count = $this->items->sum('quantity_returned');
+        $itemsSent = $this->items->sum('quantity_sent');
+        $itemsSold = $this->items->sum('quantity_sold');
+        $itemsReturned = $this->items->sum('quantity_returned');
+        
+        \Log::debug('Consignment::updateItemCounts', [
+            'consignment_id' => $this->id,
+            'consignment_number' => $this->consignment_number,
+            'items_sent_raw' => $this->items->pluck('quantity_sent', 'id'),
+            'items_sold_raw' => $this->items->pluck('quantity_sold', 'id'),
+            'items_returned_raw' => $this->items->pluck('quantity_returned', 'id'),
+            'items_sent_sum' => $itemsSent,
+            'items_sold_sum' => $itemsSold,
+            'items_returned_sum' => $itemsReturned,
+        ]);
+        
+        $this->items_sent_count = $itemsSent;
+        $this->items_sold_count = $itemsSold;
+        $this->items_returned_count = $itemsReturned;
         $this->save();
+        
+        \Log::debug('Consignment::updateItemCounts - After save', [
+            'consignment_id' => $this->id,
+            'items_sent_count' => $this->items_sent_count,
+            'items_sold_count' => $this->items_sold_count,
+            'items_returned_count' => $this->items_returned_count,
+        ]);
     }
 
     /**

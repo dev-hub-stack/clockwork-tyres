@@ -80,7 +80,6 @@ class ConsignmentForm
                     ->schema([
                         Repeater::make('items')
                             ->label('')
-                            ->relationship('items')
                             ->schema([
                                 Select::make('product_variant_id')
                                     ->label('Product')
@@ -277,7 +276,6 @@ class ConsignmentForm
                                     ->columnSpanFull(),
                             ])
                             ->columns(1)
-                            ->defaultItems(1)
                             ->addActionLabel('Add Item')
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => 
@@ -440,7 +438,15 @@ class ConsignmentForm
         $totals = self::calculateValues($items, $shipping, $discount);
         
         // Calculate value tracking fields
-        $totalValue = $totals['sub_total']; // Total value of all sent items
+        // total_value should be the raw item value (quantity × price) before tax and discounts
+        $totalValue = 0;
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+        $totalValue = round($totalValue, 2);
+        
         $invoicedValue = 0; 
         $returnedValue = 0; 
         $balanceValue = $totalValue - $invoicedValue - $returnedValue;
@@ -470,11 +476,19 @@ class ConsignmentForm
         $set('../../tax', $totals['vat']);
         $set('../../total', $totals['total']);
         
-        $set('../../total_value', $totals['sub_total']);
-        // Keep existing logic for now
+        // Calculate total_value as raw item value (quantity × price)
+        $totalValue = 0;
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+        $totalValue = round($totalValue, 2);
+        
+        $set('../../total_value', $totalValue);
         $set('../../invoiced_value', 0);
         $set('../../returned_value', 0);
-        $set('../../balance_value', $totals['sub_total']);
+        $set('../../balance_value', $totalValue);
     }
 
     /**
@@ -492,10 +506,19 @@ class ConsignmentForm
         $set('tax', $totals['vat']);
         $set('total', $totals['total']);
         
-        $set('total_value', $totals['sub_total']);
+        // Calculate total_value as raw item value (quantity × price)
+        $totalValue = 0;
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity_sent'] ?? 0);
+            $price = floatval($item['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+        $totalValue = round($totalValue, 2);
+        
+        $set('total_value', $totalValue);
         $set('invoiced_value', 0);
         $set('returned_value', 0);
-        $set('balance_value', $totals['sub_total']);
+        $set('balance_value', $totalValue);
     }
 
     /**
