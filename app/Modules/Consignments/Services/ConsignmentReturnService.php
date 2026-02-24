@@ -43,6 +43,9 @@ class ConsignmentReturnService
             // 4. Log the return action
             $this->logReturnAction($consignment, $returnedItems, $reason, $notes);
             
+            // 5. Update financial totals to recalculate balance_value
+            $consignment->updateFinancialTotals();
+            
             Log::info('Consignment return recorded successfully', [
                 'consignment_id' => $consignment->id,
                 'consignment_number' => $consignment->consignment_number,
