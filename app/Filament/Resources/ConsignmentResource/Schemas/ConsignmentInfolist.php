@@ -130,15 +130,15 @@ class ConsignmentInfolist
                             ->schema([
                                 Grid::make(8)
                                     ->schema([
-                                        TextEntry::make('product_snapshot.product.name')
+                                        TextEntry::make('product_name')
                                             ->label('Product')
-                                            ->getStateUsing(fn ($record) => $record->product_snapshot['product']['name'] ?? $record->product_variant?->product?->name ?? 'N/A')
+                                            ->getStateUsing(fn ($record) => $record->product_name ?? $record->product_variant?->product?->name ?? 'N/A')
                                             ->weight('bold')
                                             ->columnSpan(2),
                                         
-                                        TextEntry::make('product_snapshot.sku')
+                                        TextEntry::make('sku')
                                             ->label('SKU')
-                                            ->getStateUsing(fn ($record) => $record->product_snapshot['sku'] ?? $record->product_variant?->sku ?? 'N/A')
+                                            ->getStateUsing(fn ($record) => $record->sku ?? $record->product_variant?->sku ?? 'N/A')
                                             ->badge()
                                             ->color('gray')
                                             ->columnSpan(1),
