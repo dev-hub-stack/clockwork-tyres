@@ -56,7 +56,7 @@ class ConsignmentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer', 'warehouse', 'representative', 'items'])
+            ->with(['customer', 'warehouse', 'representative', 'items.productVariant', 'histories.user'])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
@@ -68,11 +68,10 @@ class ConsignmentResource extends Resource
             ->columns(1);
     }
 
-    // Temporarily disabled - infolist components not working
-    // public static function infolist(Schema $schema): Schema
-    // {
-    //     return ConsignmentInfolist::configure($schema);
-    // }
+    public static function infolist(Schema $schema): Schema
+    {
+        return ConsignmentInfolist::configure($schema);
+    }
 
     public static function table(Table $table): Table
     {

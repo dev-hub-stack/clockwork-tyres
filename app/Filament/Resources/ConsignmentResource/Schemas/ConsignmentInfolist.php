@@ -144,21 +144,21 @@ class ConsignmentInfolist
                                             ->color('gray')
                                             ->columnSpan(1),
                                         
-                                        TextEntry::make('qty_sent')
+                                        TextEntry::make('quantity_sent')
                                             ->label('Sent')
                                             ->badge()
                                             ->color('info')
                                             ->alignCenter()
                                             ->columnSpan(1),
                                         
-                                        TextEntry::make('qty_sold')
+                                        TextEntry::make('quantity_sold')
                                             ->label('Sold')
                                             ->badge()
                                             ->color('success')
                                             ->alignCenter()
                                             ->columnSpan(1),
                                         
-                                        TextEntry::make('qty_returned')
+                                        TextEntry::make('quantity_returned')
                                             ->label('Returned')
                                             ->badge()
                                             ->color('warning')
