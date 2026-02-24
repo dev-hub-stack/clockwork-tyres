@@ -204,7 +204,7 @@ class ConsignmentInfolist
                                 TextEntry::make('tax')
                                     ->label('Tax')
                                     ->money($currency)
-                                    ->description(fn ($record) => $record->tax_rate ? "Tax Rate: {$record->tax_rate}%" : null),
+                                    ->helperText(fn ($record) => $record->tax_rate ? "Tax Rate: {$record->tax_rate}%" : null),
                                 
                                 TextEntry::make('total')
                                     ->label('Total Amount')
@@ -312,7 +312,7 @@ class ConsignmentInfolist
                                         TextEntry::make('created_at')
                                             ->label('When')
                                             ->dateTime()
-                                            ->description(fn ($record) => $record->performedBy ? "By: {$record->performedBy->name}" : null)
+                                            ->helperText(fn ($record) => $record->performedBy ? "By: {$record->performedBy->name}" : null)
                                             ->columnSpan(1),
                                     ]),
                             ])
