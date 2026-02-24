@@ -625,7 +625,12 @@ class InvoiceResource extends Resource
                 TextColumn::make('customer.name')
                     ->label('Customer')
                     ->searchable(['business_name', 'first_name', 'last_name', 'email', 'phone'])
-                    ->sortable(),
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            \DB::raw('COALESCE(customers.business_name, CONCAT(customers.first_name, " ", customers.last_name))'),
+                            $direction
+                        );
+                    }),
                 
                 TextColumn::make('representative.name')
                     ->label('Sales Rep')

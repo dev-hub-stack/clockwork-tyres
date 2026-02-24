@@ -298,7 +298,7 @@ class QuoteResource extends Resource
                                         // Search Add-ons
                                         $addons = \App\Modules\Products\Models\AddOn::query()
                                             ->where('title', 'like', "%{$search}%")
-                                            ->orWhere('part_number', 'like', "%{$search}%")
+                                            ->orWhere('sku', 'like', "%{$search}%")
                                             ->limit(20)
                                             ->get()
                                             ->mapWithKeys(fn($addon) => [
@@ -748,7 +748,12 @@ class QuoteResource extends Resource
                 TextColumn::make('customer.name')
                     ->label('Customer')
                     ->searchable(['business_name', 'first_name', 'last_name'])
-                    ->sortable(),
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            \DB::raw('COALESCE(customers.business_name, CONCAT(customers.first_name, " ", customers.last_name))'),
+                            $direction
+                        );
+                    }),
                 
                 BadgeColumn::make('quote_status')
                     ->label('Status')

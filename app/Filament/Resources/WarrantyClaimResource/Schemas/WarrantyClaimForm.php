@@ -208,7 +208,6 @@ class WarrantyClaimForm
                                                 ->with(['product.brand', 'product.model', 'finish'])
                                                 ->where(function ($query) use ($search) {
                                                     $query->where('sku', 'like', "%{$search}%")
-                                                        ->orWhere('part_number', 'like', "%{$search}%")
                                                         ->orWhereHas('product', function ($q) use ($search) {
                                                             $q->whereHas('brand', fn($b) => $b->where('name', 'like', "%{$search}%"))
                                                               ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"));
