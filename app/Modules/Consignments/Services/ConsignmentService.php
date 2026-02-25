@@ -371,6 +371,95 @@ class ConsignmentService
     }
 
     /**
+     * Cancel consignment with specific items, conditions, and warehouse selection
+     */
+    public function cancelConsignmentWithItems(Consignment $consignment, array $cancelledItems, string $reason = '', string $notes = null): void
+    {
+        DB::transaction(function () use ($consignment, $cancelledItems, $reason, $notes) {
+            $consignment->load('items');
+            
+            // Process each cancelled item
+            foreach ($cancelledItems as $cancelledItem) {
+                $item = $consignment->items->firstWhere('id', $cancelledItem['item_id']);
+                
+                if (!$item) {
+                    continue;
+                }
+                
+                $quantity = $cancelledItem['quantity'];
+                $condition = $cancelledItem['condition'] ?? 'good';
+                $warehouseId = $cancelledItem['warehouse_id'];
+                
+                // Update consignment item quantities
+                $item->quantity_returned += $quantity;
+                $item->save();
+                
+                // Add good items back to inventory
+                if ($condition === 'good' && $warehouseId && $item->product_variant_id) {
+                    ProductInventory::where([
+                        'warehouse_id'       => $warehouseId,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->increment('quantity', $quantity);
+                    
+                    Log::info('Added cancelled items to inventory', [
+                        'consignment_id' => $consignment->id,
+                        'item_id' => $item->id,
+                        'quantity' => $quantity,
+                        'warehouse_id' => $warehouseId,
+                        'condition' => $condition,
+                    ]);
+                }
+                
+                // Log item cancellation
+                $this->logHistory($consignment, 'item_cancelled', "Item cancelled: {$item->product_name}", [
+                    'item_id' => $item->id,
+                    'product_name' => $item->product_name,
+                    'sku' => $item->sku,
+                    'quantity_cancelled' => $quantity,
+                    'condition' => $condition,
+                    'warehouse_id' => $warehouseId,
+                ]);
+            }
+            
+            // Update consignment status based on remaining items
+            $totalSent = $consignment->items->sum('quantity_sent');
+            $totalReturned = $consignment->items->sum('quantity_returned');
+            $totalSold = $consignment->items->sum('quantity_sold');
+            $remainingItems = $totalSent - $totalReturned - $totalSold;
+            
+            Log::info('Consignment cancellation status calculation', [
+                'consignment_id' => $consignment->id,
+                'total_sent' => $totalSent,
+                'total_returned' => $totalReturned,
+                'total_sold' => $totalSold,
+                'remaining_items' => $remainingItems,
+            ]);
+            
+            if ($remainingItems <= 0) {
+                // All items are returned/sold - fully cancelled
+                $consignment->status = ConsignmentStatus::CANCELLED;
+                Log::info('Consignment fully cancelled', ['consignment_id' => $consignment->id]);
+            } else {
+                // Some items remain - keep as sent status but with updated quantities
+                $consignment->status = ConsignmentStatus::SENT;
+                Log::info('Consignment partially cancelled, keeping SENT status', ['consignment_id' => $consignment->id, 'remaining' => $remainingItems]);
+            }
+            $consignment->save();
+            
+            // Update item counts and financial totals
+            $consignment->updateItemCounts();
+            $consignment->calculateTotals();
+            
+            // Log cancellation
+            $this->logHistory($consignment, 'cancelled', $reason ?: 'Consignment cancelled with items', [
+                'reason' => $reason,
+                'notes' => $notes,
+                'cancelled_items' => $cancelledItems,
+            ]);
+        });
+    }
+
+    /**
      * Convert consignment to invoice (public wrapper)
      */
     public function convertToInvoice(Consignment $consignment): Order
