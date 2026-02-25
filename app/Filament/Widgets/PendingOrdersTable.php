@@ -26,8 +26,8 @@ class PendingOrdersTable extends BaseWidget
             ->query(
                 Order::query()
                     ->with(['customer', 'orderItems.productVariant.product.brand'])
-                    // Include shipped orders - they should remain visible until completed
-                    ->whereIn('order_status', ['pending', 'processing', 'shipped'])
+                    // Include shipped and delivered orders - they should remain visible until completed
+                    ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
                     ->orderBy('created_at', 'desc')
             )
             ->columns([
@@ -200,25 +200,41 @@ class PendingOrdersTable extends BaseWidget
                     ->url(fn (Order $record): string => route('orders.invoice.pdf', $record->id))
                     ->openUrlInNewTab(),
                     
-                // Mark Order as Done
-                Tables\Actions\Action::make('mark_done')
-                    ->label('Mark Order as Done')
+                // Mark Order as Delivered
+                Tables\Actions\Action::make('mark_delivered')
+                    ->label('Mark as Delivered')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (Order $record) => $record->payment_status === 'paid')
+                    ->visible(fn (Order $record) => in_array($record->order_status->value, ['pending', 'processing', 'shipped']))
                     ->requiresConfirmation()
-                    ->modalHeading('Mark Order as Complete')
-                    ->modalDescription('Are you sure you want to mark this order as complete? This cannot be undone.')
+                    ->modalHeading('Mark Order as Delivered')
+                    ->modalDescription('Confirm that this order has been delivered to the customer. Payment can be updated separately.')
                     ->action(function (Order $record) {
-                        $record->update([
-                            'order_status' => 'completed',
-                            'completed_at' => now(),
-                        ]);
+                        $record->markAsDelivered();
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Order Delivered')
+                            ->body("Order #{$record->order_number} has been marked as delivered.")
+                            ->send();
+                    }),
+                
+                // Mark Order as Completed (final step)
+                Tables\Actions\Action::make('mark_completed')
+                    ->label('Mark as Completed')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('primary')
+                    ->visible(fn (Order $record) => $record->order_status->value === 'delivered' && $record->payment_status->value === 'paid')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Order as Completed')
+                    ->modalDescription('This will complete the order. The order will be removed from the order sheet.')
+                    ->action(function (Order $record) {
+                        $record->markAsCompleted();
                         
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Order Completed')
-                            ->body("Order #{$record->order_number} has been marked as complete.")
+                            ->body("Order #{$record->order_number} has been marked as completed.")
                             ->send();
                     }),
             ])
@@ -227,8 +243,8 @@ class PendingOrdersTable extends BaseWidget
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('No Pending Orders')
-            ->emptyStateDescription('All orders have been completed or there are no pending orders.')
+            ->emptyStateHeading('No Active Orders')
+            ->emptyStateDescription('All orders have been completed or there are no active orders.')
             ->emptyStateIcon('heroicon-o-check-circle')
             ->poll('30s') // Auto-refresh every 30 seconds
             ->paginated([10, 25, 50, 100])

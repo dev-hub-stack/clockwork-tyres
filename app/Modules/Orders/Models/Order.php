@@ -71,12 +71,13 @@ class Order extends Model
         'valid_until',
         'sent_at',
         'approved_at',
+        'shipped_at',
+        'delivered_at',
         
         // Shipping
         'tracking_number',
         'tracking_url',
         'shipping_carrier',
-        'shipped_at',
         
         // Payment tracking
         'paid_amount',
@@ -125,6 +126,7 @@ class Order extends Model
         'sent_at' => 'datetime',
         'approved_at' => 'datetime',
         'shipped_at' => 'datetime',
+        'delivered_at' => 'datetime',
         
         // Expense fields
         'cost_of_goods' => 'decimal:2',
@@ -406,6 +408,17 @@ class Order extends Model
     public function markAsCompleted(): void
     {
         $this->order_status = OrderStatus::COMPLETED;
+        $this->completed_at = now();
+        $this->save();
+    }
+    
+    /**
+     * Mark as delivered
+     */
+    public function markAsDelivered(): void
+    {
+        $this->order_status = OrderStatus::DELIVERED;
+        $this->delivered_at = now();
         $this->save();
     }
     
