@@ -136,16 +136,15 @@ class ConsignmentInvoiceService
             }
         }
         
-        // Validate payment amount
-        $saleTotal = collect($soldItems)->sum(function ($item) {
-            return $item['quantity'] * $item['price'];
-        });
-        
+        // Validate payment amount against VAT-inclusive total
+        $totals    = $this->calculateSaleTotals($consignment, $soldItems);
+        $saleTotal = $totals['total']; // VAT-inclusive
+
         if ($paymentData['amount'] > $saleTotal) {
             throw new \InvalidArgumentException('Payment amount cannot exceed sale total');
         }
-        
-        if ($paymentData['type'] === 'full' && $paymentData['amount'] < $saleTotal) {
+
+        if ($paymentData['type'] === 'full' && abs($paymentData['amount'] - $saleTotal) > 0.02) {
             throw new \InvalidArgumentException('Full payment requires payment amount to equal sale total');
         }
     }

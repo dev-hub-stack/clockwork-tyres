@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ConsignmentResource\Actions;
 use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Services\ConsignmentInvoiceService;
 use App\Modules\Settings\Models\CurrencySetting;
+use App\Modules\Settings\Models\TaxSetting;
 use App\Filament\Resources\InvoiceResource;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
@@ -30,7 +31,47 @@ class RecordSaleAction
             ->modalWidth('7xl')
             ->visible(fn (Consignment $record) => $record->canRecordSale())
             ->form(function (Consignment $record) {
-                $currency = CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+                $currency   = CurrencySetting::getBase()?->currency_symbol ?? 'AED';
+                $taxSetting = TaxSetting::getDefault();
+                $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5.0;
+                $taxName    = $taxSetting?->name ?? 'VAT';
+
+                /**
+                 * Computes the VAT-inclusive grand total from the sold_items repeater data.
+                 * Mirrors ConsignmentInvoiceService::calculateSaleTotals() logic:
+                 *  - tax_inclusive items: extract tax from the price
+                 *  - tax_exclusive items: add tax on top
+                 */
+                $calcTotal = function (array $items) use ($taxRate): array {
+                    $multiplier = 1 + ($taxRate / 100);
+                    $inclGross  = 0.0; // sum of tax-inclusive line totals (price already has VAT)
+                    $exclNet    = 0.0; // sum of tax-exclusive line totals (price is ex-VAT)
+
+                    foreach ($items as $item) {
+                        $qty   = floatval($item['quantity'] ?? 0);
+                        $price = floatval($item['price']    ?? 0);
+                        $lineTotal = $qty * $price;
+
+                        if (!empty($item['tax_inclusive'])) {
+                            $inclGross += $lineTotal;
+                        } else {
+                            $exclNet += $lineTotal;
+                        }
+                    }
+
+                    // Inclusive: extract embedded tax
+                    $inclTax = $inclGross - ($inclGross / $multiplier);
+                    $inclNet = $inclGross / $multiplier;
+
+                    // Exclusive: add tax on top
+                    $exclTax = $exclNet * ($taxRate / 100);
+
+                    $subtotal = round($inclNet + $exclNet, 2);
+                    $tax      = round($inclTax + $exclTax, 2);
+                    $total    = round($subtotal + $tax, 2);
+
+                    return compact('subtotal', 'tax', 'total');
+                };
                 
                 // Get ALL items with calculated available quantities
                 $allItems = $record->items()
@@ -91,6 +132,7 @@ class RecordSaleAction
                                     Hidden::make('item_id'),
                                     Hidden::make('max_quantity'),
                                     Hidden::make('total'),
+                                    Hidden::make('tax_inclusive'),
 
                                     TextInput::make('quantity')
                                         ->label('Qty to Sell')
@@ -140,6 +182,7 @@ class RecordSaleAction
                                         'quantity'     => $item->quantity_available,
                                         'price'        => $item->price,
                                         'total'        => $item->quantity_available * $item->price,
+                                        'tax_inclusive' => (bool) ($item->tax_inclusive ?? false),
                                     ])->values()->toArray()
                                 )
                                 ->columns(7)
@@ -160,16 +203,18 @@ class RecordSaleAction
                             // Invoice total summary so user knows the amount due
                             Placeholder::make('invoice_total_info')
                                 ->label('Invoice Total')
-                                ->content(function (callable $get) use ($currency) {
-                                    $items = $get('sold_items') ?? [];
-                                    $total = collect($items)->sum(
-                                        fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
-                                    );
+                                ->content(function (callable $get) use ($currency, $taxName, $taxRate, $calcTotal) {
+                                    $items  = $get('sold_items') ?? [];
+                                    $totals = $calcTotal($items);
+                                    $vatLine = $taxRate > 0
+                                        ? "<br><small class='text-gray-500'>{$taxName} ({$taxRate}%): {$currency} " . number_format($totals['tax'], 2) . "</small>"
+                                        : '';
                                     return new \Illuminate\Support\HtmlString(
-                                        "<span class='text-lg font-bold text-success-600'>{$currency} " . number_format($total, 2) . "</span>"
+                                        "<span class='text-lg font-bold text-success-600'>{$currency} " . number_format($totals['total'], 2) . "</span>"
+                                        . $vatLine
                                     );
                                 })
-                                ->helperText('Sum of all sold items above'),
+                                ->helperText("VAT-inclusive total ({$taxName} {$taxRate}%)"),
 
                             Grid::make(2)
                                 ->schema([
@@ -194,14 +239,12 @@ class RecordSaleAction
                                         ->required()
                                         ->default('full')
                                         ->live()
-                                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                        ->afterStateUpdated(function ($state, callable $set, callable $get) use ($calcTotal) {
                                             if ($state === 'full') {
-                                                // Auto-fill with the invoice total
-                                                $items = $get('sold_items') ?? [];
-                                                $total = collect($items)->sum(
-                                                    fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
-                                                );
-                                                $set('payment_amount', round($total, 2));
+                                                // Auto-fill with the VAT-inclusive invoice total
+                                                $items  = $get('sold_items') ?? [];
+                                                $totals = $calcTotal($items);
+                                                $set('payment_amount', $totals['total']);
                                             } else {
                                                 // Clear so the user types the partial amount
                                                 $set('payment_amount', null);
@@ -215,19 +258,20 @@ class RecordSaleAction
                                         ->required()
                                         ->minValue(0)
                                         ->step(0.01)
-                                        ->default(function (callable $get) {
-                                            // Default to full invoice total
-                                            $items = $get('sold_items') ?? [];
-                                            return round(collect($items)->sum(
-                                                fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
-                                            ), 2);
+                                        ->default(function (callable $get) use ($calcTotal) {
+                                            // Default to VAT-inclusive invoice total
+                                            $items  = $get('sold_items') ?? [];
+                                            $totals = $calcTotal($items);
+                                            return $totals['total'];
                                         })
-                                        ->helperText(function (callable $get) use ($currency) {
-                                            $items = $get('sold_items') ?? [];
-                                            $total = collect($items)->sum(
-                                                fn ($i) => floatval($i['quantity'] ?? 0) * floatval($i['price'] ?? 0)
-                                            );
-                                            return "Invoice total: {$currency} " . number_format($total, 2)
+                                        ->helperText(function (callable $get) use ($currency, $taxName, $taxRate, $calcTotal) {
+                                            $items  = $get('sold_items') ?? [];
+                                            $totals = $calcTotal($items);
+                                            $vatLabel = $taxRate > 0
+                                                ? " (incl. {$taxName} {$taxRate}%: {$currency} " . number_format($totals['tax'], 2) . ")"
+                                                : '';
+                                            return "Invoice total: {$currency} " . number_format($totals['total'], 2)
+                                                . $vatLabel
                                                 . ' — enter less for a partial / deposit payment';
                                         }),
 

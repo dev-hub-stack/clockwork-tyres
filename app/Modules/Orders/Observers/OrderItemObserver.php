@@ -98,6 +98,14 @@ class OrderItemObserver
             return;
         }
 
+        // Skip allocation for consignment-sourced invoices.
+        // Inventory was already deducted from the warehouse when the consignment
+        // was marked as SENT. Creating an OrderItemQuantity here would cause a
+        // second deduction and show inflated "sold" figures in the inventory grid.
+        if ($orderItem->order?->external_source === 'consignment') {
+            return;
+        }
+
         OrderItemQuantity::create([
             'order_item_id' => $orderItem->id,
             'warehouse_id' => $orderItem->warehouse_id,
