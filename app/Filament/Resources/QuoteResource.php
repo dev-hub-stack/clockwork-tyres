@@ -298,7 +298,7 @@ class QuoteResource extends Resource
                                         // Search Add-ons
                                         $addons = \App\Modules\Products\Models\AddOn::query()
                                             ->where('title', 'like', "%{$search}%")
-                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->orWhere('part_number', 'like', "%{$search}%")
                                             ->limit(20)
                                             ->get()
                                             ->mapWithKeys(fn($addon) => [
