@@ -105,32 +105,35 @@ function saveChanges() {
                                     changes.updateList.forEach(function(updatedRow) {
                                         var rowIndx = grid.getRowIndx({ rowData: updatedRow });
                                         if (rowIndx !== undefined) {
-                                            // Update UAE Retail Price
-                                            grid.updateCell({
-                                                rowIndx: rowIndx,
-                                                dataIndx: 'uae_retail_price',
-                                                newVal: updatedRow.uae_retail_price
-                                            });
-                                            console.log('🔄 Forced cell update for uae_retail_price:', updatedRow.uae_retail_price);
+                                            // Verify available methods and use appropriate update method
+                                            console.log('🔍 Available methods - updateCell:', typeof grid.updateCell, 'updateRow:', typeof grid.updateRow);
                                             
-                                            // Update Sale Price
-                                            grid.updateCell({
-                                                rowIndx: rowIndx,
-                                                dataIndx: 'sale_price',
-                                                newVal: updatedRow.sale_price
-                                            });
-                                            console.log('🔄 Forced cell update for sale_price:', updatedRow.sale_price);
-                                            
-                                            // Update the underlying data as well
-                                            var dataModel = grid.option('dataModel');
-                                            var data = dataModel.data;
-                                            for (var i = 0; i < data.length; i++) {
-                                                if (data[i].id == updatedRow.id) {
-                                                    data[i].uae_retail_price = updatedRow.uae_retail_price;
-                                                    data[i].sale_price = updatedRow.sale_price;
-                                                    console.log('✅ Updated underlying data for row', i);
-                                                    break;
+                                            // Use updateRow() method instead of updateCell()
+                                            if (typeof grid.updateRow === 'function') {
+                                                grid.updateRow({
+                                                    rowIndx: rowIndx,
+                                                    row: updatedRow,
+                                                    checkEditable: false
+                                                });
+                                                console.log('🔄 Forced row update for uae_retail_price:', updatedRow.uae_retail_price);
+                                                console.log('🔄 Forced row update for sale_price:', updatedRow.sale_price);
+                                            } else {
+                                                console.error('❌ updateRow method not available, falling back to data model update');
+                                                
+                                                // Fallback: Update data model directly
+                                                var dataModel = grid.option('dataModel');
+                                                var data = dataModel.data;
+                                                for (var i = 0; i < data.length; i++) {
+                                                    if (data[i].id == updatedRow.id) {
+                                                        data[i].uae_retail_price = updatedRow.uae_retail_price;
+                                                        data[i].sale_price = updatedRow.sale_price;
+                                                        console.log('✅ Updated underlying data for row', i);
+                                                        break;
+                                                    }
                                                 }
+                                                
+                                                // Refresh grid to show changes
+                                                grid.refresh();
                                             }
                                             
                                             // Refresh the grid
