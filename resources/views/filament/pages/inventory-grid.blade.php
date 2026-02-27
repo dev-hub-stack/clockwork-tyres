@@ -533,6 +533,29 @@
             colModel[wj] = consignmentStockColumn;
             wj = wj+1;
 
+            // Damaged Stock column
+            let damagedStockColumn = {
+                title: "Damaged Stock",
+                dataIndx: "damaged_stock",
+                width: 150,
+                dataType: "integer",
+                align: "center",
+                halign: "center",
+                cls: 'damaged-stock-cell',
+                editable: false,
+                filter: { crules: [{ condition: 'equal' }] },
+                render: function(ui) {
+                    let value = ui.cellData;
+                    let sku = ui.rowData.sku;
+                    if (value > 0) {
+                        return '<a href="javascript:void(0);" class="damaged-link text-danger fw-bold text-decoration-none" data-sku="' + sku + '" style="cursor: pointer;">' + value + '</a>';
+                    }
+                    return value || 0;
+                }
+            };
+            colModel[wj] = damagedStockColumn;
+            wj = wj+1;
+
             // Toolbar configuration (matching old system)
             var toolbar = {
                 cls: 'pq-toolbar-export',
@@ -678,6 +701,16 @@
                 let warehouse = $(this).data('warehouse');
                 loadIncomingModal(sku, warehouse);
             });
+
+            // ============================================
+            // DAMAGED STOCK MODAL CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.damaged-link', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                let sku = $(this).data('sku');
+                loadDamagedModal(sku);
+            });
         });
 
         // ============================================
@@ -789,6 +822,62 @@
                     $('#incomingLoading').hide();
                     $('#incomingTableBody').html('<tr><td colspan="4" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
                     $('#incomingContent').show();
+                }
+            });
+        }
+
+        // ============================================
+        // LOAD DAMAGED STOCK MODAL FUNCTION
+        // ============================================
+        function loadDamagedModal(sku) {
+            // Set SKU in modal title
+            $('#damagedSku').text(sku);
+            
+            // Show loading, hide content
+            $('#damagedLoading').show();
+            $('#damagedContent').hide();
+            $('#damagedEmpty').hide();
+            
+            // Open modal
+            let modal = new bootstrap.Modal(document.getElementById('damagedModal'));
+            modal.show();
+            
+            // URL encode the SKU
+            let encodedSku = encodeURIComponent(sku);
+            
+            // Fetch data via AJAX
+            $.ajax({
+                url: '/admin/api/inventory/sku/' + encodedSku + '/damaged',
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    $('#damagedLoading').hide();
+                    
+                    if (response.length > 0) {
+                        let tableBody = '';
+                        response.forEach(function(item) {
+                            tableBody += '<tr>';
+                            tableBody += '<td><strong>' + item.warehouse + ' (' + item.warehouse_code + ')</strong></td>';
+                            tableBody += '<td class="text-center"><span class="badge bg-danger">' + item.quantity + '</span></td>';
+                            tableBody += '<td class="text-center"><strong>' + item.condition + '</strong></td>';
+                            tableBody += '<td>' + item.notes + '</td>';
+                            tableBody += '<td class="text-center">' + item.date_recorded + '</td>';
+                            tableBody += '</tr>';
+                        });
+                        
+                        $('#damagedTableBody').html(tableBody);
+                        $('#damagedContent').show();
+                    } else {
+                        $('#damagedEmpty').show();
+                        $('#damagedContent').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#damagedLoading').hide();
+                    $('#damagedTableBody').html('<tr><td colspan="5" class="text-center text-danger">Error loading data: ' + error + '</td></tr>');
+                    $('#damagedContent').show();
                 }
             });
         }
@@ -923,6 +1012,56 @@
                         </div>
                         <div id="incomingEmpty" class="alert alert-warning" style="display: none;">
                             <i class="bi bi-exclamation-triangle"></i> No incoming stock found for this product.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damaged Stock Modal -->
+    <div class="modal fade" id="damagedModal" tabindex="-1" aria-labelledby="damagedModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="damagedModalLabel">
+                        <i class="bi bi-exclamation-octagon"></i> Damaged Stock - <span id="damagedSku"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="damagedLoading" class="text-center py-5">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Loading damaged stock details...</p>
+                    </div>
+                    <div id="damagedContent" style="display: none;">
+                        <div class="alert alert-danger mb-3">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>Damaged Stock</strong> tracks items returned as damaged or defective. These are NOT part of main saleable stock.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Warehouse</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-center">Condition</th>
+                                        <th>Notes</th>
+                                        <th class="text-center">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="damagedTableBody">
+                                    <!-- Data loaded via AJAX -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="damagedEmpty" class="alert alert-warning" style="display: none;">
+                            <i class="bi bi-exclamation-triangle"></i> No damaged stock found for this product.
                         </div>
                     </div>
                 </div>

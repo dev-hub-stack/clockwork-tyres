@@ -5,6 +5,7 @@ namespace App\Modules\Consignments\Services;
 use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
+use App\Modules\Inventory\Models\DamagedInventory;
 use App\Modules\Inventory\Models\ProductInventory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -164,9 +165,18 @@ class ConsignmentReturnService
                     'new_total' => $inventory->fresh()->quantity,
                 ]);
             } else {
-                // Log damaged/defective items separately
-                Log::warning('Damaged/defective item returned - not added to inventory', [
-                    'consignment_item_id' => $item->id,
+                // Record damaged/defective items in DamagedInventory table
+                DamagedInventory::create([
+                    'product_variant_id' => $item->product_variant_id,
+                    'warehouse_id' => $warehouseId,
+                    'quantity' => $quantity,
+                    'condition' => $condition,
+                    'notes' => "Returned from Consignment #{$consignment->consignment_number}",
+                    'consignment_id' => $consignment->id,
+                ]);
+
+                Log::warning('Damaged/defective item returned - recorded in DamagedInventory', [
+                    'consignment_id' => $consignment->id,
                     'product_variant_id' => $item->product_variant_id,
                     'condition' => $condition,
                     'quantity' => $quantity,

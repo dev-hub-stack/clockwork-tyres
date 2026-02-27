@@ -79,7 +79,7 @@ class InventoryApiController extends Controller
                         return [
                             'warehouse_id' => $inventory->warehouse_id,
                             'warehouse_code' => $inventory->warehouse->code ?? 'N/A',
-                            'warehouse_name' => $inventory->warehouse->name ?? 'N/A',
+                            'warehouse_name' => $inventory->warehouse->warehouse_name ?? 'N/A',
                             'eta' => $inventory->eta ? date('d-m-Y', strtotime($inventory->eta)) : null,
                             'quantity' => $inventory->eta_qty ?? 0,
                             'notes' => $inventory->notes ?? '',
@@ -173,7 +173,7 @@ class InventoryApiController extends Controller
                     // Only include if there's actually incoming quantity
                     if (isset($inventory->eta_qty) && $inventory->eta_qty > 0) {
                         return [
-                            'warehouse' => $inventory->warehouse->name ?? 'Unknown',
+                            'warehouse' => $inventory->warehouse->warehouse_name ?? 'Unknown',
                             'warehouse_code' => $inventory->warehouse->code ?? 'N/A',
                             'eta' => $inventory->eta ?? null,
                             'quantity' => $inventory->eta_qty ?? 0,
@@ -256,6 +256,17 @@ class InventoryApiController extends Controller
             ->groupBy('ci.product_variant_id')
             ->pluck('consignment_qty', 'product_variant_id');
 
+        // 3.1 Damaged aggregate (1 query)
+        $damagedStock = DB::table('damaged_inventories as di')
+            ->join('product_variants as pv4', 'pv4.id', '=', 'di.product_variant_id')
+            ->whereNotNull('pv4.sku')
+            ->select(
+                'di.product_variant_id',
+                DB::raw('SUM(di.quantity) as damaged_qty')
+            )
+            ->groupBy('di.product_variant_id')
+            ->pluck('damaged_qty', 'product_variant_id');
+
         // 4. Assemble
         $rows = [];
         foreach ($variants as $variant) {
@@ -282,9 +293,52 @@ class InventoryApiController extends Controller
                 ])->values()->toArray(),
                 'incoming_stock'    => $invRows->sum('eta_qty'),
                 'consignment_stock' => (int) ($consignmentStock[$variant->id] ?? 0),
+                'damaged_stock'     => (int) ($damagedStock[$variant->id] ?? 0),
             ];
         }
 
         return response()->json($rows);
+    }
+
+    /**
+     * Get damaged stock details for a specific SKU
+     */
+    public function getDamagedStockBySku($sku)
+    {
+        try {
+            $variant = ProductVariant::where('sku', $sku)->firstOrFail();
+            
+            $damagedItems = DB::table('damaged_inventories as di')
+                ->join('warehouses as w', 'w.id', '=', 'di.warehouse_id')
+                ->where('di.product_variant_id', $variant->id)
+                ->select(
+                    'w.warehouse_name as warehouse',
+                    'w.code as warehouse_code',
+                    'di.quantity',
+                    'di.condition',
+                    'di.notes',
+                    'di.created_at'
+                )
+                ->orderBy('di.created_at', 'desc')
+                ->get()
+                ->map(function($item) {
+                    return [
+                        'warehouse' => $item->warehouse,
+                        'warehouse_code' => $item->warehouse_code,
+                        'quantity' => $item->quantity,
+                        'condition' => ucfirst($item->condition),
+                        'notes' => $item->notes ?? '-',
+                        'date_recorded' => date('d-m-Y', strtotime($item->created_at)),
+                    ];
+                });
+                
+            return response()->json($damagedItems);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load damaged stock data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -62,6 +62,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('api.inventory.consignments.bySku');
     Route::get('api/inventory/sku/{sku}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getIncomingStockBySku'])
         ->name('api.inventory.incoming.bySku');
+    Route::get('api/inventory/sku/{sku}/damaged', [\App\Http\Controllers\Api\InventoryApiController::class, 'getDamagedStockBySku'])
+        ->name('api.inventory.damaged.bySku');
     
     // Inventory API Routes by Variant ID (for modals)
     Route::get('api/inventory/{variant}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsByVariant'])

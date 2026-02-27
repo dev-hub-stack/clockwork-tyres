@@ -100,12 +100,24 @@ class InventoryGrid extends Page
             ->groupBy('ci.product_variant_id')
             ->pluck('consignment_qty', 'product_variant_id');
 
+        // ── 3.1 One aggregate query for damaged stock ────────────────────────
+        $damagedStock = DB::table('damaged_inventories as di')
+            ->join('product_variants as pv4', 'pv4.id', '=', 'di.product_variant_id')
+            ->whereNotNull('pv4.sku')
+            ->select(
+                'di.product_variant_id',
+                DB::raw('SUM(di.quantity) as damaged_qty')
+            )
+            ->groupBy('di.product_variant_id')
+            ->pluck('damaged_qty', 'product_variant_id');
+
         // ── 4. Assemble rows in PHP (no more nested loops with ORM calls) ─────
         $this->products_data = [];
 
         foreach ($variants as $variant) {
             $invRows   = $inventoryRows->get($variant->id, collect());
             $csnQty    = (int) ($consignmentStock[$variant->id] ?? 0);
+            $dmgQty    = (int) ($damagedStock[$variant->id] ?? 0);
 
             $inventoryArr = $invRows->map(fn($i) => [
                 'warehouse_id' => $i->warehouse_id,
@@ -131,6 +143,7 @@ class InventoryGrid extends Page
                 'inventory'        => $inventoryArr,
                 'incoming_stock'   => $invRows->sum('eta_qty'),
                 'consignment_stock'=> $csnQty,
+                'damaged_stock'    => $dmgQty,
             ];
         }
     }
