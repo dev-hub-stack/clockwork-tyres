@@ -88,11 +88,11 @@ class RecordReturnAction
                                             ];
                                         }))
                                         ->required()
-                                        ->reactive()
+                                        ->live()
                                         ->afterStateUpdated(function ($state, callable $set) use ($returnableItems) {
-                                            $item = $returnableItems->firstWhere('id', $state);
+                                            $item = $returnableItems->firstWhere('id', (int) $state);
                                             if ($item) {
-                                                $set('max_quantity', $item->quantity_returnable);
+                                                $set('max_quantity', (int) $item->quantity_returnable);
                                                 $set('quantity', 1);
                                             }
                                         })
@@ -104,23 +104,14 @@ class RecordReturnAction
                                         ->numeric()
                                         ->required()
                                         ->minValue(1)
-                                        ->maxValue(fn (callable $get) => $get('max_quantity') ?? 999)
+                                        ->maxValue(fn (callable $get) => (int) ($get('max_quantity') ?? 999))
                                         ->default(1)
                                         ->live(onBlur: true)
                                         ->rule('integer')
-                                        ->rule('min:1')
-                                        ->rule(function (callable $get) {
-                                            return function ($attribute, $value, $fail) use ($get) {
-                                                $maxQty = $get('max_quantity');
-                                                if ($maxQty && $value > $maxQty) {
-                                                    $fail("Cannot return more than {$maxQty} units (returnable quantity).");
-                                                }
-                                            };
-                                        })
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                             // Auto-correct if exceeds max
-                                            $maxQty = $get('max_quantity');
-                                            if ($maxQty && $state > $maxQty) {
+                                            $maxQty = (int) ($get('max_quantity') ?? 0);
+                                            if ($maxQty > 0 && (int) $state > $maxQty) {
                                                 $set('quantity', $maxQty);
                                             }
                                         })
@@ -150,7 +141,7 @@ class RecordReturnAction
                                         ->columnSpan(1),
                                     
                                     // Hidden field for tracking
-                                    TextInput::make('max_quantity')->hidden()->default(0),
+                                    \Filament\Forms\Components\Hidden::make('max_quantity')->default(0),
                                 ])
                                 ->columns(6)
                                 ->addActionLabel('Add Item to Return')

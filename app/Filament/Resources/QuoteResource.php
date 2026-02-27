@@ -499,7 +499,7 @@ class QuoteResource extends Resource
                                     ->default(1)
                                     ->required()
                                     ->minValue(1)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($state ?? 0);
@@ -521,7 +521,7 @@ class QuoteResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($get('quantity') ?? 0);
@@ -543,7 +543,7 @@ class QuoteResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($get('quantity') ?? 0);
@@ -686,7 +686,7 @@ class QuoteResource extends Resource
                                             ->numeric()
                                             ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                             ->default(0)
-                                            ->live()
+                                            ->live(onBlur: true)
                                             ->afterStateUpdated(function ($get, $set) {
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);

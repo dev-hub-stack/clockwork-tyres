@@ -235,7 +235,7 @@ class ConsignmentForm
                                     ->default(1)
                                     ->required()
                                     ->minValue(1)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::updateTotalsFromRepeater($get, $set);
                                     })
@@ -247,7 +247,7 @@ class ConsignmentForm
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::updateTotalsFromRepeater($get, $set);
                                     })
@@ -380,7 +380,7 @@ class ConsignmentForm
                                     ->default(0)
                                     ->minValue(0)
                                     ->helperText('Order-level discount amount')
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::updateTotalsFromForm($get, $set);
                                     }),
@@ -390,7 +390,7 @@ class ConsignmentForm
                                     ->numeric()
                                     ->prefix(fn () => \App\Modules\Settings\Models\CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($get, $set) {
                                         self::updateTotalsFromForm($get, $set);
                                     }),

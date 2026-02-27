@@ -392,17 +392,8 @@ class ConsignmentInvoiceService
     {
         $consignment->refresh();
 
-        // Recalculate invoiced_value from sold items
-        $invoicedValue = $consignment->items->sum(function ($item) {
-            return ($item->quantity_sold ?? 0) * ($item->price ?? 0);
-        });
-        $returnedValue = floatval($consignment->returned_value ?? 0);
-        $totalValue    = floatval($consignment->total_value ?? 0);
-
-        $consignment->update([
-            'invoiced_value' => $invoicedValue,
-            'balance_value'  => $totalValue - $invoicedValue - $returnedValue,
-        ]);
+        // Use centralized calculation to update all totals (including invoiced/returned/balance)
+        $consignment->calculateTotals();
 
         // Determine new status
         if ($consignment->items_sold_count >= $consignment->items_sent_count) {

@@ -441,14 +441,13 @@ class InvoiceResource extends Resource
                                     ->required()
                                     ->helperText('Select warehouse for this item')
                                     ->columnSpan(2),
-                                
-                                TextInput::make('quantity')
+                                                                TextInput::make('quantity')
                                     ->label('Quantity')
                                     ->numeric()
                                     ->default(1)
                                     ->required()
                                     ->minValue(1)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive(),
                                 
                                 TextInput::make('unit_price')
@@ -456,7 +455,7 @@ class InvoiceResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive(),
                                 
                                 TextInput::make('discount')
@@ -464,7 +463,7 @@ class InvoiceResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->reactive(),
                                 
                                 \Filament\Forms\Components\Toggle::make('tax_inclusive')

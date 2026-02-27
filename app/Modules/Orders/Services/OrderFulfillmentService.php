@@ -29,6 +29,18 @@ class OrderFulfillmentService
      */
     public function allocateInventory(Order $order, ?int $warehouseId = null): array
     {
+        // Skip allocation for consignment orders as their inventory is
+        // handled directly at the consignment SENT stage.
+        if ($order->external_source === 'consignment') {
+            return [
+                'skipped' => true,
+                'reason' => 'Consignment inventory already deducted',
+                'allocated' => [],
+                'partial' => [],
+                'failed' => [],
+            ];
+        }
+
         return DB::transaction(function () use ($order, $warehouseId) {
             
             Log::info("Allocating inventory for order", [
@@ -235,6 +247,11 @@ class OrderFulfillmentService
      */
     public function releaseInventory(Order $order): int
     {
+        // Skip release for consignment orders to avoid erroneous stock increases.
+        if ($order->external_source === 'consignment') {
+            return 0;
+        }
+
         return DB::transaction(function () use ($order) {
             
             Log::info("Releasing inventory for order", ['order_id' => $order->id]);

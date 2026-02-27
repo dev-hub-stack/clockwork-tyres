@@ -335,16 +335,17 @@
                 console.log('📦 Grid changes:', gridChanges);
 
                 $.ajax({
-                    dataType: "json",
+                    url: "/admin/inventory/save-batch",
                     type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ list: gridChanges }),
+                    dataType: "json",
                     async: true,
                     beforeSend: function (jqXHR, settings) {
                         console.log('🚀 Sending AJAX request...');
                         grid.option("strLoading", "Saving..");
                         grid.showLoading();
                     },
-                    url: "/admin/inventory/save-batch",
-                    data: { list: gridChanges },
                     success: function (changes) {
                         console.log('✅ AJAX Success:', changes);
                         grid.history({method: 'reset'});
@@ -353,7 +354,6 @@
                         grid.commit({ type: 'delete', rows: changes.deleteList });
                         
                         console.log('✅ Inventory saved successfully!');
-                        // Removed alert for auto-save (too intrusive)
                     },
                     complete: function (resp) {
                         console.log('🏁 AJAX Complete');

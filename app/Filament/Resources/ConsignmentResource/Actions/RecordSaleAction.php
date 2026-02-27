@@ -258,6 +258,7 @@ class RecordSaleAction
                                         ->required()
                                         ->minValue(0)
                                         ->step(0.01)
+                                        ->live(onBlur: true)
                                         ->default(function (callable $get) use ($calcTotal) {
                                             // Default to VAT-inclusive invoice total
                                             $items  = $get('sold_items') ?? [];

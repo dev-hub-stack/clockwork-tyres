@@ -259,10 +259,17 @@ class Consignment extends Model
         // Use the actual calculated raw value from items
         $this->total_value = round($itemsRawValue, 2);
         
+        // Re-calculate invoiced and returned values from items for consistency
+        $this->invoiced_value = $this->items->sum(function ($item) {
+            return ($item->quantity_sold ?? 0) * ($item->price ?? 0);
+        });
+        
+        $this->returned_value = $this->items->sum(function ($item) {
+            return ($item->quantity_returned ?? 0) * ($item->price ?? 0);
+        });
+
         // Re-calculate balance manually based on total_value and existing returned/invoiced totals
-        $invoiced = floatval($this->invoiced_value ?? 0);
-        $returned = floatval($this->returned_value ?? 0);
-        $this->balance_value = $this->total_value - $invoiced - $returned;
+        $this->balance_value = $this->total_value - $this->invoiced_value - $this->returned_value;
         
         $this->save();
     }
