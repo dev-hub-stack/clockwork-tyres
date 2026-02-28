@@ -193,7 +193,7 @@ class WarrantyClaim extends Model
     }
 
     /**
-     * Mark claim as replaced
+     * Mark claim as replaced and update inventory
      */
     public function markAsReplaced(?string $notes = null): void
     {
@@ -203,9 +203,36 @@ class WarrantyClaim extends Model
             'resolved_by' => auth()->id(),
         ]);
 
+        // Process inventory adjustments for each claimed item
+        foreach ($this->items as $item) {
+            if (!$item->product_variant_id) {
+                continue; // Only process variants
+            }
+
+            // 1. Deduct from available stock (ProductInventory)
+            $inventory = \App\Modules\Inventory\Models\ProductInventory::where('warehouse_id', $this->warehouse_id)
+                ->where('product_variant_id', $item->product_variant_id)
+                ->first();
+
+            if ($inventory && $inventory->quantity >= $item->quantity) {
+                $inventory->decrement('quantity', $item->quantity);
+            }
+
+            // 2. Increase damaged inventory
+            $claimRef = $this->claim_number . ($item->issue_description ? ' - ' . $item->issue_description : '');
+            
+            \App\Modules\Inventory\Models\DamagedInventory::create([
+                'product_variant_id' => $item->product_variant_id,
+                'warehouse_id' => $this->warehouse_id,
+                'quantity' => $item->quantity,
+                'condition' => 'damaged',
+                'notes' => 'From Warranty Claim: ' . $claimRef,
+            ]);
+        }
+
         $this->addHistory(
             ClaimActionType::STATUS_CHANGED,
-            "Status changed to: Replaced" . ($notes ? " - {$notes}" : '')
+            "Status changed to: Replaced. Inventory replaced and damaged stock recorded." . ($notes ? " - {$notes}" : '')
         );
     }
 
