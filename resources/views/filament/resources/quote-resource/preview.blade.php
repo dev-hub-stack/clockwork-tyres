@@ -199,12 +199,10 @@
             </div>
             @endif
             
-            @if($record->shipping > 0)
             <div class="flex justify-between text-sm">
                 <span class="text-gray-600">Shipping:</span>
-                <span class="font-medium">{{ Number::currency($record->shipping, $record->currency ?? 'AED') }}</span>
+                <span class="font-medium">{{ Number::currency($record->shipping ?? 0, $record->currency ?? 'AED') }}</span>
             </div>
-            @endif
             
             @php
                 // Calculate VAT on-the-fly if DB value is 0 (handles old records)

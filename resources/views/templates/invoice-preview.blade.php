@@ -346,12 +346,10 @@
                             <td class="text-right">-{{ $sym }} {{ number_format($record->discount, 2) }}</td>
                         </tr>
                         @endif
-                        @if($record->shipping > 0)
                         <tr>
                             <td>Shipping:</td>
-                            <td class="text-right">{{ $sym }} {{ number_format($record->shipping, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($record->shipping ?? 0, 2) }}</td>
                         </tr>
-                        @endif
                         @php
                             // tax and vat are aliased columns — use whichever is populated
                             $vatAmount = floatval($record->tax ?? $record->vat ?? 0);

@@ -144,12 +144,10 @@
                 <span class="font-medium">{{ Number::currency($record->vat, 'AED') }}</span>
             </div>
             @endif
-            @if($record->shipping > 0)
             <div class="flex justify-between">
                 <span class="text-gray-600">Shipping:</span>
-                <span class="font-medium">{{ Number::currency($record->shipping, 'AED') }}</span>
+                <span class="font-medium">{{ Number::currency($record->shipping ?? 0, 'AED') }}</span>
             </div>
-            @endif
             <hr class="border-gray-300">
             <div class="flex justify-between text-lg font-bold">
                 <span>Total:</span>
