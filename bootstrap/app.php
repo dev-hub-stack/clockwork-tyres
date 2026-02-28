@@ -14,8 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             // ─── Wholesale API routes ─────────────────────────────────────────
             // Kept in a separate file for clean separation of concerns.
-            // All routes prefixed /api/* — same as api.php (no prefix override needed).
+            // All routes prefixed /api/* — same as api.php.
             Route::middleware('api')
+                ->prefix('api')
                 ->group(base_path('routes/api-wholesale.php'));
         },
     )
