@@ -167,22 +167,29 @@ class DealerController extends BaseWholesaleController
 
     /**
      * GET /api/dealer/vendors
-     * Return list of active vendor users the dealer can request access to.
-     * Uses Spatie Permissions to filter to role='Vendor'.
+     * Return the Superadmin business details as the single required vendor.
+     * Since CRM is strictly single-vendor, we pull details from SystemSettings.
      */
     public function findVendors(Request $request)
     {
-        $vendors = User::role('Vendor')
-            ->where('role_id', '!=', null)
-            ->orWhereHas('roles', fn($q) => $q->where('name', 'Vendor'))
-            ->get()
-            ->map(fn(User $u) => [
-                'id'        => $u->id,
-                'name'      => $u->name,
-                'email'     => $u->email,
-            ]);
+        // App\Modules\Settings\Models\SystemSetting handles fetching setting by key
+        $businessName  = \App\Modules\Settings\Models\SystemSetting::get('company_name', 'Tunerstop Wholesale');
+        $email         = \App\Modules\Settings\Models\SystemSetting::get('company_email', 'contact@tunerstop.com');
+        $phone         = \App\Modules\Settings\Models\SystemSetting::get('company_phone', '+971 00 000 0000');
+        $address       = \App\Modules\Settings\Models\SystemSetting::get('company_address', 'Dubai, UAE');
+        $logo          = \App\Modules\Settings\Models\SystemSetting::get('company_logo', null);
 
-        return $this->success($vendors, 'Vendors retrieved successfully');
+        $vendorProfile = [
+            'id'        => 1, // Static superadmin ID
+            'name'      => $businessName,
+            'email'     => $email,
+            'phone'     => $phone,
+            'address'   => $address,
+            'logo'      => $logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($logo) : null,
+            'is_active' => true,
+        ];
+
+        return $this->success([$vendorProfile], 'Vendors retrieved successfully');
     }
 
     /**

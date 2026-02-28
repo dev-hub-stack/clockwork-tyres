@@ -12,6 +12,7 @@ use App\Http\Controllers\Wholesale\CouponController;
 use App\Http\Controllers\Wholesale\ShippingController;
 use App\Http\Controllers\Wholesale\OrderController;
 use App\Http\Controllers\Wholesale\PaymentController;
+use App\Http\Controllers\Wholesale\PageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +27,9 @@ use App\Http\Controllers\Wholesale\PaymentController;
 |
 */
 
+// ─── Phase 4: CMS Pages (Public) ──────────────────────────────────────────────
+Route::get('page/{slug}',           [PageController::class, 'show']);
+
 // ─── Public routes ────────────────────────────────────────────────────────────
 Route::post('auth/login',           [AuthController::class,  'postLogin']);
 Route::post('auth/forgot',          [AuthController::class,  'forgot']);
@@ -34,6 +38,7 @@ Route::post('dealer',               [DealerController::class,'store']); // Regis
 
 // ─── Protected routes (Bearer token required) ─────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
+
 
     // ── Phase 1: Auth / Dealer profile ───────────────────────────────────────
     Route::post('profile',               [AuthController::class,   'getProfile']);
