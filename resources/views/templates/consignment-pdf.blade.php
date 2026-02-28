@@ -466,7 +466,7 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Delivery Date:</span>
-                    <span class="info-value">{{ $consignment->delivery_date?->format('d/m/Y') ?? 'Not Delivered' }}</span>
+                    <span class="info-value">{{ $consignment->sent_at?->format('d/m/Y') ?? 'Not Delivered' }}</span>
                 </div>
             </div>
         </div>
@@ -487,8 +487,8 @@
             <div class="summary-label">Items Returned</div>
         </div>
         <div class="summary-box">
-            <div class="summary-value">{{ $currency }} {{ number_format($consignment->total_value ?? $consignment->total, 2) }}</div>
-            <div class="summary-label">Total Value</div>
+            <div class="summary-value">{{ $currency }} {{ number_format($consignment->balance_value ?? $consignment->total_value ?? $consignment->total, 2) }}</div>
+            <div class="summary-label">Remaining Balance</div>
         </div>
     </div>
 
@@ -496,13 +496,14 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 35%;">Item Description</th>
-                <th style="width: 10%;" class="text-center">Qty</th>
+                <th style="width: 28%;">Item Description</th>
+                <th style="width: 8%;" class="text-center">Qty</th>
                 <th style="width: 12%;" class="text-right">Unit Price</th>
-                <th style="width: 12%;" class="text-right">Total</th>
-                <th style="width: 10%;" class="text-center">Sold</th>
-                <th style="width: 10%;" class="text-center">Returned</th>
-                <th style="width: 11%;" class="text-center">Available</th>
+                <th style="width: 12%;" class="text-right">Sent Total</th>
+                <th style="width: 8%;" class="text-center">Sold</th>
+                <th style="width: 8%;" class="text-center">Returned</th>
+                <th style="width: 8%;" class="text-center">Available</th>
+                <th style="width: 16%;" class="text-right">Available Total</th>
             </tr>
         </thead>
         <tbody>
@@ -539,7 +540,11 @@
                         <span class="quantity-badge">{{ $item->quantity_returned ?? 0 }}</span>
                     </td>
                     <td class="text-center">
-                        <span class="quantity-badge">{{ ($item->quantity_sent ?? 0) - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0) }}</span>
+                        @php $availableQty = ($item->quantity_sent ?? 0) - ($item->quantity_sold ?? 0) - ($item->quantity_returned ?? 0); @endphp
+                        <span class="quantity-badge">{{ $availableQty }}</span>
+                    </td>
+                    <td class="text-right" style="font-weight: bold; color: #1e40af;">
+                        {{ $currency }} {{ number_format($availableQty * $item->price, 2) }}
                     </td>
                 </tr>
             @empty
@@ -556,18 +561,30 @@
     <div class="totals-section">
         <table class="totals-table">
             <tr>
-                <td class="label">Subtotal:</td>
+                <td class="label">Original Subtotal:</td>
                 <td class="value">{{ $currency }} {{ number_format($consignment->subtotal, 2) }}</td>
             </tr>
             @if($consignment->tax > 0)
                 <tr>
-                    <td class="label">Tax ({{ $vatRate }}%):</td>
+                    <td class="label">Original Tax ({{ $vatRate }}%):</td>
                     <td class="value">{{ $currency }} {{ number_format($consignment->tax, 2) }}</td>
                 </tr>
             @endif
+            <tr>
+                <td class="label">Original Grand Total:</td>
+                <td class="value" style="font-weight: normal;">{{ $currency }} {{ number_format($consignment->total, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="label">Value Sold:</td>
+                <td class="value" style="color: #059669;">- {{ $currency }} {{ number_format($consignment->invoiced_value ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="label">Value Returned:</td>
+                <td class="value" style="color: #d97706;">- {{ $currency }} {{ number_format($consignment->returned_value ?? 0, 2) }}</td>
+            </tr>
             <tr class="grand-total">
-                <td class="label">Grand Total:</td>
-                <td class="value">{{ $currency }} {{ number_format($consignment->total, 2) }}</td>
+                <td class="label">Remaining Balance:</td>
+                <td class="value">{{ $currency }} {{ number_format($consignment->balance_value ?? $consignment->total_value ?? $consignment->total, 2) }}</td>
             </tr>
         </table>
     </div>
