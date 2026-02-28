@@ -35,6 +35,16 @@ class CreateInvoice extends CreateRecord
         
         return $data;
     }
+    protected function afterCreate(): void
+    {
+        $this->recalculateTotals($this->getRecord());
+    }
+
+    private function recalculateTotals(\App\Modules\Orders\Models\Order $record): void
+    {
+        $record->refresh();
+        $record->calculateTotals();
+    }
     
     protected function getRedirectUrl(): string
     {

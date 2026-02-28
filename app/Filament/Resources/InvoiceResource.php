@@ -479,8 +479,7 @@ class InvoiceResource extends Resource
                                     ->helperText('Is the price tax-inclusive?')
                                     ->afterStateUpdated(function ($get, $set) {
                                         $items = $get('../../items') ?? [];
-                                        // InvoiceResource doesn't have a shipping field in the form, so default to 0
-                                        $shipping = 0; 
+                                        $shipping = floatval($get('../../shipping') ?? 0); 
                                         $totals = self::calculateValues($items, $shipping);
                                         
                                         // InvoiceResource doesn't seem to have hidden total fields in the same way, 
@@ -552,7 +551,7 @@ class InvoiceResource extends Resource
                     
                 Section::make('Totals')
                     ->schema([
-                        Grid::make(3)
+                        Grid::make(4)
                             ->schema([
                                 Placeholder::make('sub_total_preview')
                                     ->label('Sub Total')
@@ -560,7 +559,8 @@ class InvoiceResource extends Resource
                                         $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
-                                        $totals = self::calculateValues($items, 0);
+                                        $shipping = floatval($get('shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
                                         return Number::currency($totals['sub_total'], $code);
                                     })
                                     ->helperText('Items − Discounts'),
@@ -576,10 +576,21 @@ class InvoiceResource extends Resource
                                         $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
-                                        $totals = self::calculateValues($items, 0);
+                                        $shipping = floatval($get('shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
                                         return Number::currency($totals['vat'], $code);
                                     })
                                     ->helperText('Subtotal × rate%'),
+                                    
+                                TextInput::make('shipping')
+                                    ->label('Shipping')
+                                    ->numeric()
+                                    ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
+                                    ->default(0)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        // Values are purely computed for placeholders here.
+                                    }),
 
                                 Placeholder::make('total_preview')
                                     ->label('Total Amount')
@@ -587,7 +598,8 @@ class InvoiceResource extends Resource
                                         $currency = \App\Modules\Settings\Models\CurrencySetting::getBase();
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
-                                        $totals = self::calculateValues($items, 0);
+                                        $shipping = floatval($get('shipping') ?? 0);
+                                        $totals = self::calculateValues($items, $shipping);
                                         return Number::currency($totals['total'], $code);
                                     })
                                     ->helperText('Subtotal + Tax')

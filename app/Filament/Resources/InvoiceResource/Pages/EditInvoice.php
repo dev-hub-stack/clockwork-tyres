@@ -33,6 +33,19 @@ class EditInvoice extends EditRecord
         // Load payment status from database (it's auto-calculated)
         return $data;
     }
+    
+    protected function afterSave(): void
+    {
+        $this->recalculateTotals($this->getRecord());
+    }
+
+    private function recalculateTotals(\App\Modules\Orders\Models\Order $record): void
+    {
+        // Force the recalculation using the centralized model method
+        $record->refresh();
+        $record->calculateTotals();
+    }
+    
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
