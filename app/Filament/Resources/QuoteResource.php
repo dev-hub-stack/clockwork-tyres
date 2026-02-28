@@ -450,7 +450,6 @@ class QuoteResource extends Resource
                                                             ($inv->eta_qty ?? 0) > 0 ? ", {$inv->eta_qty} expected" : ''
                                                         );
                                                     }
-                                                    $options['non_stock'] = '⚡ Non-Stock (Special Order) - Unlimited';
                                                     return $options;
                                                 }
                                                 // Untracked addon = non-stock service item
