@@ -153,7 +153,7 @@ class WarrantyClaimsTable
                     ->slideOver()
                     ->modalWidth('7xl')
                     ->modalContent(fn ($record) => view('templates.warranty-claim-preview', [
-                        'warrantyClaim' => $record->load([
+                        'claim' => $record->load([
                             'invoice', 'customer', 'warehouse',
                             'items.productVariant.product.brand',
                             'items.productVariant.product.model',
