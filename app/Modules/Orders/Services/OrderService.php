@@ -227,7 +227,8 @@ class OrderService
         $taxAmount = 0;
         $vatAmount = 0;
         
-        if (!$order->tax_inclusive) {
+        // If zero-rated, skip all tax calculation
+        if (!$order->is_zero_rated && !$order->tax_inclusive) {
             // Tax/VAT is added on top of subtotal
             if ($order->tax > 0) {
                 $taxAmount = $subTotal * ($order->tax / 100);
@@ -237,6 +238,7 @@ class OrderService
                 $vatAmount = $subTotal * ($order->vat / 100);
             }
         }
+
         
         // Calculate final total
         $total = $subTotal + $taxAmount + $vatAmount + $order->shipping - $order->discount;

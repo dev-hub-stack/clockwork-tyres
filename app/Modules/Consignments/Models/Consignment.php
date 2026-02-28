@@ -44,6 +44,7 @@ class Consignment extends Model
         // Financial
         'subtotal',
         'tax',
+        'is_zero_rated',
         'discount',
         'shipping_cost',
         'total',
@@ -97,6 +98,7 @@ class Consignment extends Model
         'expected_return_date' => 'date',
         'sent_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'is_zero_rated' => 'boolean',
     ];
 
     /**
@@ -188,8 +190,9 @@ class Consignment extends Model
     public function calculateTotals(): void
     {
         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
-        $multiplier = 1 + ($taxRate / 100);
+        $taxRate    = ($this->is_zero_rated) ? 0 : ($taxSetting ? floatval($taxSetting->rate) : 5);
+        $multiplier = $taxRate > 0 ? (1 + ($taxRate / 100)) : 1;
+
 
         // Reload items to ensure fresh data
         $this->load('items');

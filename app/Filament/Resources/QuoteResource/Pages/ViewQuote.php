@@ -20,12 +20,35 @@ class ViewQuote extends ViewRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
                 ->visible(fn () => $this->record->quote_status?->canSend() ?? false)
-                ->requiresConfirmation()
-                ->action(function () {
+                ->form([
+                    \Filament\Forms\Components\TextInput::make('email')
+                        ->label('Send To Email')
+                        ->email()
+                        ->required()
+                        ->default(fn () => $this->record->customer?->email ?? ''),
+                ])
+                ->action(function (array $data) {
                     $this->record->update([
                         'quote_status' => QuoteStatus::SENT,
                         'sent_at' => now(),
                     ]);
+                    
+                    try {
+                        \Illuminate\Support\Facades\Mail::to($data['email'])->send(new \App\Mail\QuoteSentMail($this->record));
+                        $note = "Email sent to {$data['email']}.";
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::warning('Failed to send quote email', [
+                            'quote_id' => $this->record->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                        $note = '(Email delivery failed — check mail settings.)';
+                    }
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->success()
+                        ->title('Quote Sent')
+                        ->body("{$this->record->quote_number} marked as sent. {$note}")
+                        ->send();
                 })
                 ->successNotificationTitle('Quote sent successfully!'),
 

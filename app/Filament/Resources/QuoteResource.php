@@ -718,8 +718,25 @@ class QuoteResource extends Resource
                             ]),
                     ]),
                     
-                Hidden::make('tax_type')
+                        Hidden::make('tax_type')
                     ->default('standard'),
+                    
+                Toggle::make('is_zero_rated')
+                    ->label('Zero Rated VAT (0%)')
+                    ->helperText('Enable this if the sale is exempt from VAT (e.g., export or zero-rated supply).')
+                    ->default(false)
+                    ->inline(false)
+                    ->live()
+                    ->dehydrated()
+                    ->afterStateUpdated(function ($get, $set) {
+                        // Trigger totals recalculation
+                        $items = $get('items') ?? [];
+                        $shipping = floatval($get('shipping') ?? 0);
+                        $totals = self::calculateValues($items, $shipping);
+                        $set('sub_total', $totals['sub_total']);
+                        $set('vat', $totals['vat']);
+                        $set('total', $totals['total']);
+                    }),
                     
                 Hidden::make('tax_inclusive')
                     ->default(function () {
@@ -892,12 +909,22 @@ class QuoteResource extends Resource
                             'sent_at' => now(),
                         ]);
                         
-                        // TODO: Trigger email notification
-                        // Mail::to($data['email'])->send(new QuoteSentMail($record));
+                        // Send email with PDF attachment
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($data['email'])->send(new \App\Mail\QuoteSentMail($record));
+                            $emailNote = " Email sent to {$data['email']}.";
+                        } catch (\Exception $emailEx) {
+                            \Illuminate\Support\Facades\Log::warning('Failed to send quote email', [
+                                'quote_id' => $record->id,
+                                'email' => $data['email'],
+                                'error' => $emailEx->getMessage(),
+                            ]);
+                            $emailNote = ' (Email delivery failed — check mail settings.)';
+                        }
                         
                         \Filament\Notifications\Notification::make()
                             ->title('Quote Sent Successfully')
-                            ->body("Quote {$record->quote_number} has been sent to {$data['email']}")
+                            ->body("Quote {$record->quote_number} has been sent.{$emailNote}")
                             ->success()
                             ->send();
                     }),

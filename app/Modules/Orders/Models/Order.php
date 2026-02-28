@@ -54,6 +54,7 @@ class Order extends Model
         'currency',
         'tax_type',
         'tax_inclusive',
+        'is_zero_rated',
         'channel',
         
         // Vehicle

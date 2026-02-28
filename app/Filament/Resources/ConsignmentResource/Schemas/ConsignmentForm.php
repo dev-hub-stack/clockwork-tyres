@@ -371,6 +371,17 @@ class ConsignmentForm
                             ->default(0)
                             ->dehydrated(true),
                         
+                        \Filament\Forms\Components\Toggle::make('is_zero_rated')
+                            ->label('Zero Rated VAT (0%)')
+                            ->helperText('Enable if this consignment is exempt from VAT (e.g., export or zero-rated supply).')
+                            ->default(false)
+                            ->inline(false)
+                            ->live()
+                            ->dehydrated()
+                            ->afterStateUpdated(function ($get, $set) {
+                                self::updateTotalsFromForm($get, $set);
+                            }),
+                        
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('discount')

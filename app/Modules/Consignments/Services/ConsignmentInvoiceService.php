@@ -154,9 +154,9 @@ class ConsignmentInvoiceService
      */
     protected function calculateSaleTotals(Consignment $consignment, array $soldItems): array
     {
-        // Get tax rate from settings
+        // Get tax rate from settings — but override to 0 if consignment is zero-rated
         $taxSetting = TaxSetting::getDefault();
-        $taxRate = $taxSetting ? floatval($taxSetting->rate) : 5.0;
+        $taxRate = $consignment->is_zero_rated ? 0.0 : ($taxSetting ? floatval($taxSetting->rate) : 5.0);
         
         $subtotal = 0;
         
@@ -165,8 +165,8 @@ class ConsignmentInvoiceService
             $quantity = $itemData['quantity'];
             $price = $itemData['price'];
             
-            // Handle tax-inclusive pricing
-            if ($item->tax_inclusive ?? false) {
+            // Handle tax-inclusive pricing (only relevant when taxRate > 0)
+            if ($taxRate > 0 && ($item->tax_inclusive ?? false)) {
                 // Extract tax from price
                 $priceExcludingTax = $price / (1 + ($taxRate / 100));
                 $subtotal += $quantity * $priceExcludingTax;
@@ -175,7 +175,7 @@ class ConsignmentInvoiceService
             }
         }
         
-        // Calculate tax
+        // Calculate tax (will be 0 if zero-rated)
         $tax = $subtotal * ($taxRate / 100);
         
         // Calculate total
