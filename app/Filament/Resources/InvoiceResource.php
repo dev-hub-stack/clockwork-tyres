@@ -844,7 +844,10 @@ class InvoiceResource extends Resource
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
                     ->tooltip('Record a payment received for this invoice')
-                    ->visible(fn($record) => !$record->isFullyPaid())
+                    ->visible(fn($record) =>
+                        !$record->isFullyPaid() &&
+                        $record->order_status !== \App\Modules\Orders\Enums\OrderStatus::CANCELLED
+                    )
                     ->form([
                         Select::make('payment_type')
                             ->label('Payment Type')
@@ -923,6 +926,77 @@ class InvoiceResource extends Resource
                         Notification::make()
                             ->title('Payment Recorded')
                             ->body("Payment of {$currencySymbol} " . number_format($data['amount'], 2) . ' has been recorded')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('recordRefund')
+                    ->label('Record Refund')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->tooltip('Issue a refund for payments made on this cancelled order')
+                    ->visible(fn($record) =>
+                        $record->order_status === \App\Modules\Orders\Enums\OrderStatus::CANCELLED &&
+                        in_array($record->payment_status?->value, ['paid', 'partial'])
+                    )
+                    ->requiresConfirmation()
+                    ->modalHeading('Record Refund')
+                    ->modalDescription('This order has been cancelled. Record a refund for payments already received.')
+                    ->form([
+                        TextInput::make('amount')
+                            ->label('Refund Amount')
+                            ->numeric()
+                            ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
+                            ->required()
+                            ->default(fn($record) => $record->paid_amount)
+                            ->helperText(fn($record) => 'Total paid: ' . (CurrencySetting::getBase()?->currency_symbol ?? 'AED') . ' ' . number_format($record->paid_amount, 2)),
+
+                        Select::make('payment_method')
+                            ->label('Refund Method')
+                            ->options([
+                                'cash'          => 'Cash',
+                                'card'          => 'Credit/Debit Card',
+                                'bank_transfer' => 'Bank Transfer',
+                                'cheque'        => 'Cheque',
+                            ])
+                            ->required(),
+
+                        DatePicker::make('payment_date')
+                            ->label('Refund Date')
+                            ->default(now())
+                            ->required(),
+
+                        TextInput::make('reference_number')
+                            ->label('Reference / Transaction #')
+                            ->maxLength(255),
+
+                        Textarea::make('notes')
+                            ->label('Reason / Notes')
+                            ->rows(2),
+                    ])
+                    ->action(function ($record, array $data) {
+                        Payment::create([
+                            'order_id'         => $record->id,
+                            'customer_id'      => $record->customer_id,
+                            'recorded_by'      => auth()->id(),
+                            'amount'           => -abs($data['amount']), // negative = refund
+                            'payment_type'     => 'refund',
+                            'payment_method'   => $data['payment_method'],
+                            'payment_date'     => $data['payment_date'],
+                            'reference_number' => $data['reference_number'] ?? null,
+                            'notes'            => $data['notes'] ?? null,
+                            'status'           => 'refunded',
+                        ]);
+
+                        // Mark payment status as refunded
+                        $record->update(['payment_status' => \App\Modules\Orders\Enums\PaymentStatus::REFUNDED]);
+
+                        $currency = CurrencySetting::getBase();
+                        $sym = $currency?->currency_symbol ?? 'AED';
+
+                        Notification::make()
+                            ->title('Refund Recorded')
+                            ->body("Refund of {$sym} " . number_format(abs($data['amount']), 2) . ' has been processed.')
                             ->success()
                             ->send();
                     }),
