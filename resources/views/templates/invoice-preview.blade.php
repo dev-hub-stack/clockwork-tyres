@@ -323,10 +323,10 @@
                         </div>
                     @endif
                     
-                    @if($record->internal_notes)
+                    @if($record->order_notes)
                         <div>
-                            <h4 style="font-size: 11px; margin-bottom: 5px;">Internal Notes</h4>
-                            <p style="font-size: 10px; color: #555;">{{ $record->internal_notes }}</p>
+                            <h4 style="font-size: 11px; margin-bottom: 5px;">Customer Notes</h4>
+                            <p style="font-size: 10px; color: #555;">{{ $record->order_notes }}</p>
                         </div>
                     @endif
                 </td>

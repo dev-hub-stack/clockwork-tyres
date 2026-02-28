@@ -641,10 +641,9 @@ class InvoiceResource extends Resource
                     ->label('Payment')
                     ->badge()
                     ->colors([
-                        'warning' => 'pending',
-                        'info' => 'partial',
                         'success' => 'paid',
-                        'danger' => 'failed',
+                        'warning' => 'partial',
+                        'danger'  => ['pending', 'failed'],
                         'secondary' => 'refunded',
                     ])
                     ->action(
@@ -660,9 +659,9 @@ class InvoiceResource extends Resource
                 BadgeColumn::make('order_status')
                     ->label('Status')
                     ->colors([
-                        'warning' => ['pending', 'processing'],
-                        'success' => ['shipped', 'completed'],
-                        'danger' => 'cancelled',
+                        'success' => ['shipped', 'completed', 'delivered'],
+                        'warning' => 'processing',
+                        'danger'  => ['cancelled', 'pending'],
                     ]),
                 
                 TextColumn::make('total')
