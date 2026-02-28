@@ -175,11 +175,20 @@ class QuoteResource extends Resource
                                     ])
                                     ->default('retail')
                                     ->required(),
-                                TextInput::make('business_name')->required(),
-                                TextInput::make('first_name'),
-                                TextInput::make('last_name'),
+                                TextInput::make('business_name')
+                                    ->label('Customer name')
+                                    ->required(),
                                 TextInput::make('email')->email(),
                                 TextInput::make('phone'),
+                                TextInput::make('address')
+                                    ->label('Address'),
+                                TextInput::make('city')
+                                    ->label('City'),
+                                Select::make('country_id')
+                                    ->label('Country')
+                                    ->relationship('country', 'name')
+                                    ->searchable()
+                                    ->preload(),
                             ])
                             ->createOptionUsing(function (array $data) {
                                 return Customer::create($data)->id;

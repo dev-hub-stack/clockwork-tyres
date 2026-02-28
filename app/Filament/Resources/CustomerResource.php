@@ -78,16 +78,9 @@ class CustomerResource extends Resource
                             ->default('retail'),
                         
                         TextInput::make('business_name')
-                            ->label('Business Name')
-                            ->maxLength(255),
-                        
-                        TextInput::make('first_name')
-                            ->label('First Name')
-                            ->maxLength(255),
-                        
-                        TextInput::make('last_name')
-                            ->label('Last Name')
-                            ->maxLength(255),
+                            ->label('Customer name')
+                            ->maxLength(255)
+                            ->required(),
                         
                         TextInput::make('email')
                             ->label('Email')

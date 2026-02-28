@@ -76,6 +76,9 @@ class Customer extends Model
     public function getFullNameAttribute(): string
     {
         $name = trim($this->first_name . ' ' . $this->last_name);
+        if (empty($name) && $this->business_name) {
+            return $this->business_name;
+        }
         return !empty($name) ? $name : 'Unknown Customer';
     }
 
