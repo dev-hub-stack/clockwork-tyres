@@ -34,9 +34,13 @@ class ListQuotes extends ListRecords
                 ->badge(Order::quotes()->count()),
                 
             'retail' => Tab::make('Retail Orders')
-                ->badge(Order::quotes()->where('channel', 'retail')->count())
+                ->badge(Order::quotes()->where(function($q) {
+                    $q->where('channel', 'retail')->orWhereNull('channel');
+                })->count())
                 ->modifyQueryUsing(function (Builder $query) {
-                    return $query->where('channel', 'retail');
+                    return $query->where(function($q) {
+                        $q->where('channel', 'retail')->orWhereNull('channel');
+                    });
                 }),
                 
             'wholesale' => Tab::make('Wholesale Orders')
