@@ -640,12 +640,7 @@ class InvoiceResource extends Resource
                 TextColumn::make('payment_status')
                     ->label('Payment')
                     ->badge()
-                    ->colors([
-                        'success' => 'paid',
-                        'warning' => 'partial',
-                        'danger'  => ['pending', 'failed'],
-                        'secondary' => 'refunded',
-                    ])
+                    ->color(fn ($state) => $state?->color())
                     ->action(
                         Action::make('viewPayments')
                             ->label('Payment History')
@@ -658,11 +653,7 @@ class InvoiceResource extends Resource
                 
                 BadgeColumn::make('order_status')
                     ->label('Status')
-                    ->colors([
-                        'success' => ['shipped', 'completed', 'delivered'],
-                        'warning' => 'processing',
-                        'danger'  => ['cancelled', 'pending'],
-                    ]),
+                    ->color(fn ($state) => $state?->color()),
                 
                 TextColumn::make('total')
                     ->label('Amount')

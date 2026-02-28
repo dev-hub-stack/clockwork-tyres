@@ -32,12 +32,12 @@ enum OrderStatus: string
     public function color(): string
     {
         return match($this) {
-            self::PENDING => 'warning',
-            self::PROCESSING => 'info',
-            self::SHIPPED => 'primary',
-            self::DELIVERED => 'success',
-            self::COMPLETED => 'success',
-            self::CANCELLED => 'danger',
+            self::COMPLETED  => 'success',  // green
+            self::DELIVERED  => 'success',  // green
+            self::SHIPPED    => 'success',  // green
+            self::PROCESSING => 'warning',  // yellow
+            self::PENDING    => 'danger',   // red
+            self::CANCELLED  => 'danger',   // red
         };
     }
 
