@@ -50,7 +50,7 @@ class ConsignmentInvoiceService
             $this->updateConsignmentItemsAfterSale($consignment, $soldItems, $invoice);
             
             // 5. Update consignment status
-            $this->updateConsignmentStatusAfterSale($consignment);
+            $this->updateConsignmentStatusAfterSale($consignment, $soldItems, $invoice);
             
             // 6. Log the action
             Log::info('Consignment sale recorded and invoice created', [
@@ -87,7 +87,7 @@ class ConsignmentInvoiceService
             $this->updateConsignmentItemsAfterSale($consignment, $items, $invoice);
             
             // 4. Update consignment status
-            $this->updateConsignmentStatusAfterSale($consignment);
+            $this->updateConsignmentStatusAfterSale($consignment, $items, $invoice);
             
             // 5. Link invoice to consignment
             $consignment->update(['converted_invoice_id' => $invoice->id]);
@@ -388,7 +388,7 @@ class ConsignmentInvoiceService
     /**
      * Update consignment status after sale
      */
-    protected function updateConsignmentStatusAfterSale(Consignment $consignment): void
+    protected function updateConsignmentStatusAfterSale(Consignment $consignment, array $soldItems = [], ?Order $invoice = null): void
     {
         $consignment->refresh();
 
@@ -404,14 +404,28 @@ class ConsignmentInvoiceService
             $newStatus = $consignment->status;
         }
 
+        // Always log the sale action regardless of status change
+        $qtySold = collect($soldItems)->sum('quantity');
+        $description = 'Items sold';
+        
+        if ($qtySold > 0) {
+            $description = "{$qtySold} item(s) sold";
+        }
+        
+        if ($invoice) {
+            $description .= " and invoice #{$invoice->order_number} created";
+        } else {
+            $description .= " and invoice created";
+        }
+
+        $consignment->histories()->create([
+            'action'       => 'sale_recorded',
+            'description'  => $description,
+            'performed_by' => auth()->id(),
+        ]);
+
         if ($newStatus !== $consignment->status) {
             $consignment->update(['status' => $newStatus]);
-
-            $consignment->histories()->create([
-                'action'       => 'sale_recorded',
-                'description'  => 'Items sold and invoice created',
-                'performed_by' => auth()->id(),
-            ]);
         }
     }
     
