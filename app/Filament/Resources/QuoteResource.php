@@ -313,7 +313,14 @@ class QuoteResource extends Resource
                                                 )
                                             ]);
 
-                                        return $products->union($addons);
+                                        $results = $products->union($addons)->toArray();
+                                        
+                                        // Add custom item option if search is not empty
+                                        if (strlen($search) > 0) {
+                                            $results['custom_item'] = '➕ Add Custom Item: "' . $search . '"';
+                                        }
+
+                                        return $results;
                                     })
                                     ->getOptionLabelUsing(function ($value) {
                                         if (!$value) return 'Unknown';
@@ -352,66 +359,90 @@ class QuoteResource extends Resource
                                         }
                                     })
                                     ->preload() // Enable preloading to show initial options
-                                    ->afterStateUpdated(function ($state, $set, $get) {
-                                        if ($state) {
-                                            if (str_starts_with($state, 'addon_')) {
-                                                $id = substr($state, 6);
-                                                $addon = \App\Modules\Products\Models\AddOn::find($id);
-                                                if ($addon) {
-                                                    $set('add_on_id', $id);
-                                                    $set('product_variant_id', null); // Clear product variant
-                                                    $set('unit_price', floatval($addon->price ?? 0));
-                                                    $set('quantity', 1);
-                                                    
-                                                    // Set tax_inclusive from system setting
-                                                    $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                                    $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
-                                                }
-                                            } else {
-                                                $id = str_starts_with($state, 'product_') ? substr($state, 8) : $state;
-                                                $variant = ProductVariant::with('product')->find($id);
-                                                if ($variant) {
-                                                    $set('product_variant_id', $id); // Ensure clean ID is set
-                                                    $set('add_on_id', null); // Clear addon
-                                                    
-                                                    // Use uae_retail_price from tunerstop-admin
-                                                    $price = floatval($variant->uae_retail_price ?? 0);
-                                                    
-                                                    // Apply Dealer Pricing if applicable
-                                                    $customerId = $get('../../customer_id');
-                                                    if ($customerId) {
-                                                        $customer = \App\Modules\Customers\Models\Customer::find($customerId);
-                                                        if ($customer && $customer->isDealer()) {
-                                                            $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
-                                                            $pricing = $dealerService->calculateProductPrice(
-                                                                $customer,
-                                                                $price,
-                                                                $variant->product->model_id ?? null,
-                                                                $variant->product->brand_id ?? null
-                                                            );
-                                                            
-                                                            if ($pricing['discount_amount'] > 0) {
-                                                                $price = $pricing['final_price'];
-                                                                // We set the unit price to the discounted price to ensure totals are correct
-                                                                // regardless of quantity changes, as we don't have logic to auto-update
-                                                                // the discount field when quantity changes.
-                                                            }
-                                                        }
-                                                    }
-                                                    
-                                                    $set('unit_price', $price);
-                                                    $set('quantity', 1);
-                                                    
-                                                    // Set tax_inclusive from system setting
-                                                    $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-                                                    $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
-                                                }
-                                            }
-                                        }
-                                    })
-                                    ->live()
-                                    ->required()
-                                    ->columnSpanFull(),
+                                     ->afterStateUpdated(function ($state, $set, $get) {
+                                         if ($state) {
+                                             if ($state === 'custom_item') {
+                                                 // Extract the search term used
+                                                 $set('is_custom', true);
+                                                 $set('product_variant_id', null);
+                                                 $set('add_on_id', null);
+                                                 
+                                                 $set('unit_price', 0);
+                                                 $set('quantity', 1);
+                                                 
+                                                 // Set tax_inclusive from system setting
+                                                 $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                 $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                             } elseif (str_starts_with($state, 'addon_')) {
+                                                 $id = substr($state, 6);
+                                                 $addon = \App\Modules\Products\Models\AddOn::find($id);
+                                                 if ($addon) {
+                                                     $set('is_custom', false);
+                                                     $set('add_on_id', $id);
+                                                     $set('product_variant_id', null); // Clear product variant
+                                                     $set('unit_price', floatval($addon->price ?? 0));
+                                                     $set('quantity', 1);
+                                                     
+                                                     // Set tax_inclusive from system setting
+                                                     $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                     $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                                 }
+                                             } else {
+                                                 $id = str_starts_with($state, 'product_') ? substr($state, 8) : $state;
+                                                 $variant = ProductVariant::with('product')->find($id);
+                                                 if ($variant) {
+                                                     $set('is_custom', false);
+                                                     $set('product_variant_id', $id); // Ensure clean ID is set
+                                                     $set('add_on_id', null); // Clear addon
+                                                     
+                                                     // Use uae_retail_price from tunerstop-admin
+                                                     $price = floatval($variant->uae_retail_price ?? 0);
+                                                     
+                                                     // Apply Dealer Pricing if applicable
+                                                     $customerId = $get('../../customer_id');
+                                                     if ($customerId) {
+                                                         $customer = \App\Modules\Customers\Models\Customer::find($customerId);
+                                                         if ($customer && $customer->isDealer()) {
+                                                             $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
+                                                             $pricing = $dealerService->calculateProductPrice(
+                                                                 $customer,
+                                                                 $price,
+                                                                 $variant->product->model_id ?? null,
+                                                                 $variant->product->brand_id ?? null
+                                                             );
+                                                             
+                                                             if ($pricing['discount_amount'] > 0) {
+                                                                 $price = $pricing['final_price'];
+                                                                 // We set the unit price to the discounted price to ensure totals are correct
+                                                                 // regardless of quantity changes, as we don't have logic to auto-update
+                                                                 // the discount field when quantity changes.
+                                                             }
+                                                         }
+                                                     }
+                                                     
+                                                     $set('unit_price', $price);
+                                                     $set('quantity', 1);
+                                                     
+                                                     // Set tax_inclusive from system setting
+                                                     $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                     $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                                 }
+                                             }
+                                         }
+                                     })
+                                     ->live()
+                                     ->required()
+                                     ->columnSpanFull(),
+                                     
+                                 \Filament\Forms\Components\Hidden::make('is_custom')
+                                     ->default(false),
+                                     
+                                 TextInput::make('product_name')
+                                     ->label('Custom Product Name')
+                                     ->required(fn ($get) => $get('is_custom'))
+                                     ->visible(fn ($get) => $get('is_custom'))
+                                     ->columnSpanFull()
+                                     ->helperText('Enter the name or description of this custom item.'),
                                 
                                 // Hidden fields to store actual IDs
                                 \Filament\Forms\Components\Hidden::make('add_on_id'),
@@ -515,8 +546,9 @@ class QuoteResource extends Resource
                                         }
                                     })
                                     ->dehydrateStateUsing(fn ($state) => $state === 'non_stock' ? null : $state)
-                                    ->required()
-                                    ->helperText('Select warehouse for this item')
+                                    ->required(fn ($get) => !$get('is_custom'))
+                                    ->visible(fn ($get) => !$get('is_custom'))
+                                    ->helperText(fn ($get) => $get('is_custom') ? '' : 'Select warehouse for this item')
                                     ->columnSpan(2),
                                 
                                 TextInput::make('quantity')

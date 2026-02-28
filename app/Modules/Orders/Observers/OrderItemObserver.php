@@ -54,6 +54,18 @@ class OrderItemObserver
      */
     private function populateProductDetails(OrderItem $orderItem): void
     {
+        // Custom one-off items
+        if (!$orderItem->product_variant_id && !$orderItem->add_on_id) {
+            // Keep the custom product_name and compute line_total if needed
+            if (!$orderItem->line_total) {
+                $qty = floatval($orderItem->quantity ?? 0);
+                $price = floatval($orderItem->unit_price ?? 0);
+                $discount = floatval($orderItem->discount ?? 0);
+                $orderItem->line_total = ($qty * $price) - $discount;
+            }
+            return;
+        }
+
         if (!$orderItem->product_variant_id) {
             return;
         }
