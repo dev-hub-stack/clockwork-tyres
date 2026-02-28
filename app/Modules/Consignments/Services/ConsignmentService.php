@@ -307,12 +307,13 @@ class ConsignmentService
             }
 
             $consignment->update([
-                'status' => ConsignmentStatus::SENT,
+                'status' => ConsignmentStatus::DELIVERED,
                 'sent_at' => now(),
+                'delivered_at' => now(),
                 'tracking_number' => $trackingNumber,
             ]);
 
-            $this->logHistory($consignment, 'status_changed', 'Consignment marked as sent - inventory deducted', [
+            $this->logHistory($consignment, 'status_changed', 'Consignment marked as sent and delivered - inventory deducted', [
                 'tracking_number' => $trackingNumber,
             ]);
         });
