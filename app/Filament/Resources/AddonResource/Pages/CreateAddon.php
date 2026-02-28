@@ -21,7 +21,8 @@ class CreateAddon extends CreateRecord
      */
     protected function afterCreate(): void
     {
-        $data = $this->form->getState();
+        // Use $this->data (raw Livewire state) — form->getState() excludes dehydrated(false) fields
+        $data = $this->data;
         $record = $this->record;
 
         $warehouses = Warehouse::where('status', 1)

@@ -34,7 +34,8 @@ class EditAddon extends EditRecord
 
     protected function syncWarehouseInventory(): void
     {
-        $data = $this->form->getState();
+        // Use $this->data (raw Livewire state) — $this->form->getState() excludes dehydrated(false) fields
+        $data = $this->data;
         $record = $this->record;
 
         $warehouses = Warehouse::where('status', 1)
