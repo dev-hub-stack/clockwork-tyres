@@ -34,15 +34,15 @@ class ListQuotes extends ListRecords
                 ->badge(Order::quotes()->count()),
                 
             'retail' => Tab::make('Retail Orders')
-                ->badge(Order::quotes()->fromSource('tunerstop')->count())
+                ->badge(Order::quotes()->where('channel', 'retail')->count())
                 ->modifyQueryUsing(function (Builder $query) {
-                    return $query->fromSource('tunerstop');
+                    return $query->where('channel', 'retail');
                 }),
                 
             'wholesale' => Tab::make('Wholesale Orders')
-                ->badge(Order::quotes()->fromSource('tunerstopwholesale')->count())
+                ->badge(Order::quotes()->where('channel', 'wholesale')->count())
                 ->modifyQueryUsing(function (Builder $query) {
-                    return $query->fromSource('tunerstopwholesale');
+                    return $query->where('channel', 'wholesale');
                 }),
         ];
     }
