@@ -135,24 +135,52 @@ class AddonResource extends Resource
                     ->columns(2),
 
                 Section::make('Inventory')
-                    ->schema([
-                        Select::make('stock_status')
-                            ->label('Stock Status')
-                            ->options([
-                                1 => 'In Stock',
-                                2 => 'Out of Stock',
-                                3 => 'Backorder',
-                                4 => 'Discontinued',
-                            ])
-                            ->default(1)
-                            ->required(),
+                    ->schema(function () {
+                        $warehouses = \App\Modules\Inventory\Models\Warehouse::where('status', 1)
+                            ->where('code', '!=', 'NON-STOCK')
+                            ->orderBy('code')
+                            ->get();
 
-                        TextInput::make('total_quantity')
-                            ->label('Total Quantity')
-                            ->numeric()
-                            ->default(0)
-                            ->required(),
-                    ])
+                        $fields = [
+                            Select::make('stock_status')
+                                ->label('Stock Status')
+                                ->options([
+                                    1 => 'In Stock',
+                                    2 => 'Out of Stock',
+                                    3 => 'Backorder',
+                                    4 => 'Discontinued',
+                                ])
+                                ->default(1)
+                                ->required(),
+
+                            TextInput::make('total_quantity')
+                                ->label('Total Quantity')
+                                ->numeric()
+                                ->default(0)
+                                ->required()
+                                ->disabled()
+                                ->helperText('Auto-calculated from warehouse quantities below'),
+                        ];
+
+                        foreach ($warehouses as $warehouse) {
+                            $fields[] = TextInput::make('warehouse_qty_' . $warehouse->id)
+                                ->label($warehouse->name)
+                                ->numeric()
+                                ->default(0)
+                                ->minValue(0)
+                                ->dehydrated(false) // Not a model column — saved manually in afterSave()
+                                ->afterStateHydrated(function ($component, $state, $record) use ($warehouse) {
+                                    if ($record) {
+                                        $inv = $record->inventories
+                                            ->where('warehouse_id', $warehouse->id)
+                                            ->first();
+                                        $component->state($inv ? $inv->quantity : 0);
+                                    }
+                                });
+                        }
+
+                        return $fields;
+                    })
                     ->columns(2),
 
                 Section::make('Category-Specific Fields')
