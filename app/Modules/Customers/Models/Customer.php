@@ -3,14 +3,19 @@
 namespace App\Modules\Customers\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Customer extends Model
+// NOTE: Extends Authenticatable (not Model) to enable Sanctum token auth for dealers.
+// This is a minimal, non-breaking change — all existing Filament admin functionality
+// continues to work because Authenticatable itself extends Model.
+class Customer extends Authenticatable
 {
-    use HasFactory, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'customer_type',
@@ -19,6 +24,7 @@ class Customer extends Model
         'business_name',
         'phone',
         'email',
+        'password',
         'address',
         'city',
         'state',
@@ -32,11 +38,23 @@ class Customer extends Model
         'license_no',
         'external_source',
         'external_customer_id',
-        'status'
+        'status',
+        'email_verified_at',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     * Prevents password/token from leaking into API responses.
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
     protected $casts = [
-        'expiry' => 'date',
+        'expiry'            => 'date',
+        'email_verified_at' => 'datetime',
+        'password'          => 'hashed',
     ];
 
     /**

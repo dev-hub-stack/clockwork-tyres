@@ -37,8 +37,15 @@ return [
 
     'guards' => [
         'web' => [
-            'driver' => 'session',
+            'driver'   => 'session',
             'provider' => 'users',
+        ],
+
+        // ─── Wholesale API dealer guard ───────────────────────────────────────
+        // Used by routes/api-wholesale.php — completely separate from admin 'web' guard.
+        'dealer' => [
+            'driver'   => 'sanctum',
+            'provider' => 'dealers',
         ],
     ],
 
@@ -62,13 +69,15 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model'  => env('AUTH_MODEL', App\Models\User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // ─── Wholesale Dealer provider ────────────────────────────────────────
+        // Maps the 'dealer' guard to the Customer model.
+        'dealers' => [
+            'driver' => 'eloquent',
+            'model'  => App\Modules\Customers\Models\Customer::class,
+        ],
     ],
 
     /*
@@ -93,8 +102,17 @@ return [
     'passwords' => [
         'users' => [
             'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'table'    => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire'   => 60,
+            'throttle' => 60,
+        ],
+
+        // ─── Wholesale Dealer password reset broker ───────────────────────────
+        // Uses a separate table to avoid any overlap with admin user resets.
+        'dealers' => [
+            'provider' => 'dealers',
+            'table'    => 'customer_password_reset_tokens',
+            'expire'   => 60,
             'throttle' => 60,
         ],
     ],
