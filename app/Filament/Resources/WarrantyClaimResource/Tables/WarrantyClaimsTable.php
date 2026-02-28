@@ -159,9 +159,14 @@ class WarrantyClaimsTable
                             'items.productVariant.product.model',
                             'histories.user'
                         ]),
-                        'companyBranding' => CompanyBranding::getActive(),
-                        'currency' => CurrencySetting::getBase(),
-                        'includeHistory' => true, // Preview always shows history
+                        'companyName'    => CompanyBranding::getActive()?->company_name ?? 'TunerStop LLC',
+                        'companyAddress' => CompanyBranding::getActive()?->company_address ?? '',
+                        'companyPhone'   => CompanyBranding::getActive()?->company_phone ?? '',
+                        'companyEmail'   => CompanyBranding::getActive()?->company_email ?? '',
+                        'taxNumber'      => CompanyBranding::getActive()?->tax_registration_number ?? '',
+                        'logo'           => CompanyBranding::getActive()?->logo_url,
+                        'currency'       => CurrencySetting::getBase()?->currency_symbol ?? 'AED',
+                        'includeHistory' => true,
                     ])),
                 Action::make('downloadPdf')
                     ->label('PDF (Full)')
