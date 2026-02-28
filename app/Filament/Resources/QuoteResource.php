@@ -19,6 +19,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Set;
 use Filament\Forms\Get;
 use Filament\Schemas\Components\Section;
