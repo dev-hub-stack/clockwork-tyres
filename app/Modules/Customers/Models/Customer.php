@@ -40,6 +40,37 @@ class Customer extends Model
     ];
 
     /**
+     * Boot the model to handle automatic actions.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Customer $customer) {
+            // Automatically add an Address Book entry if address details are provided
+            if ($customer->address || $customer->city || $customer->country_id) {
+                // Determine country name if possible
+                $countryName = null;
+                if ($customer->country_id) {
+                    $country = \App\Modules\Settings\Models\Country::find($customer->country_id);
+                    $countryName = $country ? $country->name : null;
+                }
+
+                $customer->addresses()->create([
+                    'address_type' => 1, // 1 = Billing Address
+                    'nickname' => 'Default Billing Address',
+                    'first_name' => '', // Left empty since we use customer name
+                    'last_name' => '',
+                    'address' => $customer->address,
+                    'city' => $customer->city,
+                    'state' => $customer->state,
+                    'country' => $countryName,
+                    'phone_no' => $customer->phone,
+                    'email' => $customer->email,
+                ]);
+            }
+        });
+    }
+
+    /**
      * CRITICAL: Check if customer is a dealer (activates pricing discounts)
      */
     public function isDealer(): bool
