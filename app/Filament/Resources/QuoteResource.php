@@ -306,9 +306,9 @@ class QuoteResource extends Resource
                                             ->get()
                                             ->mapWithKeys(fn($addon) => [
                                                 'addon_' . $addon->id => sprintf(
-                                                    'ADDON: %s - %s (%s)',
-                                                    $addon->part_number ?? 'NO-PN',
+                                                    'ADDON: %s%s (%s)',
                                                     $addon->title,
+                                                    $addon->part_number ? ' [' . $addon->part_number . ']' : '',
                                                     $addon->category?->name ?? 'N/A'
                                                 )
                                             ]);
@@ -321,7 +321,11 @@ class QuoteResource extends Resource
                                         if (str_starts_with($value, 'addon_')) {
                                             $id = substr($value, 6);
                                             $addon = \App\Modules\Products\Models\AddOn::find($id);
-                                            return $addon ? sprintf('ADDON: %s - %s', $addon->part_number ?? 'NO-PN', $addon->title) : 'Unknown Add-on';
+                                            if (!$addon) return 'Unknown Add-on';
+                                            return sprintf('ADDON: %s%s',
+                                                $addon->title,
+                                                $addon->part_number ? ' [' . $addon->part_number . ']' : ''
+                                            );
                                         }
                                         
                                         $id = str_starts_with($value, 'product_') ? substr($value, 8) : $value;
@@ -426,9 +430,31 @@ class QuoteResource extends Resource
                                         $variantId = $get('product_variant_id');
                                         
                                         if (!$variantId) {
-                                            // If it's an addon, we might not need warehouse selection or it might be different
-                                            if ($get('add_on_id')) {
-                                                return ['' => 'Add-ons are non-stock / service items'];
+                                            $addonId = $get('add_on_id');
+                                            if ($addonId) {
+                                                $addon = \App\Modules\Products\Models\AddOn::find($addonId);
+                                                // If addon tracks inventory, show per-warehouse stock
+                                                if ($addon && $addon->track_inventory) {
+                                                    $inventories = \App\Modules\Inventory\Models\ProductInventory::where('add_on_id', $addonId)
+                                                        ->with('warehouse')
+                                                        ->get();
+                                                    $options = [];
+                                                    foreach ($inventories as $inv) {
+                                                        if (!$inv->warehouse) continue;
+                                                        $available = ($inv->quantity ?? 0) + ($inv->eta_qty ?? 0);
+                                                        $options[$inv->warehouse->id] = sprintf(
+                                                            '%s - %d available (%d in stock%s)',
+                                                            $inv->warehouse->name,
+                                                            $available,
+                                                            $inv->quantity ?? 0,
+                                                            ($inv->eta_qty ?? 0) > 0 ? ", {$inv->eta_qty} expected" : ''
+                                                        );
+                                                    }
+                                                    $options['non_stock'] = '⚡ Non-Stock (Special Order) - Unlimited';
+                                                    return $options;
+                                                }
+                                                // Untracked addon = non-stock service item
+                                                return ['' => '⚙️ Service / Non-Stock Item'];
                                             }
                                             return ['' => 'Select product first'];
                                         }

@@ -142,6 +142,14 @@ class AddonResource extends Resource
                             ->get();
 
                         $fields = [
+                            Toggle::make('track_inventory')
+                                ->label('Track Inventory')
+                                ->helperText('Enable to manage warehouse stock for this add-on. Leave off for service/non-stock items.')
+                                ->default(false)
+                                ->inline(false)
+                                ->live()
+                                ->columnSpanFull(),
+
                             Select::make('stock_status')
                                 ->label('Stock Status')
                                 ->options([
@@ -159,7 +167,8 @@ class AddonResource extends Resource
                                 ->default(0)
                                 ->required()
                                 ->disabled()
-                                ->helperText('Auto-calculated from warehouse quantities below'),
+                                ->helperText('Auto-calculated from warehouse quantities below')
+                                ->visible(fn ($get) => (bool) $get('track_inventory')),
                         ];
 
                         foreach ($warehouses as $warehouse) {
@@ -168,7 +177,8 @@ class AddonResource extends Resource
                                 ->numeric()
                                 ->default(0)
                                 ->minValue(0)
-                                ->dehydrated(false) // Not a model column — saved manually in afterSave()
+                                ->dehydrated(false)
+                                ->visible(fn ($get) => (bool) $get('track_inventory'))
                                 ->afterStateHydrated(function ($component, $state, $record) use ($warehouse) {
                                     if ($record) {
                                         $inv = $record->inventories
@@ -182,6 +192,7 @@ class AddonResource extends Resource
                         return $fields;
                     })
                     ->columns(2),
+
 
                 Section::make('Category-Specific Fields')
                     ->schema([

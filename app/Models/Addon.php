@@ -27,6 +27,7 @@ class Addon extends Model
         'image_2',
         'stock_status',
         'total_quantity',
+        'track_inventory',
         'bolt_pattern',
         'width',
         'thread_size',
@@ -46,6 +47,7 @@ class Addon extends Model
         'tax_inclusive' => 'boolean',
         'stock_status' => 'integer',
         'total_quantity' => 'integer',
+        'track_inventory' => 'boolean',
         'notify_restock' => 'array',
     ];
 
