@@ -287,7 +287,7 @@
                                                                 </button>
                                                                 <button @click="markAsDone(order.id)" 
                                                                         style="width: 100%; padding: 0.625rem 1rem; background: #10b981; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
-                                                                    <span>✓</span> Mark Order as Done
+                                                                    <span>✓</span> Mark as Delivered
                                                                 </button>
                                                             </div>
                                                         </div>
