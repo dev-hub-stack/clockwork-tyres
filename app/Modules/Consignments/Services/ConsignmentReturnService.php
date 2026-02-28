@@ -165,13 +165,19 @@ class ConsignmentReturnService
                     'new_total' => $inventory->fresh()->quantity,
                 ]);
             } else {
+                // Build notes: base reference + optional user notes
+                $damagedNotes = "Returned from Consignment #{$consignment->consignment_number}";
+                if (!empty($notes)) {
+                    $damagedNotes .= " - Notes: {$notes}";
+                }
+                
                 // Record damaged/defective items in DamagedInventory table
                 DamagedInventory::create([
                     'product_variant_id' => $item->product_variant_id,
                     'warehouse_id' => $warehouseId,
                     'quantity' => $quantity,
                     'condition' => $condition,
-                    'notes' => "Returned from Consignment #{$consignment->consignment_number}",
+                    'notes' => $damagedNotes,
                     'consignment_id' => $consignment->id,
                 ]);
 
