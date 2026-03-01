@@ -30,7 +30,7 @@ class SearchController extends BaseWholesaleController
 
         // Basic keyword search across Product and ProductVariant titles/SKUs
         $products = Product::with(['brand'])
-            ->where('title', 'like', '%' . $keyword . '%')
+            ->where('name', 'like', '%' . $keyword . '%')
             ->orWhereHas('brand', fn($q) => $q->where('name', 'like', '%' . $keyword . '%'))
             ->take(10)
             ->get();
@@ -46,20 +46,60 @@ class SearchController extends BaseWholesaleController
             'query'    => $keyword,
             'products' => $products->map(fn($p) => [
                 'id'       => $p->id,
-                'title'    => $p->title,
+                'name'     => $p->name,
                 'brand'    => $p->brand->name ?? null,
                 'slug'     => $p->slug,
             ]),
             'variants' => $variants->map(fn($v) => [
                 'id'            => $v->id,
-                'product_title' => $v->product->title ?? 'Unknown',
+                'product_title' => $v->product->name ?? 'Unknown',
                 'brand'         => $v->product->brand->name ?? null,
-                'finish'        => $v->finish->name ?? 'Standard',
+                'finish'        => $v->finish->finish ?? 'Standard',
                 'sku'           => $v->sku,
                 'slug'          => $v->slug,
             ]),
         ];
 
         return $this->success($results, 'Search results loaded.');
+    }
+
+    /**
+     * GET /api/countries
+     * Return list of countries for address forms
+     */
+    public function countries(Request $request)
+    {
+        // Angular expects 'countryName' and 'id'
+        $countries = \App\Modules\Customers\Models\Country::active()
+            ->orderBy('name')
+            ->get()
+            ->map(function ($c) {
+                return [
+                    'id' => $c->id,
+                    'countryName' => $c->name,
+                    'countryCode' => $c->code
+                ];
+            });
+
+        return $this->success(['countries' => $countries]);
+    }
+
+    /**
+     * GET /api/states/us
+     * Return list of US States for address forms
+     */
+    public function usStates(Request $request)
+    {
+        // Angular expects 'name' and 'id'
+        $states = [
+            ['id' => 1,  'name' => 'Alabama'], ['id' => 2,  'name' => 'Alaska'], 
+            ['id' => 3,  'name' => 'Arizona'], ['id' => 4,  'name' => 'Arkansas'], 
+            ['id' => 5,  'name' => 'California'], ['id' => 6,  'name' => 'Colorado'],
+            ['id' => 10, 'name' => 'Florida'], ['id' => 11, 'name' => 'Georgia'],
+            ['id' => 14, 'name' => 'Illinois'], ['id' => 33, 'name' => 'New York'],
+            ['id' => 44, 'name' => 'Texas'], ['id' => 48, 'name' => 'Washington']
+        ];
+
+        return $this->success(['states' => $states]);
     }
 }

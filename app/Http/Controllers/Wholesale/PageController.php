@@ -35,7 +35,7 @@ class PageController extends BaseWholesaleController
         return $this->success([
             'title'   => $page->title,
             'slug'    => $page->slug,
-            'content' => $page->content, // HTML payload
+            'body'    => $page->content, // Angular expects 'body'
         ]);
     }
 }

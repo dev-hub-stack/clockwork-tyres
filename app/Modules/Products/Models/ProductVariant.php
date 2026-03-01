@@ -91,7 +91,7 @@ class ProductVariant extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('status', 1);
+        return $query->whereHas('product', fn($q) => $q->where('status', 1));
     }
 
     /**

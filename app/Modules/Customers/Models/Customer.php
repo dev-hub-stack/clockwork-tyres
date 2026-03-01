@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Modules\Customers\Models\AddressBook;
+use App\Modules\Customers\Models\CustomerBrandPricing;
+use App\Modules\Customers\Models\CustomerModelPricing;
+use App\Modules\Customers\Models\CustomerAddonCategoryPricing;
+use App\Modules\Customers\Models\Country;
 
 // NOTE: Extends Authenticatable (not Model) to enable Sanctum token auth for dealers.
 // This is a minimal, non-breaking change — all existing Filament admin functionality
@@ -68,7 +73,7 @@ class Customer extends Authenticatable
                 // Determine country name if possible
                 $countryName = null;
                 if ($customer->country_id) {
-                    $country = \App\Modules\Settings\Models\Country::find($customer->country_id);
+                    $country = \App\Modules\Customers\Models\Country::find($customer->country_id);
                     $countryName = $country ? $country->name : null;
                 }
 

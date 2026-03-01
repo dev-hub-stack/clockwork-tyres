@@ -29,12 +29,12 @@ class WholesaleProductTransformer
      * Format a single ProductVariant for API response.
      * Includes dealer price, per-warehouse stock, and ETA.
      */
-    public function formatVariant(ProductVariant $variant, Customer $dealer): array
+    public function formatVariant(ProductVariant $variant, ?Customer $dealer): array
     {
         $product    = $variant->product;
         $brand      = $product?->brand;
         $model      = $product?->model;
-        $finishRel  = $variant->finishRelation ?? $variant->finish();
+        $finishRel  = $variant->finishRelation;
 
         // Calculate dealer price using DealerPricingService (3-tier hierarchy)
         $priceResult = $this->dealerPrice($variant, $dealer);
@@ -47,24 +47,39 @@ class WholesaleProductTransformer
             'product_id'       => $variant->product_id,
             'sku'              => $variant->sku,
             'name'             => $product?->name ?? '',
-            'slug'             => $product?->slug ?? $product?->name ?? '',
+            'slug'             => $product?->name ?? '',
 
             // Brand & Model
-            'brand'            => $brand?->name ?? '',
+            'brand'            => [
+                'id'          => $brand?->id,
+                'name'        => $brand?->name ?? '',
+                'slug'        => $brand?->slug ?? '',
+                'logo'        => $brand?->logo ?? $brand?->image ?? '',
+                'description'   => $brand?->description ?? '',
+            ],
             'brand_id'         => $brand?->id,
             'brand_slug'       => $brand?->slug ?? '',
             'brand_logo'       => $brand?->logo ?? '',
-            'model'            => $model?->name ?? '',
+            'model'            => [
+                'id'   => $model?->id,
+                'name' => $model?->name ?? '',
+                'image' => $model?->image ?? '',
+            ],
             'model_id'         => $model?->id,
 
             // Finish
-            'finish'           => $finishRel?->finish ?? $variant->finish ?? '',
+            'finish'           => [
+                'id'       => $finishRel?->id,
+                'finish'   => $finishRel?->finish ?? $variant->finish ?? '',
+                'hex_color' => $finishRel?->hex_color ?? null,
+            ],
             'finish_id'        => $variant->finish_id,
             'hex_color'        => $finishRel?->hex_color ?? null,
+            'finish_name'      => $finishRel?->finish ?? $variant->finish ?? '',
 
             // Media
             'image'            => $variant->image,
-            'images'           => $product?->images ?? [],
+            'images'           => $product?->images ? $product->images : [],
 
             // Wheel specs
             'rim_diameter'     => $variant->rim_diameter,
@@ -79,15 +94,37 @@ class WholesaleProductTransformer
             'construction'     => $product?->construction ?? '',
             'size'             => $variant->size ?? ($variant->rim_diameter . 'x' . $variant->rim_width),
 
+            // Nested Variant for Detail Page Compatibility
+            'variant'          => [
+                'id'               => $variant->id,
+                'sku'              => $variant->sku,
+                'rim_diameter'     => $variant->rim_diameter,
+                'rim_width'        => $variant->rim_width,
+                'bolt_pattern'     => $variant->bolt_pattern,
+                'hub_bore'         => $variant->hub_bore,
+                'offset'           => $variant->offset,
+                'weight'           => $variant->weight,
+                'backspacing'      => $variant->backspacing,
+                'warranty'         => $variant->backspacing, // Direct mapping for clarity
+                'lipsize'          => $variant->lipsize,
+                'max_wheel_load'   => $variant->max_wheel_load,
+                'construction'     => $product?->construction ?? '',
+                'size'             => $variant->size ?? ($variant->rim_diameter . 'x' . $variant->rim_width),
+                'uae_retail_price' => (float) ($variant->uae_retail_price ?? $variant->price ?? 0),
+            ],
+
             // Pricing
             'price'            => $priceResult['final_price'],
             'retail_price'     => (float) ($variant->uae_retail_price ?? $variant->price ?? 0),
+            'uae_retail_price' => (float) ($variant->uae_retail_price ?? $variant->price ?? 0),
             'us_retail_price'  => (float) ($variant->us_retail_price ?? 0),
             'sale_price'       => $variant->sale_price ? (float) $variant->sale_price : null,
+            'discounted_price' => $priceResult['final_price'], // Compatibility field
             'discount_amount'  => $priceResult['discount_amount'],
             'discount_pct'     => $priceResult['discount_percentage'],
             'discount_type'    => $priceResult['discount_type'],
             'clearance'        => (bool) $variant->clearance_corner,
+            'clearance_corner' => (bool) $variant->clearance_corner, // Compatibility field
 
             // Stock
             'stock'            => $stockData,   // per-warehouse breakdown
@@ -101,26 +138,17 @@ class WholesaleProductTransformer
     /**
      * Format a list of variants (for paginated lists).
      */
-    public function formatVariants(iterable $variants, Customer $dealer): array
+    public function formatVariants(iterable $variants, ?Customer $dealer): array
     {
-        $result = [];
-        foreach ($variants as $variant) {
-            $result[] = $this->formatVariant($variant, $dealer);
-        }
-        return $result;
+        return collect($variants)->map(fn($v) => $this->formatVariant($v, $dealer))->toArray();
     }
 
     /**
      * Format a single AddOn for API response with dealer pricing applied.
      */
-    public function formatAddon(AddOn $addon, Customer $dealer): array
+    public function formatAddon(AddOn $addon, ?Customer $dealer): array
     {
-        // Apply dealer addon pricing via DealerPricingService
-        $priceResult = $this->pricingService->calculateAddonPrice(
-            $dealer,
-            (float) $addon->price,
-            $addon->addon_category_id
-        );
+        $priceResult = $this->addonPrice($addon, $dealer);
 
         return [
             'id'              => $addon->id,
@@ -138,7 +166,7 @@ class WholesaleProductTransformer
             'discount_pct'    => $priceResult['discount_percentage'],
 
             // Media & specs
-            'image'           => $addon->image,
+            'image'           => $addon->image ? config('wholesale.image_base_url', 'https://d216f9m54e3osn.cloudfront.net') . '/' . ltrim($addon->image, '/') : null,
             'stock_status'    => $addon->stock_status_text,
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
@@ -157,9 +185,18 @@ class WholesaleProductTransformer
      * Calculate dealer price using DealerPricingService (3-tier hierarchy).
      * Model-specific > Brand-specific > base price.
      */
-    private function dealerPrice(ProductVariant $variant, Customer $dealer): array
+    private function dealerPrice(ProductVariant $variant, ?Customer $dealer): array
     {
         $basePrice = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+
+        if (!$dealer) {
+            return [
+                'final_price'         => $basePrice,
+                'discount_amount'     => 0,
+                'discount_percentage' => 0,
+                'tier'                => 'Retail',
+            ];
+        }
 
         return $this->pricingService->calculateProductPrice(
             $dealer,
@@ -170,14 +207,35 @@ class WholesaleProductTransformer
     }
 
     /**
+     * Calculate dealer price for an addon.
+     */
+    private function addonPrice(AddOn $addon, ?Customer $dealer): array
+    {
+        $basePrice = (float) $addon->price;
+
+        if (!$dealer) {
+            return [
+                'final_price'         => $basePrice,
+                'discount_amount'     => 0,
+                'discount_percentage' => 0,
+                'tier'                => 'Retail',
+            ];
+        }
+
+        return $this->pricingService->calculateAddonPrice(
+            $dealer,
+            $basePrice,
+            $addon->addon_category_id
+        );
+    }
+
+    /**
      * Get per-warehouse stock breakdown for a variant.
      * Returns array of warehouses with qty, eta_qty, and ETA date.
      */
     private function stockData(ProductVariant $variant): array
     {
-        $inventories = ProductInventory::where('product_variant_id', $variant->id)
-            ->with('warehouse')
-            ->get();
+        $inventories = $variant->inventories;
 
         return $inventories->map(fn($inv) => [
             'warehouse_id'   => $inv->warehouse_id,
@@ -195,10 +253,9 @@ class WholesaleProductTransformer
      */
     private function etaData(ProductVariant $variant): ?array
     {
-        $eta = ProductInventory::where('product_variant_id', $variant->id)
-            ->where('eta_qty', '>', 0)
+        $eta = $variant->inventories->where('eta_qty', '>', 0)
             ->whereNotNull('eta')
-            ->orderBy('eta')
+            ->sortBy('eta')
             ->first();
 
         if (! $eta) {

@@ -29,27 +29,35 @@ class AuthController extends BaseWholesaleController
      */
     public function postLogin(Request $request)
     {
+        error_log('[LOGIN] postLogin called');
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required|string',
         ]);
+        error_log('[LOGIN] validated');
 
         // Only allow dealers/wholesale customers to log in
         $customer = Customer::where('email', strtolower(trim($request->email)))
             ->whereIn('customer_type', ['dealer', 'wholesale'])
             ->first();
+        error_log('[LOGIN] customer found: ' . ($customer ? $customer->id : 'NULL'));
 
         if (! $customer || ! Hash::check($request->password, $customer->password)) {
             return $this->error('Invalid email or password.', null, 401);
         }
 
-        // Revoke previous tokens and issue a fresh one
-        $customer->tokens()->delete();
+        // Issue a fresh token (do not revoke old ones — avoids race condition with concurrent requests)
+        error_log('[LOGIN] creating new token');
         $token = $customer->createToken('wholesale-app')->plainTextToken;
+        error_log('[LOGIN] token created: ' . substr($token, 0, 10) . '...');
+
+        error_log('[LOGIN] formatting profile data');
+        $profileData = $this->formatProfileData($customer);
+        error_log('[LOGIN] returning success');
 
         return $this->success([
-            'token'     => $token,
-            'user_data' => $this->formatProfileData($customer),
+            'access_token' => $token,
+            'user_data'    => $profileData,
         ], 'Login successful');
     }
 
@@ -107,16 +115,43 @@ class AuthController extends BaseWholesaleController
      */
     public function getProfile(Request $request)
     {
-        $dealer = $this->dealer();
+        try {
+            /** @var \App\Modules\Customers\Models\Customer $dealer */
+            $dealer = $request->user();
 
-        $dealer->load([
-            'addresses',
-            'brandPricingRules.brand',
-            'modelPricingRules.model',
-            'country',
-        ]);
+            if (!$dealer) {
+                return $this->error('Unauthenticated', null, 401);
+            }
 
-        return $this->success($this->formatProfileData($dealer), 'Profile retrieved successfully');
+            // Load relations needed for profile page
+            $dealer->load(['country', 'addresses']);
+
+            // Return in the shape the Angular MyAccountData interface expects:
+            // { my_profile: {...}, addressBooks: [], myOrders: [], wishlist: [] }
+            return $this->success([
+                'my_profile'   => $this->formatProfileData($dealer),
+                'addressBooks' => $dealer->addresses->map(fn($a) => [
+                    'id'         => $a->id,
+                    'nickname'   => $a->nickname,
+                    'first_name' => $a->first_name,
+                    'last_name'  => $a->last_name,
+                    'address'    => $a->address,
+                    'country'    => $a->country,
+                    'state'      => $a->state,
+                    'city'       => $a->city,
+                    'zip'        => $a->zip ?? $a->zip_code,
+                    'phone_no'   => $a->phone_no,
+                    'email'      => $a->email,
+                    'user_id'    => $a->customer_id,
+                    'created_at' => $a->created_at,
+                    'updated_at' => $a->updated_at,
+                ])->values(),
+                'myOrders' => [],
+                'wishlist'  => [],
+            ], 'Profile retrieved successfully');
+        } catch (\Throwable $e) {
+            return $this->error('Profile error: ' . $e->getMessage(), null, 500);
+        }
     }
 
     /**
@@ -144,6 +179,11 @@ class AuthController extends BaseWholesaleController
             'country'              => $customer->country?->name,
             'customer_type'        => $customer->customer_type,
             'status'               => $customer->status,
+            'trade_license'        => $customer->trade_license_path ? \Illuminate\Support\Facades\Storage::disk('s3')->url($customer->trade_license_path) : null,
+            'business_logo'        => $customer->profile_image ? \Illuminate\Support\Facades\Storage::disk('s3')->url($customer->profile_image) : null,
+            'vendor'               => [
+                'status' => in_array($customer->status, ['active', 'approved']) ? 1 : 0,
+            ],
             'created_at'           => $customer->created_at,
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Wholesale;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Customers\Models\Customer;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Base controller for all Wholesale API controllers.
@@ -49,6 +50,23 @@ abstract class BaseWholesaleController extends Controller
      */
     protected function dealer(): ?Customer
     {
-        return auth('dealer')->user();
+        // 1. Check if already resolved in Auth facade
+        if (Auth::check()) {
+            $user = Auth::user();
+            return ($user instanceof Customer) ? $user : null;
+        }
+
+        // 2. Manual token resolution for Windows stability
+        $tokenStr = request()->bearerToken();
+        if ($tokenStr) {
+            $token = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenStr);
+            if ($token && $token->tokenable instanceof Customer) {
+                $user = $token->tokenable;
+                Auth::setUser($user); // Cache for this request
+                return $user;
+            }
+        }
+
+        return null;
     }
 }

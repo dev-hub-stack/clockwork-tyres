@@ -36,15 +36,36 @@ class CartController extends BaseWholesaleController
      */
     public function add(Request $request)
     {
-        $request->validate([
+        // The frontend sends `{ session_id: '...', items: [ { product_variant_id: X, quantity: Y } ] }`
+        $payload = $request->all();
+        if ($request->has('items') && is_array($request->items) && count($request->items) > 0) {
+            $item = $request->items[0];
+            $payload['product_variant_id'] = $item['product_variant_id'] ?? null;
+            $payload['quantity'] = $item['quantity'] ?? null;
+            
+            // Map the warehouse quantities if present
+            if (isset($item['warehouse_qunatity'])) {
+                $payload['warehouse_qunatity'] = $item['warehouse_qunatity'];
+            }
+        }
+
+        $validator = validator($payload, [
             'product_variant_id' => 'required|integer|exists:product_variants,id',
             'quantity'           => 'required|integer|min:1',
             'session_id'         => 'required|string',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
         $dealer = $this->dealer();
-        $cart   = $this->cartService->getOrCreateCart($dealer, $request->session_id);
-        $cart   = $this->cartService->addItem($cart, $request->all());
+        $cart   = $this->cartService->getOrCreateCart($dealer, $payload['session_id']);
+        $cart   = $this->cartService->addItem($cart, $payload);
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }

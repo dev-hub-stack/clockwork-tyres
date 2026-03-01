@@ -47,8 +47,7 @@ class ProductVariantController extends BaseWholesaleController
             'inventories.warehouse',
         ])
         ->whereHas('product', function ($q) use ($slug) {
-            $q->where('name', $slug)
-              ->orWhere('slug', $slug);
+            $q->where('name', $slug);
         })
         ->where('sku', $sku)
         ->firstOrFail();
@@ -59,16 +58,46 @@ class ProductVariantController extends BaseWholesaleController
             ->where('id', '!=', $variant->id)
             ->get();
 
+        // Get distinct rim diameters for "more sizes" tabs
+        $moreSizes = ProductVariant::where('product_id', $variant->product_id)
+            ->distinct()
+            ->orderBy('rim_diameter')
+            ->pluck('rim_diameter')
+            ->values()
+            ->toArray();
+
         // Add-ons for this product (all active add-ons with dealer pricing)
+        // Limits to 20 to prevent excessive load on detail page
         $addons = AddOn::with('category')
             ->whereNull('deleted_at')
+            ->limit(20)
             ->get()
             ->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer));
 
+        // Format inventory records to match Angular Inventory interface
+        $inventory = $variant->inventories->map(fn($inv) => [
+            'id'                 => $inv->id,
+            'product_id'         => $variant->product_id,
+            'product_variant_id' => $variant->id,
+            'warehouse_id'       => $inv->warehouse_id,
+            'quantity'           => $inv->quantity,
+            'eta'                => $inv->eta,
+            'warehouse'          => [
+                'id'             => $inv->warehouse?->id,
+                'code'           => $inv->warehouse?->code,
+                'warehouse_name' => $inv->warehouse?->name,
+            ]
+        ])->toArray();
+
         return $this->success([
-            'product'        => $this->transformer->formatVariant($variant, $dealer),
-            'other_variants' => $this->transformer->formatVariants($otherVariants, $dealer),
-            'addons'         => $addons,
+            'product'         => $this->transformer->formatVariant($variant, $dealer),
+            'other_variants'  => $this->transformer->formatVariants($otherVariants, $dealer),
+            'addons'          => $addons,
+            'product_reviews' => [],
+            'inventory'       => $inventory,
+            'finishes'        => [],
+            'more_sizes'      => $moreSizes,
+            'discounted_price' => $this->pricingService->calculateProductPrice($dealer, (float)$variant->uae_retail_price, $variant->product?->model_id, $variant->product?->brand_id)['final_price'],
         ]);
     }
 
@@ -77,7 +106,7 @@ class ProductVariantController extends BaseWholesaleController
      * Returns additional size variants for staggered fitment setups.
      *
      * Angular calls: getWheelDetailMoreSize(id, variantID, type)
-     * 'type' is 'front' or 'rear' for staggered setups, or 'standard'.
+     * 'type' is diameter value (e.g. "17") in this version of frontend.
      */
     public function moreSizes(Request $request, int $productId, int $variantId, string $type)
     {
@@ -85,20 +114,12 @@ class ProductVariantController extends BaseWholesaleController
 
         $query = ProductVariant::with(['finishRelation', 'inventories.warehouse'])
             ->where('product_id', $productId)
-            ->where('id', '!=', $variantId);
-
-        // For staggered fitment, return matching sizes filtered by type tag if stored
-        // If no type column exists, return all other variants for the product
-        if (in_array($type, ['front', 'rear'])) {
-            // Try to filter by type if the column exists
-            $query->when(
-                \Schema::hasColumn('product_variants', 'fitment_type'),
-                fn($q) => $q->where('fitment_type', $type)
-            );
-        }
+            ->where('rim_diameter', $type);
 
         $variants = $query->orderBy('rim_diameter')->orderBy('rim_width')->get();
 
-        return $this->success($this->transformer->formatVariants($variants, $dealer));
+        return $this->success([
+            'sizes' => $this->transformer->formatVariants($variants, $dealer)
+        ]);
     }
 }

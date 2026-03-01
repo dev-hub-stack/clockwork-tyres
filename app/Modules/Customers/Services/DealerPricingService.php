@@ -28,13 +28,13 @@ class DealerPricingService
      * @return array ['final_price' => float, 'discount_amount' => float, 'discount_type' => string]
      */
     public function calculateProductPrice(
-        Customer $customer,
+        ?Customer $customer,
         float $basePrice,
         ?int $modelId = null,
         ?int $brandId = null
     ): array {
-        // If not a dealer, return base price
-        if (!$customer->isDealer()) {
+        // If not a dealer or no customer, return base price
+        if (!$customer || !$customer->isDealer()) {
             return [
                 'final_price' => $basePrice,
                 'discount_amount' => 0,
@@ -91,12 +91,12 @@ class DealerPricingService
      * @return array
      */
     public function calculateAddonPrice(
-        Customer $customer,
+        ?Customer $customer,
         float $basePrice,
         ?int $addonCategoryId = null
     ): array {
-        // If not a dealer, return base price
-        if (!$customer->isDealer()) {
+        // If not a dealer or no customer, return base price
+        if (!$customer || !$customer->isDealer()) {
             return [
                 'final_price' => $basePrice,
                 'discount_amount' => 0,

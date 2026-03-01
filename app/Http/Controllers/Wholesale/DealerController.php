@@ -37,19 +37,35 @@ class DealerController extends BaseWholesaleController
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'first_name'    => 'required|string|max:100',
-            'last_name'     => 'required|string|max:100',
+            'first_name'    => 'nullable|string|max:100',
+            'last_name'     => 'nullable|string|max:100',
             'email'         => 'required|email|unique:customers,email',
-            'password'      => 'required|min:8|confirmed',
-            'phone'         => 'required|string|max:30',
+            'password'      => 'required|min:6',
+            'phone'         => 'nullable|string|max:30',
             'business_name' => 'nullable|string|max:200',
             'address'       => 'nullable|string',
             'city'          => 'nullable|string|max:100',
-            'country_id'    => 'nullable|integer|exists:countries,id',
+            'country'       => 'nullable|string|max:100', // Frontend string
+            'trade_license' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
+        // Map incoming type from frontend to valid CRM enum
+        // DB only allows 'retail' or 'wholesale'
+        $customerType = 'wholesale';
+
+        // Attempt to find country ID from name
+        $countryId = null;
+        if (!empty($validated['country'])) {
+            $country = \App\Modules\Customers\Models\Country::where('name', $validated['country'])->first();
+            $countryId = $country ? $country->id : null;
+        }
+
         $dealer = $this->createCustomerAction->execute(array_merge($validated, [
-            'customer_type' => 'dealer',
+            'first_name'    => $validated['first_name'] ?? 'Wholesale',
+            'last_name'     => $validated['last_name'] ?? 'User',
+            'phone'         => $validated['phone'] ?? '+10000000000',
+            'customer_type' => $customerType,
+            'country_id'    => $countryId,
             'password'      => Hash::make($validated['password']),
             'status'        => 'active',
         ]));
@@ -57,8 +73,8 @@ class DealerController extends BaseWholesaleController
         $token = $dealer->createToken('wholesale-app')->plainTextToken;
 
         return $this->success([
-            'token'     => $token,
-            'user_data' => $this->formatDealerData($dealer),
+            'access_token' => $token,
+            'user_data'    => $this->formatDealerData($dealer),
         ], 'Registration successful', 201);
     }
 
@@ -215,6 +231,12 @@ class DealerController extends BaseWholesaleController
             'state'                => $dealer->state,
             'customer_type'        => $dealer->customer_type,
             'status'               => $dealer->status,
+            'trade_license'        => $dealer->trade_license_path ? \Illuminate\Support\Facades\Storage::disk('s3')->url($dealer->trade_license_path) : null,
+            'business_logo'        => $dealer->profile_image ? \Illuminate\Support\Facades\Storage::disk('s3')->url($dealer->profile_image) : null,
+            'vendor'               => [
+                'status' => in_array($dealer->status, ['active', 'approved']) ? 1 : 0,
+            ],
+            'created_at'           => $dealer->created_at,
         ];
     }
 }

@@ -43,6 +43,21 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        // Read-only connection to tunerstop local DB for image sync
+        // Uses LOCAL_ prefix to avoid collision with Windows system env vars
+        'tunerstop' => [
+            'driver'    => 'mysql',
+            'host'      => env('TUNERSTOP_LOCAL_HOST', '127.0.0.1'),
+            'port'      => env('TUNERSTOP_LOCAL_PORT', '3306'),
+            'database'  => env('TUNERSTOP_LOCAL_DATABASE', 'tunerstop'),
+            'username'  => env('TUNERSTOP_LOCAL_USERNAME', 'root'),
+            'password'  => env('TUNERSTOP_LOCAL_PASSWORD', ''),
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),

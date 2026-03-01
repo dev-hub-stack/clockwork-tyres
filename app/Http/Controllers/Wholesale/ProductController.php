@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\Brand;
 use App\Modules\Products\Models\Finish;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
@@ -64,7 +65,10 @@ class ProductController extends BaseWholesaleController
         $data = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
-        return $this->success($data);
+        return $this->success([
+            'products' => $data,
+            'filters'  => $this->getFormattedFilters($request)
+        ]);
     }
 
     /**
@@ -74,29 +78,59 @@ class ProductController extends BaseWholesaleController
      */
     public function filters(Request $request)
     {
-        $baseQuery = ProductVariant::whereHas('product', fn($q) => $q->where('status', 1));
-
-        // Optionally scope to a brand
-        if ($request->filled('brand_id')) {
-            $baseQuery->whereHas('product', fn($q) => $q->where('brand_id', $request->brand_id));
-        }
-
-        $diameters   = (clone $baseQuery)->distinct()->pluck('rim_diameter')->filter()->sort()->values();
-        $widths      = (clone $baseQuery)->distinct()->pluck('rim_width')->filter()->sort()->values();
-        $boltPatterns= (clone $baseQuery)->distinct()->pluck('bolt_pattern')->filter()->sort()->values();
-        $offsets     = (clone $baseQuery)->whereNotNull('offset')->selectRaw('MIN(offset) as min_offset, MAX(offset) as max_offset')->first();
-        $finishes    = (clone $baseQuery)->with('finishRelation')->get()
-                        ->pluck('finishRelation.finish')->filter()->unique()->sort()->values();
-        $brands      = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
-
         return $this->success([
-            'diameters'    => $diameters,
-            'widths'       => $widths,
-            'bolt_patterns'=> $boltPatterns,
-            'offset_range' => $offsets ? ['min' => $offsets->min_offset, 'max' => $offsets->max_offset] : null,
-            'finishes'     => $finishes,
-            'brands'       => $brands,
+            'filters' => $this->getFormattedFilters($request)
         ]);
+    }
+
+    /**
+     * Helper to get and format filters for the frontend.
+     */
+    protected function getFormattedFilters(Request $request): array
+    {
+        $brandId = $request->brand_id;
+        $cacheKey = "wholesale_filters_" . ($brandId ?? 'all');
+
+        return \Cache::remember($cacheKey, 300, function () use ($brandId) {
+            $baseQuery = ProductVariant::active();
+
+            if ($brandId) {
+                $baseQuery->whereHas('product', fn($q) => $q->where('brand_id', $brandId));
+            }
+
+            $diameters    = (clone $baseQuery)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
+            $widths       = (clone $baseQuery)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
+            $boltPatterns = (clone $baseQuery)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
+            $offsets      = (clone $baseQuery)->whereNotNull('offset')->selectRaw('MIN(offset) as min_offset, MAX(offset) as max_offset')->first();
+
+            // Finishes are stored on the PRODUCT (products.finish_id → finishes.finish),
+            // not on product_variants. Join through the product to get the real list.
+            $finishQuery = (clone $baseQuery)
+                ->join('products', 'product_variants.product_id', '=', 'products.id')
+                ->join('finishes', 'products.finish_id', '=', 'finishes.id')
+                ->whereNotNull('products.finish_id')
+                ->distinct()
+                ->orderBy('finishes.finish')
+                ->pluck('finishes.finish');
+
+            $finishes = $finishQuery->filter()->values();
+
+            $constructions = Product::active()->whereNotNull('construction')->distinct()->pluck('construction')->filter()->sort()->values();
+            $brands       = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
+
+            // Format for frontend (array of objects with 'name' and 'checked')
+            $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item, 'checked' => false]);
+
+            return [
+                'rim_diameter'  => $formatter($diameters)->all(),
+                'rim_width'     => $formatter($widths)->all(),
+                'bolt_pattern'  => $formatter($boltPatterns)->all(),
+                'offset'        => $offsets ? [['name' => $offsets->min_offset . ' to ' . $offsets->max_offset, 'checked' => false]] : [],
+                'finish'        => $formatter($finishes)->all(),
+                'brand'         => $formatter($brands->pluck('name'))->all(),
+                'construction'  => $formatter($constructions)->all(),
+            ];
+        });
     }
 
     /**
@@ -183,7 +217,10 @@ class ProductController extends BaseWholesaleController
         $data      = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
-        return $this->success($data);
+        return $this->success([
+            'products' => $data,
+            'filters'  => $this->getFormattedFilters($request)
+        ]);
     }
 
     // ─── Private: Shared filter logic ────────────────────────────────────────
@@ -195,7 +232,12 @@ class ProductController extends BaseWholesaleController
     private function applyVariantFilters($query, Request $request): void
     {
         if ($request->filled('brand_id')) {
-            $query->whereHas('product', fn($q) => $q->where('brand_id', $request->brand_id));
+            $brandIds = explode(',', $request->brand_id);
+            $query->whereHas('product', fn($q) => $q->whereIn('brand_id', $brandIds));
+        }
+        if ($request->filled('brand')) {
+            $brandNames = explode(',', $request->brand);
+            $query->whereHas('product.brand', fn($q) => $q->whereIn('name', $brandNames));
         }
         if ($request->filled('model_id')) {
             $query->whereHas('product', fn($q) => $q->where('model_id', $request->model_id));
@@ -206,14 +248,36 @@ class ProductController extends BaseWholesaleController
                   ->orWhereHas('product', fn($p) => $p->where('finish_id', $request->finish_id));
             });
         }
-        if ($request->filled('rim_diameter')) {
-            $query->where('rim_diameter', $request->rim_diameter);
+        if ($request->filled('finish')) {
+            $values = explode(',', $request->finish);
+            // Old admin approach: look up finish IDs by LIKE match, then filter on products.finish_id
+            // This mirrors wholesaleadmin's: Finish::where('finish', 'LIKE', '%'.$value.'%')->pluck('id')
+            $finishIds = [];
+            foreach ($values as $value) {
+                $ids = \App\Modules\Products\Models\Finish::where('finish', 'LIKE', '%' . trim($value) . '%')->pluck('id');
+                $finishIds = array_merge($finishIds, $ids->all());
+            }
+            $finishIds = array_unique($finishIds);
+            $query->whereHas('product', fn($q) => $q->whereIn('finish_id', $finishIds));
         }
-        if ($request->filled('rim_width')) {
-            $query->where('rim_width', $request->rim_width);
+        if ($request->filled('construction')) {
+            $values = explode(',', $request->construction);
+            $query->whereHas('product', function($q) use ($values) {
+                $q->whereIn('construction', $values);
+            });
         }
-        if ($request->filled('bolt_pattern')) {
-            $query->where('bolt_pattern', $request->bolt_pattern);
+        // Accept both plain names (vehicle-search path) and front_* names (search-by-size path)
+        $rimDiameter = $request->rim_diameter ?? $request->front_rim_diameter;
+        if ($rimDiameter) {
+            $query->where('rim_diameter', $rimDiameter);
+        }
+        $rimWidth = $request->rim_width ?? $request->front_rim_width;
+        if ($rimWidth) {
+            $query->where('rim_width', $rimWidth);
+        }
+        $boltPattern = $request->bolt_pattern ?? $request->front_bolt_pattern;
+        if ($boltPattern) {
+            $query->where('bolt_pattern', $boltPattern);
         }
         if ($request->filled('offset_min') || $request->filled('offset_max')) {
             $query->whereBetween('offset', [
@@ -231,5 +295,31 @@ class ProductController extends BaseWholesaleController
                   ->orWhereHas('product', fn($p) => $p->where('name', 'like', $term));
             });
         }
+    }
+
+    /**
+     * GET /api/addons/{productId}
+     * Retrieve suggested addons (lug nuts, TPMS, etc.) for a specific product.
+     * Maps to Angular: apiService.getAddsOnByProduct()
+     */
+    public function getAddons($productId)
+    {
+        $dealer = $this->dealer();
+        
+        // Find add-ons explicitly linked to this product via pivot
+        $linkedAddons = \App\Modules\Products\Models\AddOn::whereHas('products', function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        })->get();
+
+        // If no specifically linked addons, fallback to global addons (products = 1)
+        if ($linkedAddons->isEmpty()) {
+            $linkedAddons = \App\Modules\Products\Models\AddOn::where('products', 1)->get();
+        }
+
+        $formatted = $linkedAddons->map(function ($addon) use ($dealer) {
+            return $this->transformer->formatAddon($addon, $dealer);
+        });
+
+        return $this->success($formatted);
     }
 }

@@ -39,15 +39,18 @@ Route::get('page/{slug}',           [PageController::class, 'show']);
 Route::get('search',                [SearchController::class, 'index']);
 Route::get('gallery',               [HomepageController::class, 'gallery']);
 Route::get('homepage',              [HomepageController::class, 'home']);
+Route::get('states/us',             [SearchController::class, 'usStates']);
+Route::get('countries',             [SearchController::class, 'countries']);
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 Route::post('auth/login',           [AuthController::class,  'postLogin']);
 Route::post('auth/forgot',          [AuthController::class,  'forgot']);
 Route::post('auth/reset-password',  [AuthController::class,  'reset']);
-Route::post('dealer',               [DealerController::class,'store']); // Registration
+Route::post('dealer',               [DealerController::class,'store']); // Retailer Registration
+Route::post('vendor',               [DealerController::class,'store']); // Brand Registration
 
 // ─── Protected routes (Bearer token required) ─────────────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('wholesale.auth')->group(function () {
 
     // ── Phase 1: Auth / Dealer profile ───────────────────────────────────────
     Route::post('profile',               [AuthController::class,   'getProfile']);
@@ -56,7 +59,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('dealer/change-password', [DealerController::class, 'changePassword']);
     Route::get('dealer/vendors',         [DealerController::class, 'findVendors']);
 
-    // ── Phase 2: Product catalog ──────────────────────────────────────────────
+});
+// ─── END Protected Auth/Profile routes ────────────────────────────────────────
+
+// ── Phase 2: Product catalog ──────────────────────────────────────────────
     Route::get('products',              [ProductController::class, 'index']);
     Route::get('filters',               [ProductController::class, 'filters']);
     Route::get('filter-wheels',         [ProductController::class, 'filterWheels']);
@@ -78,7 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Phase 2: Add-ons ──────────────────────────────────────────────────────
     Route::get('addons/{productId}',    [AddOnController::class, 'byProduct']);
 
-    // ── Phase 3: Cart ─────────────────────────────────────────────────────────
+// ── Phase 3: Cart ─────────────────────────────────────────────────────────
     Route::post('cart/add',                       [CartController::class, 'add']);
     Route::get('cart/{sessionId}/get',            [CartController::class, 'get']);
     Route::post('cart/change-quantity',           [CartController::class, 'changeQuantity']);
@@ -106,6 +112,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Phase 3: Payments ─────────────────────────────────────────────────────
     Route::post('payment',               [PaymentController::class, 'initiate']);
     Route::post('send-purchase-event',   [PaymentController::class, 'sendPurchaseEvent']);
+
+// ─── Protected routes (Bearer token required for user-specific data) ──────────
+Route::middleware('wholesale.auth')->group(function () {
 
     // ── Phase 5: Address Book ─────────────────────────────────────────────────
     Route::get('address-book/all',            [AddressBookController::class, 'index']);

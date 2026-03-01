@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Products\Models\Brand;
+use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Http\Request;
@@ -58,12 +59,18 @@ class BrandController extends BaseWholesaleController
             'id'            => $b->id,
             'name'          => $b->name,
             'slug'          => $b->slug,
-            'logo'          => $b->logo,
+            'image'         => $b->logo,   // Angular template uses brand.image
             'description'   => $b->description,
             'product_count' => $b->products_count,
-        ]);
+        ])->values()->all();
 
-        return $this->success($formatted);
+        // Angular brand component expects: response.data.brands.data + response.data.brands.next_page_url
+        return $this->success([
+            'brands' => [
+                'data'          => $formatted,
+                'next_page_url' => null,
+            ],
+        ]);
     }
 
     /**
@@ -73,30 +80,32 @@ class BrandController extends BaseWholesaleController
      */
     public function brandProducts(Request $request, string $brandSlug)
     {
-        $dealer = $this->dealer();
-
         $brand = Brand::where('slug', $brandSlug)
             ->orWhere('name', urldecode($brandSlug))
             ->firstOrFail();
 
-        $query = ProductVariant::with([
-            'product.brand',
-            'product.model',
-            'finishRelation',
-            'inventories.warehouse',
-        ])
-        ->whereHas('product', fn($q) => $q->where('brand_id', $brand->id)->where('status', 1));
+        // Return unique products for this brand that actually have variants
+        $products = Product::where('brand_id', $brand->id)
+            ->where('status', 1)
+            ->whereHas('variants')   // only products that have at least one variant
+            ->get(['id', 'name', 'images']);
 
-        // Apply variant-level filters (diameter, width, finish, offset, etc.)
-        $this->applyFilters($query, $request);
+        $formatted = $products
+            ->unique('name')          // deduplicate same-named products
+            ->map(fn(Product $p) => [
+                'name'   => $p->name,
+                'slug'   => $p->name,
+                'images' => $p->images ?? [],
+            ])->values()->all();
 
-        $paginator = $query->paginate(20, ['product_variants.*'], 'page', $request->page ?? 1);
-
-        $data         = $paginator->toArray();
-        $data['brand'] = ['id' => $brand->id, 'name' => $brand->name, 'slug' => $brand->slug, 'logo' => $brand->logo];
-        $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
-
-        return $this->success($data);
+        // Angular template expects: brandProducts.image, brandProducts.name, brandProducts.products[]
+        return $this->success([
+            'products' => [
+                'image'    => $brand->logo,   // brand logo
+                'name'     => $brand->name,
+                'products' => $formatted,
+            ],
+        ]);
     }
 
     /**
@@ -112,19 +121,15 @@ class BrandController extends BaseWholesaleController
             ->orWhere('name', urldecode($brandSlug))
             ->firstOrFail();
 
+        // products table has no slug column — match by name only
         $variants = ProductVariant::with([
             'product.brand',
             'product.model',
-            'finishRelation',
-            'inventories.warehouse',
         ])
         ->whereHas('product', function ($q) use ($brand, $productSlug) {
             $q->where('brand_id', $brand->id)
               ->where('status', 1)
-              ->where(function ($inner) use ($productSlug) {
-                  $inner->where('name', urldecode($productSlug))
-                        ->orWhere('slug', $productSlug);
-              });
+              ->where('name', urldecode($productSlug));
         })
         ->get();
 
@@ -132,35 +137,66 @@ class BrandController extends BaseWholesaleController
             return $this->error('Product not found.', null, 404);
         }
 
-        return $this->success($this->transformer->formatVariants($variants, $dealer));
+        $firstVariant = $variants->first();
+        $product      = $firstVariant->product;
+
+        // Distinct rim diameters for the size tabs
+        $moreSizes = ProductVariant::where('product_id', $product->id)
+            ->distinct()
+            ->orderBy('rim_diameter')
+            ->pluck('rim_diameter')
+            ->filter()
+            ->values()
+            ->all();
+
+        // Angular template expects: brandProductVariants.product.{ name, finish, images, id }
+        //                           brandProductVariants.image  (brand logo)
+        //                           wheelSizeTypes = response.data.more_sizes
+        return $this->success([
+            'products' => [
+                'image'   => $brand->logo,
+                'product' => [
+                    'id'     => $product->id,
+                    'name'   => $product->name,
+                    'images' => $product->images ?? [],
+                    'finish' => [
+                    'finish' => $firstVariant->getRawOriginal('finish') ?? '',   // avoid finish() relation shadowing column
+                ],
+                ],
+            ],
+            'more_sizes' => $moreSizes,
+        ]);
     }
 
     /**
      * GET /api/brand-product-more-sizes/{id}/{type}
-     * Returns staggered size variants for a product variant on brand pages.
-     * Angular calls: getProductMoreSizes(id, type)
+     * Returns variants for a product filtered by rim_diameter.
+     * Angular calls: getProductMoreSizes(product.id, rim_diameter)
+     * Response: { data: { sizes: [ { sku, size, bolt_pattern, offset, weight, total_quantity } ] } }
      */
-    public function productMoreSizes(Request $request, int $variantId, string $type)
+    public function productMoreSizes(Request $request, int $productId, string $type)
     {
-        $dealer = $this->dealer();
+        $query = ProductVariant::with(['finishRelation'])
+            ->where('product_id', $productId);
 
-        $variant = ProductVariant::with(['product'])->findOrFail($variantId);
-
-        $query = ProductVariant::with(['finishRelation', 'inventories.warehouse'])
-            ->where('product_id', $variant->product_id)
-            ->where('id', '!=', $variantId);
-
-        // Try type-based filter if the column exists (staggered fitment)
-        if (in_array($type, ['front', 'rear'])) {
-            $query->when(
-                \Schema::hasColumn('product_variants', 'fitment_type'),
-                fn($q) => $q->where('fitment_type', $type)
-            );
+        // $type is a rim diameter (numeric string like "18", "19")
+        if (is_numeric($type)) {
+            $query->where('rim_diameter', $type);
         }
 
-        $variants = $query->orderBy('rim_diameter')->orderBy('rim_width')->get();
+        $variants = $query->orderBy('rim_width')->get();
 
-        return $this->success($this->transformer->formatVariants($variants, $dealer));
+        $sizes = $variants->map(fn(ProductVariant $v) => [
+            'sku'            => $v->sku,
+            'finish'         => $v->getRawOriginal('finish') ?? '',  // avoid finish() relation method shadowing the column
+            'size'           => $v->rim_diameter . 'x' . $v->rim_width,
+            'bolt_pattern'   => $v->bolt_pattern,
+            'offset'         => $v->offset,
+            'weight'         => $v->weight,
+            'total_quantity' => $v->supplier_stock ?? 0,
+        ])->values()->all();
+
+        return $this->success(['sizes' => $sizes]);
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────

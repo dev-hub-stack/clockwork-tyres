@@ -35,18 +35,37 @@ class CartService
      * Find an existing cart by session_id or dealer_id, or create a new one.
      * Ensures a dealer never has two active carts simultaneously.
      */
-    public function getOrCreateCart(Customer $dealer, string $sessionId): Cart
+    public function getOrCreateCart(?Customer $dealer, string $sessionId): Cart
     {
-        return Cart::withTrashed(false)
-            ->where(function ($q) use ($dealer, $sessionId) {
-                $q->where('session_id', $sessionId)
-                  ->orWhere('dealer_id', $dealer->id);
-            })
-            ->with(['items.variant.product.brand', 'addons.addon', 'coupon'])
-            ->firstOrCreate(
-                ['session_id' => $sessionId],
-                ['dealer_id' => $dealer->id]
-            );
+        $query = Cart::withTrashed(false)->where('session_id', $sessionId);
+
+        if ($dealer) {
+            $query->orWhere('dealer_id', $dealer->id);
+        }
+
+        $cart = $query->with([
+            'items.variant.product.brand', 
+            'items.variant.product.model', 
+            'items.variant.finishRelation', 
+            'items.variant.inventories.warehouse', 
+            'addons.addon.category', 
+            'coupon'
+        ])
+            ->first();
+
+        if (!$cart) {
+            $cart = Cart::create([
+                'session_id' => $sessionId,
+                'dealer_id'  => $dealer?->id
+            ]);
+        }
+
+        // If guest cart found, but dealer now logged in, associate it
+        if ($dealer && !$cart->dealer_id) {
+            $cart->update(['dealer_id' => $dealer->id]);
+        }
+
+        return $cart;
     }
 
     /**
@@ -307,8 +326,17 @@ class CartService
      */
     public function formatCartResponse(Cart $cart): array
     {
-        $cart->load(['items.variant.product.brand', 'items.variant.finishRelation', 'items.warehouse', 'addons.addon.category', 'coupon', 'shippingAddress']);
-        $dealer = $cart->dealer ?? Customer::find($cart->dealer_id);
+        $cart->load([
+            'items.variant.product.brand', 
+            'items.variant.product.model',
+            'items.variant.finishRelation', 
+            'items.variant.inventories.warehouse',
+            'items.warehouse', 
+            'addons.addon.category', 
+            'coupon', 
+            'shippingAddress'
+        ]);
+        $dealer = $cart->dealer ?? ($cart->dealer_id ? Customer::find($cart->dealer_id) : null);
 
         $cartItems = $cart->items->map(function (CartItem $item) use ($dealer) {
             $variantData = $item->variant
@@ -324,7 +352,16 @@ class CartService
                 'warehouse'          => $item->warehouse ? ['id' => $item->warehouse->id, 'name' => $item->warehouse->name] : null,
                 'type'               => $item->type,
                 'quantity'           => $item->quantity,
+                'warehouse_quantity' => [
+                    [
+                        'quantity'   => $item->quantity,
+                        'ware_house' => [
+                            'warehouse_name' => $item->warehouse?->name ?? 'Default Warehouse'
+                        ]
+                    ]
+                ],
                 'price'              => (float) $item->unit_price,
+                'sale_price'         => (float) $item->unit_price, // Added for frontend compatibility
                 'total'              => (float) $item->total_price,
                 'eta'                => $item->eta,
                 'discount'           => 0,
