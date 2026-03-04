@@ -248,20 +248,31 @@ class CartService
     }
 
     /**
-     * Set shipping cost based on selected option (from config/wholesale.php).
+     * Set shipping cost based on selected option.
+     *
+     * - Pickup → always AED 0
+     * - Delivery → tiered rate from CRM SystemSetting:
+     *     admin.shipping_rate_upto_four  = base rate for up to 4 items  (default 200)
+     *     admin.shipping_rate_per_item   = rate per item beyond 4        (default 50)
      */
     public function calculateShipping(Cart $cart, string $option): Cart
     {
-        $rates = config('wholesale.shipping_rates', []);
-
-        // Check if order qualifies for free shipping
-        if ((float) $cart->sub_total >= config('wholesale.free_shipping_threshold', 9999999)) {
-            $cart->shipping = 0;
-            $cart->shipping_option = 'free';
-        } else {
-            $cart->shipping = $rates[$option] ?? $rates['standard'] ?? 50.00;
-            $cart->shipping_option = $option;
+        if (strtolower($option) === 'pickup') {
+            $cart->shipping        = 0;
+            $cart->shipping_option = 'Pickup';
+            return $this->recalculateAndReturn($cart);
         }
+
+        // Delivery: tiered rate from CRM admin settings
+        $baseRate  = (float) \App\Modules\Settings\Models\SystemSetting::get('admin.shipping_rate_upto_four', 200);
+        $extraRate = (float) \App\Modules\Settings\Models\SystemSetting::get('admin.shipping_rate_per_item', 50);
+
+        $totalQty = (int) $cart->items->sum('quantity');
+        $extraQty = max(0, $totalQty - 4);
+        $shipping = $baseRate + ($extraQty * $extraRate);
+
+        $cart->shipping        = round($shipping, 2);
+        $cart->shipping_option = $option;
 
         return $this->recalculateAndReturn($cart);
     }
