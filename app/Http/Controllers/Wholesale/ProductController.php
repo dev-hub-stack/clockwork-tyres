@@ -310,13 +310,15 @@ class ProductController extends BaseWholesaleController
         $dealer = $this->dealer();
         
         // Find add-ons explicitly linked to this product via pivot
-        $linkedAddons = \App\Modules\Products\Models\AddOn::whereHas('products', function ($q) use ($productId) {
-            $q->where('product_id', $productId);
-        })->get();
+        $linkedAddons = \App\Modules\Products\Models\AddOn::with('inventories')
+            ->whereHas('products', function ($q) use ($productId) {
+                $q->where('product_id', $productId);
+            })->get();
 
         // If no specifically linked addons, fallback to global addons (products = 1)
         if ($linkedAddons->isEmpty()) {
-            $linkedAddons = \App\Modules\Products\Models\AddOn::where('products', 1)->get();
+            $linkedAddons = \App\Modules\Products\Models\AddOn::with('inventories')
+                ->where('products', 1)->get();
         }
 
         $formatted = $linkedAddons->map(function ($addon) use ($dealer) {

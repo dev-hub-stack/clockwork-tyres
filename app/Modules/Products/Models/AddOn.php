@@ -65,6 +65,14 @@ class AddOn extends Model
     }
 
     /**
+     * Get inventory records for this addon
+     */
+    public function inventories()
+    {
+        return $this->hasMany(\App\Modules\Inventory\Models\ProductInventory::class, 'add_on_id');
+    }
+
+    /**
      * Accessor for image (maps to image_1)
      */
     public function getImageAttribute($value)

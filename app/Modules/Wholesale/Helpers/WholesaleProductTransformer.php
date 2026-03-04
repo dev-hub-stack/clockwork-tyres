@@ -170,7 +170,11 @@ class WholesaleProductTransformer
                 ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
                 : null,
             'stock_status'    => (bool) $addon->stock_status,
-            'total_quantity'  => (int) ($addon->total_quantity ?? 0),
+            'total_quantity'  => (int) (
+                $addon->relationLoaded('inventories')
+                    ? $addon->inventories->sum('quantity')
+                    : ProductInventory::where('add_on_id', $addon->id)->sum('quantity')
+            ),
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
             'thread_length'   => $addon->thread_length,
