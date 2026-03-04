@@ -88,6 +88,10 @@ class Order extends Model
         'order_notes',
         'internal_notes',
         'delivery_note',
+
+        // Wholesale checkout fields
+        'delivery_options',
+        'shipping_address_id',
         
         // Workflow
         'order_workflow_status',

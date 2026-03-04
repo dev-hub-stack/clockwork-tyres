@@ -40,6 +40,8 @@ class AddOn extends Model
         // External tracking
         'external_addon_id',
         'external_source',
+        // Inventory tracking
+        'track_inventory',
         // Additional fields for compatibility
         'size',
         'unit',
@@ -50,6 +52,7 @@ class AddOn extends Model
         'price' => 'decimal:2',
         'wholesale_price' => 'decimal:2',
         'tax_inclusive' => 'boolean',
+        'track_inventory' => 'boolean',
         'notify_restock' => 'array',
     ];
 

@@ -10,6 +10,7 @@ use App\Modules\Wholesale\Cart\Models\Cart;
 use App\Modules\Wholesale\Cart\Models\CartItem;
 use App\Modules\Wholesale\Cart\Models\CartAddon;
 use App\Modules\Wholesale\Cart\Models\Coupon;
+use App\Modules\Settings\Models\TaxSetting;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Support\Facades\DB;
 
@@ -266,11 +267,11 @@ class CartService
     }
 
     /**
-     * Apply VAT to the cart based on the configured VAT rate (default 5%).
+     * Apply VAT to the cart based on the admin global VAT setting.
      */
     public function calculateVat(Cart $cart): Cart
     {
-        $vatRate  = config('wholesale.vat_rate', 0.05);
+        $vatRate  = $this->getVatRate();
         $taxable  = (float) $cart->sub_total - (float) $cart->discount + (float) $cart->shipping;
         $cart->vat = round($taxable * $vatRate, 2);
         $cart->total = round($taxable + $cart->vat, 2);
@@ -285,18 +286,60 @@ class CartService
      */
     public function recalculateTotals(Cart $cart): void
     {
-        $cart->load('items', 'addons');
+        $cart->load('items', 'addons.addon');
 
-        $itemsTotal  = $cart->items->sum('total_price');
-        $addonsTotal = $cart->addons->sum('total_price');
-        $subTotal    = round($itemsTotal + $addonsTotal, 2);
+        // ── Tax settings ──────────────────────────────────────────────────────
+        $tax              = TaxSetting::getDefault();
+        $vatRate          = $tax ? (float) $tax->rate / 100 : 0.0;
+        $globalInclusive  = $tax ? (bool) $tax->tax_inclusive_default : false;
 
-        $discount    = (float) $cart->discount;
-        $shipping    = (float) $cart->shipping;
-        $vatRate     = config('wholesale.vat_rate', 0.05);
-        $taxable     = max(0, $subTotal - $discount + $shipping);
-        $vat         = round($taxable * $vatRate, 2);
-        $total       = round($taxable + $vat, 2);
+        // ── Item totals ───────────────────────────────────────────────────────
+        $itemsTotal = (float) $cart->items->sum('total_price');
+
+        // An item is tax-inclusive if the global default is inclusive (all prices include VAT),
+        // OR if the addon itself has been explicitly marked as tax-inclusive.
+        // The global setting cannot be overridden to exclusive per-addon — only to inclusive.
+        $isAddonInclusive = fn($a) => $globalInclusive || ($a->addon && $a->addon->tax_inclusive);
+
+        // Split addons by effective tax-inclusive status
+        $inclusiveAddonsTotal  = (float) $cart->addons
+            ->filter($isAddonInclusive)
+            ->sum('total_price');
+        $exclusiveAddonsTotal  = (float) $cart->addons
+            ->reject($isAddonInclusive)
+            ->sum('total_price');
+
+        $subTotal = round($itemsTotal + $inclusiveAddonsTotal + $exclusiveAddonsTotal, 2);
+        $discount = (float) $cart->discount;
+        $shipping = (float) $cart->shipping;
+
+        // ── VAT calculation ───────────────────────────────────────────────────
+        // Tax-inclusive addons: VAT is embedded → extract it for display
+        $vatFromInclusiveAddons = $vatRate > 0
+            ? round($inclusiveAddonsTotal * $vatRate / (1 + $vatRate), 2)
+            : 0.0;
+
+        if ($globalInclusive) {
+            // Wheel item prices already contain VAT → extract
+            $vatFromItems = $vatRate > 0
+                ? round($itemsTotal * $vatRate / (1 + $vatRate), 2)
+                : 0.0;
+            // Tax-exclusive addons override global → add VAT on top
+            $vatFromExclusiveAddons = round($exclusiveAddonsTotal * $vatRate, 2);
+
+            // Shipping is never subject to VAT
+            $vat   = round($vatFromItems + $vatFromInclusiveAddons + $vatFromExclusiveAddons, 2);
+            $total = round($subTotal - $discount + $shipping + $vatFromExclusiveAddons, 2);
+        } else {
+            // Wheel item prices are ex-VAT → add VAT on top
+            $vatFromItems = round($itemsTotal * $vatRate, 2);
+            // Tax-exclusive addons: same, add on top
+            $vatFromExclusiveAddons = round($exclusiveAddonsTotal * $vatRate, 2);
+
+            // Shipping is never subject to VAT
+            $vat   = round($vatFromItems + $vatFromInclusiveAddons + $vatFromExclusiveAddons, 2);
+            $total = round($subTotal - $discount + $shipping + $vatFromItems + $vatFromExclusiveAddons, 2);
+        }
 
         $cart->sub_total = $subTotal;
         $cart->vat       = $vat;
@@ -349,14 +392,14 @@ class CartService
                 'product_id'         => $item->variant?->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'product_variant'    => $variantData,
-                'warehouse'          => $item->warehouse ? ['id' => $item->warehouse->id, 'name' => $item->warehouse->name] : null,
+                'warehouse'          => $item->warehouse ? ['id' => $item->warehouse->id, 'name' => $item->warehouse->warehouse_name] : null,
                 'type'               => $item->type,
                 'quantity'           => $item->quantity,
                 'warehouse_quantity' => [
                     [
                         'quantity'   => $item->quantity,
                         'ware_house' => [
-                            'warehouse_name' => $item->warehouse?->name ?? 'Default Warehouse'
+                            'warehouse_name' => $item->warehouse?->warehouse_name ?? 'Unknown Warehouse'
                         ]
                     ]
                 ],
@@ -369,14 +412,18 @@ class CartService
         });
 
         $addons = $cart->addons->map(function (CartAddon $a) use ($dealer) {
+            $addonData = $a->addon ? $this->transformer->formatAddon($a->addon, $dealer) : [];
             return [
-                'id'         => $a->id,
-                'cart_id'    => $a->cart_id,
-                'addon_id'   => $a->addon_id,
-                'addon'      => $a->addon ? $this->transformer->formatAddon($a->addon, $dealer) : [],
-                'quantity'   => $a->quantity,
-                'price'      => (float) $a->unit_price,
-                'total'      => (float) $a->total_price,
+                'id'          => $a->id,
+                'cart_id'     => $a->cart_id,
+                'addon_id'    => $a->addon_id,
+                'image'       => $addonData['image'] ?? null,
+                'title'       => $addonData['title'] ?? '',
+                'quantity'    => $a->quantity,
+                'unit_price'  => (float) $a->unit_price,
+                'total_price' => (float) $a->total_price,
+                'stock_status' => $addonData['stock_status'] ?? false,
+                'addon'       => $addonData,
             ];
         });
 
@@ -405,6 +452,16 @@ class CartService
     {
         $this->recalculateTotals($cart);
         return $cart->refresh();
+    }
+
+    /**
+     * Resolve VAT rate from the admin's default TaxSetting (e.g. 5 → 0.05).
+     * Falls back to 0 if no active default is configured.
+     */
+    private function getVatRate(): float
+    {
+        $tax = TaxSetting::getDefault();
+        return $tax ? (float) $tax->rate / 100 : 0.0;
     }
 
     /**

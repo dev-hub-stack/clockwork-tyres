@@ -82,7 +82,21 @@ class OrderFulfillmentService
                 'partial' => count($results['partial']),
                 'failed' => count($results['failed']),
             ]);
-            
+
+            // Set order-level warehouse_id to the most-used warehouse (removes "Non-Stock" label)
+            if (!$order->warehouse_id) {
+                $order->refresh();
+                $dominantWarehouse = $order->items()
+                    ->whereNotNull('warehouse_id')
+                    ->select('warehouse_id', DB::raw('count(*) as cnt'))
+                    ->groupBy('warehouse_id')
+                    ->orderByDesc('cnt')
+                    ->value('warehouse_id');
+                if ($dominantWarehouse) {
+                    $order->update(['warehouse_id' => $dominantWarehouse]);
+                }
+            }
+
             return $results;
         });
     }
@@ -99,15 +113,59 @@ class OrderFulfillmentService
         $quantityNeeded = $item->quantity;
         $quantityAllocated = 0;
         
-        // Skip addons (they don't have physical inventory)
+        // Handle addons — only deduct if track_inventory is enabled
         if ($item->isAddon()) {
-            $item->update(['allocated_quantity' => $item->quantity]);
+            $addon = $item->addon;
+            if ($addon && $addon->track_inventory) {
+                // Find inventory for this addon (prefer specific warehouse)
+                $addonInventories = ProductInventory::where('add_on_id', $item->add_on_id)
+                    ->where('quantity', '>', 0)
+                    ->when($warehouseId, fn($q) => $q->orderByRaw("CASE WHEN warehouse_id = {$warehouseId} THEN 0 ELSE 1 END"))
+                    ->orderBy('quantity', 'desc')
+                    ->get();
+
+                foreach ($addonInventories as $inventory) {
+                    if ($quantityAllocated >= $quantityNeeded) break;
+
+                    $available    = $inventory->quantity;
+                    $qtyToAllocate = min($available, $quantityNeeded - $quantityAllocated);
+
+                    if ($qtyToAllocate > 0) {
+                        OrderItemQuantity::updateOrCreate(
+                            ['order_item_id' => $item->id, 'warehouse_id' => $inventory->warehouse_id],
+                            ['quantity' => $qtyToAllocate]
+                        );
+                        $inventory->decrement('quantity', $qtyToAllocate);
+                        InventoryLog::create([
+                            'warehouse_id'       => $inventory->warehouse_id,
+                            'add_on_id'          => $item->add_on_id,
+                            'action'             => 'sale',
+                            'quantity_before'    => $available,
+                            'quantity_after'     => $available - $qtyToAllocate,
+                            'quantity_change'    => -$qtyToAllocate,
+                            'reference_type'     => 'order',
+                            'reference_id'       => $item->order_id,
+                            'notes'              => "Addon allocated for Order #{$item->order->order_number}",
+                        ]);
+                        // Set warehouse on the item so quote detail shows it
+                        if (!$item->warehouse_id) {
+                            $item->update(['warehouse_id' => $inventory->warehouse_id]);
+                        }
+                        $quantityAllocated += $qtyToAllocate;
+                    }
+                }
+            } else {
+                // Non-tracked addon — mark as allocated, no inventory deduction needed
+                $quantityAllocated = $quantityNeeded;
+            }
+
+            $item->update(['allocated_quantity' => $quantityAllocated]);
             return [
-                'item_id' => $item->id,
-                'sku' => $item->sku,
+                'item_id'   => $item->id,
+                'sku'       => $item->sku,
                 'requested' => $quantityNeeded,
-                'allocated' => $quantityNeeded,
-                'is_addon' => true,
+                'allocated' => $quantityAllocated,
+                'is_addon'  => true,
             ];
         }
         
@@ -139,6 +197,11 @@ class OrderFulfillmentService
                 
                 // Reduce inventory
                 $inventory->decrement('quantity', $qtyToAllocate);
+                
+                // Set warehouse on the order item itself for quote detail visibility
+                if (!$item->warehouse_id) {
+                    $item->update(['warehouse_id' => $inventory->warehouse_id]);
+                }
                 
                 // Create inventory log
                 InventoryLog::create([
@@ -259,8 +322,34 @@ class OrderFulfillmentService
             $itemsReleased = 0;
             
             foreach ($order->items as $item) {
-                // Skip addons
+                // Release tracked addon inventory
                 if ($item->isAddon()) {
+                    $addon = $item->addon;
+                    if ($addon && $addon->track_inventory) {
+                        foreach ($item->quantities as $quantity) {
+                            $inventory = ProductInventory::where('warehouse_id', $quantity->warehouse_id)
+                                ->where('add_on_id', $item->add_on_id)
+                                ->first();
+                            if ($inventory) {
+                                $oldQty = $inventory->quantity;
+                                $inventory->increment('quantity', $quantity->quantity);
+                                InventoryLog::create([
+                                    'warehouse_id'    => $inventory->warehouse_id,
+                                    'add_on_id'       => $item->add_on_id,
+                                    'action'          => 'return',
+                                    'quantity_before' => $oldQty,
+                                    'quantity_after'  => $oldQty + $quantity->quantity,
+                                    'quantity_change' => $quantity->quantity,
+                                    'reference_type'  => 'order',
+                                    'reference_id'    => $order->id,
+                                    'notes'           => "Addon released from cancelled Order #{$order->order_number}",
+                                ]);
+                            }
+                            $quantity->delete();
+                            $itemsReleased++;
+                        }
+                        $item->update(['allocated_quantity' => 0]);
+                    }
                     continue;
                 }
                 

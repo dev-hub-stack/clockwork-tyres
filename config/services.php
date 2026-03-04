@@ -39,4 +39,16 @@ return [
         'api_key' => env('CRM_API_KEY'),
     ],
 
+    'stripe' => [
+        'key'            => env('STRIPE_CLIENT_ID'),
+        'secret'         => env('STRIPE_API_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    'postpay' => [
+        'merchant_id' => env('POSTPAY_MERCHANT_ID'),
+        'secret'      => env('POSTPAY_SECRET_ID'),
+        'sandbox'     => env('POSTPAY_SANDBOX', false),
+    ],
+
 ];

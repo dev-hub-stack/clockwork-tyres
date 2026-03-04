@@ -6,6 +6,7 @@ use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Services\OrderFulfillmentService;
+use App\Modules\Settings\Models\CompanyBranding;
 use Illuminate\Support\Facades\Log;
 
 class OrderObserver
@@ -70,70 +71,54 @@ class OrderObserver
     }
 
     /**
-     * Generate a unique quote number
-     * Format: QUO-YYYY-XXXX
+     * Generate a unique quote number.
+     * Format: {QuotePrefix}YYYY-XXXX — prefix read from CRM Settings (e.g. "QUO-")
      */
     protected function generateQuoteNumber(): string
     {
-        $year = date('Y');
-        $prefix = "QUO-{$year}-";
-        
-        // Get the highest quote number for this year (including soft deleted)
+        $branding  = CompanyBranding::getActive();
+        $rawPrefix = rtrim($branding?->quote_prefix ?? 'QUO-', '-') . '-';
+        $prefix    = $rawPrefix . date('Y') . '-';
+
         $lastQuote = Order::withTrashed()
             ->where('quote_number', 'LIKE', $prefix . '%')
             ->orderBy('quote_number', 'desc')
             ->first();
-        
-        if ($lastQuote) {
-            // Extract the number and increment
-            $lastNumber = (int) substr($lastQuote->quote_number, -4);
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
-        }
-        
+
+        $newNumber   = $lastQuote ? ((int) substr($lastQuote->quote_number, -4)) + 1 : 1;
         $quoteNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
-        
-        // Extra safety: Check if this number exists (shouldn't happen but just in case)
+
         while (Order::withTrashed()->where('quote_number', $quoteNumber)->exists()) {
             $newNumber++;
             $quoteNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
         }
-        
+
         return $quoteNumber;
     }
 
     /**
-     * Generate a unique order number
-     * Format: ORD-YYYY-XXXX
+     * Generate a unique order number.
+     * Format: {OrderPrefix}YYYY-XXXX — prefix read from CRM Settings (e.g. "ORD-")
      */
     protected function generateOrderNumber(): string
     {
-        $year = date('Y');
-        $prefix = "ORD-{$year}-";
-        
-        // Get the highest order number for this year (including soft deleted)
+        $branding  = CompanyBranding::getActive();
+        $rawPrefix = rtrim($branding?->order_prefix ?? 'ORD-', '-') . '-';
+        $prefix    = $rawPrefix . date('Y') . '-';
+
         $lastOrder = Order::withTrashed()
             ->where('order_number', 'LIKE', $prefix . '%')
             ->orderBy('order_number', 'desc')
             ->first();
-        
-        if ($lastOrder) {
-            // Extract the number and increment
-            $lastNumber = (int) substr($lastOrder->order_number, -4);
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
-        }
-        
-        $orderNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
-        
-        // Extra safety: Check if this number exists (shouldn't happen but just in case)
+
+        $newNumber    = $lastOrder ? ((int) substr($lastOrder->order_number, -4)) + 1 : 1;
+        $orderNumber  = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+
         while (Order::withTrashed()->where('order_number', $orderNumber)->exists()) {
             $newNumber++;
             $orderNumber = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
         }
-        
+
         return $orderNumber;
     }
 

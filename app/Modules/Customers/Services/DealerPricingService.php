@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Cache;
  * DealerPricingService
  * 
  * CRITICAL: This service implements the dealer pricing hierarchy
- * Priority: Model-specific (HIGHEST) > Brand-specific (MEDIUM) > Addon Category (for addons)
+     * Priority: Model-specific (HIGHEST) > Brand-specific (MEDIUM) > Addon Category (for addons)
  * 
  * This service is used across ALL modules: Orders, Quotes, Invoices, Consignments, Warranties
  */

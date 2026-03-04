@@ -9,7 +9,7 @@ return [
     | Applied to (sub_total - discount + shipping) when calculateVat() is called.
     | Default: 5% (UAE standard VAT)
     */
-    'vat_rate' => env('WHOLESALE_VAT_RATE', 0.05),
+    'vat_rate' => env('WHOLESALE_VAT_RATE', 0),
 
     /*
     |--------------------------------------------------------------------------

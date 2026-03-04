@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Wholesale;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
 use App\Modules\Orders\Enums\PaymentStatus;
+use App\Modules\Wholesale\Cart\Models\Cart;
+use App\Modules\Wholesale\Cart\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -46,10 +48,12 @@ class PaymentController extends BaseWholesaleController
         if ($request->filled('order_id')) {
             $order = Order::where('customer_id', $dealer->id)->find($request->order_id);
         }
-        // If no order_id, find most recent pending order for this dealer
+        // Fallback: find most recent wholesale order awaiting payment for this dealer
         if (! $order) {
             $order = Order::where('customer_id', $dealer->id)
-                ->where('status', 'pending')
+                ->where('channel', 'wholesale')
+                ->whereIn('quote_status', ['sent', 'pending'])
+                ->whereNotIn('payment_status', ['paid', 'partially_paid'])
                 ->latest()
                 ->first();
         }
@@ -116,16 +120,26 @@ class PaymentController extends BaseWholesaleController
 
             // Record payment in CRM
             Payment::create([
-                'order_id'           => $order->id,
-                'gateway'            => 'stripe',
-                'gateway_payment_id' => $charge->id,
-                'amount'             => $order->total,
-                'status'             => 'paid',
+                'order_id'        => $order->id,
+                'customer_id'     => $dealer->id,
+                'payment_method'  => 'stripe',
+                'reference_number'=> $charge->id,
+                'amount'          => $order->total,
+                'status'          => 'paid',
+                'currency'        => 'AED',
+                'payment_date'    => now(),
             ]);
 
-            $order->update(['payment_status' => 'paid', 'status' => 'confirmed']);
+            $order->update(['payment_status' => 'paid', 'order_status' => 'processing']);
+
+            // Clear the wholesale cart after successful payment
+            $cart = Cart::where('dealer_id', $dealer->id)->first();
+            if ($cart) {
+                app(CartService::class)->clearCart($cart);
+            }
 
             return $this->success([
+                'orderId'      => $order->id,
                 'order_id'     => $order->id,
                 'order_number' => $order->order_number,
                 'charge_id'    => $charge->id,
@@ -143,30 +157,71 @@ class PaymentController extends BaseWholesaleController
     private function handlePostPay(Request $request, Order $order, $dealer): \Illuminate\Http\JsonResponse
     {
         try {
-            // PostPay creates a checkout session and returns a redirect URL
-            // TODO: Integrate PostPay PHP SDK: composer require postpay/postpay-php
-            // $postpay = new \Postpay\Postpay(config('services.postpay.merchant_id'), config('services.postpay.secret'));
-            // $session = $postpay->checkout->create([...]);
+            $postpay = new \Postpay\Postpay([
+                'merchant_id' => config('services.postpay.merchant_id'),
+                'secret_key'  => config('services.postpay.secret'),
+                'sandbox'     => config('services.postpay.sandbox', false),
+            ]);
 
-            // Placeholder response until SDK is installed
+            $lineItems = [];
+            foreach ($order->items as $item) {
+                $lineItems[] = [
+                    'reference'  => (string) $item->product_id,
+                    'name'       => $item->product_name ?? 'Product',
+                    'qty'        => (int) $item->quantity,
+                    'unit_price' => (int) round($item->unit_price * 100),
+                ];
+            }
+
+            $response = $postpay->post('/orders', [
+                'merchant_order_id' => (string) $order->order_number,
+                'total_amount'      => (int) round($order->total * 100),
+                'currency'          => 'AED',
+                'items'             => $lineItems,
+                'merchant'          => [
+                    'confirmation_url' => config('app.url') . '/api/postpay/confirm',
+                    'cancel_url'       => config('app.url') . '/api/postpay/cancel',
+                ],
+                'billing_address' => [
+                    'first_name' => $dealer->name,
+                    'email'      => $dealer->email,
+                    'phone'      => $dealer->phone ?? '',
+                    'line1'      => $dealer->address ?? '',
+                    'city'       => $dealer->city ?? '',
+                    'country'    => 'AE',
+                ],
+            ]);
+
+            $body = $response->json();
+            $redirectUrl = $body['redirect_url'] ?? null;
+
+            // Record pending payment
+            Payment::create([
+                'order_id'        => $order->id,
+                'payment_method'  => 'postpay',
+                'reference_number'=> $body['id'] ?? null,
+                'amount'          => $order->total,
+                'status'          => 'pending',
+                'currency'        => 'AED',
+            ]);
+
             return $this->success([
                 'gateway'      => 'PostPay',
                 'order_id'     => $order->id,
                 'order_number' => $order->order_number,
-                'redirect_url' => null, // Will be $session->redirect_url after SDK integration
-                'message'      => 'PostPay SDK not yet installed. Run: composer require postpay/postpay-php',
+                'redirect_url' => $redirectUrl,
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('PostPay initiation failed', ['error' => $e->getMessage()]);
-            return $this->error('PostPay session creation failed.', null, 500);
+            Log::error('PostPay initiation failed', ['error' => $e->getMessage(), 'order_id' => $order->id]);
+            return $this->error('PostPay session creation failed: ' . $e->getMessage(), null, 500);
         }
     }
 
     private function handleBankTransfer(Request $request, Order $order, $dealer): \Illuminate\Http\JsonResponse
     {
         // Mark order as awaiting payment; admin will confirm manually
-        $order->update(['payment_status' => 'pending_bank_transfer', 'status' => 'pending']);
+        $order->update(['payment_status' => 'pending_bank_transfer', 'order_status' => 'pending']);
 
         return $this->success([
             'order_id'     => $order->id,

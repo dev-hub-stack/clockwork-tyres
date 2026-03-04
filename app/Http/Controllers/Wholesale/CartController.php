@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Wholesale\Cart\Services\CartService;
 use App\Modules\Customers\Models\AddressBook;
+use App\Modules\Settings\Models\SystemSetting;
+use App\Modules\Settings\Models\TaxSetting;
 use Illuminate\Http\Request;
 
 /**
@@ -44,8 +46,14 @@ class CartController extends BaseWholesaleController
             $payload['quantity'] = $item['quantity'] ?? null;
             
             // Map the warehouse quantities if present
-            if (isset($item['warehouse_qunatity'])) {
+            if (isset($item['warehouse_qunatity']) && is_array($item['warehouse_qunatity']) && count($item['warehouse_qunatity']) > 0) {
                 $payload['warehouse_qunatity'] = $item['warehouse_qunatity'];
+                // Extract first warehouse_id so CartService can save it
+                $payload['warehouse_id'] = $item['warehouse_qunatity'][0]['warehouse_id'] ?? null;
+                // Use quantity from warehouse_qunatity if not already set
+                if (empty($payload['quantity'])) {
+                    $payload['quantity'] = $item['warehouse_qunatity'][0]['quantity'] ?? 1;
+                }
             }
         }
 
@@ -194,14 +202,25 @@ class CartController extends BaseWholesaleController
 
         $addresses = AddressBook::where('customer_id', $dealer->id)->get();
 
-        return $this->success([
-            'shipping_methods' => collect(config('wholesale.shipping_rates', []))->map(fn($rate, $key) => [
-                'id'   => $key,
-                'name' => ucfirst($key),
-                'rate' => $rate,
-            ])->values(),
-            'payment_gateways' => config('wholesale.payment_gateways', []),
-            'addresses'        => $addresses,
-        ]);
+        // Read checkout option flags from system_settings (managed from CRM Settings page)
+        $settings = SystemSetting::whereIn('key', [
+            'admin.pickup',
+            'admin.delivery',
+            'admin.cod',
+            'admin.bank',
+            'admin.bank_detail',
+            'admin.eta_item_message',
+            'admin.shipping_rate_upto_four',
+            'admin.shipping_rate_per_item',
+            'credit_account_enable',
+        ])->pluck('value', 'key')->toArray();
+
+        // Tax rate comes from the main Tax Settings (not system_settings)
+        $taxRate = optional(TaxSetting::getDefault())->rate ?? 0;
+
+        return $this->success(array_merge($settings, [
+            'admin.tax_rate' => (string) $taxRate,
+            'addresses'      => $addresses,
+        ]));
     }
 }

@@ -42,7 +42,7 @@ class OrderService
                 'document_type' => $data['document_type'] ?? DocumentType::QUOTE,
                 'customer_id' => $data['customer_id'],
                 'warehouse_id' => $data['warehouse_id'] ?? null,
-                'representative_id' => $data['representative_id'] ?? auth()->id(),
+                'representative_id' => $data['representative_id'] ?? null,
                 'external_order_id' => $data['external_order_id'] ?? null,
                 'external_source' => $data['external_source'] ?? null,
                 'tax_inclusive' => $data['tax_inclusive'] ?? true,
@@ -112,9 +112,10 @@ class OrderService
             
             // Determine base price
             $basePrice = $itemData['unit_price'] ?? $variant->price ?? $variant->product->retail_price;
-            
-            // Apply dealer pricing if customer exists and base price is set
-            if ($order->customer_id && $basePrice) {
+
+            // Only apply dealer pricing when unit_price was NOT explicitly provided (e.g. from cart).
+            // If unit_price is explicitly passed, trust it — cart already applied correct pricing.
+            if (!isset($itemData['unit_price']) && $order->customer_id && $basePrice) {
                 $customer = Customer::find($order->customer_id);
                 $pricingResult = $this->dealerPricingService->calculateProductPrice(
                     $customer,

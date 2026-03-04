@@ -248,6 +248,7 @@ class CustomerResource extends Resource
             RelationManagers\OrderHistoryRelationManager::class,
             RelationManagers\BrandPricingRulesRelationManager::class,
             RelationManagers\ModelPricingRulesRelationManager::class,
+            RelationManagers\AddonCategoryPricingRulesRelationManager::class,
         ];
     }
 

@@ -37,20 +37,20 @@ class ProductController extends BaseWholesaleController
     public function index(Request $request)
     {
         $dealer  = $this->dealer();
-        $perPage = 20;
+        $perPage = min((int) ($request->perPage ?? $request->per_page ?? 20), 100);
 
         $query = ProductVariant::with([
             'product.brand',
             'product.model',
             'finishRelation',
-            'inventories.warehouse',
+            // Load inventories with minimal columns + warehouse name only
+            'inventories' => fn($q) => $q->with(['warehouse:id,warehouse_name,code'])
+                                         ->select(['id', 'product_variant_id', 'warehouse_id', 'quantity', 'eta_qty', 'eta']),
         ])
         ->whereHas('product', fn($q) => $q->where('status', 1));
 
-        // ── Apply filters ────────────────────────────────────────────────────
         $this->applyVariantFilters($query, $request);
 
-        // ── Sorting ──────────────────────────────────────────────────────────
         match ($request->sort) {
             'price_asc'  => $query->orderBy('uae_retail_price', 'asc'),
             'price_desc' => $query->orderBy('uae_retail_price', 'desc'),
@@ -60,9 +60,8 @@ class ProductController extends BaseWholesaleController
             default      => $query->orderBy('product_variants.id', 'desc'),
         };
 
-        $paginator = $query->paginate($perPage, ['product_variants.*'], 'page', $request->pagination ?? $request->page ?? 1);
-
-        $data = $paginator->toArray();
+        $paginator    = $query->paginate($perPage, ['product_variants.*'], 'page', $request->pagination ?? $request->page ?? 1);
+        $data         = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
         return $this->success([

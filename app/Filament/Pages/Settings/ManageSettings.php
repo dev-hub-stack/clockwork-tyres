@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Settings;
 
 use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
+use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Settings\Models\TaxSetting;
 use BackedEnum;
 use Filament\Forms\Components\FileUpload;
@@ -77,6 +78,17 @@ class ManageSettings extends Page implements HasForms
             'tax_rate' => $defaultTax->rate,
             'tax_inclusive_default' => $defaultTax->tax_inclusive_default,
             'tax_description' => $defaultTax->description,
+
+            // Wholesale Store Settings
+            'ws_pickup_enabled'        => (bool) SystemSetting::get('admin.pickup', '0'),
+            'ws_delivery_enabled'      => (bool) SystemSetting::get('admin.delivery', '0'),
+            'ws_cod_enabled'           => (bool) SystemSetting::get('admin.cod', '0'),
+            'ws_bank_enabled'          => (bool) SystemSetting::get('admin.bank', '0'),
+            'ws_credit_enabled'        => (bool) SystemSetting::get('credit_account_enable', '0'),
+            'ws_bank_detail'           => SystemSetting::get('admin.bank_detail', ''),
+            'ws_eta_message'           => SystemSetting::get('admin.eta_item_message', ''),
+            'ws_shipping_rate_four'    => SystemSetting::get('admin.shipping_rate_upto_four', 200),
+            'ws_shipping_rate_per_item'=> SystemSetting::get('admin.shipping_rate_per_item', 50),
         ]);
     }
 
@@ -207,6 +219,48 @@ class ManageSettings extends Page implements HasForms
                     ->columns(3)
                     ->collapsible(),
                     
+                Section::make('Wholesale Store Settings')
+                    ->description('Control which delivery and payment options are available to wholesale customers at checkout')
+                    ->schema([
+                        Toggle::make('ws_pickup_enabled')
+                            ->label('Allow Warehouse Pickup')
+                            ->helperText('Customers can choose to collect their order from the warehouse.'),
+                        Toggle::make('ws_delivery_enabled')
+                            ->label('Allow Standard Delivery')
+                            ->helperText('Enable delivery as a shipping option at checkout.'),
+                        Toggle::make('ws_cod_enabled')
+                            ->label('Allow Cash on Delivery')
+                            ->helperText('Customers can pay in cash when the order is delivered.'),
+                        Toggle::make('ws_bank_enabled')
+                            ->label('Allow Bank Transfer')
+                            ->helperText('Customers can pay by direct bank transfer.'),
+                        Toggle::make('ws_credit_enabled')
+                            ->label('Allow Credit Account')
+                            ->helperText('Eligible customers can place orders on credit.'),
+                        Textarea::make('ws_bank_detail')
+                            ->label('Bank Account Details')
+                            ->helperText('Shown to the customer when they select Bank Transfer at checkout.')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                        Textarea::make('ws_eta_message')
+                            ->label('Estimated Delivery Message')
+                            ->helperText('Optional message shown to customers at checkout (e.g. "Estimated delivery: 3–7 business days").')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                        TextInput::make('ws_shipping_rate_four')
+                            ->label('Delivery Rate — up to 4 items (AED)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('AED'),
+                        TextInput::make('ws_shipping_rate_per_item')
+                            ->label('Delivery Rate — each extra item beyond 4 (AED)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('AED'),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
                 Section::make('Tax Settings')
                     ->description('Configure default tax rate and behavior')
                     ->schema([
@@ -297,6 +351,17 @@ class ManageSettings extends Page implements HasForms
                 'is_active' => true,
             ]);
             $defaultTax->save();
+
+            // Save Wholesale Store Settings into system_settings
+            SystemSetting::set('admin.pickup',              $data['ws_pickup_enabled'] ? '1' : '0',  'boolean', 'Allow warehouse pickup at checkout');
+            SystemSetting::set('admin.delivery',            $data['ws_delivery_enabled'] ? '1' : '0','boolean', 'Allow standard delivery at checkout');
+            SystemSetting::set('admin.cod',                 $data['ws_cod_enabled'] ? '1' : '0',     'boolean', 'Allow cash on delivery');
+            SystemSetting::set('admin.bank',                $data['ws_bank_enabled'] ? '1' : '0',    'boolean', 'Allow bank transfer payment');
+            SystemSetting::set('credit_account_enable',     $data['ws_credit_enabled'] ? '1' : '0',  'boolean', 'Allow credit account payment');
+            SystemSetting::set('admin.bank_detail',         $data['ws_bank_detail'] ?? '',            'string',  'Bank account details shown at checkout');
+            SystemSetting::set('admin.eta_item_message',    $data['ws_eta_message'] ?? '',            'string',  'Estimated delivery message shown at checkout');
+            SystemSetting::set('admin.shipping_rate_upto_four',  $data['ws_shipping_rate_four'] ?? 200,   'float', 'Delivery rate for up to 4 items (AED)');
+            SystemSetting::set('admin.shipping_rate_per_item',   $data['ws_shipping_rate_per_item'] ?? 50, 'float', 'Delivery rate per extra item beyond 4 (AED)');
 
             // Clear settings cache
             app(\App\Modules\Settings\Services\SettingsService::class)->clearCache();

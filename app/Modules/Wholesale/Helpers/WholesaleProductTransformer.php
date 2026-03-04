@@ -166,8 +166,11 @@ class WholesaleProductTransformer
             'discount_pct'    => $priceResult['discount_percentage'],
 
             // Media & specs
-            'image'           => $addon->image ? config('wholesale.image_base_url', 'https://d216f9m54e3osn.cloudfront.net') . '/' . ltrim($addon->image, '/') : null,
-            'stock_status'    => $addon->stock_status_text,
+            'image'           => $addon->image
+                ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
+                : null,
+            'stock_status'    => (bool) $addon->stock_status,
+            'total_quantity'  => (int) ($addon->total_quantity ?? 0),
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
             'thread_length'   => $addon->thread_length,
@@ -239,7 +242,7 @@ class WholesaleProductTransformer
 
         return $inventories->map(fn($inv) => [
             'warehouse_id'   => $inv->warehouse_id,
-            'warehouse'      => $inv->warehouse?->name ?? 'Unknown',
+            'warehouse'      => $inv->warehouse?->warehouse_name ?? 'Unknown',
             'qty'            => (int) $inv->quantity,
             'eta_qty'        => (int) $inv->eta_qty,
             'eta'            => $inv->eta,
@@ -265,7 +268,7 @@ class WholesaleProductTransformer
         return [
             'date'      => $eta->eta,
             'qty'       => (int) $eta->eta_qty,
-            'warehouse' => $eta->warehouse?->name,
+            'warehouse' => $eta->warehouse?->warehouse_name,
         ];
     }
 }

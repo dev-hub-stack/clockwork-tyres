@@ -24,8 +24,9 @@ class SystemSettingResource extends Resource
     
     protected static ?string $navigationLabel = 'System Configuration';
     
-    protected static string|\UnitEnum|null $navigationGroup = 'Administration';
-    
+    // Hidden from navigation — managed via Settings page with user-friendly controls
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?int $navigationSort = 99;
 
     public static function canViewAny(): bool

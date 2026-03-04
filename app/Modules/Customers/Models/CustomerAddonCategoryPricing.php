@@ -54,10 +54,10 @@ class CustomerAddonCategoryPricing extends Model
     }
 
     /**
-     * Relationship: Addon Category (will be defined when AddOns module is created)
+     * Relationship: Addon Category
      */
-    // public function addonCategory(): BelongsTo
-    // {
-    //     return $this->belongsTo(\App\Modules\AddOns\Models\AddonCategory::class, 'add_on_category_id');
-    // }
+    public function addonCategory(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Products\Models\AddOnCategory::class, 'add_on_category_id');
+    }
 }
