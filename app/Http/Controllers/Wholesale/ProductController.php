@@ -60,7 +60,11 @@ class ProductController extends BaseWholesaleController
             default      => $query->orderBy('product_variants.id', 'desc'),
         };
 
-        $paginator    = $query->paginate($perPage, ['product_variants.*'], 'page', $request->pagination ?? $request->page ?? 1);
+        $page      = $request->pagination ?? $request->page ?? 1;
+        $cacheKey  = 'products_' . $dealer->id . '_' . md5(serialize($request->except(['_token'])));
+        $paginator = \Cache::remember($cacheKey, 300, fn() =>
+            $query->paginate($perPage, ['product_variants.*'], 'page', $page)
+        );
         $data         = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
