@@ -142,26 +142,22 @@ class DealerController extends BaseWholesaleController
         $dealer = $this->dealer();
 
         $request->validate([
-            'trade_license'   => 'sometimes|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'vat_certificate' => 'sometimes|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'profile_image'   => 'sometimes|image|mimes:jpg,jpeg,png|max:2048',
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png,gif,webp|max:5120',
+            'type' => 'required|string|in:license,logo,vat',
         ]);
 
+        $type = $request->input('type');
         $updates = [];
 
-        if ($request->hasFile('trade_license')) {
-            $path = $request->file('trade_license')->store('dealers/documents', 's3');
+        if ($type === 'license') {
+            $path = $request->file('file')->store('dealers/documents', 's3');
             $updates['trade_license_path'] = $path;
-        }
-
-        if ($request->hasFile('vat_certificate')) {
-            $path = $request->file('vat_certificate')->store('dealers/documents', 's3');
-            $updates['vat_certificate_path'] = $path;
-        }
-
-        if ($request->hasFile('profile_image')) {
-            $path = $request->file('profile_image')->store('dealers/images', 's3');
+        } elseif ($type === 'logo') {
+            $path = $request->file('file')->store('dealers/images', 's3');
             $updates['profile_image'] = $path;
+        } elseif ($type === 'vat') {
+            $path = $request->file('file')->store('dealers/documents', 's3');
+            $updates['vat_certificate_path'] = $path;
         }
 
         if (! empty($updates)) {
