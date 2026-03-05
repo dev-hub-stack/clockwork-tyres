@@ -47,7 +47,9 @@ class ProductController extends BaseWholesaleController
             'inventories' => fn($q) => $q->with(['warehouse:id,warehouse_name,code'])
                                          ->select(['id', 'product_variant_id', 'warehouse_id', 'quantity', 'eta_qty', 'eta']),
         ])
-        ->whereHas('product', fn($q) => $q->where('status', 1));
+        ->join('products', 'products.id', '=', 'product_variants.product_id')
+        ->where('products.status', 1)
+        ->select('product_variants.*');
 
         $this->applyVariantFilters($query, $request);
 
@@ -234,68 +236,68 @@ class ProductController extends BaseWholesaleController
      */
     private function applyVariantFilters($query, Request $request): void
     {
+        // Note: 'products' is already JOIN-ed in the base query (for status=1 filter).
+        // Use direct WHERE on the joined table instead of correlated subqueries (much faster).
+
         if ($request->filled('brand_id')) {
             $brandIds = explode(',', $request->brand_id);
-            $query->whereHas('product', fn($q) => $q->whereIn('brand_id', $brandIds));
+            $query->whereIn('products.brand_id', $brandIds);
         }
         if ($request->filled('brand')) {
             $brandNames = explode(',', $request->brand);
-            $query->whereHas('product.brand', fn($q) => $q->whereIn('name', $brandNames));
+            $query->join('brands', 'brands.id', '=', 'products.brand_id')
+                  ->whereIn('brands.name', $brandNames);
         }
         if ($request->filled('model_id')) {
-            $query->whereHas('product', fn($q) => $q->where('model_id', $request->model_id));
+            $query->where('products.model_id', $request->model_id);
         }
         if ($request->filled('finish_id')) {
             $query->where(function ($q) use ($request) {
-                $q->where('finish_id', $request->finish_id)
-                  ->orWhereHas('product', fn($p) => $p->where('finish_id', $request->finish_id));
+                $q->where('product_variants.finish_id', $request->finish_id)
+                  ->orWhere('products.finish_id', $request->finish_id);
             });
         }
         if ($request->filled('finish')) {
             $values = explode(',', $request->finish);
-            // Old admin approach: look up finish IDs by LIKE match, then filter on products.finish_id
-            // This mirrors wholesaleadmin's: Finish::where('finish', 'LIKE', '%'.$value.'%')->pluck('id')
             $finishIds = [];
             foreach ($values as $value) {
                 $ids = \App\Modules\Products\Models\Finish::where('finish', 'LIKE', '%' . trim($value) . '%')->pluck('id');
                 $finishIds = array_merge($finishIds, $ids->all());
             }
             $finishIds = array_unique($finishIds);
-            $query->whereHas('product', fn($q) => $q->whereIn('finish_id', $finishIds));
+            $query->whereIn('products.finish_id', $finishIds);
         }
         if ($request->filled('construction')) {
             $values = explode(',', $request->construction);
-            $query->whereHas('product', function($q) use ($values) {
-                $q->whereIn('construction', $values);
-            });
+            $query->whereIn('products.construction', $values);
         }
         // Accept both plain names (vehicle-search path) and front_* names (search-by-size path)
         $rimDiameter = $request->rim_diameter ?? $request->front_rim_diameter;
         if ($rimDiameter) {
-            $query->where('rim_diameter', $rimDiameter);
+            $query->where('product_variants.rim_diameter', $rimDiameter);
         }
         $rimWidth = $request->rim_width ?? $request->front_rim_width;
         if ($rimWidth) {
-            $query->where('rim_width', $rimWidth);
+            $query->where('product_variants.rim_width', $rimWidth);
         }
         $boltPattern = $request->bolt_pattern ?? $request->front_bolt_pattern;
         if ($boltPattern) {
-            $query->where('bolt_pattern', $boltPattern);
+            $query->where('product_variants.bolt_pattern', $boltPattern);
         }
         if ($request->filled('offset_min') || $request->filled('offset_max')) {
-            $query->whereBetween('offset', [
+            $query->whereBetween('product_variants.offset', [
                 $request->get('offset_min', -100),
                 $request->get('offset_max', 100),
             ]);
         }
         if ($request->filled('clearance') && $request->clearance) {
-            $query->where('clearance_corner', true);
+            $query->where('product_variants.clearance_corner', true);
         }
         if ($request->filled('search')) {
             $term = '%' . $request->search . '%';
             $query->where(function ($q) use ($term) {
                 $q->where('product_variants.sku', 'like', $term)
-                  ->orWhereHas('product', fn($p) => $p->where('name', 'like', $term));
+                  ->orWhere('products.name', 'like', $term);
             });
         }
     }
