@@ -254,7 +254,7 @@ class DealerController extends BaseWholesaleController
             'city'                 => $dealer->city,
             'state'                => $dealer->state,
             'country'              => $dealer->country?->name,
-            'expiry'               => $dealer->expiry ?? $dealer->license_expiry ?? null,
+            'expiry'               => $dealer->expiry?->format('Y-m-d'),
             'customer_type'        => $dealer->customer_type,
             'status'               => $dealer->status,
             'trade_license'        => $dealer->trade_license_path ? \Illuminate\Support\Facades\Storage::disk('s3')->url($dealer->trade_license_path) : null,
