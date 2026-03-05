@@ -60,21 +60,29 @@ class DealerController extends BaseWholesaleController
             $countryId = $country ? $country->id : null;
         }
 
+        // Upload trade license file to S3 before creating the customer
+        $tradeLicensePath = null;
+        if ($request->hasFile('trade_license')) {
+            $tradeLicensePath = $request->file('trade_license')->store('dealers/documents', 's3');
+        }
+        unset($validated['trade_license']); // Remove UploadedFile object — not a model field
+
         $dealer = $this->createCustomerAction->execute(array_merge($validated, [
-            'first_name'    => $validated['first_name'] ?? 'Wholesale',
-            'last_name'     => $validated['last_name'] ?? 'User',
-            'phone'         => $validated['phone'] ?? '+10000000000',
-            'customer_type' => $customerType,
-            'country_id'    => $countryId,
-            'password'      => Hash::make($validated['password']),
-            'status'        => 'active',
+            'first_name'         => $validated['first_name'] ?? 'Wholesale',
+            'last_name'          => $validated['last_name'] ?? 'User',
+            'phone'              => $validated['phone'] ?? '+10000000000',
+            'customer_type'      => $customerType,
+            'country_id'         => $countryId,
+            'password'           => Hash::make($validated['password']),
+            'status'             => 'active',
+            'trade_license_path' => $tradeLicensePath,
         ]));
 
         $token = $dealer->createToken('wholesale-app')->plainTextToken;
 
         return $this->success([
             'access_token' => $token,
-            'user_data'    => $this->formatDealerData($dealer),
+            'user_data'    => $this->formatDealerData($dealer->load('country')),
         ], 'Registration successful', 201);
     }
 
@@ -94,17 +102,32 @@ class DealerController extends BaseWholesaleController
             'address'              => 'sometimes|nullable|string',
             'city'                 => 'sometimes|nullable|string|max:100',
             'state'                => 'sometimes|nullable|string|max:100',
+            'country'              => 'sometimes|nullable|string|max:100', // Angular sends name string
             'country_id'           => 'sometimes|nullable|integer|exists:countries,id',
             'website'              => 'sometimes|nullable|url|max:255',
             'instagram'            => 'sometimes|nullable|string|max:100',
             'trn'                  => 'sometimes|nullable|string|max:50',
             'trade_license_number' => 'sometimes|nullable|string|max:100',
+            'license_no'           => 'sometimes|nullable|string|max:100', // Angular form field alias
         ]);
+
+        // Resolve country name string to country_id
+        if (!empty($validated['country'])) {
+            $country = \App\Modules\Customers\Models\Country::where('name', $validated['country'])->first();
+            $validated['country_id'] = $country ? $country->id : null;
+        }
+        unset($validated['country']);
+
+        // Map license_no alias → trade_license_number column
+        if (array_key_exists('license_no', $validated)) {
+            $validated['trade_license_number'] = $validated['license_no'];
+            unset($validated['license_no']);
+        }
 
         $this->updateCustomerAction->execute($dealer, $validated);
 
         return $this->success(
-            $this->formatDealerData($dealer->fresh()),
+            $this->formatDealerData($dealer->fresh(['country'])),
             'Profile updated successfully'
         );
     }
@@ -145,7 +168,7 @@ class DealerController extends BaseWholesaleController
         }
 
         return $this->success(
-            $this->formatDealerData($dealer->fresh()),
+            $this->formatDealerData($dealer->fresh(['country'])),
             'Documents uploaded successfully'
         );
     }
@@ -222,13 +245,15 @@ class DealerController extends BaseWholesaleController
             'business_name'        => $dealer->business_name,
             'company_name'         => $dealer->business_name,
             'trade_license_number' => $dealer->trade_license_number,
+            'license_no'           => $dealer->license_no ?? $dealer->trade_license_number,
             'website'              => $dealer->website,
             'instagram'            => $dealer->instagram,
             'trn'                  => $dealer->trn,
-            'license_no'           => $dealer->license_no,
             'address'              => $dealer->address,
             'city'                 => $dealer->city,
             'state'                => $dealer->state,
+            'country'              => $dealer->country?->name,
+            'expiry'               => $dealer->expiry ?? $dealer->license_expiry ?? null,
             'customer_type'        => $dealer->customer_type,
             'status'               => $dealer->status,
             'trade_license'        => $dealer->trade_license_path ? \Illuminate\Support\Facades\Storage::disk('s3')->url($dealer->trade_license_path) : null,
