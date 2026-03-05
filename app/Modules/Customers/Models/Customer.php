@@ -45,6 +45,9 @@ class Customer extends Authenticatable
         'external_customer_id',
         'status',
         'email_verified_at',
+        'profile_image',
+        'trade_license_path',
+        'vat_certificate_path',
     ];
 
     /**

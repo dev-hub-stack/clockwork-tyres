@@ -109,6 +109,7 @@ class DealerController extends BaseWholesaleController
             'trn'                  => 'sometimes|nullable|string|max:50',
             'trade_license_number' => 'sometimes|nullable|string|max:100',
             'license_no'           => 'sometimes|nullable|string|max:100', // Angular form field alias
+            'expiry'               => 'sometimes|nullable|date',
         ]);
 
         // Resolve country name string to country_id
@@ -245,7 +246,7 @@ class DealerController extends BaseWholesaleController
             'business_name'        => $dealer->business_name,
             'company_name'         => $dealer->business_name,
             'trade_license_number' => $dealer->trade_license_number,
-            'license_no'           => $dealer->license_no ?? $dealer->trade_license_number,
+            'license_no'           => $dealer->trade_license_number ?: $dealer->license_no,
             'website'              => $dealer->website,
             'instagram'            => $dealer->instagram,
             'trn'                  => $dealer->trn,
