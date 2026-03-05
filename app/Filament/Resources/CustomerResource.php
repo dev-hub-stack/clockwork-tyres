@@ -9,6 +9,7 @@ use App\Modules\Customers\Enums\CustomerType;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -141,6 +142,25 @@ class CustomerResource extends Resource
                             ->label('Instagram')
                             ->maxLength(100)
                             ->prefix('@'),
+
+                        FileUpload::make('trade_license_path')
+                            ->label('Trade License File')
+                            ->disk('s3')
+                            ->directory('dealers/documents')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                            ->maxSize(5120)
+                            ->downloadable()
+                            ->openable()
+                            ->columnSpanFull(),
+
+                        FileUpload::make('profile_image')
+                            ->label('Business Logo')
+                            ->disk('s3')
+                            ->directory('dealers/images')
+                            ->image()
+                            ->imagePreviewHeight('80')
+                            ->maxSize(2048)
+                            ->columnSpanFull(),
                     ])->columns(2),
 
                 Section::make('System Information')
