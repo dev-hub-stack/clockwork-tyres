@@ -21,8 +21,9 @@ return [
         'http://localhost:4200',
         // Wholesale staging frontend
         'https://stage.tunerstopwholesale.com',
-        // Wholesale production frontend (add when ready)
-        // 'https://tunerstopwholesale.com',
+        // Wholesale production frontend
+        'https://tunerstopwholesale.com',
+        'https://www.tunerstopwholesale.com',
     ],
 
     'allowed_origins_patterns' => [],
