@@ -13,6 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Fix permissions before deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo chown -R ubuntu:ubuntu /var/www/reporting
+            sudo chmod -R 755 /var/www/reporting
+
       - name: Deploy files via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
