@@ -13,6 +13,7 @@ use App\Models\Addon;
 use App\Observers\AddonInventoryObserver;
 use App\Modules\Orders\Models\Order;
 use App\Observers\OrderObserver;
+use Illuminate\Auth\Notifications\ResetPassword;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,6 +38,11 @@ class AppServiceProvider extends ServiceProvider
         // Register observer for auto-generating order numbers
         Order::observe(OrderObserver::class);
 
-
+        // Override the password reset URL to point to the Angular wholesale frontend
+        // instead of using the Laravel named route 'password.reset' (which is not registered)
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            $frontendUrl = rtrim(env('FRONTEND_URL', 'https://tunerstopwholesale.com'), '/');
+            return $frontendUrl . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+        });
     }
 }

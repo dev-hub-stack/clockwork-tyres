@@ -36,8 +36,7 @@ class SearchController extends BaseWholesaleController
             ->get();
 
         $variants = ProductVariant::with(['product.brand', 'finish'])
-            ->where('slug', 'like', '%' . $keyword . '%')
-            ->orWhere('sku', 'like', '%' . $keyword . '%')
+            ->where('sku', 'like', '%' . $keyword . '%')
             ->take(10)
             ->get();
 
@@ -48,7 +47,7 @@ class SearchController extends BaseWholesaleController
                 'id'       => $p->id,
                 'name'     => $p->name,
                 'brand'    => $p->brand->name ?? null,
-                'slug'     => $p->slug,
+                'slug'     => $p->name,
             ]),
             'variants' => $variants->map(fn($v) => [
                 'id'            => $v->id,
@@ -56,7 +55,7 @@ class SearchController extends BaseWholesaleController
                 'brand'         => $v->product->brand->name ?? null,
                 'finish'        => $v->finish->finish ?? 'Standard',
                 'sku'           => $v->sku,
-                'slug'          => $v->slug,
+                'slug'          => $v->sku,
             ]),
         ];
 
