@@ -122,16 +122,12 @@ class CustomerResource extends Resource
                             ->label('TRN (Tax Registration Number)')
                             ->maxLength(100),
                         
-                        TextInput::make('license_no')
-                            ->label('License Number')
-                            ->maxLength(100),
-                        
-                        DatePicker::make('expiry')
-                            ->label('License Expiry Date'),
-                        
                         TextInput::make('trade_license_number')
                             ->label('Trade License Number')
                             ->maxLength(255),
+                        
+                        DatePicker::make('expiry')
+                            ->label('License Expiry Date'),
                         
                         TextInput::make('website')
                             ->label('Website')
