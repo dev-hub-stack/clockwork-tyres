@@ -21,14 +21,18 @@ class Product extends Model
         'images',
         'construction',
         'status',
+        'available_on_wholesale',
+        'track_inventory',
         'external_product_id',
         'external_source',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'status' => 'boolean',
-        'images' => 'collection',
+        'price'                 => 'decimal:2',
+        'status'                => 'boolean',
+        'available_on_wholesale'=> 'boolean',
+        'track_inventory'       => 'boolean',
+        'images'                => 'collection',
     ];
 
     /**
@@ -77,6 +81,22 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 1);
+    }
+
+    /**
+     * Scope: Products available on the wholesale storefront
+     */
+    public function scopeWholesale($query)
+    {
+        return $query->where('available_on_wholesale', true);
+    }
+
+    /**
+     * Scope: Products with inventory tracking enabled
+     */
+    public function scopeInventoryTracked($query)
+    {
+        return $query->where('track_inventory', true);
     }
 
     /**

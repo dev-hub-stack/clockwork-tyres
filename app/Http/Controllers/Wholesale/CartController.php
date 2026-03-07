@@ -73,7 +73,12 @@ class CartController extends BaseWholesaleController
 
         $dealer = $this->dealer();
         $cart   = $this->cartService->getOrCreateCart($dealer, $payload['session_id']);
-        $cart   = $this->cartService->addItem($cart, $payload);
+
+        try {
+            $cart = $this->cartService->addItem($cart, $payload);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage());
+        }
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }
@@ -103,7 +108,12 @@ class CartController extends BaseWholesaleController
 
         $dealer = $this->dealer();
         $cart   = $this->cartService->getOrCreateCart($dealer, $request->session_id ?? '');
-        $cart   = $this->cartService->changeQuantity($cart, $request->cart_item_id, $request->quantity);
+
+        try {
+            $cart = $this->cartService->changeQuantity($cart, $request->cart_item_id, $request->quantity);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage());
+        }
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }

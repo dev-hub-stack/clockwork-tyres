@@ -98,6 +98,8 @@ class ProductsGrid extends Page
                     'lipsize' => $variant->lipsize ?? '',
                     'uae_retail_price' => $variant->uae_retail_price ?? 0,
                     'sale_price' => $variant->sale_price ?? 0,
+                    'available_on_wholesale' => (bool) ($product->available_on_wholesale ?? true),
+                    'track_inventory' => (bool) ($product->track_inventory ?? false),
                     'images' => is_string($product->images) 
                         ? implode(', ', json_decode($product->images, true) ?: []) 
                         : implode(', ', $product->images?->toArray() ?? []),

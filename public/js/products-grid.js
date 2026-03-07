@@ -239,6 +239,50 @@ function saveChanges() {
 }
 
 /**
+ * Bulk toggle a wholesale flag for ALL products
+ */
+function bulkToggleFlag(field, value, gridInstance) {
+    $.ajax({
+        url: '/admin/products/bulk-toggle-wholesale-flag',
+        type: 'POST',
+        data: { field: field, value: value },
+        beforeSend: function() {
+            if (gridInstance) {
+                gridInstance.option('strLoading', 'Updating all products...');
+                gridInstance.showLoading();
+            }
+        },
+        success: function(resp) {
+            console.log('✅ Bulk toggle success:', resp);
+            // Update all rows in grid data
+            var allData = grid.option('dataModel.data');
+            var boolVal = value == 1;
+            for (var i = 0; i < allData.length; i++) {
+                allData[i][field] = boolVal;
+            }
+            grid.refreshView();
+            // Update header checkbox state
+            if (field === 'available_on_wholesale') {
+                $('.wholesale-select-all').prop('checked', boolVal);
+            } else {
+                $('.track-inv-select-all').prop('checked', boolVal);
+            }
+            alert('✅ Updated ' + (resp.updated || 'all') + ' products successfully!');
+        },
+        error: function(err) {
+            alert('❌ Failed to bulk update. Please try again.');
+            console.error('Bulk toggle error:', err);
+        },
+        complete: function() {
+            if (gridInstance) {
+                gridInstance.hideLoading();
+                gridInstance.option('strLoading', $.paramquery.pqGrid.defaults.strLoading);
+            }
+        }
+    });
+}
+
+/**
  * Bulk delete selected rows
  */
 function bulkDelete(ids) {
@@ -456,6 +500,98 @@ $(document).ready(function () {
             dataIndx: "sale_price",
             filter: { crules: [{ condition: 'equal' }] }
         },
+        // Wholesale visibility toggle
+        {
+            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='wholesale-select-all' checked />&nbsp;Wholesale</label>", 
+            width: 120, 
+            dataType: "bool", 
+            align: "center", 
+            dataIndx: "available_on_wholesale",
+            cls: 'wholesale-toggle-cell',
+            editable: false,
+            sortable: true,
+            filter: { crules: [{ condition: 'equal' }] },
+            render: function(ui) {
+                var checked = ui.cellData ? 'checked' : '';
+                return '<label style="cursor:pointer;margin:0;display:flex;align-items:center;justify-content:center;gap:4px;">' +
+                    '<input type="checkbox" class="wholesale-toggle" data-product-id="' + ui.rowData.product_id + '" ' + checked + ' style="width:18px;height:18px;cursor:pointer;" />' +
+                    '<span style="font-size:12px;color:' + (ui.cellData ? '#16a34a' : '#dc2626') + ';font-weight:600;">' + (ui.cellData ? 'Yes' : 'No') + '</span>' +
+                    '</label>';
+            },
+            postRender: function(ui) {
+                var gridRef = this;
+                var $cell = gridRef.getCell(ui);
+                $cell.find('.wholesale-toggle').on('change', function() {
+                    var newVal = $(this).is(':checked');
+                    var productId = $(this).data('product-id');
+                    $.ajax({
+                        url: '/admin/products/toggle-wholesale-flag',
+                        type: 'POST',
+                        data: { product_id: productId, field: 'available_on_wholesale', value: newVal ? 1 : 0 },
+                        success: function(resp) {
+                            var allData = gridRef.option('dataModel.data');
+                            for (var i = 0; i < allData.length; i++) {
+                                if (allData[i].product_id == productId) {
+                                    allData[i].available_on_wholesale = newVal;
+                                }
+                            }
+                            gridRef.refreshView();
+                            console.log('✅ Wholesale flag updated for product ' + productId);
+                        },
+                        error: function(err) {
+                            alert('Failed to update wholesale flag');
+                            gridRef.refreshView();
+                        }
+                    });
+                });
+            }
+        },
+        // Track inventory toggle
+        {
+            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='track-inv-select-all' />&nbsp;Track Inv.</label>", 
+            width: 120, 
+            dataType: "bool", 
+            align: "center", 
+            dataIndx: "track_inventory",
+            cls: 'wholesale-toggle-cell',
+            editable: false,
+            sortable: true,
+            filter: { crules: [{ condition: 'equal' }] },
+            render: function(ui) {
+                var checked = ui.cellData ? 'checked' : '';
+                return '<label style="cursor:pointer;margin:0;display:flex;align-items:center;justify-content:center;gap:4px;">' +
+                    '<input type="checkbox" class="track-inv-toggle" data-product-id="' + ui.rowData.product_id + '" ' + checked + ' style="width:18px;height:18px;cursor:pointer;" />' +
+                    '<span style="font-size:12px;color:' + (ui.cellData ? '#16a34a' : '#6b7280') + ';font-weight:600;">' + (ui.cellData ? 'Yes' : 'No') + '</span>' +
+                    '</label>';
+            },
+            postRender: function(ui) {
+                var gridRef = this;
+                var $cell = gridRef.getCell(ui);
+                $cell.find('.track-inv-toggle').on('change', function() {
+                    var newVal = $(this).is(':checked');
+                    var productId = $(this).data('product-id');
+                    $.ajax({
+                        url: '/admin/products/toggle-wholesale-flag',
+                        type: 'POST',
+                        data: { product_id: productId, field: 'track_inventory', value: newVal ? 1 : 0 },
+                        success: function(resp) {
+                            var allData = gridRef.option('dataModel.data');
+                            for (var i = 0; i < allData.length; i++) {
+                                if (allData[i].product_id == productId) {
+                                    allData[i].track_inventory = newVal;
+                                }
+                            }
+                            gridRef.refreshView();
+                            console.log('✅ Track inventory flag updated for product ' + productId);
+                        },
+                        error: function(err) {
+                            alert('Failed to update track inventory flag');
+                            gridRef.refreshView();
+                        }
+                    });
+                });
+            }
+        },
         {
             title: "Images", 
             width: 250, 
@@ -578,6 +714,44 @@ $(document).ready(function () {
                         alert('Please select products to delete');
                     }
                 }
+            },
+            {type: 'separator'},
+            {
+                type: 'button',
+                label: '✅ Enable All Wholesale',
+                cls: 'btn btn-sm btn-success',
+                listener: function () {
+                    if (!confirm('Enable wholesale for ALL products? This will make all products visible on the wholesale site.')) return;
+                    bulkToggleFlag('available_on_wholesale', 1, this);
+                }
+            },
+            {
+                type: 'button',
+                label: '❌ Disable All Wholesale',
+                cls: 'btn btn-sm btn-outline-danger',
+                listener: function () {
+                    if (!confirm('Disable wholesale for ALL products? This will hide all products from the wholesale site.')) return;
+                    bulkToggleFlag('available_on_wholesale', 0, this);
+                }
+            },
+            {type: 'separator'},
+            {
+                type: 'button',
+                label: '📦 Enable All Tracking',
+                cls: 'btn btn-sm btn-info',
+                listener: function () {
+                    if (!confirm('Enable inventory tracking for ALL products? Cart will enforce stock limits for all products.')) return;
+                    bulkToggleFlag('track_inventory', 1, this);
+                }
+            },
+            {
+                type: 'button',
+                label: '🚫 Disable All Tracking',
+                cls: 'btn btn-sm btn-outline-secondary',
+                listener: function () {
+                    if (!confirm('Disable inventory tracking for ALL products?')) return;
+                    bulkToggleFlag('track_inventory', 0, this);
+                }
             }
         ]
     };
@@ -585,7 +759,7 @@ $(document).ready(function () {
     // Main pqGrid configuration - EXACTLY LIKE TUNERSTOP
     var obj = {
         width: '100%',          // Full width of container
-        height: '100vh',        // Full viewport height like Tunerstop
+        height: 700,            // Fixed px height so pager renders at bottom
         minHeight: 500,
         rowHt: 50,              // Row height
         rowBorders: true,       // Show row borders
@@ -622,11 +796,15 @@ $(document).ready(function () {
             data: data
         },
         
-        // Pagination - EXACTLY LIKE TUNERSTOP
-        pageModel: { 
-            type: "local", 
-            rPP: 100, 
-            option: [100, 200, 300, 400, 500]  // CRITICAL: 'option' not 'rPPOptions'
+        // Pagination
+        pageModel: {
+            type: "local",
+            rPP: 50,
+            rPPOptions: [20, 50, 100, 200, 500, 1000],
+            curPage: 1,
+            strRpp: "Rows per page: {0}",
+            strDisplay: "Showing {0} - {1} of {2}",
+            strPage: "Page {0} of {1}"
         },
         
         // Selection Model - Enable Excel-like behavior
@@ -756,6 +934,25 @@ $(document).ready(function () {
             } else {
                 console.warn('⚠️ Pagination not visible. Checking pageModel...');
             }
+
+            // Header "Select All" checkbox handlers for Wholesale & Track Inventory
+            $(document).on('change', '.wholesale-select-all', function() {
+                var newVal = $(this).is(':checked');
+                if (!confirm(newVal ? 'Enable wholesale for ALL products?' : 'Disable wholesale for ALL products?')) {
+                    $(this).prop('checked', !newVal);
+                    return;
+                }
+                bulkToggleFlag('available_on_wholesale', newVal ? 1 : 0, grid);
+            });
+
+            $(document).on('change', '.track-inv-select-all', function() {
+                var newVal = $(this).is(':checked');
+                if (!confirm(newVal ? 'Enable inventory tracking for ALL products?' : 'Disable inventory tracking for ALL products?')) {
+                    $(this).prop('checked', !newVal);
+                    return;
+                }
+                bulkToggleFlag('track_inventory', newVal ? 1 : 0, grid);
+            });
         }, 300);
     }, 100);
     

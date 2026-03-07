@@ -30,12 +30,17 @@ class SearchController extends BaseWholesaleController
 
         // Basic keyword search across Product and ProductVariant titles/SKUs
         $products = Product::with(['brand'])
-            ->where('name', 'like', '%' . $keyword . '%')
-            ->orWhereHas('brand', fn($q) => $q->where('name', 'like', '%' . $keyword . '%'))
+            ->where('status', 1)
+            ->where('available_on_wholesale', true)
+            ->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', '%' . $keyword . '%')
+                  ->orWhereHas('brand', fn($bq) => $bq->where('name', 'like', '%' . $keyword . '%'));
+            })
             ->take(10)
             ->get();
 
         $variants = ProductVariant::with(['product.brand', 'finish'])
+            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true))
             ->where('sku', 'like', '%' . $keyword . '%')
             ->take(10)
             ->get();

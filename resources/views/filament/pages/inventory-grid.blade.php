@@ -17,6 +17,47 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <style>
+        /* ── pqGrid Pager ─────────────────────────────────── */
+        .pq-pager {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            padding: 4px 8px !important;
+            min-height: 36px !important;
+            background: #f3f4f6 !important;
+            border-top: 1px solid #d1d5db !important;
+            overflow: visible !important;
+        }
+        .pq-pager-input {
+            width: 45px !important;
+            border: 1px solid #9ca3af !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-size: 13px !important;
+            color: #111 !important;
+            background: #fff !important;
+            display: inline-block !important;
+        }
+        .pq-pager select {
+            border: 1px solid #9ca3af !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-size: 13px !important;
+            color: #111 !important;
+            background: #fff !important;
+            display: inline-block !important;
+        }
+        .pq-pager-msg {
+            font-size: 13px !important;
+            color: #374151 !important;
+            display: inline-block !important;
+        }
+        .pq-page-placeholder, .pq-pager span {
+            font-size: 13px !important;
+            color: #374151 !important;
+        }
+        .pq-separator { margin: 0 4px !important; }
         /* FULL WIDTH PAGE - Override Filament's max-width constraint */
         .fi-body {
             max-width: none !important;
@@ -54,7 +95,6 @@
         }
         
         #grid_json_inventory {
-            min-height: 600px;
             width: 100% !important;
             overflow-x: auto !important;
         }
@@ -112,18 +152,14 @@
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
         }
 
-        /* HIDE FILTER ICON/ARROW - This was the black arrow you wanted to hide */
+        /* HIDE FILTER ICON/ARROW in column headers only - NOT in pager */
         .pq-grid-header-search-icon,
         .pq-grid-col .ui-icon-triangle-1-s,
         .pq-grid-col .ui-icon-carat-2-n-s,
         .pq-grid-title-row .ui-icon,
         .pq-grid-col .ui-icon,
-        .ui-icon-triangle-1-n,
-        .ui-icon-triangle-1-s,
-        .ui-icon-triangle-2-n-s,
         .pq-grid-title-row .pq-grid-col .ui-icon,
-        .pq-grid-title-row .ui-state-default .ui-icon,
-        span.ui-icon {
+        .pq-grid-title-row .ui-state-default .ui-icon {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
@@ -611,7 +647,7 @@
             // pqGrid configuration object (matching old system structure)
             var obj = {
                 width: "auto",  // Auto width to show all columns
-                height: 650,
+                height: Math.max(400, window.innerHeight - 280),
                 title: "Inventory Grid - " + allWarehouses.length + " Warehouses",
                 scrollModel: { horizontal: true, autoFit: false },  // Enable horizontal scroll, don't auto-fit
                 numberCell: { show: true, title: "#" },
@@ -634,7 +670,7 @@
                     keyUpDown: false,
                     cellBorderWidth: 0
                 },
-                pageModel: { type: "local", rPP: 100, rPPOptions: [20, 50, 100, 500, 1000] },
+                pageModel: { type: "local", rPP: 50, rPPOptions: [20, 50, 100, 250, 500, 1000], curPage: 1, strRpp: "Rows per page: {0}", strDisplay: "Showing {0} - {1} of {2}", strPage: "Page {0} of {1}" },
                 resizable: true,
                 rowBorders: true,
                 columnBorders: true,

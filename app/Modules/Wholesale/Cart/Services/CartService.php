@@ -12,6 +12,7 @@ use App\Modules\Wholesale\Cart\Models\CartAddon;
 use App\Modules\Wholesale\Cart\Models\Coupon;
 use App\Modules\Settings\Models\TaxSetting;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
+use App\Modules\Inventory\Models\ProductInventory;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -80,6 +81,25 @@ class CartService
 
         $variant = ProductVariant::with('product.brand', 'product.model')->findOrFail($variantId);
 
+        // ── Stock validation ──────────────────────────────────────────────────
+        $availableStock = $this->getAvailableStock($variantId, $warehouseId);
+        if ($availableStock !== null) {
+            $alreadyInCart = CartItem::where('cart_id', $cart->id)
+                ->where('product_variant_id', $variantId)
+                ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+                ->sum('quantity');
+            $newTotal = $alreadyInCart + $quantity;
+            if ($newTotal > $availableStock) {
+                $canAdd = max(0, $availableStock - (int) $alreadyInCart);
+                throw new \RuntimeException(
+                    $canAdd > 0
+                        ? "Only {$canAdd} more unit(s) can be added. Maximum available stock: {$availableStock}."
+                        : "No more stock available. Maximum quantity ({$availableStock}) is already in your cart."
+                );
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         $dealer     = $cart->dealer;
         $priceInfo  = $this->pricingService->calculateProductPrice(
             $dealer,
@@ -125,6 +145,12 @@ class CartService
         if ($quantity <= 0) {
             $item->delete();
         } else {
+            // ── Stock validation ──────────────────────────────────────────────
+            $availableStock = $this->getAvailableStock($item->product_variant_id, $item->warehouse_id);
+            if ($availableStock !== null && $quantity > $availableStock) {
+                throw new \RuntimeException("Only {$availableStock} unit(s) available in stock.");
+            }
+            // ─────────────────────────────────────────────────────────────────
             $item->quantity    = $quantity;
             $item->total_price = round($quantity * $item->unit_price, 2);
             $item->save();
@@ -458,6 +484,26 @@ class CartService
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Get available stock for a product variant.
+     * Returns null if no inventory records exist (no restriction enforced).
+     * Scoped to a specific warehouse when $warehouseId is provided.
+     */
+    private function getAvailableStock(int $variantId, ?int $warehouseId = null): ?int
+    {
+        $query = ProductInventory::where('product_variant_id', $variantId);
+
+        if ($warehouseId) {
+            $query->where('warehouse_id', $warehouseId);
+        }
+
+        if (! $query->exists()) {
+            return null; // No inventory records → no restriction
+        }
+
+        return (int) $query->sum('quantity');
+    }
 
     private function recalculateAndReturn(Cart $cart): Cart
     {

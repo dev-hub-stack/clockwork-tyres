@@ -1,4 +1,7 @@
 <x-filament-panels::page>
+    <!-- CSRF Token for AJAX requests -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
@@ -13,6 +16,47 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     
     <style>
+        /* ── pqGrid Pager ─────────────────────────────────── */
+        .pq-pager {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            padding: 4px 8px !important;
+            min-height: 36px !important;
+            background: #f3f4f6 !important;
+            border-top: 1px solid #d1d5db !important;
+            overflow: visible !important;
+        }
+        .pq-pager-input {
+            width: 45px !important;
+            border: 1px solid #9ca3af !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-size: 13px !important;
+            color: #111 !important;
+            background: #fff !important;
+            display: inline-block !important;
+        }
+        .pq-pager select {
+            border: 1px solid #9ca3af !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-size: 13px !important;
+            color: #111 !important;
+            background: #fff !important;
+            display: inline-block !important;
+        }
+        .pq-pager-msg {
+            font-size: 13px !important;
+            color: #374151 !important;
+            display: inline-block !important;
+        }
+        .pq-page-placeholder, .pq-pager span {
+            font-size: 13px !important;
+            color: #374151 !important;
+        }
+        .pq-separator { margin: 0 4px !important; }
         /* GRID CONTAINER - Full width with horizontal scroll */
         .page-content {
             background: #fff;
@@ -167,6 +211,11 @@
         .fi-page-content {
             width: 100% !important;
             max-width: 100% !important;
+        }
+
+        /* Wholesale toggle columns */
+        .wholesale-toggle-cell {
+            background-color: #f0fdf4 !important;
         }
     </style>
     

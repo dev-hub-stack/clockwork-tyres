@@ -223,6 +223,7 @@ class InventoryApiController extends Controller
                 'f.finish as finish'
             )
             ->whereNotNull('pv.sku')
+            ->where('p.track_inventory', true)
             ->orderBy('b.name')
             ->orderBy('m.name')
             ->orderBy('pv.sku')

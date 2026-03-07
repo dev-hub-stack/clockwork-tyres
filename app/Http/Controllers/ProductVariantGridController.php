@@ -88,6 +88,55 @@ class ProductVariantGridController extends Controller
     }
 
     /**
+     * Toggle wholesale flag (available_on_wholesale / track_inventory) on a product
+     */
+    public function toggleWholesaleFlag(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'field' => 'required|in:available_on_wholesale,track_inventory',
+            'value' => 'required|in:0,1',
+        ]);
+
+        $product = Product::findOrFail($request->product_id);
+        $product->{$request->field} = (bool) $request->value;
+        $product->save();
+
+        \Log::info("Wholesale flag toggled: product {$product->id}, {$request->field} = {$request->value}");
+
+        return response()->json([
+            'success' => true,
+            'product_id' => $product->id,
+            'field' => $request->field,
+            'value' => (bool) $request->value,
+        ]);
+    }
+
+    /**
+     * Bulk toggle wholesale flag for ALL products
+     */
+    public function bulkToggleWholesaleFlag(Request $request)
+    {
+        $request->validate([
+            'field' => 'required|in:available_on_wholesale,track_inventory',
+            'value' => 'required|in:0,1',
+        ]);
+
+        $updated = Product::query()->update([
+            $request->field => (bool) $request->value,
+        ]);
+
+        \Log::info("Bulk wholesale flag toggled: {$request->field} = {$request->value}, {$updated} products updated");
+
+        return response()->json([
+            'success' => true,
+            'field' => $request->field,
+            'value' => (bool) $request->value,
+            'updated' => $updated,
+        ]);
+    }
+
+    /**
      * Batch save (create/update) product variants
      */
     public function saveBatch(Request $request)

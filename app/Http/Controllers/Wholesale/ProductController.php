@@ -49,6 +49,7 @@ class ProductController extends BaseWholesaleController
         ])
         ->join('products', 'products.id', '=', 'product_variants.product_id')
         ->where('products.status', 1)
+        ->where('products.available_on_wholesale', true)
         ->select('product_variants.*');
 
         $this->applyVariantFilters($query, $request);
@@ -100,7 +101,9 @@ class ProductController extends BaseWholesaleController
             $baseQuery = ProductVariant::active();
 
             if ($brandId) {
-                $baseQuery->whereHas('product', fn($q) => $q->where('brand_id', $brandId));
+                $baseQuery->whereHas('product', fn($q) => $q->where('brand_id', $brandId)->where('available_on_wholesale', true));
+            } else {
+                $baseQuery->whereHas('product', fn($q) => $q->where('available_on_wholesale', true));
             }
 
             $diameters    = (clone $baseQuery)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
@@ -163,7 +166,7 @@ class ProductController extends BaseWholesaleController
         ]);
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
-            ->whereHas('product', fn($q) => $q->where('status', 1));
+            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
 
         if ($request->filled('rim_diameter')) {
             $query->where('rim_diameter', $request->rim_diameter);
@@ -186,7 +189,7 @@ class ProductController extends BaseWholesaleController
      */
     public function searchSizeParams(Request $request)
     {
-        $base = ProductVariant::whereHas('product', fn($q) => $q->where('status', 1));
+        $base = ProductVariant::whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
 
         return $this->success([
             'diameters'    => (clone $base)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values(),
@@ -206,7 +209,7 @@ class ProductController extends BaseWholesaleController
         $page   = $request->get('pagination', 1);
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
-            ->whereHas('product', fn($q) => $q->where('status', 1));
+            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
 
         // Filter by bolt pattern from vehicle fitment (primary fitment filter)
         if ($request->filled('bolt_pattern')) {
