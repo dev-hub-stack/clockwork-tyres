@@ -170,6 +170,19 @@ class OrderFulfillmentService
         }
         
         // Get available inventory
+        if (!$item->product_variant_id) {
+            // No variant linked — cannot allocate inventory, treat as non-stock
+            $item->update(['allocated_quantity' => 0]);
+            return [
+                'item_id'   => $item->id,
+                'sku'       => $item->sku ?? 'N/A',
+                'requested' => $quantityNeeded,
+                'allocated' => 0,
+                'is_addon'  => false,
+                'error'     => 'No product variant linked to this item',
+            ];
+        }
+
         $inventories = $this->getAvailableInventory(
             $item->product_variant_id,
             $warehouseId ?? $item->order->warehouse_id
@@ -395,6 +408,135 @@ class OrderFulfillmentService
             ]);
             
             return $itemsReleased;
+        });
+    }
+
+    /**
+     * Cancel order and process returns with specific conditions
+     * 
+     * @param Order $order
+     * @param array $returnedItems [['item_id' => 1, 'quantity' => 2, 'warehouse_id' => 1, 'condition' => 'good']]
+     * @param string $reason
+     * @param string|null $notes
+     * @return void
+     */
+    public function cancelOrderWithReturns(Order $order, array $returnedItems, string $reason, ?string $notes = null): void
+    {
+        DB::transaction(function () use ($order, $returnedItems, $reason, $notes) {
+            
+            Log::info("Cancelling order with returns", ['order_id' => $order->id]);
+            
+            // For each item in the return array, we need to return it to the exact warehouse + condition
+            foreach ($returnedItems as $returnReq) {
+                $item = $order->items()->find($returnReq['item_id']);
+                if (!$item) continue;
+                
+                $quantity = (int)$returnReq['quantity'];
+                $warehouseId = $returnReq['warehouse_id'];
+                $condition = $returnReq['condition'] ?? 'good';
+                
+                // Tracked addons
+                if ($item->isAddon()) {
+                    $addon = $item->addon;
+                    if ($addon && $addon->track_inventory) {
+                        if ($condition === 'good') {
+                            $inventory = ProductInventory::firstOrCreate(
+                                ['warehouse_id' => $warehouseId, 'add_on_id' => $item->add_on_id],
+                                ['quantity' => 0]
+                            );
+                            
+                            $oldQty = $inventory->quantity;
+                            $inventory->increment('quantity', $quantity);
+                            
+                            InventoryLog::create([
+                                'warehouse_id'    => $warehouseId,
+                                'add_on_id'       => $item->add_on_id,
+                                'action'          => 'return',
+                                'quantity_before' => $oldQty,
+                                'quantity_after'  => $oldQty + $quantity,
+                                'quantity_change' => $quantity,
+                                'reference_type'  => 'order',
+                                'reference_id'    => $order->id,
+                                'notes'           => "Addon returned from cancelled Order #{$order->order_number} (Good)",
+                            ]);
+                        } else {
+                            // Damaged addon logic
+                            $damagedNotes = "Returned from cancelled Order #{$order->order_number}";
+                            if (!empty($notes)) $damagedNotes .= " - Notes: {$notes}";
+                            
+                            \App\Modules\Inventory\Models\DamagedInventory::create([
+                                'add_on_id' => $item->add_on_id,
+                                'warehouse_id' => $warehouseId,
+                                'quantity' => $quantity,
+                                'condition' => $condition,
+                                'notes' => $damagedNotes,
+                                'order_id' => $order->id,
+                            ]);
+                        }
+                    }
+                    continue;
+                }
+                
+                // Regular variants
+                if (!$item->product_variant_id) continue;
+                
+                if ($condition === 'good') {
+                    $variant = clone $item; // Quick hack to check variant id exist
+                    $inventory = ProductInventory::firstOrCreate(
+                        ['warehouse_id' => $warehouseId, 'product_variant_id' => $item->product_variant_id],
+                        ['product_id' => $item->product_id, 'quantity' => 0]
+                    );
+                    
+                    $oldQty = $inventory->quantity;
+                    $inventory->increment('quantity', $quantity);
+                    
+                    InventoryLog::create([
+                        'warehouse_id' => $warehouseId,
+                        'product_id' => $item->product_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'action' => 'return',
+                        'quantity_before' => $oldQty,
+                        'quantity_after' => $oldQty + $quantity,
+                        'quantity_change' => $quantity,
+                        'reference_type' => 'order',
+                        'reference_id' => $order->id,
+                        'notes' => "Returned from cancelled Order #{$order->order_number} (Good)",
+                    ]);
+                } else {
+                    $damagedNotes = "Returned from cancelled Order #{$order->order_number}";
+                    if (!empty($notes)) $damagedNotes .= " - Notes: {$notes}";
+                    
+                    \App\Modules\Inventory\Models\DamagedInventory::create([
+                        'product_variant_id' => $item->product_variant_id,
+                        'warehouse_id' => $warehouseId,
+                        'quantity' => $quantity,
+                        'condition' => $condition,
+                        'notes' => $damagedNotes,
+                        'order_id' => $order->id,
+                    ]);
+                }
+            }
+            
+            // Clean up allocation items and zero out items allocation count
+            // Since this replaces the auto-release, we must delete allocs
+            foreach ($order->items as $item) {
+                foreach ($item->quantities as $quantityRecord) {
+                    $quantityRecord->delete();
+                }
+                $item->update(['allocated_quantity' => 0, 'shipped_quantity' => 0]);
+            }
+            
+            // Mark the order as cancelled
+            $order->update(['order_status' => \App\Modules\Orders\Enums\OrderStatus::CANCELLED]);
+            
+            // Add note to order history
+            $order->notes()->create([
+                'note' => "Order cancelled. Reason: {$reason}. " . ($notes ? "Notes: {$notes}" : ""),
+                'created_by' => auth()->id() ?? 1,
+            ]);
+            
+            // recalculate (zeros out)
+            $order->calculateTotals();
         });
     }
 

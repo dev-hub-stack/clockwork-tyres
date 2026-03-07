@@ -70,7 +70,7 @@ class OrderItemObserver
         if (!$orderItem->product_variant_id) {
             // If this is an add-on item, populate product_name from the addon title
             if ($orderItem->add_on_id) {
-                $addon = AddOn::find($orderItem->add_on_id);
+                $addon = AddOn::withTrashed()->find($orderItem->add_on_id);
                 if ($addon) {
                     $orderItem->product_name = $orderItem->product_name ?? $addon->title;
                     $orderItem->sku          = $orderItem->sku ?? $addon->part_number;

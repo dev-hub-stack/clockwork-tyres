@@ -18,7 +18,6 @@
     
     <!-- SweetAlert2 for Premium Toasts & Dialogs -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
     <style>
         /* ── pqGrid Pager ─────────────────────────────────── */
         .pq-pager {
@@ -225,6 +224,9 @@
             <button type="button" class="btn btn-info" id="export-btn">
                 <i class="bi bi-file-earmark-excel"></i> Export Excel
             </button>
+            <button type="button" class="btn btn-warning" id="bulk-transfer-btn">
+                <i class="bi bi-arrow-left-right"></i> Bulk Transfer
+            </button>
             <button type="button" class="btn btn-success" id="save-changes-btn">
                 <i class="bi bi-save"></i> Save Changes
             </button>
@@ -247,6 +249,49 @@
 
         <!-- pqGrid Container -->
         <div id="grid_json_inventory"></div>
+    </div>
+
+    <!-- Bulk Transfer Modal -->
+    <div class="modal fade" id="bulk-transfer-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Bulk Transfer Inventory</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ route('admin.inventory.bulk-transfer') }}" method="POST" id="bulkTransferForm">
+                    @csrf
+                    <input type="hidden" name="selected_ids" id="transfer_selected_ids" value="[]">
+                    <div class="modal-body">
+                        <div id="transfer_count_msg" class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle"></i> Loading selection...
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">From Warehouse</label>
+                            <select name="source_warehouse_id" id="source_warehouse_id" class="form-select" required>
+                                <option value="">-- Select source --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">To Warehouse</label>
+                            <select name="destination_warehouse_id" id="destination_warehouse_id" class="form-select" required>
+                                <option value="">-- Select destination --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Quantity to Transfer (per item)</label>
+                            <input type="number" name="quantity" id="transfer_quantity" class="form-control" min="1" value="1" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-warning" id="confirmBulkTransferBtn">
+                            <i class="bi bi-arrow-left-right"></i> Transfer
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Import Modal (matching old system) -->
@@ -419,6 +464,7 @@
             // Prepare data - EXACT structure from old Reporting system (lines 269-274)
             var data = [];
             api_data.forEach(function(element, index) {
+                element.state = false; // Add state for checkbox selection
                 element.inventory.forEach(function (el, ind){
                     element['qty'+el.warehouse_id] = el.quantity;
                     element['eta'+el.warehouse_id] = el.eta;
@@ -429,6 +475,19 @@
 
             // Column definitions - base columns (matching old system lines 276-293)
             var colModel = [
+                {
+                    dataIndx: 'state',
+                    title: '',
+                    cb: { header: true, select: true, all: true },
+                    type: 'checkbox',
+                    cls: 'ui-state-default',
+                    resizable: false,
+                    width: 40,
+                    minWidth: 40,
+                    maxWidth: 40,
+                    sortable: false,
+                    filter: { crules: [] }
+                },
                 {
                     title: "SKU", 
                     width: 280, 
@@ -479,7 +538,7 @@
             ];
 
             // DYNAMIC WAREHOUSE COLUMNS - EXACT pattern from old system (lines 295-304)
-            var wj = 5;
+            var wj = 6; // Start after state, sku, name, size, bp, offset
             allWarehouses.forEach(function(warehouse, key) {
                 let qtyWare = "qty"+warehouse.id;
                 let etaWare = "eta"+warehouse.id;
@@ -673,6 +732,9 @@
                 selectionModel: { type: 'cell', mode: 'block' },
                 copyModel: { on: true },
                 change: function (evt, ui) {
+                    // Ignore checkbox selection changes - they're not data edits
+                    if (ui.source === 'checkbox') return;
+
                     console.log('📝 Grid changed:', ui);
                     
                     // Debounce save for multiple rapid changes (like paste operations)
@@ -1100,7 +1162,55 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     
-    <!-- Bootstrap 5 JS (required for modals) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bulk Transfer Scripts -->
+    <script>
+        $(document).ready(function() {
+            // Bulk Transfer Button Click
+            $('#bulk-transfer-btn').on('click', function() {
+                if (typeof grid === 'undefined' || !grid) {
+                    showToast('Grid is not ready yet.', 'error');
+                    return;
+                }
 
+                // Get ALL rows across all pages (not just current page)
+                var allData = grid.option('dataModel.data');
+                var selectedIds = [];
+                if (allData && allData.length > 0) {
+                    allData.forEach(function(row) {
+                        if (row.state === true) {
+                            selectedIds.push(row.id);
+                        }
+                    });
+                }
+
+                // Populate warehouse dropdowns from JS allWarehouses variable
+                var $src = $('#source_warehouse_id').empty().append('<option value="">-- Select source --</option>');
+                var $dst = $('#destination_warehouse_id').empty().append('<option value="">-- Select destination --</option>');
+                if (typeof allWarehouses !== 'undefined') {
+                    allWarehouses.forEach(function(wh) {
+                        $src.append('<option value="' + wh.id + '">' + wh.warehouse_name + ' (' + wh.code + ')</option>');
+                        $dst.append('<option value="' + wh.id + '">' + wh.warehouse_name + ' (' + wh.code + ')</option>');
+                    });
+                }
+
+                if (selectedIds.length === 0) {
+                    $('#transfer_count_msg')
+                        .removeClass('alert-info alert-success')
+                        .addClass('alert-danger')
+                        .html('<i class="bi bi-exclamation-triangle"></i> Please tick the checkboxes on the left to select items first.');
+                    $('#confirmBulkTransferBtn').prop('disabled', true);
+                } else {
+                    $('#transfer_count_msg')
+                        .removeClass('alert-danger alert-info')
+                        .addClass('alert-success')
+                        .html('<i class="bi bi-check-circle"></i> <strong>' + selectedIds.length + '</strong> item(s) selected for transfer.');
+                    $('#confirmBulkTransferBtn').prop('disabled', false);
+                    $('#transfer_selected_ids').val(JSON.stringify(selectedIds));
+                }
+
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('bulk-transfer-modal'));
+                modal.show();
+            });
+        });
+    </script>
 </x-filament-panels::page>

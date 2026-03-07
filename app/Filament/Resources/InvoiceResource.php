@@ -100,11 +100,16 @@ class InvoiceResource extends Resource
      *   tax         = subtotal × rate%
      *   total       = subtotal + tax
      */
-    public static function calculateValues(array $items, float $shipping): array
+    public static function calculateValues(array $items, float $shipping, bool $isZeroRated = false): array
     {
-        $taxSetting = TaxSetting::getDefault();
-        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
-        $multiplier = 1 + ($taxRate / 100);
+        if ($isZeroRated) {
+            $taxRate = 0;
+            $multiplier = 1;
+        } else {
+            $taxSetting = TaxSetting::getDefault();
+            $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+            $multiplier = 1 + ($taxRate / 100);
+        }
 
         $inclGross = 0.0;
         $exclNet   = 0.0;
@@ -489,7 +494,7 @@ class InvoiceResource extends Resource
                                     ->afterStateUpdated(function ($get, $set) {
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0); 
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('../../is_zero_rated') ?? false);
                                         
                                         // InvoiceResource doesn't seem to have hidden total fields in the same way, 
                                         // but we should trigger updates if there are any dependent fields.
@@ -569,7 +574,7 @@ class InvoiceResource extends Resource
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $shipping = floatval($get('shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                         return Number::currency($totals['sub_total'], $code);
                                     })
                                     ->helperText('Items − Discounts'),
@@ -586,7 +591,7 @@ class InvoiceResource extends Resource
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $shipping = floatval($get('shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                         return Number::currency($totals['vat'], $code);
                                     })
                                     ->helperText('Subtotal × rate%'),
@@ -608,7 +613,7 @@ class InvoiceResource extends Resource
                                         $code = $currency?->currency_code ?? 'AED';
                                         $items = $get('items') ?? [];
                                         $shipping = floatval($get('shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                         return Number::currency($totals['total'], $code);
                                     })
                                     ->helperText('Subtotal + Tax')
@@ -624,12 +629,25 @@ class InvoiceResource extends Resource
                         $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
                         return $taxSetting ? $taxSetting->tax_inclusive_default : true;
                     }),
+                    
+                \Filament\Forms\Components\Toggle::make('is_zero_rated')
+                    ->label('Zero Rated VAT (0%)')
+                    ->helperText('Enable this if the sale is exempt from VAT (e.g., export or zero-rated supply).')
+                    ->default(false)
+                    ->inline(false)
+                    ->live()
+                    ->dehydrated()
+                    ->afterStateUpdated(function ($get, $set) {
+                        // The UI totals will update automatically because placeholders read from $get('is_zero_rated')
+                        // Real calculation happens in OrderObserver/Order::calculateTotals on save
+                    }),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->columnManager(fn() => !auth()->user()?->hasRole('sales_rep'))
             ->columns([
                 TextColumn::make('issue_date')
                     ->label('Date')
@@ -844,20 +862,42 @@ class InvoiceResource extends Resource
                         $query = $livewire->getFilteredTableQuery();
                         $records = $query->get();
                         
-                        return response()->streamDownload(function () use ($records) {
+                        return response()->streamDownload(function () use ($records, $livewire) {
                             $handle = fopen('php://output', 'w');
-                            fputcsv($handle, ['Invoice #', 'Date', 'Customer', 'Status', 'Payment', 'Total', 'Balance']);
+                            
+                            // Get visible columns dynamically
+                            $columns = $livewire->getTable()->getVisibleColumns();
+                            
+                            $headers = [];
+                            foreach ($columns as $column) {
+                                $headers[] = $column->getLabel();
+                            }
+                            fputcsv($handle, $headers);
                             
                             foreach ($records as $record) {
-                                fputcsv($handle, [
-                                    $record->order_number,
-                                    $record->issue_date->format('Y-m-d'),
-                                    $record->customer->name ?? '',
-                                    $record->order_status->name,
-                                    $record->payment_status->name,
-                                    $record->total,
-                                    $record->outstanding_amount,
-                                ]);
+                                $rowData = [];
+                                foreach ($columns as $name => $column) {
+                                    if ($name === 'customer.business_name') {
+                                        $val = $record->customer->business_name ?? $record->customer->name ?? '';
+                                    } elseif ($name === 'representative.name') {
+                                        $val = $record->representative->name ?? '';
+                                    } elseif ($name === 'order_status') {
+                                        $val = $record->order_status->name ?? $record->order_status;
+                                    } elseif ($name === 'payment_status') {
+                                        $val = $record->payment_status->name ?? $record->payment_status;
+                                    } elseif ($name === 'balance') {
+                                        $val = $record->outstanding_amount;
+                                    } elseif (in_array($name, ['valid_until', 'issue_date', 'created_at'])) {
+                                        $val = data_get($record, $name);
+                                        if ($val instanceof \Carbon\Carbon) {
+                                            $val = $val->format('Y-m-d');
+                                        }
+                                    } else {
+                                        $val = data_get($record, $name);
+                                    }
+                                    $rowData[] = $val ?? '';
+                                }
+                                fputcsv($handle, $rowData);
                             }
                             fclose($handle);
                         }, 'invoices-' . now()->format('Y-m-d') . '.csv');
@@ -1261,39 +1301,7 @@ class InvoiceResource extends Resource
                             ->send();
                     }),
                 
-                Action::make('cancelOrder')
-                    ->label('Cancel Order')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
-                    ->tooltip('Cancel this order and return any allocated inventory to stock')
-                    ->visible(fn($record) => in_array($record->order_status->value, ['pending', 'processing']))
-                    ->requiresConfirmation()
-                    ->modalHeading('Cancel Order')
-                    ->modalDescription('This will cancel the order and deallocate any allocated inventory.')
-                    ->form([
-                        Textarea::make('cancellation_reason')
-                            ->label('Cancellation Reason')
-                            ->required()
-                            ->rows(3)
-                            ->placeholder('Why is this order being cancelled?'),
-                    ])
-                    ->action(function ($record, array $data) {
-                        // Handle null notes (use order_notes field)
-                        $currentNotes = $record->order_notes ?? '';
-                        $newNotes = trim($currentNotes) . "\n\nCancellation Reason: " . $data['cancellation_reason'];
-                        
-                        // Update status - OrderObserver will handle inventory release
-                        $record->update([
-                            'order_status' => OrderStatus::CANCELLED,
-                            'order_notes' => $newNotes,
-                        ]);
-                        
-                        Notification::make()
-                            ->title('Order Cancelled')
-                            ->body("Order {$record->order_number} has been cancelled and inventory deallocated")
-                            ->warning()
-                            ->send();
-                    }),
+                \App\Filament\Resources\InvoiceResource\Actions\CancelOrderAction::make(),
                 
                 EditAction::make()
                     ->tooltip('Edit invoice details'),

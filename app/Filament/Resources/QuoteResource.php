@@ -99,18 +99,23 @@ class QuoteResource extends Resource
      *   tax         = subtotal × rate%
      *   total       = subtotal + tax
      */
-    public static function calculateValues(array $items, float $shipping): array
+    public static function calculateValues(array $items, float $shipping, bool $isZeroRated = false): array
     {
         // Cache within a single request/render cycle to avoid repeated DB queries
         static $cache = [];
-        $cacheKey = md5(serialize($items) . '|' . $shipping);
+        $cacheKey = md5(serialize($items) . '|' . $shipping . '|' . ($isZeroRated ? '1' : '0'));
         if (isset($cache[$cacheKey])) {
             return $cache[$cacheKey];
         }
 
-        $taxSetting = TaxSetting::getDefault();
-        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
-        $multiplier = 1 + ($taxRate / 100);
+        if ($isZeroRated) {
+            $taxRate = 0;
+            $multiplier = 1;
+        } else {
+            $taxSetting = TaxSetting::getDefault();
+            $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+            $multiplier = 1 + ($taxRate / 100);
+        }
 
         $inclGross = 0.0;
         $exclNet   = 0.0;
@@ -576,7 +581,7 @@ class QuoteResource extends Resource
                                         
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('../../is_zero_rated') ?? false);
                                         
                                         $set('../../sub_total', $totals['sub_total']);
                                         $set('../../vat', $totals['vat']);
@@ -598,7 +603,7 @@ class QuoteResource extends Resource
                                         
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('../../is_zero_rated') ?? false);
                                         
                                         $set('../../sub_total', $totals['sub_total']);
                                         $set('../../vat', $totals['vat']);
@@ -620,7 +625,7 @@ class QuoteResource extends Resource
                                         
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('../../is_zero_rated') ?? false);
                                         
                                         $set('../../sub_total', $totals['sub_total']);
                                         $set('../../vat', $totals['vat']);
@@ -641,7 +646,7 @@ class QuoteResource extends Resource
                                     ->afterStateUpdated(function ($get, $set) {
                                         $items = $get('../../items') ?? [];
                                         $shipping = floatval($get('../../shipping') ?? 0);
-                                        $totals = self::calculateValues($items, $shipping);
+                                        $totals = self::calculateValues($items, $shipping, $get('../../is_zero_rated') ?? false);
                                         
                                         $set('../../sub_total', $totals['sub_total']);
                                         $set('../../vat', $totals['vat']);
@@ -715,7 +720,7 @@ class QuoteResource extends Resource
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
-                                                $totals = self::calculateValues($items, $shipping);
+                                                $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                                 return $currencySymbol . ' ' . number_format($totals['sub_total'], 2);
                                             })
                                             ->helperText('Items − Discounts + Shipping')
@@ -733,7 +738,7 @@ class QuoteResource extends Resource
                                                 $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
-                                                $totals = self::calculateValues($items, $shipping);
+                                                $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                                 return $currencySymbol . ' ' . number_format($totals['vat'], 2);
                                             })
                                             ->helperText('Subtotal × rate%')
@@ -757,7 +762,7 @@ class QuoteResource extends Resource
                                             ->afterStateUpdated(function ($get, $set) {
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
-                                                $totals = self::calculateValues($items, $shipping);
+                                                $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                                 
                                                 $set('sub_total', $totals['sub_total']);
                                                 $set('vat', $totals['vat']);
@@ -772,7 +777,7 @@ class QuoteResource extends Resource
                                                 
                                                 $items = $get('items') ?? [];
                                                 $shipping = floatval($get('shipping') ?? 0);
-                                                $totals = self::calculateValues($items, $shipping);
+                                                $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                                                 
                                                 return $currencySymbol . ' ' . number_format($totals['total'], 2);
                                             })
@@ -799,7 +804,7 @@ class QuoteResource extends Resource
                         // Trigger totals recalculation
                         $items = $get('items') ?? [];
                         $shipping = floatval($get('shipping') ?? 0);
-                        $totals = self::calculateValues($items, $shipping);
+                        $totals = self::calculateValues($items, $shipping, $get('is_zero_rated') ?? false);
                         $set('sub_total', $totals['sub_total']);
                         $set('vat', $totals['vat']);
                         $set('total', $totals['total']);

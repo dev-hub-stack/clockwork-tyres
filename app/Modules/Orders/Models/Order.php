@@ -528,9 +528,14 @@ class Order extends Model
      */
     public function calculateTotals(): void
     {
-        $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
-        $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
-        $multiplier = 1 + ($taxRate / 100);
+        if ($this->is_zero_rated) {
+            $taxRate = 0;
+            $multiplier = 1;
+        } else {
+            $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+            $taxRate    = $taxSetting ? floatval($taxSetting->rate) : 5;
+            $multiplier = 1 + ($taxRate / 100);
+        }
 
         $inclGross = 0.0;
         $exclNet   = 0.0;
@@ -563,6 +568,15 @@ class Order extends Model
         $this->vat       = round($inclTax  + $exclTax,  2);
         $this->tax       = $this->vat;
         $this->total     = round($inclGross + $exclBase + $exclTax, 2);
+        
+        // If order is cancelled, zero out amounts
+        if ($this->order_status === \App\Modules\Orders\Enums\OrderStatus::CANCELLED || $this->payment_status === \App\Modules\Orders\Enums\PaymentStatus::REFUNDED) {
+            $this->sub_total = 0;
+            $this->vat = 0;
+            $this->tax = 0;
+            $this->total = 0;
+            $this->shipping = 0;
+        }
         
         // Update outstanding amount based on total and paid amount
         $totalPaid = $this->paid_amount ?? 0;

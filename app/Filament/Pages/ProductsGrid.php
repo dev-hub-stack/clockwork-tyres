@@ -8,6 +8,7 @@ use App\Modules\Products\Models\ProductVariant;
 use Filament\Pages\Page;
 use BackedEnum;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use UnitEnum;
 
 class ProductsGrid extends Page
@@ -42,82 +43,80 @@ class ProductsGrid extends Page
     
     protected function loadProductsData(): void
     {
-        // Get all active warehouses (cache this as it doesn't change often)
+        // Get all active warehouses
         $this->warehouses = Cache::remember('active_warehouses', 3600, function () {
-            return Warehouse::where('status', 1)
-                ->orderBy('code')
-                ->get();
+            return Warehouse::where('status', 1)->orderBy('code')->get();
         });
 
-        // Load products with proper eager loading and pagination
-        $query = Product::with([
-            'brand',
-            'model',
-            'variants' => function ($query) {
-                $query->with([
-                    'finishRelation', // Eager load finish relationship to avoid N+1
-                    'inventories.warehouse'
-                ]);
-            }
-        ])
-        ->whereHas('variants');
-
-        // Apply pagination - load only 1000 records at a time to prevent timeout
-        $products = $query->limit(1000)->get();
+        // Single efficient join query — no limit, no N+1
+        $rows = DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
+            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->leftJoin('finishes as f', 'f.id', '=', 'p.finish_id')
+            ->select(
+                'pv.id',
+                'pv.product_id',
+                'pv.sku',
+                'pv.size',
+                'pv.rim_width',
+                'pv.rim_diameter',
+                'pv.bolt_pattern',
+                'pv.offset',
+                'pv.hub_bore',
+                'pv.backspacing',
+                'pv.max_wheel_load',
+                'pv.weight',
+                'pv.lipsize',
+                'pv.uae_retail_price',
+                'pv.sale_price',
+                'pv.finish',
+                'b.name as brand',
+                'm.name as model',
+                'f.finish as finish_name',
+                'p.name as product_name',
+                'p.construction',
+                'p.images',
+                'p.available_on_wholesale',
+                'p.track_inventory'
+            )
+            ->orderBy('b.name')
+            ->orderBy('m.name')
+            ->orderBy('pv.sku')
+            ->get();
 
         $this->products_data = [];
 
-        foreach ($products as $product) {
-            foreach ($product->variants as $variant) {
-                // Pre-load finish data to avoid individual queries
-                $finishName = '';
-                if ($variant->finishRelation) {
-                    $finishName = $variant->finishRelation->finish;
-                } elseif (isset($variant->finish)) {
-                    $finishName = $variant->finish;
-                }
-
-                $row = [
-                    'id' => $variant->id,
-                    'product_id' => $product->id,
-                    'sku' => $variant->sku ?? '',
-                    'product_full_name' => trim(($product->brand?->name ?? '') . ' ' . ($product->model?->name ?? '') . ' ' . $finishName),
-                    'brand' => $product->brand?->name ?? '',
-                    'model' => $product->model?->name ?? '',
-                    'finish' => $finishName,
-                    'construction' => $product->construction ?? '',
-                    'rim_width' => $variant->rim_width ?? '',
-                    'rim_diameter' => $variant->rim_diameter ?? '',
-                    'size' => $variant->size ?? '',
-                    'bolt_pattern' => $variant->bolt_pattern ?? '',
-                    'hub_bore' => $variant->hub_bore ?? '',
-                    'offset' => $variant->offset ?? '',
-                    'backspacing' => $variant->backspacing ?? '',
-                    'max_wheel_load' => $variant->max_wheel_load ?? '',
-                    'weight' => $variant->weight ?? '',
-                    'lipsize' => $variant->lipsize ?? '',
-                    'uae_retail_price' => $variant->uae_retail_price ?? 0,
-                    'sale_price' => $variant->sale_price ?? 0,
-                    'available_on_wholesale' => (bool) ($product->available_on_wholesale ?? true),
-                    'track_inventory' => (bool) ($product->track_inventory ?? false),
-                    'images' => is_string($product->images) 
-                        ? implode(', ', json_decode($product->images, true) ?: []) 
-                        : implode(', ', $product->images?->toArray() ?? []),
-                    'inventory' => []
-                ];
-
-                // Add inventory data for each warehouse
-                foreach ($variant->inventories as $inventory) {
-                    $row['inventory'][] = [
-                        'warehouse_id' => $inventory->warehouse_id,
-                        'quantity' => $inventory->quantity ?? 0,
-                        'eta' => $inventory->eta ?? '',
-                        'eta_qty' => $inventory->eta_qty ?? 0,
-                    ];
-                }
-
-                $this->products_data[] = $row;
-            }
+        foreach ($rows as $row) {
+            $finish = $row->finish_name ?: ($row->finish ?? '');
+            $this->products_data[] = [
+                'id'                  => $row->id,
+                'product_id'          => $row->product_id,
+                'sku'                 => $row->sku ?? '',
+                'product_full_name'   => trim(($row->brand ?? '') . ' ' . ($row->model ?? '') . ' ' . $finish),
+                'brand'               => $row->brand ?? '',
+                'model'               => $row->model ?? '',
+                'finish'              => $finish,
+                'construction'        => $row->construction ?? '',
+                'rim_width'           => $row->rim_width ?? '',
+                'rim_diameter'        => $row->rim_diameter ?? '',
+                'size'                => $row->size ?? '',
+                'bolt_pattern'        => $row->bolt_pattern ?? '',
+                'hub_bore'            => $row->hub_bore ?? '',
+                'offset'              => $row->offset ?? '',
+                'backspacing'         => $row->backspacing ?? '',
+                'max_wheel_load'      => $row->max_wheel_load ?? '',
+                'weight'              => $row->weight ?? '',
+                'lipsize'             => $row->lipsize ?? '',
+                'uae_retail_price'    => $row->uae_retail_price ?? 0,
+                'sale_price'          => $row->sale_price ?? 0,
+                'available_on_wholesale' => (bool) $row->available_on_wholesale,
+                'track_inventory'     => (bool) $row->track_inventory,
+                'images'              => is_string($row->images)
+                    ? implode(', ', json_decode($row->images, true) ?: [])
+                    : '',
+                'inventory'           => [],
+            ];
         }
     }
 }

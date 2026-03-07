@@ -57,6 +57,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('inventory.save-batch');
     Route::post('inventory/import', [InventoryController::class, 'import'])
         ->name('inventory.import');
+    Route::post('inventory/bulk-transfer', [InventoryController::class, 'bulkTransfer'])
+        ->name('inventory.bulk-transfer');
     // Grid data JSON endpoint — loaded via AJAX to avoid Livewire snapshot serialization
     Route::get('api/inventory/grid-data', [\App\Http\Controllers\Api\InventoryApiController::class, 'gridData'])
         ->name('api.inventory.grid-data');

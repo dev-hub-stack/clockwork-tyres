@@ -58,6 +58,7 @@
         </style>
 
         <!-- Stats Cards -->
+        @if(!auth()->user()?->hasRole('sales_rep'))
         <div class="stats-grid">
             <div class="stat-card card-blue">
                 <p>Pending Orders</p>
@@ -76,6 +77,7 @@
                 <h2>{{ $notifications }}</h2>
             </div>
         </div>
+        @endif
 
         <!-- Order Sheet Table -->
         <div class="order-table" x-data="orderSheet()">
@@ -529,14 +531,9 @@
                     },
 
                     async markAsDone(orderId) {
-                        // Check if order is fully paid
                         const order = this.orders.find(o => o.id === orderId);
-                        if (order && parseFloat(order.outstanding_amount) > 0) {
-                            alert('Order cannot be marked as done until the balance payment is recorded.');
-                            return;
-                        }
 
-                        if (!confirm('Mark this order as done?')) return;
+                        if (!confirm('Mark this order as done and delivered?')) return;
 
                         try {
                             const response = await fetch(`/admin/dashboard/mark-done/${orderId}`, {

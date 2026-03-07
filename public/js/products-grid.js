@@ -6,6 +6,8 @@
 // Global variables
 let grid;
 let interval;
+let _filteredProductIds = null; // null = no filter (update all), array = filtered product IDs
+let _totalDataCount = 0;         // full unfiltered row count, set after grid init
 
 // Reusable SweetAlert2 Toast configuration
 const Toast = Swal.mixin({
@@ -273,6 +275,15 @@ function saveChanges() {
         console.log('ℹ️ No changes to save');
         showToast('ℹ️ No changes to save.', 'info');
     }
+}
+
+/**
+ * Get product_ids of currently visible (filtered) rows.
+ * Returns null if no filter is active (meaning: all products).
+ * Uses pqGrid's riVisibles — the internal array of visible row indices.
+ */
+function getFilteredProductIds(gridInstance) {
+    return _filteredProductIds;
 }
 
 /**
@@ -792,14 +803,10 @@ $(document).ready(function () {
                 label: '✅ Enable All Wholesale',
                 cls: 'btn btn-sm btn-success',
                 listener: function () {
-                    var filteredData = grid.getData();
-                    var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                    var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                    var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
                         ? 'Enable wholesale for the ' + ids.length + ' filtered products?'
                         : 'Enable wholesale for ALL products? This will make all products visible on the wholesale site.';
-
                     Swal.fire({
                         title: 'Enable Wholesale?',
                         text: confirmMsg,
@@ -809,7 +816,7 @@ $(document).ready(function () {
                         cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            bulkToggleFlag('available_on_wholesale', 1, this, ids);
+                            bulkToggleFlag('available_on_wholesale', 1, grid, ids);
                         }
                     });
                 }
@@ -819,14 +826,10 @@ $(document).ready(function () {
                 label: '❌ Disable All Wholesale',
                 cls: 'btn btn-sm btn-outline-danger',
                 listener: function () {
-                    var filteredData = grid.getData();
-                    var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                    var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                    var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
                         ? 'Disable wholesale for the ' + ids.length + ' filtered products?'
                         : 'Disable wholesale for ALL products? This will hide all products from the wholesale site.';
-
                     Swal.fire({
                         title: 'Disable Wholesale?',
                         text: confirmMsg,
@@ -836,7 +839,7 @@ $(document).ready(function () {
                         cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            bulkToggleFlag('available_on_wholesale', 0, this, ids);
+                            bulkToggleFlag('available_on_wholesale', 0, grid, ids);
                         }
                     });
                 }
@@ -847,14 +850,10 @@ $(document).ready(function () {
                 label: '📦 Enable All Tracking',
                 cls: 'btn btn-sm btn-info',
                 listener: function () {
-                    var filteredData = grid.getData();
-                    var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                    var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                    var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
                         ? 'Enable inventory tracking for the ' + ids.length + ' filtered products?'
                         : 'Enable inventory tracking for ALL products? Cart will enforce stock limits for all products.';
-
                     Swal.fire({
                         title: 'Enable Tracking?',
                         text: confirmMsg,
@@ -864,7 +863,7 @@ $(document).ready(function () {
                         cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            bulkToggleFlag('track_inventory', 1, this, ids);
+                            bulkToggleFlag('track_inventory', 1, grid, ids);
                         }
                     });
                 }
@@ -874,14 +873,10 @@ $(document).ready(function () {
                 label: '🚫 Disable All Tracking',
                 cls: 'btn btn-sm btn-outline-secondary',
                 listener: function () {
-                    var filteredData = grid.getData();
-                    var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                    var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                    var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
                         ? 'Disable inventory tracking for the ' + ids.length + ' filtered products?'
                         : 'Disable inventory tracking for ALL products?';
-
                     Swal.fire({
                         title: 'Disable Tracking?',
                         text: confirmMsg,
@@ -891,7 +886,7 @@ $(document).ready(function () {
                         cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            bulkToggleFlag('track_inventory', 0, this, ids);
+                            bulkToggleFlag('track_inventory', 0, grid, ids);
                         }
                     });
                 }
@@ -1043,6 +1038,36 @@ $(document).ready(function () {
 
         grid = pq.grid("#productsGrid", obj);
 
+        // Store full unfiltered count right after init (before any filter)
+        _totalDataCount = grid.option('dataModel.data').length;
+        console.log('[init] total data count:', _totalDataCount);
+
+        // pqGrid replaces dataModel.data with only filtered rows during local filtering.
+        // So on filter event, dataModel.data IS the filtered rows — just read them directly.
+        grid.on('filter', function () {
+            var filteredData = grid.option('dataModel.data');
+            var filteredCount = filteredData.length;
+
+            console.log('[filter event] filteredCount:', filteredCount, 'total:', _totalDataCount);
+
+            if (filteredCount >= _totalDataCount) {
+                _filteredProductIds = null;
+                console.log('[filter event] no filter — cleared');
+                return;
+            }
+
+            var ids = [], seen = {};
+            filteredData.forEach(function (row) {
+                if (row.product_id && !seen[row.product_id]) {
+                    seen[row.product_id] = true;
+                    ids.push(row.product_id);
+                }
+            });
+            _filteredProductIds = ids.length ? ids : null;
+            console.log('[filter event] captured', ids.length, 'unique product IDs');
+        });
+
+
         console.log('✅ Grid initialized');
         console.log('📄 Page Model:', grid.option('pageModel'));
         console.log('🔍 Filter Model:', grid.option('filterModel'));
@@ -1081,14 +1106,10 @@ $(document).ready(function () {
             // Header "Select All" checkbox handlers for Wholesale & Track Inventory
             $(document).on('change', '.wholesale-select-all', function () {
                 var newVal = $(this).is(':checked');
-                var filteredData = grid.getData();
-                var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                var ids = getFilteredProductIds(grid);
                 var confirmMsg = ids
                     ? (newVal ? 'Enable' : 'Disable') + ' wholesale for the ' + ids.length + ' filtered products?'
                     : (newVal ? 'Enable' : 'Disable') + ' wholesale for ALL products?';
-
                 Swal.fire({
                     title: (newVal ? 'Enable' : 'Disable') + ' Wholesale?',
                     text: confirmMsg,
@@ -1107,14 +1128,10 @@ $(document).ready(function () {
 
             $(document).on('change', '.track-inv-select-all', function () {
                 var newVal = $(this).is(':checked');
-                var filteredData = grid.getData();
-                var isFiltered = filteredData.length < grid.option('dataModel.data').length;
-                var ids = isFiltered ? [...new Set(filteredData.map(row => row.product_id))] : null;
-
+                var ids = getFilteredProductIds(grid);
                 var confirmMsg = ids
                     ? (newVal ? 'Enable' : 'Disable') + ' inventory tracking for the ' + ids.length + ' filtered products?'
                     : (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ALL products?';
-
                 Swal.fire({
                     title: (newVal ? 'Enable' : 'Disable') + ' Tracking?',
                     text: confirmMsg,

@@ -300,4 +300,118 @@ class InventoryController extends Controller
             ]);
         }
     }
+
+    /**
+     * Bulk transfer inventory between warehouses
+     */
+    public function bulkTransfer(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'selected_ids' => 'required|string',
+            'source_warehouse_id' => 'required|exists:warehouses,id',
+            'destination_warehouse_id' => 'required|exists:warehouses,id|different:source_warehouse_id',
+            'quantity' => 'required|integer|min:1'
+        ]);
+
+        if ($validator->fails()) {
+            return back()->with([
+                'error' => 'Invalid transfer request: ' . implode(', ', $validator->errors()->all()),
+            ]);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $variantIds = json_decode($request->selected_ids, true);
+            if (empty($variantIds)) {
+                throw new \Exception("No items selected for transfer.");
+            }
+
+            $sourceId = $request->source_warehouse_id;
+            $destId = $request->destination_warehouse_id;
+            $transferQty = (int) $request->quantity;
+            $processedCount = 0;
+
+            foreach ($variantIds as $variantId) {
+                // Get or initialize source inventory
+                $sourceInv = ProductInventory::firstOrCreate(
+                    [
+                        'product_variant_id' => $variantId,
+                        'warehouse_id' => $sourceId
+                    ],
+                    [
+                        'quantity' => 0,
+                        'product_id' => ProductVariant::find($variantId)?->product_id
+                    ]
+                );
+
+                // Prevent negative inventory by checking current stock
+                if ($sourceInv->quantity < $transferQty) {
+                    throw new \Exception("Insufficient stock in source warehouse for variant #{$variantId}. Has: {$sourceInv->quantity}, Attemping to transfer: {$transferQty}.");
+                }
+
+                // Deduct from source
+                $oldSourceQty = $sourceInv->quantity;
+                $sourceInv->quantity -= $transferQty;
+                $sourceInv->save();
+
+                // Log Source Deduction
+                InventoryLog::create([
+                    'warehouse_id' => $sourceId,
+                    'product_variant_id' => $variantId,
+                    'action' => InventoryLog::ACTION_TRANSFER,
+                    'quantity_before' => $oldSourceQty,
+                    'quantity_after' => $sourceInv->quantity,
+                    'quantity_change' => -$transferQty,
+                    'notes' => "Bulk transfer to Warehouse #{$destId}",
+                    'user_id' => auth()->id()
+                ]);
+
+                // Get or initialize destination inventory
+                $destInv = ProductInventory::firstOrCreate(
+                    [
+                        'product_variant_id' => $variantId,
+                        'warehouse_id' => $destId
+                    ],
+                    [
+                        'quantity' => 0,
+                        'product_id' => $sourceInv->product_id
+                    ]
+                );
+
+                // Add to destination
+                $oldDestQty = $destInv->quantity;
+                $destInv->quantity += $transferQty;
+                $destInv->save();
+
+                // Log Destination Addition
+                InventoryLog::create([
+                    'warehouse_id' => $destId,
+                    'product_variant_id' => $variantId,
+                    'action' => InventoryLog::ACTION_TRANSFER,
+                    'quantity_before' => $oldDestQty,
+                    'quantity_after' => $destInv->quantity,
+                    'quantity_change' => $transferQty,
+                    'notes' => "Bulk transfer from Warehouse #{$sourceId}",
+                    'user_id' => auth()->id()
+                ]);
+
+                $processedCount++;
+            }
+
+            DB::commit();
+
+            return back()->with([
+                'success' => "Successfully transferred {$transferQty} units for {$processedCount} products.",
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Bulk transfer error: ' . $e->getMessage());
+            
+            return back()->with([
+                'error' => 'Transfer failed: ' . $e->getMessage(),
+            ]);
+        }
+    }
 }

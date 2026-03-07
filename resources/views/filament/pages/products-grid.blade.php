@@ -441,5 +441,5 @@
     </script>
     
     <!-- Products Grid JavaScript -->
-    <script src="{{ asset('js/products-grid.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/products-grid.js') }}?v={{ filemtime(public_path('js/products-grid.js')) }}"></script>
 </x-filament-panels::page>
