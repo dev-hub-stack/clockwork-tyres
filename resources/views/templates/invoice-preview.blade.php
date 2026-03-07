@@ -224,9 +224,11 @@
                                         {{-- Product Image --}}
                                         @php
                                             $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
-                                            $productImage = $variantData['image'] ?? null;
+                                            $addonData = is_string($item->addon_snapshot) ? json_decode($item->addon_snapshot, true) : $item->addon_snapshot;
+                                            $productImage = $variantData['image'] ?? $addonData['image_1'] ?? null;
+                                            $cdnBase = rtrim(config('filesystems.disks.s3.url', 'https://d2iosncs8hpu1u.cloudfront.net'), '/');
                                             if ($productImage && !str_starts_with($productImage, 'http')) {
-                                                $productImage = 'https://d3oet5ce3rdmse.cloudfront.net/' . ltrim($productImage, '/');
+                                                $productImage = $cdnBase . '/' . ltrim($productImage, '/');
                                             }
                                         @endphp
                                         <div class="product-img-container">

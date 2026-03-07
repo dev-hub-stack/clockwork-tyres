@@ -280,17 +280,31 @@
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
-                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: left; width: 5%;">#</th>
-                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: left; width: 55%;">Product / Description</th>
-                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: center; width: 10%;">Qty</th>
-                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: right; width: 15%;">Unit Price</th>
-                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: right; width: 15%;">Total</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: left; width: 4%;">#</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: left; width: 8%;">Image</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: left; width: 44%;">Product / Description</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: center; width: 8%;">Qty</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: right; width: 18%;">Unit Price</th>
+                        <th style="background-color: #1a1a2e; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 8px; text-align: right; width: 18%;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($record->items as $index => $item)
+                    @php
+                        $imgUrl = null;
+                        if (!empty($item->product_image)) {
+                            $imgUrl = \App\Utility\Helper::getImagePath($item->product_image);
+                        }
+                    @endphp
                     <tr>
                         <td style="padding: 10px 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #666; text-align: center;">{{ $index + 1 }}</td>
+                        <td style="padding: 6px 8px; border-bottom: 1px solid #f0f0f0; text-align: center;">
+                            @if($imgUrl)
+                                <img src="{{ $imgUrl }}" alt="Product" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;">
+                            @else
+                                <div style="width: 50px; height: 50px; background: #f3f4f6; border-radius: 4px; display: inline-block;"></div>
+                            @endif
+                        </td>
                         <td style="padding: 10px 8px; border-bottom: 1px solid #f0f0f0;">
                             <div style="font-weight: 600; font-size: 13px; color: #222;">{{ $item->product_name ?? 'Unknown Product' }}</div>
                             @if($item->sku)
@@ -298,6 +312,18 @@
                             @endif
                             @if($item->brand_name)
                                 <div style="font-size: 11px; color: #888;">Brand: {{ $item->brand_name }}</div>
+                            @endif
+                            @if($item->finish ?? $item->color ?? null)
+                                <div style="font-size: 11px; color: #888;">Finish: {{ $item->finish ?? $item->color }}</div>
+                            @endif
+                            @if($item->size ?? null)
+                                <div style="font-size: 11px; color: #888;">Size: {{ $item->size }}</div>
+                            @endif
+                            @if($item->bowl_factor ?? null)
+                                <div style="font-size: 11px; color: #888;">Bowl Factor: {{ $item->bowl_factor }}</div>
+                            @endif
+                            @if($item->offset ?? null)
+                                <div style="font-size: 11px; color: #888;">Offset: {{ $item->offset }}</div>
                             @endif
                         </td>
                         <td style="padding: 10px 8px; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 12px;">{{ $item->quantity }}</td>

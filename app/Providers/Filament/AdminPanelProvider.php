@@ -47,6 +47,15 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Set custom dashboard as home page
             ->homeUrl('/admin/dashboard')
+            ->navigationGroups([
+                \Filament\Navigation\NavigationGroup::make('Sales')->icon('heroicon-o-document-currency-dollar'),
+                \Filament\Navigation\NavigationGroup::make('Inventory')->icon('heroicon-o-archive-box'),
+                \Filament\Navigation\NavigationGroup::make('Customers')->icon('heroicon-o-user-group'),
+                \Filament\Navigation\NavigationGroup::make('Products')->icon('heroicon-o-cube'),
+                \Filament\Navigation\NavigationGroup::make('Reports')->icon('heroicon-o-chart-bar'),
+                \Filament\Navigation\NavigationGroup::make('Settings')->icon('heroicon-o-cog-6-tooth'),
+                \Filament\Navigation\NavigationGroup::make('Administration')->icon('heroicon-o-shield-check'),
+            ])
             ->navigationItems([
                 NavigationItem::make('Product Images')
                     ->url('/admin/products/images')

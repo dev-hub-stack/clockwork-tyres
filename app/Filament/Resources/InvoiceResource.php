@@ -783,6 +783,36 @@ class InvoiceResource extends Resource
                     ->searchable()
                     ->preload(),
                 
+                Filter::make('issue_date')
+                    ->label('Invoice Date')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('From Date'),
+                        DatePicker::make('date_until')
+                            ->label('Until Date'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['date_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('issue_date', '>=', $date),
+                            )
+                            ->when(
+                                $data['date_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('issue_date', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['date_from'] ?? null) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($data['date_from'])->format('M j, Y');
+                        }
+                        if ($data['date_until'] ?? null) {
+                            $indicators[] = 'Until: ' . \Carbon\Carbon::parse($data['date_until'])->format('M j, Y');
+                        }
+                        return $indicators;
+                    }),
+                
                 Filter::make('due_date')
                     ->form([
                         DatePicker::make('due_from')

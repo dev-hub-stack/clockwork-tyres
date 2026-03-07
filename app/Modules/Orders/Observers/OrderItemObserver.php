@@ -4,6 +4,7 @@ namespace App\Modules\Orders\Observers;
 
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Orders\Models\OrderItemQuantity;
+use App\Modules\Products\Models\AddOn;
 use App\Modules\Products\Models\ProductVariant;
 
 class OrderItemObserver
@@ -67,6 +68,26 @@ class OrderItemObserver
         }
 
         if (!$orderItem->product_variant_id) {
+            // If this is an add-on item, populate product_name from the addon title
+            if ($orderItem->add_on_id) {
+                $addon = AddOn::find($orderItem->add_on_id);
+                if ($addon) {
+                    $orderItem->product_name = $orderItem->product_name ?? $addon->title;
+                    $orderItem->sku          = $orderItem->sku ?? $addon->part_number;
+                    $orderItem->brand_name   = $orderItem->brand_name ?? null;
+                    $orderItem->addon_snapshot = json_encode($addon->toArray());
+                    // Calculate line total if not set
+                    if (!$orderItem->line_total) {
+                        $qty      = floatval($orderItem->quantity ?? 1);
+                        $price    = floatval($orderItem->unit_price ?? 0);
+                        $discount = floatval($orderItem->discount ?? 0);
+                        $orderItem->line_total = ($qty * $price) - $discount;
+                    }
+                } else {
+                    // Addon not found — set a fallback so DB constraint doesn't fail
+                    $orderItem->product_name = $orderItem->product_name ?? 'Add-On Item';
+                }
+            }
             return;
         }
 
