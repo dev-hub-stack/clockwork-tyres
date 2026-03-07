@@ -15,6 +15,9 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     
+    <!-- SweetAlert2 for Premium Toasts & Dialogs -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <style>
         /* ── pqGrid Pager ─────────────────────────────────── */
         .pq-pager {
@@ -438,5 +441,5 @@
     </script>
     
     <!-- Products Grid JavaScript -->
-    <script src="{{ asset('js/products-grid.js') }}"></script>
+    <script src="{{ asset('js/products-grid.js') }}?v={{ time() }}"></script>
 </x-filament-panels::page>

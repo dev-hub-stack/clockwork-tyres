@@ -120,19 +120,28 @@ class ProductVariantGridController extends Controller
         $request->validate([
             'field' => 'required|in:available_on_wholesale,track_inventory',
             'value' => 'required|in:0,1',
+            'ids' => 'sometimes|array',
+            'ids.*' => 'integer',
         ]);
 
-        $updated = Product::query()->update([
+        $query = Product::query();
+        
+        if ($request->has('ids') && !empty($request->ids)) {
+            $query->whereIn('id', $request->ids);
+        }
+
+        $updated = $query->update([
             $request->field => (bool) $request->value,
         ]);
 
-        \Log::info("Bulk wholesale flag toggled: {$request->field} = {$request->value}, {$updated} products updated");
+        \Log::info("Bulk wholesale flag toggled: {$request->field} = {$request->value}, {$updated} products updated" . ($request->has('ids') ? " (filtered)" : " (all)"));
 
         return response()->json([
             'success' => true,
             'field' => $request->field,
             'value' => (bool) $request->value,
             'updated' => $updated,
+            'filtered' => $request->has('ids'),
         ]);
     }
 

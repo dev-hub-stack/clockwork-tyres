@@ -16,6 +16,9 @@
     <!-- Bootstrap 5 for styling -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
+    <!-- SweetAlert2 for Premium Toasts & Dialogs -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <style>
         /* ── pqGrid Pager ─────────────────────────────────── */
         .pq-pager {
@@ -96,7 +99,6 @@
         
         #grid_json_inventory {
             width: 100% !important;
-            overflow-x: auto !important;
         }
         
         /* pqGrid container - ensure full width */
@@ -330,15 +332,28 @@
 
     <!-- Inventory Grid JavaScript (MATCHING old Reporting system) -->
     <script type="text/javascript">
-        var interval;
-        var grid;
-
-        // Setup CSRF token
-        $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        // Reusable SweetAlert2 Toast configuration
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
             }
         });
+
+        /**
+         * Show a professional toast notification
+         */
+        function showToast(message, type = 'success') {
+            Toast.fire({
+                icon: type,
+                title: message
+            });
+        }
 
         /**
          * Save changes to server (matching old system)
@@ -359,16 +374,8 @@
                 return false;
             }
 
-            console.log('✅ Edit cell saved');
-            console.log('Active AJAX:', $.active);
-            console.log('Is Dirty:', grid.isDirty());
-            
-            var validationResult = grid.isValidChange({ allowInvalid: true });
-            console.log('Validation:', validationResult);
-
             if (!$.active && grid.isDirty() && validationResult.valid) {
                 var gridChanges = grid.getChanges({ format: 'byVal' });
-                console.log('📦 Grid changes:', gridChanges);
 
                 $.ajax({
                     url: "/admin/inventory/save-batch",
@@ -378,50 +385,32 @@
                     dataType: "json",
                     async: true,
                     beforeSend: function (jqXHR, settings) {
-                        console.log('🚀 Sending AJAX request...');
                         grid.option("strLoading", "Saving..");
                         grid.showLoading();
                     },
                     success: function (changes) {
-                        console.log('✅ AJAX Success:', changes);
                         grid.history({method: 'reset'});
                         grid.commit({ type: 'add', rows: changes.addList });
                         grid.commit({ type: 'update', rows: changes.updateList });
                         grid.commit({ type: 'delete', rows: changes.deleteList });
                         
-                        console.log('✅ Inventory saved successfully!');
+                        showToast('✅ Inventory saved successfully!');
                     },
                     complete: function (resp) {
-                        console.log('🏁 AJAX Complete');
                         grid.hideLoading();
                         grid.option("strLoading", $.paramquery.pqGrid.defaults.strLoading);
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
-                        console.error('❌ AJAX Error:', {
-                            status: jqXHR.status,
-                            textStatus: textStatus,
-                            errorThrown: errorThrown,
-                            response: jqXHR.responseText
-                        });
-                        
-                        var errorMessage = "Failed to save inventory.";
-                        if (jqXHR.responseJSON && jqXHR.responseJSON.errors) {
-                            errorMessage = jqXHR.responseJSON.errors.join("\n");
-                        } else if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
-                            errorMessage = jqXHR.responseJSON.message;
-                        }
-                        
-                        alert('❌ Error: ' + errorMessage);
+                        showToast('❌ Failed to save inventory.', 'error');
                     }
                 });
             } else {
-                console.log('⚠️ No changes or validation failed');
                 if ($.active) {
-                    alert('⏳ An AJAX request is already in progress. Please wait...');
+                    showToast('⏳ Save in progress...', 'info');
                 } else if (!grid.isDirty()) {
-                    alert('ℹ️ No changes to save.');
+                    showToast('ℹ️ No changes to save.', 'info');
                 } else {
-                    alert('❌ Validation errors exist. Please fix them before saving.');
+                    showToast('❌ Please fix validation errors.', 'error');
                 }
             }
         }
@@ -646,8 +635,8 @@
 
             // pqGrid configuration object (matching old system structure)
             var obj = {
-                width: "auto",  // Auto width to show all columns
-                height: Math.max(400, window.innerHeight - 280),
+                width: "100%",  // Full width
+                height: 700,    // Fixed height to prevent double scroll
                 title: "Inventory Grid - " + allWarehouses.length + " Warehouses",
                 scrollModel: { horizontal: true, autoFit: false },  // Enable horizontal scroll, don't auto-fit
                 numberCell: { show: true, title: "#" },
