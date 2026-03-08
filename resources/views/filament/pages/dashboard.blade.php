@@ -531,9 +531,7 @@
                     },
 
                     async markAsDone(orderId) {
-                        const order = this.orders.find(o => o.id === orderId);
-
-                        if (!confirm('Mark this order as done and delivered?')) return;
+                        if (!confirm('Mark this order as delivered?')) return;
 
                         try {
                             const response = await fetch(`/admin/dashboard/mark-done/${orderId}`, {
@@ -546,12 +544,17 @@
 
                             const data = await response.json();
                             if (data.success) {
-                                this.orders = this.orders.filter(o => o.id !== orderId);
+                                // Update order_status in-place so it moves from
+                                // Pending Delivery → Pending Payment (if unpaid)
+                                const idx = this.orders.findIndex(o => o.id === orderId);
+                                if (idx !== -1) {
+                                    this.orders[idx] = { ...this.orders[idx], order_status: 'delivered' };
+                                }
                             } else {
-                                alert(data.message || 'Error marking order as done');
+                                alert(data.message || 'Error marking order as delivered');
                             }
                         } catch (error) {
-                            alert('Error marking order as done');
+                            alert('Error marking order as delivered');
                         }
                     }
                 }

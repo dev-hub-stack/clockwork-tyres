@@ -71,20 +71,13 @@ Route::middleware(['web', 'auth'])->prefix('admin/dashboard')->group(function ()
         return response()->json(['success' => true, 'message' => 'Payment recorded successfully']);
     });
     
-    // Mark order as done
+    // Mark order as delivered (can be done regardless of payment status)
     Route::post('/mark-done/{order}', function (Order $order) {
-        if ($order->payment_status !== 'paid') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order must be fully paid before marking as done'
-            ]);
-        }
-        
         $order->update([
-            'order_status' => 'completed',
-            'order_workflow_status' => 'completed',
+            'order_status'    => 'delivered',
+            'delivered_at'    => now(),
         ]);
-        
+
         return response()->json(['success' => true]);
     });
 });
