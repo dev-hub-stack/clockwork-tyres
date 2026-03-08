@@ -226,7 +226,7 @@
                                             $variantData = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : $item->variant_snapshot;
                                             $addonData = is_string($item->addon_snapshot) ? json_decode($item->addon_snapshot, true) : $item->addon_snapshot;
                                             $productImage = $variantData['image'] ?? $addonData['image_1'] ?? null;
-                                            $cdnBase = rtrim(config('filesystems.disks.s3.url', 'https://d2iosncs8hpu1u.cloudfront.net'), '/');
+                                            $cdnBase = rtrim(config('filesystems.disks.s3.url') ?: env('AWS_CLOUDFRONT_URL') ?: env('S3IMAGES_URL') ?: 'https://d2iosncs8hpu1u.cloudfront.net', '/');
                                             if ($productImage && !str_starts_with($productImage, 'http')) {
                                                 $productImage = $cdnBase . '/' . ltrim($productImage, '/');
                                             }
@@ -277,11 +277,11 @@
                                         @endphp
                                         @if($hasWarehouse && $item->warehouse)
                                             <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
-                                                📦 {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
+                                                Wh: {{ $item->warehouse->warehouse_name ?? $item->warehouse->name }}
                                             </small>
                                         @elseif(!empty($item->consignment_item_id))
                                             <br><small style="color: #666; font-size: 9px; display: inline-block; margin-top: 2px;">
-                                                🤝 Consignment
+                                                Consignment
                                             </small>
                                         @endif
                                     </td>
@@ -353,20 +353,31 @@
                             <td class="text-right">{{ $sym }} {{ number_format($record->shipping ?? 0, 2) }}</td>
                         </tr>
                         @php
-                            // tax and vat are aliased columns — use whichever is populated
-                            $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
-                            // On-the-fly VAT for old records where DB stores 0
-                            $subTotalVal = floatval($record->sub_total ?? 0);
-                            $totalVal    = floatval($record->total ?? 0);
-                            if ($vatAmount == 0 && $totalVal > 0 && $subTotalVal > 0) {
-                                $vatAmount = round($totalVal - $subTotalVal, 2);
-                            }
-                            if ($vatAmount == 0 && $subTotalVal > 0) {
-                                $vatAmount = round($subTotalVal * (floatval($vatRate) / 100), 2);
+                            $isZeroRated = !empty($record->is_zero_rated);
+                            if ($isZeroRated) {
+                                $vatAmount = 0.0;
+                            } else {
+                                // tax and vat are aliased columns — use whichever is populated
+                                $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
+                                // On-the-fly VAT for old records where DB stores 0
+                                $subTotalVal = floatval($record->sub_total ?? 0);
+                                $totalVal    = floatval($record->total ?? 0);
+                                if ($vatAmount == 0 && $totalVal > 0 && $subTotalVal > 0) {
+                                    $vatAmount = round($totalVal - $subTotalVal, 2);
+                                }
+                                if ($vatAmount == 0 && $subTotalVal > 0) {
+                                    $vatAmount = round($subTotalVal * (floatval($vatRate) / 100), 2);
+                                }
                             }
                         @endphp
                         <tr>
-                            <td>VAT ({{ $vatRate }}%):</td>
+                            <td>
+                                @if($isZeroRated)
+                                    VAT (0% - Zero Rated):
+                                @else
+                                    VAT ({{ $vatRate }}%):
+                                @endif
+                            </td>
                             <td class="text-right">{{ $sym }} {{ number_format($vatAmount, 2) }}</td>
                         </tr>
                         <tr class="total-row">

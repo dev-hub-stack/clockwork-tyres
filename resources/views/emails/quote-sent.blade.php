@@ -294,6 +294,18 @@
                         $imgUrl = null;
                         if (!empty($item->product_image)) {
                             $imgUrl = \App\Utility\Helper::getImagePath($item->product_image);
+                        } else {
+                            // Try variant_snapshot then addon_snapshot for image
+                            $vSnap = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : (array)($item->variant_snapshot ?? []);
+                            $rawImg = $vSnap['image'] ?? null;
+                            if (!$rawImg) {
+                                $aSnap = is_string($item->addon_snapshot) ? json_decode($item->addon_snapshot, true) : (array)($item->addon_snapshot ?? []);
+                                $rawImg = $aSnap['image_1'] ?? null;
+                            }
+                            if ($rawImg) {
+                                $cdnBase = rtrim(env('AWS_CLOUDFRONT_URL') ?: env('S3IMAGES_URL') ?: 'https://d2iosncs8hpu1u.cloudfront.net', '/');
+                                $imgUrl = str_starts_with($rawImg, 'http') ? $rawImg : ($cdnBase . '/' . ltrim($rawImg, '/'));
+                            }
                         }
                     @endphp
                     <tr>
