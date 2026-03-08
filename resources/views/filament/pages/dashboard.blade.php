@@ -55,6 +55,30 @@
             .expand-btn { background: none; border: none; cursor: pointer; padding: 0.25rem; font-size: 0.875rem; color: #6b7280; transition: transform 0.3s; }
             .expand-btn:hover { color: #374151; }
             [x-cloak] { display: none !important; }
+
+            /* ── Responsive: table scroll on mobile ──────────── */
+            .table-scroll-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+            }
+            table { min-width: 640px; }
+
+            /* Expanded detail panel: 2-col → stacked on mobile */
+            .expand-detail-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+            @media (max-width: 767px) {
+                .expand-detail-grid { grid-template-columns: 1fr; }
+                .table-header { flex-direction: column; align-items: flex-start !important; }
+                .tab-bar { flex-wrap: wrap; }
+                .stats-grid { grid-template-columns: 1fr 1fr !important; }
+            }
+            @media (max-width: 480px) {
+                .stats-grid { grid-template-columns: 1fr !important; }
+            }
         </style>
 
         <!-- Stats Cards -->
@@ -84,7 +108,7 @@
             <div class="table-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
                 <h3>Pending Orders - Order Sheet</h3>
                 <!-- Tabs -->
-                <div style="display:flex; gap:0.5rem;">
+                <div class="tab-bar" style="display:flex; gap:0.5rem;">
                     <button @click="activeTab='delivery'"
                         :style="activeTab==='delivery' ? 'background:#3b82f6;color:white;' : 'background:#e5e7eb;color:#374151;'"
                         style="padding:0.4rem 1rem; border:none; border-radius:9999px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.2s;">
@@ -109,6 +133,7 @@
                 </div>
             </div>
 
+            <div class="table-scroll-wrapper">
             <table>
                 <thead>
                     <tr>
@@ -189,7 +214,7 @@
                         <tr x-show="expandedRows[index]" x-transition style="background: #f9fafb;">
                             <td style="padding: 0; border-bottom: 2px solid #e5e7eb;"></td>
                                 <td colspan="7" style="padding: 1rem; border-bottom: 2px solid #e5e7eb;">
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    <div class="expand-detail-grid">
                                                     <!-- Order Items -->
                                                     <div style="background: white; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb;">
                                                         <h4 style="font-weight: 600; margin-bottom: 0.75rem; color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">Order Items</h4>
@@ -301,6 +326,7 @@
                     </tbody>
                 </template>
             </table>
+            </div><!-- /.table-scroll-wrapper -->
 
             <!-- Payment Modal -->
     <div x-show="showPaymentModal" @click.away="showPaymentModal = false" x-cloak 
