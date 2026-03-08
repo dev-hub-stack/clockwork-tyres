@@ -265,6 +265,11 @@ class ImportTunerstopHistoricalData extends Command
                             ['external_product_id' => $product->id, 'external_source' => 'tunerstop'],
                             [
                                 'name' => $product->name,
+                                'product_full_name' => trim(implode(' ', array_filter([
+                                    $tsBrand?->name ?? '',
+                                    $tsModel?->name ?? '',
+                                    $tsFinish?->finish ?? '',
+                                ]))),
                                 'sku' => $product->sku ?? ('TS-P-' . $product->id),
                                 'price' => $product->price ?? 0,
                                 'brand_id' => $brand?->id,

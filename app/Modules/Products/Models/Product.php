@@ -13,6 +13,7 @@ class Product extends Model
 
     protected $fillable = [
         'name',
+        'product_full_name',
         'sku',
         'price',
         'brand_id',
@@ -26,6 +27,24 @@ class Product extends Model
         'external_product_id',
         'external_source',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Auto-populate product_full_name when relations are already loaded
+        static::saving(function (self $product) {
+            if (empty($product->product_full_name)) {
+                $brandName  = $product->relationLoaded('brand')  ? ($product->brand?->name  ?? '') : '';
+                $modelName  = $product->relationLoaded('model')  ? ($product->model?->name  ?? '') : '';
+                $finishName = $product->relationLoaded('finish') ? ($product->finish?->finish ?? '') : '';
+                $full = trim(implode(' ', array_filter([$brandName, $modelName, $finishName])));
+                if ($full) {
+                    $product->product_full_name = $full;
+                }
+            }
+        });
+    }
 
     protected $casts = [
         'price'                 => 'decimal:2',

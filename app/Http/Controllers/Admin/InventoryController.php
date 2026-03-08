@@ -378,7 +378,12 @@ class InventoryController extends Controller
             ->select(
                 'pv.id',
                 'pv.sku',
-                DB::raw("COALESCE(NULLIF(TRIM(p.`name`), ''), NULLIF(TRIM(CONCAT_WS(' ', b.`name`, m.`name`, f.`finish`)), ''), '') as product_name")
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(p.`product_full_name`), ''),
+                    NULLIF(TRIM(p.`name`), ''),
+                    NULLIF(TRIM(CONCAT_WS(' ', b.`name`, m.`name`, f.`finish`)), ''),
+                    ''
+                ) as product_name")
             )
             ->orderBy('pv.sku')
             ->get();

@@ -446,6 +446,11 @@ class ProductVariantGridController extends Controller
                             // Find or create Product
                             $productData = [
                                 'name' => $sku,
+                                'product_full_name' => trim(implode(' ', array_filter([
+                                    $rowData['brand'] ?? '',
+                                    $rowData['model'] ?? '',
+                                    $rowData['finish'] ?? '',
+                                ]))),
                                 'brand_id' => $brandId,
                                 'model_id' => $modelId,
                                 'finish_id' => $finishId,

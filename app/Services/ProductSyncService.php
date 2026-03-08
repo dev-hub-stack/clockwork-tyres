@@ -41,6 +41,11 @@ class ProductSyncService
                 ['sku' => $data['sku']], // Unique identifier
                 [
                     'name' => $data['name'],
+                    'product_full_name' => trim(implode(' ', array_filter([
+                        $brand->name ?? '',
+                        $model->name ?? '',
+                        $finish->finish ?? '',
+                    ]))),
                     'brand_id' => $brand->id,
                     'model_id' => $model->id,
                     'finish_id' => $finish->id,
