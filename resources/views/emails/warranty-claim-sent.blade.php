@@ -35,19 +35,19 @@
 
     <div class="email-wrapper">
         <!-- Header -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a2e; padding: 28px 35px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-bottom: 3px solid #1a1a2e; padding: 28px 35px;">
             <tr>
                 <td width="50%" style="vertical-align: middle;">
-                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0;">WARRANTY CLAIM</h1>
-                    <p style="color: #a0aec0; font-size: 13px; margin-top: 4px; margin-bottom: 0;">{{ $record->claim_number ?? '' }}</p>
+                    <h1 style="color: #1a1a2e; font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0;">WARRANTY CLAIM</h1>
+                    <p style="color: #666; font-size: 13px; margin-top: 4px; margin-bottom: 0;">{{ $record->claim_number ?? '' }}</p>
                 </td>
                 <td width="50%" align="right" style="vertical-align: middle; text-align: right;">
                     @if($logoUrl)
-                        <img src="{{ $logoUrl }}" alt="{{ $companyName }}" style="display: block; margin-left: auto; max-height: 50px; max-width: 140px; margin-bottom: 4px;">
+                        <img src="{{ $logoUrl }}" alt="{{ $companyName }}" style="display: block; margin-left: auto; max-height: 50px; max-width: 160px; margin-bottom: 6px;">
                     @endif
-                    <p style="color: #ffffff; font-weight: 600; font-size: 13px; margin: 0;">{{ $companyName }}</p>
+                    <p style="color: #1a1a2e; font-weight: 700; font-size: 13px; margin: 0;">{{ $companyName }}</p>
                     @if($taxNumber)
-                        <p style="color: #a0aec0; font-size: 11px; margin-top: 2px; margin-bottom: 0;">Tax No: {{ $taxNumber }}</p>
+                        <p style="color: #666; font-size: 11px; margin-top: 2px; margin-bottom: 0;">Tax No: {{ $taxNumber }}</p>
                     @endif
                 </td>
             </tr>
