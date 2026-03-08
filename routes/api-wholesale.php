@@ -84,6 +84,13 @@ Route::middleware('wholesale.auth')->group(function () {
     // ── Phase 2: Add-ons ──────────────────────────────────────────────────────
     Route::get('addons/{productId}',    [AddOnController::class, 'byProduct']);
 
+    // ── Accessories Page (dedicated listing endpoints) ────────────────────────
+    Route::get('add-ons/categories',                [AddOnController::class, 'categories']);
+    Route::get('add-ons/{slug}/get',                [AddOnController::class, 'byCategory']);
+    Route::get('add-on-filters/{slug}/get',         [AddOnController::class, 'filters']);
+    Route::get('add-on/{id}',                       [AddOnController::class, 'inventory']);
+    Route::get('dealer/notify/restock-addon/{id}',  [AddOnController::class, 'notifyRestock']);
+
 // ── Phase 3: Cart ─────────────────────────────────────────────────────────
     Route::post('cart/add',                       [CartController::class, 'add']);
     Route::get('cart/{sessionId}/get',            [CartController::class, 'get']);

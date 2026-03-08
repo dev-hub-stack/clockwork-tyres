@@ -183,6 +183,16 @@ class WholesaleProductTransformer
             'lug_nut_length'  => $addon->lug_nut_length,
             'lug_bolt_diameter' => $addon->lug_bolt_diameter,
             'size'            => $addon->size,
+
+            // ── Frontend compatibility aliases (mirrors dealer-portal API shape) ──
+            'discounted_price' => $priceResult['final_price'],
+            'image_1'          => $addon->image
+                ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
+                : null,
+            'vendor'           => [
+                'business_name' => $addon->category?->name ?? 'TunerStop',
+                'currency'      => 'USD',
+            ],
         ];
     }
 
