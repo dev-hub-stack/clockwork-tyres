@@ -40,7 +40,7 @@ class QuoteSentMail extends Mailable
 
     /**
      * Fetch company logo and return a base64 data URI for DomPDF embedding.
-     * Prefers reading from local public disk (fastest); falls back to URL fetch.
+     * Checks S3 disk first (new uploads), then public disk (legacy), then URL.
      */
     private function getPdfLogoData(?CompanyBranding $branding): ?string
     {
@@ -48,28 +48,33 @@ class QuoteSentMail extends Mailable
             return null;
         }
 
-        // Logo is uploaded to Storage::disk('public') — read it directly from filesystem
-        if (Storage::disk('public')->exists($branding->logo_path)) {
-            $contents = Storage::disk('public')->get($branding->logo_path);
+        $ext     = strtolower(pathinfo($branding->logo_path, PATHINFO_EXTENSION));
+        $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                    'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
+        $mime    = $mimeMap[$ext] ?? 'image/png';
+
+        // 1. S3 disk (new uploads)
+        if (Storage::disk('s3')->exists($branding->logo_path)) {
+            $contents = Storage::disk('s3')->get($branding->logo_path);
             if ($contents) {
-                $ext     = strtolower(pathinfo($branding->logo_path, PATHINFO_EXTENSION));
-                $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
-                            'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
-                $mime    = $mimeMap[$ext] ?? 'image/png';
                 return 'data:' . $mime . ';base64,' . base64_encode($contents);
             }
         }
 
-        // Fallback: fetch from URL (e.g. external S3)
+        // 2. Public disk (logos uploaded before S3 migration)
+        if (Storage::disk('public')->exists($branding->logo_path)) {
+            $contents = Storage::disk('public')->get($branding->logo_path);
+            if ($contents) {
+                return 'data:' . $mime . ';base64,' . base64_encode($contents);
+            }
+        }
+
+        // 3. Fallback: fetch from CDN URL
         $url = $branding->logo_url ?? null;
         if ($url) {
             try {
                 $contents = @file_get_contents($url);
                 if ($contents !== false && strlen($contents) > 0) {
-                    $ext     = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-                    $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
-                                'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
-                    $mime    = $mimeMap[$ext] ?? 'image/png';
                     return 'data:' . $mime . ';base64,' . base64_encode($contents);
                 }
             } catch (\Exception $e) {

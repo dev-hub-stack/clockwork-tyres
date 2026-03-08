@@ -136,7 +136,7 @@ class ManageSettings extends Page implements HasForms
                             ->label('Company Logo')
                             ->image()
                             ->maxSize(10240)
-                            ->disk('public')
+                            ->disk('s3')
                             ->directory('company-logos')
                             ->visibility('public')
                             ->preserveFilenames()

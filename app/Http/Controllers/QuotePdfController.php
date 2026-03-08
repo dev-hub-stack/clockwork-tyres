@@ -13,9 +13,8 @@ use Illuminate\Support\Facades\Storage;
 class QuotePdfController extends Controller
 {
     /**
-     * Helper to get logo path/data for PDF (DomPDF-compatible).
-     * Returns an absolute local path when the logo is on the public disk,
-     * or a base64 data URI for remote URLs.
+     * Helper to get logo for PDF (DomPDF-compatible).
+     * Returns absolute local path (public disk) or base64 data URI (S3 / URL).
      */
     private function getPdfLogoPath($companyBranding)
     {
@@ -23,12 +22,26 @@ class QuotePdfController extends Controller
             return null;
         }
 
-        // Logo is uploaded to Storage::disk('public') — return absolute path for DomPDF
-        if (Storage::disk('public')->exists($companyBranding->logo_path)) {
-            return Storage::disk('public')->path($companyBranding->logo_path);
+        $path = $companyBranding->logo_path;
+
+        // 1. Public disk (legacy uploads) — return absolute path, fastest for DomPDF
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->path($path);
         }
 
-        // Remote URL (S3 / CloudFront): fetch and embed as base64 data URI
+        // 2. S3 disk (new uploads) — read file and base64-encode for DomPDF
+        if (Storage::disk('s3')->exists($path)) {
+            $contents = Storage::disk('s3')->get($path);
+            if ($contents) {
+                $ext     = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                            'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
+                $mime    = $mimeMap[$ext] ?? 'image/png';
+                return 'data:' . $mime . ';base64,' . base64_encode($contents);
+            }
+        }
+
+        // 3. Fallback: fetch CDN URL as base64
         $url = $companyBranding->logo_url ?? null;
         if ($url) {
             try {
