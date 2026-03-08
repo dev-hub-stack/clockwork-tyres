@@ -1247,9 +1247,13 @@
         // ──────────────────────────────────────────────────────────
         function buildFromOptions(sel) {
             var h = '<option value="">Required</option>';
-            h += '<option value="incoming"' + (sel==='incoming'?' selected':'') + '>🚚 Incoming Stock</option>';
             allWarehouses.forEach(function(wh) {
                 h += '<option value="'+wh.id+'"'+(String(sel)===String(wh.id)?' selected':'')+'>'+wh.code+' – '+wh.warehouse_name+'</option>';
+            });
+            // Per-warehouse incoming stock options
+            allWarehouses.forEach(function(wh) {
+                var v = 'incoming_'+wh.id;
+                h += '<option value="'+v+'"'+(sel===v?' selected':'')+'>🚚 Incoming – '+wh.code+'</option>';
             });
             return h;
         }
@@ -1258,7 +1262,11 @@
             allWarehouses.forEach(function(wh) {
                 h += '<option value="'+wh.id+'"'+(String(sel)===String(wh.id)?' selected':'')+'>'+wh.code+' – '+wh.warehouse_name+'</option>';
             });
-            h += '<option value="incoming"'+(sel==='incoming'?' selected':'')+'>🚚 Incoming Stock</option>';
+            // Per-warehouse incoming stock options
+            allWarehouses.forEach(function(wh) {
+                var v = 'incoming_'+wh.id;
+                h += '<option value="'+v+'"'+(sel===v?' selected':'')+'>🚚 Incoming – '+wh.code+'</option>';
+            });
             return h;
         }
         function qtySpinner(cls) {
@@ -1273,8 +1281,9 @@
             var allData = (typeof grid !== 'undefined') ? grid.option('dataModel.data') : [];
             var row = allData ? allData.find(function(r){ return String(r.id)===String(variantId); }) : null;
             if (!row) return '–';
-            if (fromVal === 'incoming') {
-                var t = 0; allWarehouses.forEach(function(wh){ t+=parseInt(row['e_ta_q_ty'+wh.id]||0); }); return t;
+            if (String(fromVal).indexOf('incoming_') === 0) {
+                var whId = fromVal.replace('incoming_', '');
+                return parseInt(row['e_ta_q_ty'+whId]||0);
             }
             return parseInt(row['qty'+fromVal]||0);
         }

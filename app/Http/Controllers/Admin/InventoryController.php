@@ -450,38 +450,33 @@ class InventoryController extends Controller
                 if (!$variant) throw new \Exception("Variant #{$variantId} not found.");
 
                 // ── DEDUCT FROM SOURCE ─────────────────────────────────────
-                if ($from === 'incoming') {
-                    // Deduct from eta_qty across warehouses greedily
-                    $remaining = $qty;
-                    $warehouses = Warehouse::where('status', 1)->orderByDesc('id')->get();
-                    foreach ($warehouses as $wh) {
-                        if ($remaining <= 0) break;
-                        $inv = ProductInventory::firstOrNew([
-                            'product_variant_id' => $variantId,
-                            'warehouse_id'        => $wh->id,
-                        ]);
-                        if (!$inv->exists) $inv->product_id = $variant->product_id;
-                        $available = (int)($inv->eta_qty ?? 0);
-                        if ($available <= 0) continue;
-                        $deduct = min($available, $remaining);
-                        $oldEta = $inv->eta_qty;
-                        $inv->eta_qty = $available - $deduct;
-                        $inv->save();
-                        InventoryLog::create([
-                            'warehouse_id'      => $wh->id,
-                            'product_variant_id' => $variantId,
-                            'action'            => InventoryLog::ACTION_TRANSFER_OUT,
-                            'quantity_before'   => $oldEta,
-                            'quantity_after'    => $inv->eta_qty,
-                            'quantity_change'   => -$deduct,
-                            'notes'             => "Bulk transfer: incoming → WH #{$to}",
-                            'user_id'           => auth()->id(),
-                        ]);
-                        $remaining -= $deduct;
+                if (str_starts_with((string)$from, 'incoming_')) {
+                    // Deduct from a specific warehouse's eta_qty
+                    $fromWhId = (int) str_replace('incoming_', '', $from);
+                    $inv = ProductInventory::firstOrNew([
+                        'product_variant_id' => $variantId,
+                        'warehouse_id'        => $fromWhId,
+                    ]);
+                    if (!$inv->exists) $inv->product_id = $variant->product_id;
+                    $available = (int)($inv->eta_qty ?? 0);
+                    if ($available < $qty) {
+                        $wh = Warehouse::find($fromWhId);
+                        $whCode = $wh ? $wh->code : "#{$fromWhId}";
+                        throw new \Exception("Insufficient incoming stock in {$whCode} for variant #{$variantId}. Has: {$available}, needs: {$qty}.");
                     }
-                    if ($remaining > 0) {
-                        throw new \Exception("Insufficient incoming stock for variant #{$variantId}.");
-                    }
+                    $oldEta = $inv->eta_qty;
+                    $inv->eta_qty = $available - $qty;
+                    $inv->save();
+                    InventoryLog::create([
+                        'warehouse_id'      => $fromWhId,
+                        'product_variant_id' => $variantId,
+                        'action'            => InventoryLog::ACTION_TRANSFER_OUT,
+                        'quantity_before'   => $oldEta,
+                        'quantity_after'    => $inv->eta_qty,
+                        'quantity_change'   => -$qty,
+                        'notes'             => "Bulk transfer: incoming WH #{$fromWhId} → WH #{$to}",
+                        'user_id'           => auth()->id(),
+                    ]);
                 } else {
                     $srcInv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
@@ -522,7 +517,7 @@ class InventoryController extends Controller
                     'quantity_before'   => $oldDst,
                     'quantity_after'    => $dstInv->quantity,
                     'quantity_change'   => $qty,
-                    'notes'             => "Bulk transfer in from " . ($from === 'incoming' ? 'Incoming' : "WH #{$from}"),
+                    'notes'             => "Bulk transfer in from " . (str_starts_with((string)$from, 'incoming_') ? 'Incoming WH #'.str_replace('incoming_','',$from) : "WH #{$from}"),
                     'user_id'           => auth()->id(),
                 ]);
 
@@ -569,26 +564,25 @@ class InventoryController extends Controller
                 $variant = ProductVariant::find($variantId);
                 if (!$variant) throw new \Exception("Variant #{$variantId} not found.");
 
-                if ($to === 'incoming') {
-                    // Add to first active warehouse's eta_qty
-                    $wh = Warehouse::where('status', 1)->orderBy('id')->first();
-                    if (!$wh) throw new \Exception("No warehouse configured.");
+                if (str_starts_with((string)$to, 'incoming_')) {
+                    // Add to a specific warehouse's eta_qty (incoming stock)
+                    $toWhId = (int) str_replace('incoming_', '', $to);
                     $inv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
-                        'warehouse_id'        => $wh->id,
+                        'warehouse_id'        => $toWhId,
                     ]);
                     if (!$inv->exists) $inv->product_id = $variant->product_id;
                     $old = $inv->eta_qty ?? 0;
                     $inv->eta_qty = $old + $qty;
                     $inv->save();
                     InventoryLog::create([
-                        'warehouse_id'      => $wh->id,
+                        'warehouse_id'      => $toWhId,
                         'product_variant_id' => $variantId,
                         'action'            => InventoryLog::ACTION_IMPORT,
                         'quantity_before'   => $old,
                         'quantity_after'    => $inv->eta_qty,
                         'quantity_change'   => $qty,
-                        'notes'             => 'Add Inventory → Incoming. Ref: ' . ($reference ?: 'N/A'),
+                        'notes'             => 'Add Inventory → Incoming WH #'.$toWhId.'. Ref: ' . ($reference ?: 'N/A'),
                         'user_id'           => auth()->id(),
                     ]);
                 } else {
