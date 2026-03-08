@@ -14,6 +14,7 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 class QuoteSentMail extends Mailable
 {
@@ -39,13 +40,27 @@ class QuoteSentMail extends Mailable
 
     /**
      * Fetch company logo and return a base64 data URI for DomPDF embedding.
+     * Prefers reading from local public disk (fastest); falls back to URL fetch.
      */
     private function getPdfLogoData(?CompanyBranding $branding): ?string
     {
-        if (!$branding) {
+        if (!$branding || !$branding->logo_path) {
             return null;
         }
 
+        // Logo is uploaded to Storage::disk('public') — read it directly from filesystem
+        if (Storage::disk('public')->exists($branding->logo_path)) {
+            $contents = Storage::disk('public')->get($branding->logo_path);
+            if ($contents) {
+                $ext     = strtolower(pathinfo($branding->logo_path, PATHINFO_EXTENSION));
+                $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                            'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
+                $mime    = $mimeMap[$ext] ?? 'image/png';
+                return 'data:' . $mime . ';base64,' . base64_encode($contents);
+            }
+        }
+
+        // Fallback: fetch from URL (e.g. external S3)
         $url = $branding->logo_url ?? null;
         if ($url) {
             try {
@@ -83,6 +98,7 @@ class QuoteSentMail extends Mailable
             'logo' => $this->getPdfLogoData($companyBranding),
             'currency' => $currency ? $currency->currency_symbol : 'AED',
             'vatRate' => $taxSetting ? $taxSetting->rate : 5,
+            'isPdf' => true,
         ];
 
         $pdf = Pdf::loadView('templates.invoice-preview', $data)

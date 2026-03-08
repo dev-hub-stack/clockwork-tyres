@@ -15,16 +15,17 @@ class OrderController extends Controller
 {
     /**
      * Helper to get logo path/data for PDF (DomPDF-compatible).
-     * Returns an absolute local path, or a base64 data URI for remote URLs.
+     * Returns an absolute local path when the logo is on the public disk,
+     * or a base64 data URI for remote URLs.
      */
     private function getPdfLogoPath($companyBranding)
     {
-        if (!$companyBranding) {
+        if (!$companyBranding || !$companyBranding->logo_path) {
             return null;
         }
 
-        // Prefer local storage: return absolute path (fastest for DomPDF)
-        if ($companyBranding->logo_path && Storage::disk('public')->exists($companyBranding->logo_path)) {
+        // Logo is uploaded to Storage::disk('public') — return absolute path for DomPDF
+        if (Storage::disk('public')->exists($companyBranding->logo_path)) {
             return Storage::disk('public')->path($companyBranding->logo_path);
         }
 

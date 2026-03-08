@@ -354,9 +354,15 @@
                     <td style="width: 60%;"></td>
                     <td style="width: 40%;">
                         <table style="width: 100%; border-collapse: collapse;">
+                            @php
+                                $isZeroRatedEmail = !empty($record->is_zero_rated);
+                                $displaySubTotalEmail = $isZeroRatedEmail
+                                    ? round(floatval($record->total) + floatval($record->discount ?? 0) - floatval($record->shipping ?? 0), 2)
+                                    : floatval($record->sub_total);
+                            @endphp
                             <tr>
                                 <td style="padding: 5px 0; font-size: 13px; color: #666;">Subtotal:</td>
-                                <td style="padding: 5px 0; font-size: 13px; text-align: right; font-weight: 500;">{{ $currSymbol }} {{ number_format($record->sub_total, 2) }}</td>
+                                <td style="padding: 5px 0; font-size: 13px; text-align: right; font-weight: 500;">{{ $currSymbol }} {{ number_format($displaySubTotalEmail, 2) }}</td>
                             </tr>
                             @if($record->discount > 0)
                             <tr>

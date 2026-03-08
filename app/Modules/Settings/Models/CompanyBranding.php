@@ -62,7 +62,8 @@ class CompanyBranding extends Model
     }
 
     /**
-     * Get logo URL
+     * Get logo URL — always from the public disk where it was uploaded.
+     * Returns an absolute URL (APP_URL/storage/...) suitable for email/web use.
      */
     public function getLogoUrlAttribute(): ?string
     {
@@ -70,19 +71,14 @@ class CompanyBranding extends Model
             return null;
         }
 
-        // If already a full URL (e.g. https://...), return as-is
+        // If already a full URL, return as-is
         if (str_starts_with($this->logo_path, 'http')) {
             return $this->logo_path;
         }
 
-        // Use the same CloudFront/S3 pattern as Addon model and Helper.php
-        $cdnUrl = config('filesystems.disks.s3.url');
-        if ($cdnUrl) {
-            return rtrim($cdnUrl, '/') . '/' . ltrim($this->logo_path, '/');
-        }
-
-        // Fallback to Storage URL
-        return Storage::url($this->logo_path);
+        // Logo is uploaded to the public disk (disk('public'), directory('company-logos'))
+        // Storage::disk('public')->url() returns APP_URL/storage/... which is publicly accessible
+        return Storage::disk('public')->url($this->logo_path);
     }
 
     /**
