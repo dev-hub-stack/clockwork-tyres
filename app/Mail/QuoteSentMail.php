@@ -33,8 +33,21 @@ class QuoteSentMail extends Mailable
 
     public function content(): Content
     {
+        $branding = CompanyBranding::getActive();
+        // Build the logo URL here (in PHP context, config fully loaded) and pass
+        // explicitly to the view so the blade doesn't need to resolve it itself.
+        $logoPath = $branding?->logo_path;
+        $emailLogoUrl = null;
+        if ($logoPath) {
+            $cdnUrl = rtrim(config('filesystems.disks.s3.url', ''), '/');
+            $emailLogoUrl = $cdnUrl
+                ? $cdnUrl . '/' . ltrim($logoPath, '/')
+                : Storage::disk('public')->url($logoPath);
+        }
+
         return new Content(
             view: 'emails.quote-sent',
+            with: ['emailLogoUrl' => $emailLogoUrl],
         );
     }
 

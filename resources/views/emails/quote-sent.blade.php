@@ -188,7 +188,17 @@
         $companyPhone = $companyBranding?->company_phone ?? '';
         $companyAddress = $companyBranding?->company_address ?? '';
         $taxNumber = $companyBranding?->tax_registration_number ?? '';
-        $logoUrl = $companyBranding?->logo_url ?? null;
+        // Use the passed emailLogoUrl if available (set by QuoteSentMail::content()),
+        // otherwise build the CloudFront URL directly from the logo_path.
+        $logoUrl = $emailLogoUrl ?? null;
+        if (!$logoUrl && ($companyBranding?->logo_path)) {
+            $cdnBase = rtrim(config('filesystems.disks.s3.url', ''), '/');
+            if ($cdnBase) {
+                $logoUrl = $cdnBase . '/' . ltrim($companyBranding->logo_path, '/');
+            } else {
+                $logoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($companyBranding->logo_path);
+            }
+        }
     @endphp
 
     <div class="email-wrapper">
