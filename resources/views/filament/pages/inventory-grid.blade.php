@@ -493,6 +493,14 @@
 
             if (!$.active && grid.isDirty()) {
                 var gridChanges = grid.getChanges({ format: 'byVal' });
+                // Strip the UI-only 'state' (checkbox) field from every row before sending
+                if (gridChanges && gridChanges.updateList) {
+                    gridChanges.updateList = gridChanges.updateList.map(function(row) {
+                        var r = $.extend({}, row);
+                        delete r.state;
+                        return r;
+                    });
+                }
 
                 $.ajax({
                     url: "/admin/inventory/save-batch",
@@ -557,15 +565,16 @@
                 {
                     dataIndx: 'state',
                     title: '',
-                    cb: { header: true, all: true },
+                    cb: { header: true, select: true, all: true },
                     type: 'checkbox',
                     cls: 'ui-state-default',
+                    dataType: 'bool',
+                    editor: false,
                     resizable: false,
                     width: 40,
                     minWidth: 40,
                     maxWidth: 40,
                     sortable: false,
-                    editable: true,  // must be true so clicking toggles state; data columns still locked by canEditCells
                     filter: { crules: [] }
                 },
                 {
@@ -791,7 +800,6 @@
                     mode: "AND", 
                     header: true 
                 },
-                editable: canEditCells,
                 editor: { select: true },
                 editModel: {
                     saveKey: $.ui.keyCode.ENTER,
@@ -813,7 +821,10 @@
                 copyModel: { on: true },
                 change: function (evt, ui) {
                     // Ignore checkbox selection changes - they're not data edits
-                    if (ui.source === 'checkbox') return;
+                    if (window._checkboxToggling || ui.source === 'checkbox') return;
+                    // Ignore if the only changed field is the checkbox state
+                    var updates = ui.updateList || [];
+                    if (updates.length === 1 && Object.keys(updates[0].newRow || {}).join('') === 'state') return;
 
                     console.log('📝 Grid changed:', ui);
                     
