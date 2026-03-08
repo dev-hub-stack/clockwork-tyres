@@ -1,4 +1,6 @@
+<div style="display: contents;">
 <x-filament-panels::page>
+<div>
     <!-- CSRF Token for AJAX requests -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
@@ -1463,4 +1465,6 @@
 
     }); // end document.ready
     </script>
+</div>
 </x-filament-panels::page>
+</div>
