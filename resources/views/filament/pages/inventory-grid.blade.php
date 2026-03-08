@@ -221,9 +221,9 @@
             <button type="button" class="btn btn-primary" id="import-inv-btn">
                 <i class="bi bi-cloud-download"></i> Import Inventory
             </button>
-            <button type="button" class="btn btn-info" id="export-btn">
-                <i class="bi bi-file-earmark-excel"></i> Export Excel
-            </button>
+            <a href="{{ route('admin.inventory.export-csv') }}" class="btn btn-info" id="export-btn">
+                <i class="bi bi-file-earmark-csv"></i> Export CSV
+            </a>
             <button type="button" class="btn btn-warning" id="bulk-transfer-btn">
                 <i class="bi bi-arrow-left-right"></i> Bulk Transfer
             </button>
@@ -317,11 +317,11 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Sample File</label><br/>
-                                    <a href="{{ asset('uploads/samplefiles/product-inventory.csv') }}" 
-                                       download="product-inventory.csv" 
+                                    <a href="{{ route('admin.inventory.template') }}" 
                                        class="btn btn-warning">
-                                        <i class="bi bi-download"></i> Download Sample CSV
+                                        <i class="bi bi-download"></i> Download Template CSV
                                     </a>
+                                    <div class="text-muted small mt-1">Template is generated dynamically with your current warehouses.</div>
                                 </div>
                             </div>
                         </div>
@@ -994,24 +994,7 @@
                 // The loader will stay visible until the page reloads with results
             });
 
-            // Export button handler
-            $('#export-btn').on('click', function() {
-                if (typeof grid !== 'undefined' && grid) {
-                    var format = 'xlsx';
-                    var blob = grid.exportData({
-                        format: format,
-                        nopqdata: true,
-                        render: true
-                    });
-                    if (typeof blob === "string") {
-                        blob = new Blob([blob]);
-                    }
-                    saveAs(blob, "Inventory-Export-" + new Date().toISOString().slice(0,10) + "." + format);
-                    console.log('✅ Inventory exported as ' + format);
-                } else {
-                    alert('Grid is not ready. Please wait for the page to load completely.');
-                }
-            });
+
         });
     </script>
 

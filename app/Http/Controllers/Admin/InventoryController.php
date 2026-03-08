@@ -207,8 +207,8 @@ class InventoryController extends Controller
             $warehouseColumns = [];
             foreach ($headers as $index => $header) {
                 if ($index > 0) { // Skip SKU column
-                    // Match pattern: WH-CODE, WH-CODE_eta, WH-CODE_quantity_inbound
-                    if (preg_match('/^(.+?)(?:_eta|_quantity_inbound)?$/', $header, $matches)) {
+                    // Match pattern: WH-CODE, WH-CODE_eta, WH-CODE_incoming (or legacy _quantity_inbound)
+                    if (preg_match('/^(.+?)(?:_eta|_incoming|_quantity_inbound)?$/', $header, $matches)) {
                         $code = $matches[1];
                         if (!isset($warehouseColumns[$code])) {
                             $warehouse = Warehouse::where('code', $code)->first();
@@ -222,13 +222,15 @@ class InventoryController extends Controller
                             }
                         }
                         
-                        // Determine column type
-                        if (str_ends_with($header, '_eta')) {
-                            $warehouseColumns[$code]['eta_col'] = $index;
-                        } elseif (str_ends_with($header, '_quantity_inbound')) {
-                            $warehouseColumns[$code]['eta_qty_col'] = $index;
-                        } else {
-                            $warehouseColumns[$code]['qty_col'] = $index;
+                        // Only update columns if this warehouse was found in DB
+                        if (isset($warehouseColumns[$code])) {
+                            if (str_ends_with($header, '_eta')) {
+                                $warehouseColumns[$code]['eta_col'] = $index;
+                            } elseif (str_ends_with($header, '_incoming') || str_ends_with($header, '_quantity_inbound')) {
+                                $warehouseColumns[$code]['eta_qty_col'] = $index;
+                            } else {
+                                $warehouseColumns[$code]['qty_col'] = $index;
+                            }
                         }
                     }
                 }
@@ -299,6 +301,121 @@ class InventoryController extends Controller
                 'error' => 'Import failed: ' . $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Download a dynamically-generated CSV template based on current warehouses.
+     * Columns: SKU, WH-CODE, WH-CODE_eta, WH-CODE_quantity_inbound (repeated per warehouse)
+     */
+    public function downloadTemplate()
+    {
+        // Exclude non-physical warehouses (NON-STOCK) from the template
+        $warehouses = Warehouse::orderBy('warehouse_name')
+            ->where('code', '!=', 'NON-STOCK')
+            ->get(['id', 'warehouse_name', 'code']);
+
+        // Build header row
+        $headers = ['SKU'];
+        foreach ($warehouses as $wh) {
+            $headers[] = $wh->code;               // stock qty
+            $headers[] = $wh->code . '_eta';       // ETA date for incoming stock
+            $headers[] = $wh->code . '_incoming';  // incoming/inbound qty
+        }
+
+        // Build two example rows
+        $example1 = ['1785ABR-86140G12'];
+        $example2 = ['4P06-20100-5D55-1806'];
+        foreach ($warehouses as $wh) {
+            $example1[] = '50';  // qty
+            $example1[] = '';    // eta
+            $example1[] = '0';   // eta_qty
+            $example2[] = '0';
+            $example2[] = '2026-04-01';
+            $example2[] = '20';
+        }
+
+        $filename = 'inventory-template-' . now()->format('Ymd') . '.csv';
+
+        $callback = function () use ($headers, $example1, $example2) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            fputcsv($out, $example1);
+            fputcsv($out, $example2);
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Export all inventory as import-ready CSV.
+     * Same column format as downloadTemplate() so admins can edit & re-import.
+     */
+    public function exportCsv()
+    {
+        $warehouses = Warehouse::orderBy('warehouse_name')
+            ->where('code', '!=', 'NON-STOCK')
+            ->get(['id', 'warehouse_name', 'code']);
+
+        // Build header: SKU, Product Name, WH-DXB, WH-DXB_eta, WH-DXB_incoming, ...
+        $headers = ['SKU', 'Product Name'];
+        foreach ($warehouses as $wh) {
+            $headers[] = $wh->code;
+            $headers[] = $wh->code . '_eta';
+            $headers[] = $wh->code . '_incoming';
+        }
+
+        // Fetch all variant inventory in one query
+        $variants = DB::table('product_variants as pv')
+            ->leftJoin('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
+            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->leftJoin('finishes as f', 'f.id', '=', 'pv.finish_id')
+            ->whereNotNull('pv.sku')
+            ->select(
+                'pv.id',
+                'pv.sku',
+                DB::raw("COALESCE(NULLIF(TRIM(p.`name`), ''), NULLIF(TRIM(CONCAT_WS(' ', b.`name`, m.`name`, f.`finish`)), ''), '') as product_name")
+            )
+            ->orderBy('pv.sku')
+            ->get();
+
+        $inventoryMap = ProductInventory::all()->groupBy('product_variant_id');
+
+        $filename = 'inventory-export-' . now()->format('Ymd') . '.csv';
+
+        $callback = function () use ($headers, $warehouses, $variants, $inventoryMap) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+
+            foreach ($variants as $variant) {
+                if (empty($variant->sku)) continue;
+
+                $row = [$variant->sku, $variant->product_name ?? ''];
+                $variantInventory = $inventoryMap->get($variant->id, collect())
+                    ->keyBy('warehouse_id');
+
+                foreach ($warehouses as $wh) {
+                    $inv = $variantInventory->get($wh->id);
+                    $row[] = $inv ? ($inv->quantity ?? 0) : 0;
+                    $row[] = $inv ? ($inv->eta ?? '') : '';
+                    $row[] = $inv ? ($inv->eta_qty ?? 0) : 0;
+                }
+
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+        ]);
     }
 
     /**
