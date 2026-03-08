@@ -339,6 +339,10 @@ class QuoteResource extends Resource
                                     ->getOptionLabelUsing(function ($value) {
                                         if (!$value) return 'Unknown';
                                         
+                                        if ($value === 'custom_item') {
+                                            return '✏️ Custom Item';
+                                        }
+                                        
                                         if (str_starts_with($value, 'addon_')) {
                                             $id = substr($value, 6);
                                             $addon = \App\Modules\Products\Models\AddOn::find($id);
@@ -369,6 +373,9 @@ class QuoteResource extends Resource
                                                 $component->state('addon_' . $record->add_on_id);
                                             } elseif ($record->product_variant_id) {
                                                 $component->state('product_' . $record->product_variant_id);
+                                            } elseif (!empty($record->product_name)) {
+                                                // Custom item — no product_variant_id or add_on_id
+                                                $component->state('custom_item');
                                             }
                                         }
                                     })
@@ -449,7 +456,12 @@ class QuoteResource extends Resource
                                      ->columnSpanFull(),
                                      
                                  \Filament\Forms\Components\Hidden::make('is_custom')
-                                     ->default(false),
+                                     ->default(false)
+                                     ->afterStateHydrated(function ($component, $record) {
+                                         if ($record && !$record->product_variant_id && !$record->add_on_id && !empty($record->product_name)) {
+                                             $component->state(true);
+                                         }
+                                     }),
                                      
                                  TextInput::make('product_name')
                                      ->label('Custom Product Name')
