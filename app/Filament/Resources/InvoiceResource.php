@@ -1382,7 +1382,7 @@ class InvoiceResource extends Resource
                     ->tooltip('Edit invoice details'),
 
             ])
-            ->defaultSort('issue_date', 'desc');
+            ->defaultSort('id', 'desc');
     }
 
     public static function getRelations(): array
