@@ -387,7 +387,19 @@
                             </tr>
                             @endif
                             @php
-                                $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
+                                if ($isZeroRatedEmail) {
+                                    $vatAmount = 0.0;
+                                } else {
+                                    $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
+                                    // Fallback: if DB stores 0, derive from total - subtotal
+                                    if ($vatAmount == 0 && floatval($record->total ?? 0) > 0 && $displaySubTotalEmail > 0) {
+                                        $vatAmount = round(floatval($record->total) - $displaySubTotalEmail - floatval($record->shipping ?? 0), 2);
+                                    }
+                                    // Last resort: calculate from subtotal * rate
+                                    if ($vatAmount == 0 && $displaySubTotalEmail > 0) {
+                                        $vatAmount = round($displaySubTotalEmail * (floatval($vatRate) / 100), 2);
+                                    }
+                                }
                             @endphp
                             <tr>
                                 <td style="padding: 5px 0; font-size: 13px; color: #666;">

@@ -139,7 +139,18 @@
                                 $displaySubTotal = $isZeroRated
                                     ? round(floatval($record->total) + floatval($record->discount ?? 0) - floatval($record->shipping ?? 0), 2)
                                     : floatval($record->sub_total);
-                                $vatAmt = $isZeroRated ? 0 : floatval($record->tax ?? $record->vat ?? 0);
+                                if ($isZeroRated) {
+                                    $vatAmt = 0.0;
+                                } else {
+                                    $vatAmt = floatval($record->tax ?? $record->vat ?? 0);
+                                    // Fallback: derive from total - subtotal if DB stores 0
+                                    if ($vatAmt == 0 && floatval($record->total ?? 0) > 0 && $displaySubTotal > 0) {
+                                        $vatAmt = round(floatval($record->total) - $displaySubTotal - floatval($record->shipping ?? 0), 2);
+                                    }
+                                    if ($vatAmt == 0 && $displaySubTotal > 0) {
+                                        $vatAmt = round($displaySubTotal * (floatval($vatRate) / 100), 2);
+                                    }
+                                }
                             @endphp
                             <tr>
                                 <td style="padding: 5px 0; font-size: 13px; color: #666;">Subtotal:</td>
