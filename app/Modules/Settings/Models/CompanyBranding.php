@@ -62,8 +62,9 @@ class CompanyBranding extends Model
     }
 
     /**
-     * Get logo URL — served via S3/CloudFront CDN for emails and browsers.
-     * New uploads go to S3; falls back to public disk for pre-migration files.
+     * Get logo URL — always returns a publicly accessible URL.
+     * New uploads are on S3; CloudFront serves them via S3IMAGES_URL.
+     * Legacy uploads on public disk fall back to APP_URL/storage/...
      */
     public function getLogoUrlAttribute(): ?string
     {
@@ -76,23 +77,14 @@ class CompanyBranding extends Model
             return $this->logo_path;
         }
 
-        // Primary: S3 disk — Storage::disk('s3')->url() returns the CloudFront CDN URL
-        // because AWS_URL is set to S3IMAGES_URL (CloudFront) in .env
-        if (Storage::disk('s3')->exists($this->logo_path)) {
-            return Storage::disk('s3')->url($this->logo_path);
-        }
-
-        // Fallback: file may be on local public disk (uploaded before S3 migration)
-        if (Storage::disk('public')->exists($this->logo_path)) {
-            return Storage::disk('public')->url($this->logo_path);
-        }
-
-        // Last resort: build CloudFront URL directly without an exists() check
-        $cdnUrl = rtrim(config('filesystems.disks.s3.url', ''), '/');
+        // Build CloudFront URL directly — no S3 API call needed
+        // AWS_URL / S3IMAGES_URL = https://d2iosncs8hpu1u.cloudfront.net/
+        $cdnUrl = rtrim(env('S3IMAGES_URL', ''), '/');
         if ($cdnUrl) {
             return $cdnUrl . '/' . ltrim($this->logo_path, '/');
         }
 
+        // Fallback: public disk (legacy, local dev without S3)
         return Storage::disk('public')->url($this->logo_path);
     }
 
