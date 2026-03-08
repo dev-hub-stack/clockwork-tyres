@@ -109,6 +109,30 @@
             width: 100% !important;
         }
 
+        /* ── Mobile horizontal scroll ─────────────────────── */
+        .grid-scroll-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+
+        /* Allow touch scroll inside pqGrid's body pane */
+        .pq-body-outer,
+        .pq-cont-inner,
+        .pq-scroll-x {
+            touch-action: pan-x pan-y !important;
+        }
+
+        @media (max-width: 1024px) {
+            /* Force the grid to keep its natural column widths so the
+               outer wrapper can scroll horizontally instead of squashing columns */
+            #grid_json_inventory,
+            .pq-grid {
+                min-width: 1200px !important;
+                width: auto !important;
+            }
+        }
+
         /* Warehouse column styling (matching old system) */
         .inventory-info-inner {
             background-color: #e8f5e9 !important;
@@ -247,8 +271,10 @@
             </div>
         @endif
 
-        <!-- pqGrid Container -->
-        <div id="grid_json_inventory"></div>
+        <!-- pqGrid Container (scrollable on mobile) -->
+        <div class="grid-scroll-wrapper">
+            <div id="grid_json_inventory"></div>
+        </div>
     </div>
 
     <!-- Bulk Transfer Modal -->
