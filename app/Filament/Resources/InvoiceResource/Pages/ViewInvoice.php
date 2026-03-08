@@ -7,6 +7,8 @@ use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class ViewInvoice extends ViewRecord
 {
@@ -36,6 +38,39 @@ class ViewInvoice extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('send_invoice')
+                ->label('Send Invoice')
+                ->icon('heroicon-o-paper-airplane')
+                ->color('primary')
+                ->form([
+                    \Filament\Forms\Components\TextInput::make('email')
+                        ->label('Send To Email')
+                        ->email()
+                        ->required()
+                        ->default(fn () => $this->record->customer?->email ?? ''),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        Mail::to($data['email'])->send(new \App\Mail\InvoiceCreatedMail($this->record));
+                        $note = "Email sent to {$data['email']}.";
+                        $success = true;
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to send invoice email', [
+                            'invoice_id'  => $this->record->id,
+                            'order_number'=> $this->record->order_number,
+                            'error'       => $e->getMessage(),
+                        ]);
+                        $note = 'Email delivery failed: ' . $e->getMessage();
+                        $success = false;
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->{$success ? 'success' : 'danger'}()
+                        ->title($success ? 'Invoice Sent' : 'Send Failed')
+                        ->body("{$this->record->order_number} — {$note}")
+                        ->send();
+                }),
+
             Actions\Action::make('startProcessing')
                 ->label('Start Processing')
                 ->icon('heroicon-o-cog-6-tooth')
