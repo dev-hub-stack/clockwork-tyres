@@ -424,116 +424,243 @@ class InventoryController extends Controller
     }
 
     /**
-     * Bulk transfer inventory between warehouses
+     * Bulk transfer inventory between warehouses (AJAX JSON format)
+     * Accepts: { lines: [{ variant_id, from, to, quantity }] }
+     * from/to = warehouse_id (int) or 'incoming'
      */
     public function bulkTransfer(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'selected_ids' => 'required|string',
-            'source_warehouse_id' => 'required|exists:warehouses,id',
-            'destination_warehouse_id' => 'required|exists:warehouses,id|different:source_warehouse_id',
-            'quantity' => 'required|integer|min:1'
-        ]);
+        $lines = $request->input('lines', []);
 
-        if ($validator->fails()) {
-            return back()->with([
-                'error' => 'Invalid transfer request: ' . implode(', ', $validator->errors()->all()),
-            ]);
+        if (empty($lines)) {
+            return response()->json(['success' => false, 'message' => 'No transfer lines provided.'], 422);
         }
 
         try {
             DB::beginTransaction();
-
-            $variantIds = json_decode($request->selected_ids, true);
-            if (empty($variantIds)) {
-                throw new \Exception("No items selected for transfer.");
-            }
-
-            $sourceId = $request->source_warehouse_id;
-            $destId = $request->destination_warehouse_id;
-            $transferQty = (int) $request->quantity;
             $processedCount = 0;
 
-            foreach ($variantIds as $variantId) {
-                // Get or initialize source inventory
-                $sourceInv = ProductInventory::firstOrCreate(
-                    [
-                        'product_variant_id' => $variantId,
-                        'warehouse_id' => $sourceId
-                    ],
-                    [
-                        'quantity' => 0,
-                        'product_id' => ProductVariant::find($variantId)?->product_id
-                    ]
-                );
+            foreach ($lines as $line) {
+                $variantId = $line['variant_id'];
+                $from      = $line['from'];  // int warehouse_id or 'incoming'
+                $to        = $line['to'];    // int warehouse_id (never incoming for destination here)
+                $qty       = (int) $line['quantity'];
 
-                // Prevent negative inventory by checking current stock
-                if ($sourceInv->quantity < $transferQty) {
-                    throw new \Exception("Insufficient stock in source warehouse for variant #{$variantId}. Has: {$sourceInv->quantity}, Attemping to transfer: {$transferQty}.");
+                $variant = ProductVariant::find($variantId);
+                if (!$variant) throw new \Exception("Variant #{$variantId} not found.");
+
+                // ── DEDUCT FROM SOURCE ─────────────────────────────────────
+                if ($from === 'incoming') {
+                    // Deduct from eta_qty across warehouses greedily
+                    $remaining = $qty;
+                    $warehouses = Warehouse::where('status', 1)->orderByDesc('id')->get();
+                    foreach ($warehouses as $wh) {
+                        if ($remaining <= 0) break;
+                        $inv = ProductInventory::firstOrNew([
+                            'product_variant_id' => $variantId,
+                            'warehouse_id'        => $wh->id,
+                        ]);
+                        if (!$inv->exists) $inv->product_id = $variant->product_id;
+                        $available = (int)($inv->eta_qty ?? 0);
+                        if ($available <= 0) continue;
+                        $deduct = min($available, $remaining);
+                        $oldEta = $inv->eta_qty;
+                        $inv->eta_qty = $available - $deduct;
+                        $inv->save();
+                        InventoryLog::create([
+                            'warehouse_id'      => $wh->id,
+                            'product_variant_id' => $variantId,
+                            'action'            => InventoryLog::ACTION_TRANSFER_OUT,
+                            'quantity_before'   => $oldEta,
+                            'quantity_after'    => $inv->eta_qty,
+                            'quantity_change'   => -$deduct,
+                            'notes'             => "Bulk transfer: incoming → WH #{$to}",
+                            'user_id'           => auth()->id(),
+                        ]);
+                        $remaining -= $deduct;
+                    }
+                    if ($remaining > 0) {
+                        throw new \Exception("Insufficient incoming stock for variant #{$variantId}.");
+                    }
+                } else {
+                    $srcInv = ProductInventory::firstOrNew([
+                        'product_variant_id' => $variantId,
+                        'warehouse_id'        => $from,
+                    ]);
+                    if (!$srcInv->exists) $srcInv->product_id = $variant->product_id;
+                    if (($srcInv->quantity ?? 0) < $qty) {
+                        throw new \Exception("Insufficient stock in warehouse #{$from} for variant #{$variantId}. Has: {$srcInv->quantity}, needs: {$qty}.");
+                    }
+                    $oldQty = $srcInv->quantity;
+                    $srcInv->quantity = $oldQty - $qty;
+                    $srcInv->save();
+                    InventoryLog::create([
+                        'warehouse_id'      => $from,
+                        'product_variant_id' => $variantId,
+                        'action'            => InventoryLog::ACTION_TRANSFER_OUT,
+                        'quantity_before'   => $oldQty,
+                        'quantity_after'    => $srcInv->quantity,
+                        'quantity_change'   => -$qty,
+                        'notes'             => "Bulk transfer out → WH #{$to}",
+                        'user_id'           => auth()->id(),
+                    ]);
                 }
 
-                // Deduct from source
-                $oldSourceQty = $sourceInv->quantity;
-                $sourceInv->quantity -= $transferQty;
-                $sourceInv->save();
-
-                // Log Source Deduction
-                InventoryLog::create([
-                    'warehouse_id' => $sourceId,
+                // ── ADD TO DESTINATION ─────────────────────────────────────
+                $dstInv = ProductInventory::firstOrNew([
                     'product_variant_id' => $variantId,
-                    'action' => InventoryLog::ACTION_TRANSFER,
-                    'quantity_before' => $oldSourceQty,
-                    'quantity_after' => $sourceInv->quantity,
-                    'quantity_change' => -$transferQty,
-                    'notes' => "Bulk transfer to Warehouse #{$destId}",
-                    'user_id' => auth()->id()
+                    'warehouse_id'        => $to,
+                ]);
+                if (!$dstInv->exists) $dstInv->product_id = $variant->product_id;
+                $oldDst = $dstInv->quantity ?? 0;
+                $dstInv->quantity = $oldDst + $qty;
+                $dstInv->save();
+                InventoryLog::create([
+                    'warehouse_id'      => $to,
+                    'product_variant_id' => $variantId,
+                    'action'            => InventoryLog::ACTION_TRANSFER_IN,
+                    'quantity_before'   => $oldDst,
+                    'quantity_after'    => $dstInv->quantity,
+                    'quantity_change'   => $qty,
+                    'notes'             => "Bulk transfer in from " . ($from === 'incoming' ? 'Incoming' : "WH #{$from}"),
+                    'user_id'           => auth()->id(),
                 ]);
 
-                // Get or initialize destination inventory
-                $destInv = ProductInventory::firstOrCreate(
-                    [
-                        'product_variant_id' => $variantId,
-                        'warehouse_id' => $destId
-                    ],
-                    [
-                        'quantity' => 0,
-                        'product_id' => $sourceInv->product_id
-                    ]
-                );
-
-                // Add to destination
-                $oldDestQty = $destInv->quantity;
-                $destInv->quantity += $transferQty;
-                $destInv->save();
-
-                // Log Destination Addition
-                InventoryLog::create([
-                    'warehouse_id' => $destId,
-                    'product_variant_id' => $variantId,
-                    'action' => InventoryLog::ACTION_TRANSFER,
-                    'quantity_before' => $oldDestQty,
-                    'quantity_after' => $destInv->quantity,
-                    'quantity_change' => $transferQty,
-                    'notes' => "Bulk transfer from Warehouse #{$sourceId}",
-                    'user_id' => auth()->id()
-                ]);
-
+                $this->updateProductTotals($variant->product_id);
                 $processedCount++;
             }
 
             DB::commit();
-
-            return back()->with([
-                'success' => "Successfully transferred {$transferQty} units for {$processedCount} products.",
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully transferred {$processedCount} line(s).",
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Bulk transfer error: ' . $e->getMessage());
-            
-            return back()->with([
-                'error' => 'Transfer failed: ' . $e->getMessage(),
-            ]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
+    }
+
+    /**
+     * Add inventory via the Add Inventory modal (AJAX JSON)
+     * Accepts: { lines: [{ variant_id, to, quantity }], reference }
+     * to = warehouse_id (int) or 'incoming'
+     */
+    public function addInventory(Request $request)
+    {
+        $lines     = $request->input('lines', []);
+        $reference = $request->input('reference', '');
+
+        if (empty($lines)) {
+            return response()->json(['success' => false, 'message' => 'No lines provided.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+            $count = 0;
+
+            foreach ($lines as $line) {
+                $variantId = $line['variant_id'];
+                $to        = $line['to'];
+                $qty       = (int) $line['quantity'];
+
+                $variant = ProductVariant::find($variantId);
+                if (!$variant) throw new \Exception("Variant #{$variantId} not found.");
+
+                if ($to === 'incoming') {
+                    // Add to first active warehouse's eta_qty
+                    $wh = Warehouse::where('status', 1)->orderBy('id')->first();
+                    if (!$wh) throw new \Exception("No warehouse configured.");
+                    $inv = ProductInventory::firstOrNew([
+                        'product_variant_id' => $variantId,
+                        'warehouse_id'        => $wh->id,
+                    ]);
+                    if (!$inv->exists) $inv->product_id = $variant->product_id;
+                    $old = $inv->eta_qty ?? 0;
+                    $inv->eta_qty = $old + $qty;
+                    $inv->save();
+                    InventoryLog::create([
+                        'warehouse_id'      => $wh->id,
+                        'product_variant_id' => $variantId,
+                        'action'            => InventoryLog::ACTION_IMPORT,
+                        'quantity_before'   => $old,
+                        'quantity_after'    => $inv->eta_qty,
+                        'quantity_change'   => $qty,
+                        'notes'             => 'Add Inventory → Incoming. Ref: ' . ($reference ?: 'N/A'),
+                        'user_id'           => auth()->id(),
+                    ]);
+                } else {
+                    $inv = ProductInventory::firstOrNew([
+                        'product_variant_id' => $variantId,
+                        'warehouse_id'        => $to,
+                    ]);
+                    if (!$inv->exists) $inv->product_id = $variant->product_id;
+                    $old = $inv->quantity ?? 0;
+                    $inv->quantity = $old + $qty;
+                    $inv->save();
+                    InventoryLog::create([
+                        'warehouse_id'      => $to,
+                        'product_variant_id' => $variantId,
+                        'action'            => InventoryLog::ACTION_IMPORT,
+                        'quantity_before'   => $old,
+                        'quantity_after'    => $inv->quantity,
+                        'quantity_change'   => $qty,
+                        'notes'             => 'Add Inventory. Ref: ' . ($reference ?: 'N/A'),
+                        'user_id'           => auth()->id(),
+                    ]);
+                    $this->updateProductTotals($variant->product_id);
+                }
+                $count++;
+            }
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully added inventory for {$count} line(s).",
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Add inventory error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Return inventory movement log as JSON for the log page.
+     * GET /admin/inventory/log-data
+     */
+    public function logData(Request $request)
+    {
+        $query = DB::table('inventory_logs as il')
+            ->leftJoin('warehouses as w', 'w.id', '=', 'il.warehouse_id')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'il.product_variant_id')
+            ->leftJoin('users as u', 'u.id', '=', 'il.user_id')
+            ->select(
+                'il.id',
+                'il.action',
+                'il.quantity_before',
+                'il.quantity_after',
+                'il.quantity_change',
+                'il.eta_qty_before',
+                'il.eta_qty_after',
+                'il.notes',
+                'il.created_at',
+                'w.code as warehouse_code',
+                'w.warehouse_name',
+                'pv.sku',
+                'u.name as user_name'
+            )
+            ->orderByDesc('il.id');
+
+        if ($request->filled('sku'))          $query->where('pv.sku', 'like', '%' . $request->sku . '%');
+        if ($request->filled('action'))       $query->where('il.action', $request->action);
+        if ($request->filled('warehouse_id')) $query->where('il.warehouse_id', $request->warehouse_id);
+        if ($request->filled('from_date'))    $query->whereDate('il.created_at', '>=', $request->from_date);
+        if ($request->filled('to_date'))      $query->whereDate('il.created_at', '<=', $request->to_date);
+
+        return response()->json($query->limit(500)->get());
     }
 }

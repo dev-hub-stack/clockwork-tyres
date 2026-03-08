@@ -27,9 +27,12 @@ class InventoryGrid extends Page
 
     public $products_data = [];
     public $warehouses = [];
+    public bool $canEditCells = false;
 
     public function mount(): void
     {
+        // Only super_admin can directly edit grid cells
+        $this->canEditCells = auth()->user()?->hasRole('super_admin') ?? false;
         $this->loadInventoryData();
     }
 

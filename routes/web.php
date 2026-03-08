@@ -59,6 +59,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('inventory.import');
     Route::post('inventory/bulk-transfer', [InventoryController::class, 'bulkTransfer'])
         ->name('inventory.bulk-transfer');
+    Route::post('inventory/add', [InventoryController::class, 'addInventory'])
+        ->name('inventory.add');
+    Route::get('inventory/log-data', [InventoryController::class, 'logData'])
+        ->name('inventory.log-data');
     Route::get('inventory/template', [InventoryController::class, 'downloadTemplate'])
         ->name('inventory.template');
     Route::get('inventory/export-csv', [InventoryController::class, 'exportCsv'])

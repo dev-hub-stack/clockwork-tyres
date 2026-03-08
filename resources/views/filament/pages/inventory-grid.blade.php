@@ -242,18 +242,28 @@
     <div class="page-content">
         <!-- Action Buttons -->
         <div class="action-buttons mb-4">
-            <button type="button" class="btn btn-primary" id="import-inv-btn">
-                <i class="bi bi-cloud-download"></i> Import Inventory
-            </button>
-            <a href="{{ route('admin.inventory.export-csv') }}" class="btn btn-info" id="export-btn">
-                <i class="bi bi-file-earmark-csv"></i> Export CSV
-            </a>
             <button type="button" class="btn btn-warning" id="bulk-transfer-btn">
                 <i class="bi bi-arrow-left-right"></i> Bulk Transfer
             </button>
-            <button type="button" class="btn btn-success" id="save-changes-btn">
+            <button type="button" class="btn btn-success" id="add-inventory-btn">
+                <i class="bi bi-plus-circle"></i> Add Inventory
+            </button>
+            @if($this->canEditCells)
+            <button type="button" class="btn btn-primary" id="import-inv-btn">
+                <i class="bi bi-cloud-download"></i> Import Inventory
+            </button>
+            @endif
+            <a href="{{ route('admin.inventory.export-csv') }}" class="btn btn-info" id="export-btn">
+                <i class="bi bi-file-earmark-csv"></i> Export CSV
+            </a>
+            <a href="/admin/inventory-movement-log" class="btn btn-secondary" id="view-log-btn">
+                <i class="bi bi-clock-history"></i> Movement Log
+            </a>
+            @if($this->canEditCells)
+            <button type="button" class="btn btn-dark" id="save-changes-btn">
                 <i class="bi bi-save"></i> Save Changes
             </button>
+            @endif
         </div>
 
         <!-- Success/Error Messages -->
@@ -277,45 +287,77 @@
         </div>
     </div>
 
-    <!-- Bulk Transfer Modal -->
-    <div class="modal fade" id="bulk-transfer-modal" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Bulk Transfer Inventory</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- ═══════════════════════════════════════════════════════════
+         BULK TRANSFER MODAL
+    ═══════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="bulk-transfer-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+                <div class="modal-header" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1.25rem 1.5rem;">
+                    <button type="button" class="btn-close me-3" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title fw-bold" style="font-size:1.3rem;margin:0;">Bulk Transfer</h5>
                 </div>
-                <form action="{{ route('admin.inventory.bulk-transfer') }}" method="POST" id="bulkTransferForm">
-                    @csrf
-                    <input type="hidden" name="selected_ids" id="transfer_selected_ids" value="[]">
-                    <div class="modal-body">
-                        <div id="transfer_count_msg" class="alert alert-info mb-3">
-                            <i class="bi bi-info-circle"></i> Loading selection...
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">From Warehouse</label>
-                            <select name="source_warehouse_id" id="source_warehouse_id" class="form-select" required>
-                                <option value="">-- Select source --</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">To Warehouse</label>
-                            <select name="destination_warehouse_id" id="destination_warehouse_id" class="form-select" required>
-                                <option value="">-- Select destination --</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Quantity to Transfer (per item)</label>
-                            <input type="number" name="quantity" id="transfer_quantity" class="form-control" min="1" value="1" required>
-                        </div>
+                <div class="modal-body p-0">
+                    <div id="bt-no-selection-msg" class="alert alert-info m-3 mb-0" style="display:none;">
+                        <i class="bi bi-info-circle"></i> Tip: tick checkboxes in the grid first to pre-fill rows, or type SKUs manually below.
                     </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-warning" id="confirmBulkTransferBtn">
-                            <i class="bi bi-arrow-left-right"></i> Transfer
-                        </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <div class="table-responsive">
+                        <table class="table mb-0" id="bulk-transfer-table" style="min-width:720px;">
+                            <thead>
+                                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                                    <th style="padding:.9rem 1.5rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;width:28%;">SKU</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;width:20%;">From</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;text-align:center;width:12%;">Available Qty</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;text-align:center;width:18%;">Transfer Qty</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;width:20%;">To</th>
+                                    <th style="width:2%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-transfer-rows"></tbody>
+                        </table>
                     </div>
-                </form>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #e5e7eb;padding:1rem 1.5rem;justify-content:flex-end;gap:.75rem;">
+                    <button id="bt-add-line-btn" type="button" style="background:#4f46e5;color:white;border:none;padding:.55rem 1.4rem;border-radius:6px;font-weight:500;cursor:pointer;">Add Line</button>
+                    <button id="bt-transfer-btn" type="button" style="background:#4f46e5;color:white;border:none;padding:.55rem 1.4rem;border-radius:6px;font-weight:500;cursor:pointer;">Transfer Stock</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ADD INVENTORY MODAL
+    ═══════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="add-inventory-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+                <div class="modal-header" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1.25rem 1.5rem;">
+                    <button type="button" class="btn-close me-3" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title fw-bold" style="font-size:1.3rem;margin:0;">Add Inventory</h5>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0" id="add-inventory-table" style="min-width:520px;">
+                            <thead>
+                                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                                    <th style="padding:.9rem 1.5rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;width:50%;">SKU</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;text-align:center;width:20%;">Add Qty</th>
+                                    <th style="padding:.9rem 1rem;font-size:.78rem;font-weight:700;text-transform:uppercase;color:#6b7280;width:28%;">To</th>
+                                    <th style="width:2%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="add-inventory-rows"></tbody>
+                        </table>
+                    </div>
+                    <div style="padding:1rem 1.5rem;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                        <label style="font-size:.85rem;color:#374151;font-weight:500;white-space:nowrap;">Reference / Bill / PO Number</label>
+                        <input type="text" id="ai-reference" placeholder="Enter Reference/Bill/PO Number..." style="flex:1;min-width:220px;max-width:420px;padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #e5e7eb;padding:1rem 1.5rem;justify-content:flex-end;gap:.75rem;">
+                    <button id="ai-add-line-btn" type="button" style="background:#4f46e5;color:white;border:none;padding:.55rem 1.4rem;border-radius:6px;font-weight:500;cursor:pointer;">Add Line</button>
+                    <button id="ai-submit-btn" type="button" style="background:#4f46e5;color:white;border:none;padding:.55rem 1.4rem;border-radius:6px;font-weight:500;cursor:pointer;">Add Inventory</button>
+                </div>
             </div>
         </div>
     </div>
@@ -397,8 +439,10 @@
     <script>
         var api_data = @json($this->products_data);
         var allWarehouses = @json($this->warehouses);
+        var canEditCells = @json($this->canEditCells);  // true = super_admin only
         console.log('✅ Loaded ' + api_data.length + ' product variants');
         console.log('✅ Loaded ' + allWarehouses.length + ' warehouses');
+        console.log('✅ canEditCells:', canEditCells);
     </script>
 
     <!-- Inventory Grid JavaScript (MATCHING old Reporting system) -->
@@ -511,7 +555,7 @@
                 {
                     dataIndx: 'state',
                     title: '',
-                    cb: { header: true, select: true, all: true },
+                    cb: { header: true, all: true },  // removed select:true — conflicts with cell selectionModel
                     type: 'checkbox',
                     cls: 'ui-state-default',
                     resizable: false,
@@ -519,6 +563,7 @@
                     minWidth: 40,
                     maxWidth: 40,
                     sortable: false,
+                    editable: false,
                     filter: { crules: [] }
                 },
                 {
@@ -585,7 +630,7 @@
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner',
-                    editable: true,
+                    editable: canEditCells,  // super_admin only
                     filter: { crules: [{ condition: 'equal' }] }
                 };
                 colModel[wj] = warehouseColumn;
@@ -599,7 +644,7 @@
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner-eta',
-                    editable: true,
+                    editable: canEditCells,  // super_admin only
                     filter: { crules: [{ condition: 'begin' }] }
                 };
                 colModel[wj] = warehouseETAColumn;
@@ -613,7 +658,7 @@
                     dataType: 'string', 
                     align: "center", 
                     cls: 'inventory-info-inner-eta_qty',
-                    editable: true,
+                    editable: canEditCells,  // super_admin only
                     filter: { crules: [{ condition: 'equal' }] },
                     render: function(ui) {
                         let value = ui.cellData;
@@ -744,7 +789,7 @@
                     mode: "AND", 
                     header: true 
                 },
-                editable: true,
+                editable: canEditCells,
                 editor: { select: true },
                 editModel: {
                     saveKey: $.ui.keyCode.ENTER,
@@ -1177,56 +1222,245 @@
 
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    
-    <!-- Bulk Transfer Scripts -->
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BULK TRANSFER + ADD INVENTORY SCRIPTS
+    ═══════════════════════════════════════════════════════════ -->
     <script>
-        $(document).ready(function() {
-            // Bulk Transfer Button Click
-            $('#bulk-transfer-btn').on('click', function() {
-                if (typeof grid === 'undefined' || !grid) {
-                    showToast('Grid is not ready yet.', 'error');
-                    return;
-                }
+    $(document).ready(function () {
 
-                // Get ALL rows across all pages (not just current page)
-                var allData = grid.option('dataModel.data');
-                var selectedIds = [];
-                if (allData && allData.length > 0) {
-                    allData.forEach(function(row) {
-                        if (row.state === true) {
-                            selectedIds.push(row.id);
-                        }
-                    });
-                }
+        // ──────────────────────────────────────────────────────────
+        // HELPERS
+        // ──────────────────────────────────────────────────────────
+        function buildFromOptions(sel) {
+            var h = '<option value="">Required</option>';
+            h += '<option value="incoming"' + (sel==='incoming'?' selected':'') + '>🚚 Incoming Stock</option>';
+            allWarehouses.forEach(function(wh) {
+                h += '<option value="'+wh.id+'"'+(String(sel)===String(wh.id)?' selected':'')+'>'+wh.code+' – '+wh.warehouse_name+'</option>';
+            });
+            return h;
+        }
+        function buildToOptions(sel) {
+            var h = '<option value="">Required</option>';
+            allWarehouses.forEach(function(wh) {
+                h += '<option value="'+wh.id+'"'+(String(sel)===String(wh.id)?' selected':'')+'>'+wh.code+' – '+wh.warehouse_name+'</option>';
+            });
+            h += '<option value="incoming"'+(sel==='incoming'?' selected':'')+'>🚚 Incoming Stock</option>';
+            return h;
+        }
+        function qtySpinner(cls) {
+            return '<div style="display:inline-flex;align-items:center;gap:4px;">'
+                +'<button type="button" class="qty-dec" style="width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;color:#ef4444;font-weight:bold;font-size:1.1rem;line-height:1;">-</button>'
+                +'<input type="number" class="'+cls+'" value="0" min="0" style="width:52px;text-align:center;border:1px solid #e5e7eb;border-radius:4px;padding:4px 2px;">'
+                +'<button type="button" class="qty-inc" style="width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;color:#10b981;font-weight:bold;font-size:1.1rem;line-height:1;">+</button>'
+                +'</div>';
+        }
+        function getAvailQty(variantId, fromVal) {
+            if (!variantId || !fromVal) return '–';
+            var allData = (typeof grid !== 'undefined') ? grid.option('dataModel.data') : [];
+            var row = allData ? allData.find(function(r){ return String(r.id)===String(variantId); }) : null;
+            if (!row) return '–';
+            if (fromVal === 'incoming') {
+                var t = 0; allWarehouses.forEach(function(wh){ t+=parseInt(row['e_ta_q_ty'+wh.id]||0); }); return t;
+            }
+            return parseInt(row['qty'+fromVal]||0);
+        }
+        function getGridData() { return (typeof grid !== 'undefined') ? (grid.option('dataModel.data')||[]) : []; }
+        function getSelected() { return getGridData().filter(function(r){ return r.state===true; }); }
 
-                // Populate warehouse dropdowns from JS allWarehouses variable
-                var $src = $('#source_warehouse_id').empty().append('<option value="">-- Select source --</option>');
-                var $dst = $('#destination_warehouse_id').empty().append('<option value="">-- Select destination --</option>');
-                if (typeof allWarehouses !== 'undefined') {
-                    allWarehouses.forEach(function(wh) {
-                        $src.append('<option value="' + wh.id + '">' + wh.warehouse_name + ' (' + wh.code + ')</option>');
-                        $dst.append('<option value="' + wh.id + '">' + wh.warehouse_name + ' (' + wh.code + ')</option>');
-                    });
-                }
+        // ──────────────────────────────────────────────────────────
+        // BULK TRANSFER
+        // ──────────────────────────────────────────────────────────
+        function btRow(rowData, idx) {
+            var varId = rowData ? rowData.id : '';
+            var sku   = rowData ? (rowData.sku||'') : '';
+            var roAttr = rowData
+                ? 'readonly style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 10px;width:100%;"'
+                : 'style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 10px;width:100%;" placeholder="Type SKU…"';
+            return '<tr data-idx="'+idx+'" data-variant-id="'+varId+'">'
+                +'<td style="padding:.6rem 1.5rem;"><input type="text" class="bt-sku" value="'+sku+'" '+roAttr+'></td>'
+                +'<td style="padding:.6rem 1rem;"><select class="form-select bt-from" style="font-size:.875rem;">'+buildFromOptions('')+'</select></td>'
+                +'<td style="padding:.6rem 1rem;text-align:center;vertical-align:middle;"><span class="bt-avail">–</span></td>'
+                +'<td style="padding:.6rem 1rem;text-align:center;vertical-align:middle;">'+qtySpinner('bt-qty')+'</td>'
+                +'<td style="padding:.6rem 1rem;"><select class="form-select bt-to" style="font-size:.875rem;">'+buildToOptions('')+'</select></td>'
+                +'<td style="padding:.6rem .5rem;text-align:center;vertical-align:middle;"><button type="button" class="bt-del" style="background:none;border:none;color:#9ca3af;font-size:1.2rem;cursor:pointer;">✕</button></td>'
+                +'</tr>';
+        }
 
-                if (selectedIds.length === 0) {
-                    $('#transfer_count_msg')
-                        .removeClass('alert-info alert-success')
-                        .addClass('alert-danger')
-                        .html('<i class="bi bi-exclamation-triangle"></i> Please tick the checkboxes on the left to select items first.');
-                    $('#confirmBulkTransferBtn').prop('disabled', true);
-                } else {
-                    $('#transfer_count_msg')
-                        .removeClass('alert-danger alert-info')
-                        .addClass('alert-success')
-                        .html('<i class="bi bi-check-circle"></i> <strong>' + selectedIds.length + '</strong> item(s) selected for transfer.');
-                    $('#confirmBulkTransferBtn').prop('disabled', false);
-                    $('#transfer_selected_ids').val(JSON.stringify(selectedIds));
-                }
+        $('#bulk-transfer-btn').on('click', function() {
+            if (typeof grid === 'undefined' || !grid) { showToast('Grid loading…', 'warning'); return; }
+            var sel = getSelected();
+            var html = '';
+            if (sel.length) {
+                sel.forEach(function(r,i){ html += btRow(r,i); });
+                $('#bt-no-selection-msg').hide();
+            } else {
+                html = btRow(null, 0);
+                $('#bt-no-selection-msg').show();
+            }
+            $('#bulk-transfer-rows').html(html);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('bulk-transfer-modal')).show();
+        });
 
-                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('bulk-transfer-modal'));
-                modal.show();
+        $('#bt-add-line-btn').on('click', function(){
+            var idx = $('#bulk-transfer-rows tr').length;
+            $('#bulk-transfer-rows').append(btRow(null, idx));
+        });
+        $(document).on('click', '.bt-del', function(){ $(this).closest('tr').remove(); });
+
+        // qty spinners (bulk transfer)
+        $(document).on('click', '#bulk-transfer-rows .qty-dec', function(){
+            var $i=$(this).siblings('.bt-qty'); $i.val(Math.max(0,parseInt($i.val()||0)-1));
+        });
+        $(document).on('click', '#bulk-transfer-rows .qty-inc', function(){
+            var $i=$(this).siblings('.bt-qty'); $i.val(parseInt($i.val()||0)+1);
+        });
+
+        // From → update avail qty + apply-to-all on first row
+        $(document).on('change', '#bulk-transfer-rows .bt-from', function(){
+            var $row=$(this).closest('tr');
+            var from=$(this).val(), varId=$row.data('variant-id');
+            $row.find('.bt-avail').text(varId ? getAvailQty(varId, from) : '–');
+            if ($row.is(':first-child')) {
+                $('#bulk-transfer-rows tr').not($row).find('.bt-from').val(from).each(function(){
+                    var $r=$(this).closest('tr');
+                    $r.find('.bt-avail').text(getAvailQty($r.data('variant-id'), from));
+                });
+            }
+        });
+        // To → apply-to-all on first row
+        $(document).on('change', '#bulk-transfer-rows .bt-to', function(){
+            var $row=$(this).closest('tr');
+            if ($row.is(':first-child')) {
+                var to=$(this).val();
+                $('#bulk-transfer-rows tr').not($row).find('.bt-to').val(to);
+            }
+        });
+        // SKU lookup when manually typed
+        $(document).on('change', '#bulk-transfer-rows .bt-sku', function(){
+            var $row=$(this).closest('tr'), sku=$(this).val().trim();
+            if (!sku) return;
+            var found = getGridData().find(function(r){ return r.sku===sku; });
+            if (found) { $row.attr('data-variant-id', found.id); }
+            else { showToast('SKU not found: '+sku, 'warning'); $row.attr('data-variant-id',''); }
+        });
+
+        // Submit
+        $('#bt-transfer-btn').on('click', function(){
+            var lines=[], valid=true;
+            $('#bulk-transfer-rows tr').each(function(){
+                var varId=$(this).data('variant-id'), from=$(this).find('.bt-from').val(),
+                    to=$(this).find('.bt-to').val(), qty=parseInt($(this).find('.bt-qty').val()||0);
+                if (!varId){ showToast('Please ensure all SKU fields are valid.','error'); valid=false; return false; }
+                if (!from){ showToast('Please select a "From" option for all rows.','error'); valid=false; return false; }
+                if (!to){ showToast('Please select a "To" option for all rows.','error'); valid=false; return false; }
+                if (qty<=0){ showToast('Transfer quantity must be > 0 for all rows.','error'); valid=false; return false; }
+                if (String(from)===String(to)){ showToast('"From" and "To" cannot be the same.','error'); valid=false; return false; }
+                lines.push({variant_id:varId, from:from, to:to, quantity:qty});
+            });
+            if (!valid || !lines.length) return;
+            $('#bt-transfer-btn').prop('disabled',true).text('Transferring…');
+            $.ajax({
+                url:'/admin/inventory/bulk-transfer', method:'POST',
+                contentType:'application/json',
+                data:JSON.stringify({lines:lines}),
+                headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')},
+                success:function(r){
+                    if(r.success){ showToast(r.message||'Transfer complete!','success'); bootstrap.Modal.getInstance(document.getElementById('bulk-transfer-modal')).hide(); setTimeout(function(){location.reload();},1500); }
+                    else{ showToast(r.message||'Transfer failed.','error'); $('#bt-transfer-btn').prop('disabled',false).text('Transfer Stock'); }
+                },
+                error:function(xhr){
+                    showToast((xhr.responseJSON&&xhr.responseJSON.message)||'Transfer failed.','error');
+                    $('#bt-transfer-btn').prop('disabled',false).text('Transfer Stock');
+                }
             });
         });
+
+        // ──────────────────────────────────────────────────────────
+        // ADD INVENTORY
+        // ──────────────────────────────────────────────────────────
+        function aiRow(rowData, idx) {
+            var varId = rowData ? rowData.id : '';
+            var sku   = rowData ? (rowData.sku||'') : '';
+            var roAttr = rowData
+                ? 'readonly style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:6px 10px;width:100%;"'
+                : 'style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 10px;width:100%;" placeholder="Type SKU…"';
+            return '<tr data-idx="'+idx+'" data-variant-id="'+varId+'">'
+                +'<td style="padding:.6rem 1.5rem;"><input type="text" class="ai-sku" value="'+sku+'" '+roAttr+'></td>'
+                +'<td style="padding:.6rem 1rem;text-align:center;vertical-align:middle;">'+qtySpinner('ai-qty')+'</td>'
+                +'<td style="padding:.6rem 1rem;"><select class="form-select ai-to" style="font-size:.875rem;">'+buildToOptions('')+'</select></td>'
+                +'<td style="padding:.6rem .5rem;text-align:center;vertical-align:middle;"><button type="button" class="ai-del" style="background:none;border:none;color:#9ca3af;font-size:1.2rem;cursor:pointer;">✕</button></td>'
+                +'</tr>';
+        }
+
+        $('#add-inventory-btn').on('click', function(){
+            if (typeof grid==='undefined'||!grid){ showToast('Grid loading…','warning'); return; }
+            var sel=getSelected(), html='';
+            if (sel.length) sel.forEach(function(r,i){ html+=aiRow(r,i); });
+            else html=aiRow(null,0);
+            $('#add-inventory-rows').html(html);
+            $('#ai-reference').val('');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('add-inventory-modal')).show();
+        });
+
+        $('#ai-add-line-btn').on('click', function(){
+            $('#add-inventory-rows').append(aiRow(null,$('#add-inventory-rows tr').length));
+        });
+        $(document).on('click', '.ai-del', function(){ $(this).closest('tr').remove(); });
+
+        // qty spinners (add inventory)
+        $(document).on('click', '#add-inventory-rows .qty-dec', function(){
+            var $i=$(this).siblings('.ai-qty'); $i.val(Math.max(0,parseInt($i.val()||0)-1));
+        });
+        $(document).on('click', '#add-inventory-rows .qty-inc', function(){
+            var $i=$(this).siblings('.ai-qty'); $i.val(parseInt($i.val()||0)+1);
+        });
+        // To → apply-to-all on first row
+        $(document).on('change', '#add-inventory-rows .ai-to', function(){
+            var $row=$(this).closest('tr');
+            if ($row.is(':first-child')) {
+                var to=$(this).val();
+                $('#add-inventory-rows tr').not($row).find('.ai-to').val(to);
+            }
+        });
+        // SKU lookup
+        $(document).on('change', '#add-inventory-rows .ai-sku', function(){
+            var $row=$(this).closest('tr'), sku=$(this).val().trim();
+            if (!sku) return;
+            var found=getGridData().find(function(r){ return r.sku===sku; });
+            if (found) $row.attr('data-variant-id',found.id);
+            else { showToast('SKU not found: '+sku,'warning'); $row.attr('data-variant-id',''); }
+        });
+
+        // Submit
+        $('#ai-submit-btn').on('click', function(){
+            var lines=[], valid=true, reference=$('#ai-reference').val().trim();
+            $('#add-inventory-rows tr').each(function(){
+                var varId=$(this).data('variant-id'), to=$(this).find('.ai-to').val(),
+                    qty=parseInt($(this).find('.ai-qty').val()||0);
+                if (!varId){ showToast('Please ensure all SKU fields are valid.','error'); valid=false; return false; }
+                if (!to)  { showToast('Please select a "To" warehouse for all rows.','error'); valid=false; return false; }
+                if (qty<=0){ showToast('Quantity must be > 0.','error'); valid=false; return false; }
+                lines.push({variant_id:varId, to:to, quantity:qty});
+            });
+            if (!valid||!lines.length) return;
+            $('#ai-submit-btn').prop('disabled',true).text('Adding…');
+            $.ajax({
+                url:'/admin/inventory/add', method:'POST',
+                contentType:'application/json',
+                data:JSON.stringify({lines:lines, reference:reference}),
+                headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')},
+                success:function(r){
+                    if(r.success){ showToast(r.message||'Inventory added!','success'); bootstrap.Modal.getInstance(document.getElementById('add-inventory-modal')).hide(); setTimeout(function(){location.reload();},1500); }
+                    else{ showToast(r.message||'Failed.','error'); $('#ai-submit-btn').prop('disabled',false).text('Add Inventory'); }
+                },
+                error:function(xhr){
+                    showToast((xhr.responseJSON&&xhr.responseJSON.message)||'Failed to add inventory.','error');
+                    $('#ai-submit-btn').prop('disabled',false).text('Add Inventory');
+                }
+            });
+        });
+
+    }); // end document.ready
     </script>
 </x-filament-panels::page>
