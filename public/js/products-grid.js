@@ -7,6 +7,7 @@
 let grid;
 let interval;
 let _filteredProductIds = null; // null = no filter (update all), array = filtered product IDs
+let _filteredRowCount = 0;        // filtered variant row count (for display in confirmations)
 let _totalDataCount = 0;         // full unfiltered row count, set after grid init
 
 // Reusable SweetAlert2 Toast configuration
@@ -805,7 +806,7 @@ $(document).ready(function () {
                 listener: function () {
                     var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
-                        ? 'Enable wholesale for the ' + ids.length + ' filtered products?'
+                        ? 'Enable wholesale for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                         : 'Enable wholesale for ALL products? This will make all products visible on the wholesale site.';
                     Swal.fire({
                         title: 'Enable Wholesale?',
@@ -828,7 +829,7 @@ $(document).ready(function () {
                 listener: function () {
                     var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
-                        ? 'Disable wholesale for the ' + ids.length + ' filtered products?'
+                        ? 'Disable wholesale for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                         : 'Disable wholesale for ALL products? This will hide all products from the wholesale site.';
                     Swal.fire({
                         title: 'Disable Wholesale?',
@@ -852,7 +853,7 @@ $(document).ready(function () {
                 listener: function () {
                     var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
-                        ? 'Enable inventory tracking for the ' + ids.length + ' filtered products?'
+                        ? 'Enable inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                         : 'Enable inventory tracking for ALL products? Cart will enforce stock limits for all products.';
                     Swal.fire({
                         title: 'Enable Tracking?',
@@ -875,7 +876,7 @@ $(document).ready(function () {
                 listener: function () {
                     var ids = getFilteredProductIds(grid);
                     var confirmMsg = ids
-                        ? 'Disable inventory tracking for the ' + ids.length + ' filtered products?'
+                        ? 'Disable inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                         : 'Disable inventory tracking for ALL products?';
                     Swal.fire({
                         title: 'Disable Tracking?',
@@ -1052,6 +1053,7 @@ $(document).ready(function () {
 
             if (filteredCount >= _totalDataCount) {
                 _filteredProductIds = null;
+                _filteredRowCount = 0;
                 console.log('[filter event] no filter — cleared');
                 return;
             }
@@ -1064,7 +1066,8 @@ $(document).ready(function () {
                 }
             });
             _filteredProductIds = ids.length ? ids : null;
-            console.log('[filter event] captured', ids.length, 'unique product IDs');
+            _filteredRowCount = filteredCount;
+            console.log('[filter event] captured', ids.length, 'unique product IDs across', filteredCount, 'rows');
         });
 
 
@@ -1108,7 +1111,7 @@ $(document).ready(function () {
                 var newVal = $(this).is(':checked');
                 var ids = getFilteredProductIds(grid);
                 var confirmMsg = ids
-                    ? (newVal ? 'Enable' : 'Disable') + ' wholesale for the ' + ids.length + ' filtered products?'
+                    ? (newVal ? 'Enable' : 'Disable') + ' wholesale for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                     : (newVal ? 'Enable' : 'Disable') + ' wholesale for ALL products?';
                 Swal.fire({
                     title: (newVal ? 'Enable' : 'Disable') + ' Wholesale?',
@@ -1130,7 +1133,7 @@ $(document).ready(function () {
                 var newVal = $(this).is(':checked');
                 var ids = getFilteredProductIds(grid);
                 var confirmMsg = ids
-                    ? (newVal ? 'Enable' : 'Disable') + ' inventory tracking for the ' + ids.length + ' filtered products?'
+                    ? (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
                     : (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ALL products?';
                 Swal.fire({
                     title: (newVal ? 'Enable' : 'Disable') + ' Tracking?',
