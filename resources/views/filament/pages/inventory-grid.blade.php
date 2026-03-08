@@ -419,7 +419,7 @@
                 return false;
             }
 
-            if (!$.active && grid.isDirty() && validationResult.valid) {
+            if (!$.active && grid.isDirty() && grid.validData() === true) {
                 var gridChanges = grid.getChanges({ format: 'byVal' });
 
                 $.ajax({
