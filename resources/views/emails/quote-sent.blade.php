@@ -203,19 +203,19 @@
 
     <div class="email-wrapper">
         <!-- Header -->
-        <table class="header" style="width: 100%; background-color: #1a1a2e; padding: 28px 35px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a2e; padding: 28px 35px;">
             <tr>
-                <td style="vertical-align: middle;">
-                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: 2px;">QUOTE</h1>
-                    <p style="color: #a0aec0; font-size: 13px; margin-top: 4px;">{{ $record->quote_number }}</p>
+                <td width="50%" style="vertical-align: middle;">
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0;">QUOTE</h1>
+                    <p style="color: #a0aec0; font-size: 13px; margin-top: 4px; margin-bottom: 0;">{{ $record->quote_number }}</p>
                 </td>
-                <td style="vertical-align: middle; text-align: right;">
+                <td width="50%" align="right" style="vertical-align: middle; text-align: right;">
                     @if($logoUrl)
-                        <img src="{{ $logoUrl }}" alt="{{ $companyName }}" style="max-height: 60px; max-width: 150px;">
+                        <img src="{{ $logoUrl }}" alt="{{ $companyName }}" style="display: block; margin-left: auto; max-height: 50px; max-width: 140px; margin-bottom: 4px;">
                     @endif
-                    <p style="color: #ffffff; font-weight: 600; font-size: 13px; margin-top: 6px;">{{ $companyName }}</p>
+                    <p style="color: #ffffff; font-weight: 600; font-size: 13px; margin: 0;">{{ $companyName }}</p>
                     @if($taxNumber)
-                        <p style="color: #a0aec0; font-size: 11px;">Tax No: {{ $taxNumber }}</p>
+                        <p style="color: #a0aec0; font-size: 11px; margin-top: 2px; margin-bottom: 0;">Tax No: {{ $taxNumber }}</p>
                     @endif
                 </td>
             </tr>

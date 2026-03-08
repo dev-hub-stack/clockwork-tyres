@@ -62,9 +62,8 @@ class CompanyBranding extends Model
     }
 
     /**
-     * Get logo URL — always returns a publicly accessible URL.
-     * New uploads are on S3; CloudFront serves them via S3IMAGES_URL.
-     * Legacy uploads on public disk fall back to APP_URL/storage/...
+     * Get logo URL — always returns a publicly accessible CloudFront URL.
+     * Uses config() not env() so it works even when config is cached.
      */
     public function getLogoUrlAttribute(): ?string
     {
@@ -77,14 +76,14 @@ class CompanyBranding extends Model
             return $this->logo_path;
         }
 
-        // Build CloudFront URL directly — no S3 API call needed
-        // AWS_URL / S3IMAGES_URL = https://d2iosncs8hpu1u.cloudfront.net/
-        $cdnUrl = rtrim(env('S3IMAGES_URL', ''), '/');
+        // AWS_URL in .env = S3IMAGES_URL = CloudFront CDN prefix
+        // config('filesystems.disks.s3.url') works even when config is cached
+        $cdnUrl = rtrim(config('filesystems.disks.s3.url', ''), '/');
         if ($cdnUrl) {
             return $cdnUrl . '/' . ltrim($this->logo_path, '/');
         }
 
-        // Fallback: public disk (legacy, local dev without S3)
+        // Fallback: public disk (local dev without S3)
         return Storage::disk('public')->url($this->logo_path);
     }
 
