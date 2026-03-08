@@ -13,21 +13,38 @@ use Illuminate\Support\Facades\Storage;
 class QuotePdfController extends Controller
 {
     /**
-     * Helper to get logo path for PDF
+     * Helper to get logo path/data for PDF (DomPDF-compatible).
+     * Returns an absolute local path, or a base64 data URI for remote URLs.
      */
     private function getPdfLogoPath($companyBranding)
     {
-        if (!$companyBranding || !$companyBranding->logo_path) {
+        if (!$companyBranding) {
             return null;
         }
 
-        // If using local storage, get the absolute system path
-        if (Storage::disk('public')->exists($companyBranding->logo_path)) {
+        // Prefer local storage: return absolute path (fastest for DomPDF)
+        if ($companyBranding->logo_path && Storage::disk('public')->exists($companyBranding->logo_path)) {
             return Storage::disk('public')->path($companyBranding->logo_path);
         }
 
-        // Fallback to URL (e.g. S3) - DomPDF needs allow_url_fopen enabled
-        return $companyBranding->logo_url;
+        // Remote URL (S3 / CloudFront): fetch and embed as base64 data URI
+        $url = $companyBranding->logo_url ?? null;
+        if ($url) {
+            try {
+                $contents = @file_get_contents($url);
+                if ($contents !== false && strlen($contents) > 0) {
+                    $ext     = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
+                    $mimeMap = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                                'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'webp' => 'image/webp'];
+                    $mime    = $mimeMap[$ext] ?? 'image/png';
+                    return 'data:' . $mime . ';base64,' . base64_encode($contents);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch logo for PDF embed: ' . $e->getMessage());
+            }
+        }
+
+        return null;
     }
 
     public function download(Order $quote)

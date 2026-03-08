@@ -338,9 +338,19 @@
                 <td class="totals-cell" style="vertical-align: top;">
                     <table class="totals-calc-table">
                         @php $sym = $currSym; @endphp
+                        @php
+                            // For zero-rated orders the DB sub_total was calculated with VAT divisor before
+                            // is_zero_rated was set, so back-calculate the correct pre-discount line total:
+                            // total = subtotal - discount + shipping  (no VAT)
+                            // → subtotal = total + discount - shipping
+                            $isZeroRatedEarly = !empty($record->is_zero_rated);
+                            $displaySubTotal  = $isZeroRatedEarly
+                                ? round(floatval($record->total) + floatval($record->discount ?? 0) - floatval($record->shipping ?? 0), 2)
+                                : floatval($record->sub_total);
+                        @endphp
                         <tr>
                             <td>Subtotal:</td>
-                            <td class="text-right">{{ $sym }} {{ number_format($record->sub_total, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($displaySubTotal, 2) }}</td>
                         </tr>
                         @if($record->discount > 0)
                         <tr>
