@@ -419,7 +419,7 @@
                 return false;
             }
 
-            if (!$.active && grid.isDirty() && grid.validData() === true) {
+            if (!$.active && grid.isDirty()) {
                 var gridChanges = grid.getChanges({ format: 'byVal' });
 
                 $.ajax({
@@ -461,6 +461,13 @@
         }
 
         $(document).ready(function () {
+            // Set CSRF token on all AJAX requests globally
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
             // Prepare data - EXACT structure from old Reporting system (lines 269-274)
             var data = [];
             api_data.forEach(function(element, index) {
