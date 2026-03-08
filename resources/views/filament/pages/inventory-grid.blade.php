@@ -557,7 +557,7 @@
                 {
                     dataIndx: 'state',
                     title: '',
-                    cb: { header: true, all: true },  // removed select:true — conflicts with cell selectionModel
+                    cb: { header: true, all: true },
                     type: 'checkbox',
                     cls: 'ui-state-default',
                     resizable: false,
@@ -565,7 +565,7 @@
                     minWidth: 40,
                     maxWidth: 40,
                     sortable: false,
-                    editable: false,
+                    editable: true,  // must be true so clicking toggles state; data columns still locked by canEditCells
                     filter: { crules: [] }
                 },
                 {
