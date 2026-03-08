@@ -293,11 +293,13 @@ class InvoiceResource extends Resource
                         Repeater::make('items')
                             ->relationship('items')
                             ->schema([
-                                Select::make('product_variant_id')
+                                // Virtual product selector — supports products, addons, and custom items
+                                Select::make('product_selector')
                                     ->label('Product')
                                     ->searchable()
                                     ->getSearchResultsUsing(function (string $search) {
-                                        return ProductVariant::query()
+                                        // Search product variants
+                                        $products = ProductVariant::query()
                                             ->with(['product.brand', 'product.model', 'product.finish'])
                                             ->where(function ($query) use ($search) {
                                                 $query->where('sku', 'like', "%{$search}%")
@@ -311,140 +313,212 @@ class InvoiceResource extends Resource
                                                     ->orWhere('bolt_pattern', 'like', "%{$search}%")
                                                     ->orWhere('offset', 'like', "%{$search}%");
                                             })
-                                            ->limit(50)
+                                            ->limit(20)
                                             ->get()
                                             ->filter(fn($variant) => $variant->product !== null && $variant->sku !== null)
                                             ->mapWithKeys(fn($variant) => [
-                                                $variant->id => sprintf(
+                                                'product_' . $variant->id => sprintf(
                                                     '%s - %s | %s | %s | Size: %s | Bolt: %s | Offset: %s',
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
                                                     $variant->product->model?->name ?? 'N/A',
-                                                    $variant->finish ?? 'N/A',
+                                                    $variant->finish ?? ($variant->product->finish?->name ?? 'N/A'),
                                                     $variant->size ?? 'N/A',
                                                     $variant->bolt_pattern ?? 'N/A',
                                                     $variant->offset ?? 'N/A'
                                                 )
                                             ]);
+
+                                        // Search addons
+                                        $addons = \App\Modules\Products\Models\AddOn::query()
+                                            ->where(function ($q) use ($search) {
+                                                $q->where('title', 'like', "%{$search}%")
+                                                  ->orWhere('part_number', 'like', "%{$search}%");
+                                            })
+                                            ->limit(20)
+                                            ->get()
+                                            ->mapWithKeys(fn($addon) => [
+                                                'addon_' . $addon->id => sprintf(
+                                                    'ADDON: %s%s (%s)',
+                                                    $addon->title,
+                                                    $addon->part_number ? ' [' . $addon->part_number . ']' : '',
+                                                    $addon->category?->name ?? 'N/A'
+                                                )
+                                            ]);
+
+                                        $results = $products->union($addons)->toArray();
+
+                                        if (strlen($search) > 0) {
+                                            $results['custom_item'] = '➕ Add Custom Item: "' . $search . '"';
+                                        }
+
+                                        return $results;
                                     })
                                     ->getOptionLabelUsing(function ($value) {
                                         if (!$value) return 'Unknown';
-                                        
-                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($value);
+
+                                        if ($value === 'custom_item') return '✏️ Custom Item';
+
+                                        if (str_starts_with($value, 'addon_')) {
+                                            $id = substr($value, 6);
+                                            $addon = \App\Modules\Products\Models\AddOn::find($id);
+                                            if (!$addon) return 'Unknown Add-on';
+                                            return 'ADDON: ' . $addon->title . ($addon->part_number ? ' [' . $addon->part_number . ']' : '');
+                                        }
+
+                                        $id = str_starts_with($value, 'product_') ? substr($value, 8) : $value;
+                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($id);
                                         if (!$variant || !$variant->product) return 'Unknown Product';
-                                        
-                                        return sprintf(
-                                            '%s - %s | %s | %s',
+                                        return sprintf('%s - %s | %s | %s',
                                             $variant->sku ?? 'NO-SKU',
                                             $variant->product->brand?->name ?? 'N/A',
                                             $variant->product->model?->name ?? 'N/A',
-                                            $variant->finish ?? 'N/A'
+                                            $variant->finish ?? ($variant->product->finish?->name ?? 'N/A')
                                         );
                                     })
-                                    ->afterStateUpdated(function ($state, Set $set) {
-                                        if ($state) {
-                                            $variant = ProductVariant::with('product')->find($state);
+                                    ->afterStateHydrated(function ($component, $state, $record) {
+                                        // Restore selector state from the saved item fields
+                                        if ($record) {
+                                            if ($record->add_on_id) {
+                                                $component->state('addon_' . $record->add_on_id);
+                                            } elseif ($record->product_variant_id) {
+                                                $component->state('product_' . $record->product_variant_id);
+                                            } elseif (!empty($record->product_name)) {
+                                                $component->state('custom_item');
+                                            }
+                                        }
+                                    })
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        if (!$state) return;
+
+                                        if ($state === 'custom_item') {
+                                            $set('is_custom', true);
+                                            $set('product_variant_id', null);
+                                            $set('add_on_id', null);
+                                            $set('unit_price', 0);
+                                            $set('quantity', 1);
+                                            $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                            $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                        } elseif (str_starts_with($state, 'addon_')) {
+                                            $id = substr($state, 6);
+                                            $addon = \App\Modules\Products\Models\AddOn::find($id);
+                                            if ($addon) {
+                                                $set('is_custom', false);
+                                                $set('add_on_id', $id);
+                                                $set('product_variant_id', null);
+                                                $set('unit_price', floatval($addon->price ?? 0));
+                                                $set('quantity', 1);
+                                                $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
+                                                $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
+                                            }
+                                        } else {
+                                            $id = str_starts_with($state, 'product_') ? substr($state, 8) : $state;
+                                            $variant = ProductVariant::with('product')->find($id);
                                             if ($variant) {
-                                                // Use uae_retail_price from tunerstop-admin
+                                                $set('is_custom', false);
+                                                $set('product_variant_id', $id);
+                                                $set('add_on_id', null);
                                                 $price = floatval($variant->uae_retail_price ?? 0);
-                                                
-                                                // Apply Dealer Pricing if applicable
-                                                $customerId = $set->get('../../customer_id');
+                                                $customerId = $get('../../customer_id');
                                                 if ($customerId) {
                                                     $customer = \App\Modules\Customers\Models\Customer::find($customerId);
                                                     if ($customer && $customer->isDealer()) {
                                                         $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
                                                         $pricing = $dealerService->calculateProductPrice(
-                                                            $customer,
-                                                            $price,
+                                                            $customer, $price,
                                                             $variant->product->model_id ?? null,
                                                             $variant->product->brand_id ?? null
                                                         );
-                                                        
-                                                        // If discount applied, update price and maybe show info
                                                         if ($pricing['discount_amount'] > 0) {
                                                             $price = $pricing['final_price'];
-                                                            // We could set a discount field if we wanted to show it explicitly, 
-                                                            // but usually dealer price is the unit price.
-                                                            // Or we can set the discount field.
-                                                            // For invoices, we usually set unit_price to base and discount to amount.
                                                             $set('discount', $pricing['discount_amount']);
                                                         }
                                                     }
                                                 }
-                                                
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);
-                                                
-                                                // Set tax_inclusive from system setting
                                                 $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
                                                 $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
                                             }
                                         }
                                     })
+                                    ->preload()
                                     ->live()
                                     ->required()
                                     ->columnSpanFull(),
-                                
+
+                                // Hidden real DB fields
+                                \Filament\Forms\Components\Hidden::make('is_custom')
+                                    ->default(false)
+                                    ->afterStateHydrated(function ($component, $record) {
+                                        if ($record && !$record->product_variant_id && !$record->add_on_id && !empty($record->product_name)) {
+                                            $component->state(true);
+                                        }
+                                    }),
+                                \Filament\Forms\Components\Hidden::make('product_variant_id'),
+                                \Filament\Forms\Components\Hidden::make('add_on_id'),
+
+                                TextInput::make('product_name')
+                                    ->label('Custom Item Name')
+                                    ->required(fn ($get) => (bool) $get('is_custom'))
+                                    ->visible(fn ($get) => (bool) $get('is_custom'))
+                                    ->columnSpanFull()
+                                    ->helperText('Enter the name or description of this custom item.'),
+
                                 Select::make('warehouse_id')
                                     ->label('Warehouse')
                                     ->options(function ($get) {
                                         $variantId = $get('product_variant_id');
-                                        
+
                                         if (!$variantId) {
+                                            $addonId = $get('add_on_id');
+                                            if ($addonId) {
+                                                $addon = \App\Modules\Products\Models\AddOn::find($addonId);
+                                                if ($addon && $addon->track_inventory) {
+                                                    $inventories = \App\Modules\Inventory\Models\ProductInventory::where('add_on_id', $addonId)
+                                                        ->with('warehouse')->get();
+                                                    $options = [];
+                                                    foreach ($inventories as $inv) {
+                                                        if (!$inv->warehouse) continue;
+                                                        $available = ($inv->quantity ?? 0) + ($inv->eta_qty ?? 0);
+                                                        $options[$inv->warehouse->id] = sprintf('%s - %d available', $inv->warehouse->name, $available);
+                                                    }
+                                                    return $options;
+                                                }
+                                                return ['' => '⚙️ Service / Non-Stock Item'];
+                                            }
                                             return ['' => 'Select product first'];
                                         }
-                                        
-                                        // Get inventory per warehouse for this variant
+
                                         $inventories = \App\Modules\Inventory\Models\ProductInventory::where('product_variant_id', $variantId)
-                                            ->with('warehouse')
-                                            ->get();
-                                        
+                                            ->with('warehouse')->get();
                                         $options = [];
-                                        
                                         foreach ($inventories as $inv) {
                                             if (!$inv->warehouse) continue;
-                                            
                                             $warehouse = $inv->warehouse;
                                             $available = ($inv->quantity ?? 0) + ($inv->eta_qty ?? 0);
-                                            
-                                            // Show all warehouses, even with 0 stock
-                                            $label = sprintf(
+                                            $options[$warehouse->id] = sprintf(
                                                 '%s - %d available (%d in stock%s)',
-                                                $warehouse->name,
-                                                $available,
-                                                $inv->quantity ?? 0,
+                                                $warehouse->name, $available, $inv->quantity ?? 0,
                                                 ($inv->eta_qty ?? 0) > 0 ? ", {$inv->eta_qty} expected" : ''
                                             );
-                                            
-                                            $options[$warehouse->id] = $label;
                                         }
-                                        
-                                        // Always add non-stock option
                                         $options['non_stock'] = '⚡ Non-Stock (Special Order) - Unlimited';
-                                        
                                         return $options;
                                     })
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
-                                        // Validate quantity against available stock
                                         if (!$state || $state === 'non_stock') return;
-                                        
                                         $variantId = $get('product_variant_id');
                                         $quantity = intval($get('quantity') ?? 0);
-                                        
                                         if ($variantId && $quantity > 0) {
                                             $inventory = \App\Modules\Inventory\Models\ProductInventory::where('product_variant_id', $variantId)
-                                                ->where('warehouse_id', $state)
-                                                ->first();
-                                            
+                                                ->where('warehouse_id', $state)->first();
                                             if ($inventory) {
                                                 $available = ($inventory->quantity ?? 0) + ($inventory->eta_qty ?? 0);
-                                                
                                                 if ($quantity > $available) {
                                                     \Filament\Notifications\Notification::make()
-                                                        ->warning()
-                                                        ->title('Low Stock Warning')
+                                                        ->warning()->title('Low Stock Warning')
                                                         ->body("Requested {$quantity} but only {$available} available in this warehouse")
                                                         ->send();
                                                 }
@@ -452,7 +526,8 @@ class InvoiceResource extends Resource
                                         }
                                     })
                                     ->dehydrateStateUsing(fn ($state) => $state === 'non_stock' ? null : $state)
-                                    ->required()
+                                    ->required(fn ($get) => !(bool) $get('is_custom'))
+                                    ->visible(fn ($get) => !(bool) $get('is_custom'))
                                     ->helperText('Select warehouse for this item')
                                     ->columnSpan(2),
                                                                 TextInput::make('quantity')
