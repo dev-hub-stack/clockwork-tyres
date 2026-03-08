@@ -62,13 +62,23 @@
                 -webkit-overflow-scrolling: touch;
                 width: 100%;
             }
-            table { min-width: 640px; }
 
             /* Expanded detail panel: 2-col → stacked on mobile */
             .expand-detail-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 1rem;
+            }
+            @media (max-width: 1024px) {
+                /* Switch off fixed layout so columns size to content,
+                   and set a wide enough min-width so all columns are visible */
+                table {
+                    min-width: 900px !important;
+                    table-layout: auto !important;
+                }
+                /* Let percentage col classes relax — content will drive width */
+                td, th { white-space: nowrap; }
+                .col-tracking { white-space: normal; min-width: 120px; }
             }
             @media (max-width: 767px) {
                 .expand-detail-grid { grid-template-columns: 1fr; }
