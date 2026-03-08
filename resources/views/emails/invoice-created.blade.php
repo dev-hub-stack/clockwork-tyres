@@ -72,13 +72,17 @@
                     </td>
                     <td style="width: 25%; padding: 6px 0; vertical-align: top;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Due Date</div>
-                        <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">{{ $record->due_date ? \Carbon\Carbon::parse($record->due_date)->format('M d, Y') : 'N/A' }}</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">
+                            {{ $record->due_date
+                                ? \Carbon\Carbon::parse($record->due_date)->format('M d, Y')
+                                : \Carbon\Carbon::parse($record->created_at)->addDays(30)->format('M d, Y') }}
+                        </div>
                     </td>
                     <td style="width: 25%; padding: 6px 0; vertical-align: top; text-align: right;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Status</div>
                         <div style="margin-top: 3px;">
                             <span style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #e8f4fd; color: #2b6cb0;">
-                                {{ $record->payment_status?->label() ?? $record->order_status?->label() ?? 'ISSUED' }}
+                                {{ $record->order_status?->label() ?? 'Processing' }}
                             </span>
                         </div>
                     </td>
