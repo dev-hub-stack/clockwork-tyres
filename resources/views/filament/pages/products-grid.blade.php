@@ -113,6 +113,31 @@
             width: 16px;
             height: 16px;
         }
+
+        /* ── Filter dropdown scroll (macOS fix) ─────────────────────────────
+           On macOS, overlay scrollbars are invisible until you scroll.
+           Force overflow-y:scroll so the track is always reserved/visible,
+           and style the scrollbar so it shows on all platforms / browsers. */
+        .pq-select-menu {
+            overflow-y: scroll !important;
+        }
+        .pq-select-popup {
+            overflow: visible !important;
+        }
+        .pq-select-menu::-webkit-scrollbar {
+            width: 8px;
+            background-color: #f0f0f0;
+        }
+        .pq-select-menu::-webkit-scrollbar-thumb {
+            background-color: #999;
+            border-radius: 4px;
+        }
+        .pq-select-menu::-webkit-scrollbar-thumb:hover {
+            background-color: #666;
+        }
+        .pq-select-menu::-webkit-scrollbar-track {
+            background-color: #f0f0f0;
+        }
         
         /* FILL HANDLE - Excel-like drag down indicator */
         .pq-grid-fill-handle {
