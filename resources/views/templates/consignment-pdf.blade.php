@@ -602,14 +602,12 @@
     <div class="notes-section">
         <div class="notes-box">
             <h3>Terms and Conditions</h3>
-            <ul>
-                <li>All consigned items remain the property of the consignor until sold.</li>
-                <li>{{ $companyName }} will use reasonable care in handling consigned items but is not liable for damage, theft, or loss.</li>
-                <li>Consignor authorizes {{ $companyName }} to sell items at agreed-upon prices and terms.</li>
-                <li>Settlement will be made according to the agreed commission structure.</li>
-                <li>Items not sold within the consignment period may be returned to the consignor.</li>
-                <li>Any modifications to this agreement must be made in writing and signed by both parties.</li>
-            </ul>
+            <p>All consigned goods remain the sole property of TunerStop Tyres &amp; Accessories Trading L.L.C. (&ldquo;Consignor&rdquo;) until sold and fully paid by the end customer.</p>
+            <p>The Consignee is authorized to display and sell the goods at prices approved by the Consignor and shall not discount, transfer, pledge, or dispose of the goods without prior written consent.</p>
+            <p>All risk of loss, theft, damage, or deterioration of the goods shall pass to and remain with the Consignee from the date of delivery, who shall be fully responsible for storage and safekeeping.</p>
+            <p>The Consignee shall remit sale proceeds to the Consignor within the agreed period. Any delay, non-payment, or misuse of proceeds shall constitute a material breach.</p>
+            <p>The Consignor may demand return of unsold goods at any time. Failure to return goods upon demand shall entitle the Consignor to claim full replacement value.</p>
+            <p>The Consignee shall indemnify and hold the Consignor harmless from all claims arising from possession or sale of the goods. This agreement shall be governed by the laws of the United Arab Emirates, with jurisdiction vested in the competent courts.</p>
         </div>
     </div>
 

@@ -63,6 +63,11 @@
         .totals-calc-table .total-row td { border-top: 2px solid #333; font-weight: bold; font-size: 12px; color: #000; padding: 8px 0; }
         
         .footer { margin-top: 40px; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
+        .terms-section { margin-top: 30px; }
+        .terms-box { border: 1px solid #ddd; border-radius: 4px; padding: 15px 18px; background: #fafafa; }
+        .terms-box h3 { font-size: 11px; font-weight: bold; color: #333; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .terms-box ol { margin: 0; padding-left: 18px; }
+        .terms-box ol li { font-size: 9px; color: #555; margin-bottom: 5px; line-height: 1.5; }
         .small-text { font-size: 9px; color: #666; }
         .brand-name { color: #007bff; font-weight: 600; }
         
@@ -258,9 +263,16 @@
                                        : (is_string($item->product_snapshot) ? json_decode($item->product_snapshot, true) : []);
                                 $vsnap = $psnap['specifications'] ?? [];
                             }
+                            // finish_name is stored by VariantSnapshotService; 'finish' is the raw column fallback
+                            $finishDisplay = $vsnap['finish_name'] ?? $vsnap['finish'] ?? null;
+                            // For old items without finish_name in snapshot, load fresh from DB
+                            if (!$finishDisplay && !empty($item->product_variant_id)) {
+                                $fv = \App\Modules\Products\Models\ProductVariant::with('finishRelation')->find($item->product_variant_id);
+                                $finishDisplay = $fv?->finishRelation?->finish;
+                            }
                         @endphp
-                        @if(!empty($vsnap['finish']))
-                            <br><span class="small-text" style="color:#555;">Finish: {{ $vsnap['finish'] }}</span>
+                        @if($finishDisplay)
+                            <br><span class="small-text" style="color:#555;">Finish: {{ $finishDisplay }}</span>
                         @endif
                         @if(!empty($vsnap['size']))
                             <br><span class="small-text" style="color:#555;">Size: {{ $vsnap['size'] }}</span>
@@ -399,6 +411,21 @@
                 @endif
             </tr>
         </table>
+
+        <!-- Terms of Sale -->
+        <div class="terms-section">
+            <div class="terms-box">
+                <h3>Terms of Sale</h3>
+                <ol>
+                    <li>Wheels once mounted onto tires are non-refundable and cannot be returned.</li>
+                    <li>Returns are subject to a 30% restocking fee unless specified otherwise.</li>
+                    <li>Custom drilled and custom forged wheels cannot be canceled or refunded.</li>
+                    <li>Shipping and customs paid for exports outside UAE are non-refundable.</li>
+                    <li>The remaining balance must be paid within 7 days of the wheels being ready for collection or installation. Failure to do so will result in forfeiture of the deposit, and ownership of the wheelset will transfer to TunerStop Tyres &amp; Accessories Trading L.L.C.</li>
+                    <li>Old wheels and/or tires must be collected within seven (7) calendar days from the date of installation. TunerStop shall bear no responsibility for the storage or safekeeping of removed items, and the customer assumes full liability for any loss, theft, damage, or disposal thereafter. Failure to collect within this period shall constitute deemed abandonment, and TunerStop reserves the right to dispose of the items without further notice or liability.</li>
+                </ol>
+            </div>
+        </div>
 
         <!-- Footer -->
         <div class="footer">
