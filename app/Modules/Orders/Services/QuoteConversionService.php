@@ -81,6 +81,20 @@ class QuoteConversionService
             
             // Fire event for notifications, emails, etc.
             event(new QuoteConverted($quote));
+
+            // Send "Quote Approved" confirmation email to customer
+            $customerEmail = $quote->customer?->email ?? null;
+            if ($customerEmail) {
+                try {
+                    \Illuminate\Support\Facades\Mail::to($customerEmail)
+                        ->send(new \App\Mail\QuoteApprovedMail($quote));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('QuoteConversionService: failed to send QuoteApprovedMail', [
+                        'order_id' => $quote->id,
+                        'error'    => $e->getMessage(),
+                    ]);
+                }
+            }
             
             // Return the same model, now as an invoice
             return $quote->fresh(['items', 'customer', 'warehouse']);

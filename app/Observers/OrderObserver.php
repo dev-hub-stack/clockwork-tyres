@@ -2,12 +2,16 @@
 
 namespace App\Observers;
 
+use App\Mail\OrderCompletedMail;
+use App\Mail\OrderProcessingMail;
+use App\Mail\OrderShippedMail;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Services\OrderFulfillmentService;
 use App\Modules\Settings\Models\CompanyBranding;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class OrderObserver
 {
@@ -46,6 +50,30 @@ class OrderObserver
             // Release inventory when cancelled
             if ($newStatus === OrderStatus::CANCELLED) {
                 $this->autoReleaseInventory($order);
+            }
+
+            // ── Email notifications ──────────────────────────────────────────
+            $customerEmail = $order->customer?->email ?? null;
+            if ($customerEmail) {
+                try {
+                    if ($newStatus === OrderStatus::PROCESSING
+                        && $order->document_type === DocumentType::INVOICE
+                        && !$order->isDirty('document_type')) {
+                        // Only send OrderProcessingMail for direct status changes (not quote→invoice
+                        // conversions, which send QuoteApprovedMail from QuoteConversionService)
+                        Mail::to($customerEmail)->send(new OrderProcessingMail($order));
+                    } elseif ($newStatus === OrderStatus::SHIPPED) {
+                        Mail::to($customerEmail)->send(new OrderShippedMail($order));
+                    } elseif (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::COMPLETED])) {
+                        Mail::to($customerEmail)->send(new OrderCompletedMail($order));
+                    }
+                } catch (\Exception $e) {
+                    Log::error('OrderObserver: failed to send status change email', [
+                        'order_id'  => $order->id,
+                        'status'    => $newStatus->value,
+                        'error'     => $e->getMessage(),
+                    ]);
+                }
             }
             
             Log::info("Order status changed", [

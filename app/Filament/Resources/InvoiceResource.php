@@ -1346,9 +1346,19 @@ class InvoiceResource extends Resource
                             ]);
                         }
                         
-                        // TODO: Send tracking email to customer
-                        // Mail::to($record->customer->email)->send(new OrderShippedMail($record));
-                        
+                        // Send shipping confirmation email to customer
+                        if ($record->customer?->email) {
+                            try {
+                                \Illuminate\Support\Facades\Mail::to($record->customer->email)
+                                    ->send(new \App\Mail\OrderShippedMail($record));
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('InvoiceResource: failed to send OrderShippedMail', [
+                                    'order_id' => $record->id,
+                                    'error'    => $e->getMessage(),
+                                ]);
+                            }
+                        }
+
                         Notification::make()
                             ->title('Order Marked as Shipped')
                             ->body("Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}")

@@ -2,50 +2,48 @@
 
 namespace App\Mail;
 
+use App\Modules\Orders\Models\Order;
+use App\Modules\Settings\Models\CompanyBranding;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 class OrderProcessingMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new message instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        public Order $record
+    ) {}
 
-    /**
-     * Get the message envelope.
-     */
     public function envelope(): Envelope
     {
+        $company = CompanyBranding::getActive()?->company_name ?? 'TunerStop LLC';
         return new Envelope(
-            subject: 'Order Processing Mail',
+            subject: 'Order #' . $this->record->order_number . ' is Being Processed | ' . $company,
         );
     }
 
-    /**
-     * Get the message content definition.
-     */
     public function content(): Content
     {
+        $branding = CompanyBranding::getActive();
+        $logoPath = $branding?->logo_path;
+        $emailLogoUrl = null;
+        if ($logoPath) {
+            $cdnUrl = rtrim(config('filesystems.disks.s3.url', ''), '/');
+            $emailLogoUrl = $cdnUrl
+                ? $cdnUrl . '/' . ltrim($logoPath, '/')
+                : Storage::disk('public')->url($logoPath);
+        }
         return new Content(
-            markdown: 'emails.order-processing',
+            view: 'emails.order-processing',
+            with: ['emailLogoUrl' => $emailLogoUrl],
         );
     }
 
-    /**
-     * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
-     */
     public function attachments(): array
     {
         return [];
