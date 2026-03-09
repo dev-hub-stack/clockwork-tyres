@@ -91,7 +91,7 @@ class OrderItemObserver
             return;
         }
 
-        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])
+        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish', 'finishRelation'])
             ->find($orderItem->product_variant_id);
 
         if (!$variant || !$variant->product) {
@@ -118,7 +118,10 @@ class OrderItemObserver
         
         // Store snapshots for historical accuracy
         $orderItem->product_snapshot = json_encode($variant->product->toArray());
-        $orderItem->variant_snapshot = json_encode($variant->toArray());
+        // Include finish_name in variant snapshot so preview/PDF/email templates can read it
+        $variantArray = $variant->toArray();
+        $variantArray['finish_name'] = $variant->finishRelation?->finish ?? null;
+        $orderItem->variant_snapshot = json_encode($variantArray);
     }
 
     /**

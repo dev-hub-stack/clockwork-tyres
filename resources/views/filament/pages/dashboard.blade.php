@@ -171,6 +171,9 @@
                             <td class="col-date" x-text="order.created_at"></td>
                             <td class="col-order">
                                 <a :href="order.order_url" class="link-pink" x-text="order.order_number"></a>
+                                <template x-if="order.internal_notes">
+                                    <span title="Has internal notes" style="margin-left:0.3rem; font-size:0.85rem; cursor:default;" x-tooltip="order.internal_notes">📝</span>
+                                </template>
                             </td>
                             <td class="col-customer">
                                 <a :href="order.customer_url" class="link-pink" x-text="order.customer_name"></a>
@@ -299,9 +302,9 @@
                                                                 </div>
                                                             </template>
                                                             <template x-if="order.internal_notes">
-                                                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
-                                                                    <span style="font-weight: 500; color: #6b7280; display: block; margin-bottom: 0.25rem;">Internal Notes:</span>
-                                                                    <span style="font-size: 0.875rem;" x-text="order.internal_notes"></span>
+                                                                <div style="margin-top: 0.75rem; padding: 0.75rem; border-radius: 0.375rem; background: #fefce8; border: 1px solid #fde68a;">
+                                                                    <span style="font-weight: 600; color: #92400e; display: block; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">🔒 Internal Notes</span>
+                                                                    <span style="font-size: 0.875rem; color: #78350f;" x-text="order.internal_notes"></span>
                                                                 </div>
                                                             </template>
                                                         </div>

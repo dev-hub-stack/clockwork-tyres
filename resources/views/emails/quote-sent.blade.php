@@ -317,6 +317,17 @@
                                 $imgUrl = str_starts_with($rawImg, 'http') ? $rawImg : ($cdnBase . '/' . ltrim($rawImg, '/'));
                             }
                         }
+                        if (empty($vSnap)) {
+                            $vSnap = is_string($item->variant_snapshot) ? json_decode($item->variant_snapshot, true) : (array)($item->variant_snapshot ?? []);
+                        }
+                        $itemFinish = $vSnap['finish_name'] ?? $vSnap['finish'] ?? $item->finish ?? null;
+                        if (!$itemFinish && !empty($item->product_variant_id)) {
+                            $fv = \App\Modules\Products\Models\ProductVariant::with('finishRelation')->find($item->product_variant_id);
+                            $itemFinish = $fv?->finishRelation?->finish;
+                        }
+                        $itemSize   = $vSnap['size'] ?? $item->size ?? null;
+                        $itemBolt   = $vSnap['bolt_pattern'] ?? $item->bolt_pattern ?? null;
+                        $itemOffset = $vSnap['offset'] ?? $item->offset ?? null;
                     @endphp
                     <tr>
                         <td style="padding: 10px 8px; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #666; text-align: center;">{{ $index + 1 }}</td>
@@ -335,17 +346,17 @@
                             @if($item->brand_name)
                                 <div style="font-size: 11px; color: #888;">Brand: {{ $item->brand_name }}</div>
                             @endif
-                            @if($item->finish ?? $item->color ?? null)
-                                <div style="font-size: 11px; color: #888;">Finish: {{ $item->finish ?? $item->color }}</div>
+                            @if($itemFinish)
+                                <div style="font-size: 11px; color: #888;">Finish: {{ $itemFinish }}</div>
                             @endif
-                            @if($item->size ?? null)
-                                <div style="font-size: 11px; color: #888;">Size: {{ $item->size }}</div>
+                            @if($itemSize)
+                                <div style="font-size: 11px; color: #888;">Size: {{ $itemSize }}</div>
                             @endif
-                            @if($item->bowl_factor ?? null)
-                                <div style="font-size: 11px; color: #888;">Bowl Factor: {{ $item->bowl_factor }}</div>
+                            @if($itemBolt)
+                                <div style="font-size: 11px; color: #888;">Bolt: {{ $itemBolt }}</div>
                             @endif
-                            @if($item->offset ?? null)
-                                <div style="font-size: 11px; color: #888;">Offset: {{ $item->offset }}</div>
+                            @if($itemOffset)
+                                <div style="font-size: 11px; color: #888;">Offset: ET{{ $itemOffset }}</div>
                             @endif
                         </td>
                         <td style="padding: 10px 8px; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 12px;">{{ $item->quantity }}</td>

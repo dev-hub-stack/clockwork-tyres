@@ -138,6 +138,7 @@ class Dashboard extends Page
                 'total' => (float) ($order->total ?? 0),
                 'items' => $orderItems,
                 'order_notes' => $order->order_notes ?? '',
+                'internal_notes' => $order->internal_notes ?? '',
             ];
         }
     }
