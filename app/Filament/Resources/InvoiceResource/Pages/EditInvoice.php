@@ -13,6 +13,7 @@ class EditInvoice extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\ViewAction::make(),
             Actions\Action::make('syncToWafeq')
                 ->label('Send to Wafeq')
                 ->icon('heroicon-o-arrow-path')
