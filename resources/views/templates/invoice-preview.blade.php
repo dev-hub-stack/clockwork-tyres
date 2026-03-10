@@ -134,9 +134,18 @@
                 <td>
                     <div class="info-box">
                         <h4>Customer:</h4>
-                        <p><strong>{{ $record->customer->name ?? 'N/A' }}</strong></p>
-                        <p>Phone: {{ $record->customer->phone ?? 'N/A' }}</p>
-                        <p>Email: {{ $record->customer->email ?? 'N/A' }}</p>
+                        <p><strong>{{ $record->customer?->name ?? 'N/A' }}</strong></p>
+                        <p>Phone: {{ $record->customer?->phone ?? 'N/A' }}</p>
+                        <p>Email: {{ $record->customer?->email ?? 'N/A' }}</p>
+                        @php
+                            $custAddr = collect([$record->customer?->address, $record->customer?->city, $record->customer?->state])->filter()->implode(', ');
+                        @endphp
+                        @if($custAddr)
+                            <p>Address: {{ $custAddr }}</p>
+                        @endif
+                        @if($record->customer?->trn)
+                            <p>TRN: {{ $record->customer->trn }}</p>
+                        @endif
                     </div>
                 </td>
                 

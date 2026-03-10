@@ -427,6 +427,21 @@
                     <span class="info-label">Phone:</span>
                     <span class="info-value">{{ $consignment->customer?->phone ?? 'N/A' }}</span>
                 </div>
+                @php
+                    $custAddr = collect([$consignment->customer?->address, $consignment->customer?->city, $consignment->customer?->state])->filter()->implode(', ');
+                @endphp
+                @if($custAddr)
+                    <div class="info-row">
+                        <span class="info-label">Address:</span>
+                        <span class="info-value">{{ $custAddr }}</span>
+                    </div>
+                @endif
+                @if($consignment->customer?->trn)
+                    <div class="info-row">
+                        <span class="info-label">TRN:</span>
+                        <span class="info-value">{{ $consignment->customer->trn }}</span>
+                    </div>
+                @endif
                 <div class="info-row">
                     <span class="info-label">Representative:</span>
                     <span class="info-value">{{ $consignment->representative?->name ?? 'N/A' }}</span>
