@@ -366,6 +366,7 @@ function bulkDelete(ids) {
 
     $.ajax({
         dataType: "json",
+        contentType: "application/json",
         type: "POST",
         async: true,
         beforeSend: function (jqXHR, settings) {
@@ -373,7 +374,7 @@ function bulkDelete(ids) {
             grid.showLoading();
         },
         url: "/admin/products/grid/delete-batch",
-        data: { list: gridChanges, deleteIds: ids },
+        data: JSON.stringify({ deleteIds: ids }),
         success: function (changes) {
             grid.commit({ type: 'delete', rows: ids });
             showToast('✅ ' + ids.length + ' products deleted successfully');

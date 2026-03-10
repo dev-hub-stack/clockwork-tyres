@@ -275,7 +275,13 @@ class ProductVariantGridController extends Controller
     public function deleteBatch(Request $request)
     {
         try {
+            // IDs are sent as JSON body to avoid PHP max_input_vars limit (default 1000)
             $ids = $request->input('deleteIds', []);
+
+            // Handle both JSON body and legacy form-encoded (fallback)
+            if (empty($ids) && $request->isJson()) {
+                $ids = $request->json('deleteIds', []);
+            }
             
             if (empty($ids)) {
                 return response()->json([
