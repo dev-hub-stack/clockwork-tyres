@@ -207,25 +207,37 @@
         <!-- Line Items Table -->
         @php
             $currSym = is_string($currency) ? $currency : ($currency->symbol ?? 'AED');
+            $isZR = !empty($record->is_zero_rated);
+            $vr   = $documentType !== 'delivery_note' ? floatval($vatRate ?? 5) : 0;
             $hasItemDiscount = $documentType !== 'delivery_note' && $record->items->filter(fn($i) => ($i->discount ?? 0) > 0)->isNotEmpty();
         @endphp
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 5%;">#</th>
-                    <th style="width: {{ $documentType === 'delivery_note' ? '85%' : ($hasItemDiscount ? '43%' : '55%') }};">Description</th>
-                    <th style="width: {{ $documentType === 'delivery_note' ? '10%' : '8%' }};" class="text-center">Qty</th>
+                    <th style="width: 4%;">#</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '82%' : '30%' }};">Description</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '7%' : '5%' }};" class="text-center">Qty</th>
                     @if($documentType !== 'delivery_note')
-                        <th style="width: {{ $hasItemDiscount ? '13%' : '16%' }};" class="text-right">Unit Price</th>
+                        <th style="width: 11%;" class="text-right">Price</th>
+                        <th style="width: 13%;" class="text-right">Taxable Amt</th>
+                        <th style="width: 11%;" class="text-center">VAT Amt</th>
                         @if($hasItemDiscount)
-                            <th style="width: 13%;" class="text-right">Discount</th>
+                            <th style="width: 9%;" class="text-center">Discount</th>
                         @endif
-                        <th style="width: 18%;" class="text-right">Total</th>
+                        <th style="width: 13%;" class="text-right">Line Amt</th>
                     @endif
                 </tr>
             </thead>
             <tbody>
                 @foreach($record->items as $index => $item)
+                    @php
+                        $rawSubtotal = $item->unit_price * $item->quantity;
+                        $discountAmt = floatval($item->discount ?? 0);
+                        $taxableAmt  = $rawSubtotal - $discountAmt;
+                        $itemVat     = $isZR ? 0.0 : round($taxableAmt * $vr / 100, 2);
+                        $lineAmt     = $taxableAmt + $itemVat;
+                        $discountPct = $rawSubtotal > 0 ? round($discountAmt / $rawSubtotal * 100) : 0;
+                    @endphp
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td>
@@ -308,17 +320,18 @@
                         </td>
                         <td class="text-center">{{ $item->quantity }}</td>
                         @if($documentType !== 'delivery_note')
-                            <td class="text-right">
-                                {{ $currSym }} {{ number_format($item->unit_price, 2) }}
+                            <td class="text-right">{{ $currSym }} {{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-right">{{ $currSym }} {{ number_format($taxableAmt, 2) }}</td>
+                            <td class="text-center">
+                                {{ $currSym }} {{ number_format($itemVat, 2) }}<br>
+                                <span style="font-size:8px;color:#666;">{{ $isZR ? '0%' : $vr . '%' }}</span>
                             </td>
                             @if($hasItemDiscount)
-                                <td class="text-right" style="color: #e53e3e;">
-                                    {{ ($item->discount ?? 0) > 0 ? '-' . $currSym . ' ' . number_format($item->discount, 2) : '-' }}
+                                <td class="text-center" style="color:#e53e3e;">
+                                    {{ $discountPct > 0 ? $discountPct . '%' : '-' }}
                                 </td>
                             @endif
-                            <td class="text-right">
-                                {{ $currSym }} {{ number_format($item->line_total, 2) }}
-                            </td>
+                            <td class="text-right"><strong>{{ $currSym }} {{ number_format($lineAmt, 2) }}</strong></td>
                         @endif
                     </tr>
                 @endforeach
@@ -360,62 +373,39 @@
                 @if($documentType !== 'delivery_note')
                 <td class="totals-cell" style="vertical-align: top;">
                     <table class="totals-calc-table">
-                        @php $sym = $currSym; @endphp
                         @php
-                            // For zero-rated orders the DB sub_total was calculated with VAT divisor before
-                            // is_zero_rated was set, so back-calculate the correct pre-discount line total:
-                            // total = subtotal - discount + shipping  (no VAT)
-                            // → subtotal = total + discount - shipping
-                            $isZeroRatedEarly = !empty($record->is_zero_rated);
-                            $displaySubTotal  = $isZeroRatedEarly
-                                ? round(floatval($record->total) + floatval($record->discount ?? 0) - floatval($record->shipping ?? 0), 2)
-                                : floatval($record->sub_total);
+                            $sym = $currSym;
+                            // Re-compute from line items for accuracy
+                            $sumTaxable = 0;
+                            $sumVat     = 0;
+                            foreach($record->items as $li) {
+                                $liRaw      = $li->unit_price * $li->quantity;
+                                $liDisc     = floatval($li->discount ?? 0);
+                                $liTaxable  = $liRaw - $liDisc;
+                                $liVat      = $isZR ? 0.0 : round($liTaxable * $vr / 100, 2);
+                                $sumTaxable += $liTaxable;
+                                $sumVat     += $liVat;
+                            }
+                            $shipping    = floatval($record->shipping ?? 0);
+                            $grandTotal  = $sumTaxable + $sumVat + $shipping;
                         @endphp
                         <tr>
                             <td>Subtotal:</td>
-                            <td class="text-right">{{ $sym }} {{ number_format($displaySubTotal, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($sumTaxable, 2) }}</td>
                         </tr>
-                        @if($record->discount > 0)
+                        @if($shipping > 0)
                         <tr>
-                            <td>Discount:</td>
-                            <td class="text-right">-{{ $sym }} {{ number_format($record->discount, 2) }}</td>
+                            <td>Shipping:</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($shipping, 2) }}</td>
                         </tr>
                         @endif
                         <tr>
-                            <td>Shipping:</td>
-                            <td class="text-right">{{ $sym }} {{ number_format($record->shipping ?? 0, 2) }}</td>
-                        </tr>
-                        @php
-                            $isZeroRated = !empty($record->is_zero_rated);
-                            if ($isZeroRated) {
-                                $vatAmount = 0.0;
-                            } else {
-                                // tax and vat are aliased columns — use whichever is populated
-                                $vatAmount = floatval($record->tax ?? $record->vat ?? 0);
-                                // On-the-fly VAT for old records where DB stores 0
-                                $subTotalVal = floatval($record->sub_total ?? 0);
-                                $totalVal    = floatval($record->total ?? 0);
-                                if ($vatAmount == 0 && $totalVal > 0 && $subTotalVal > 0) {
-                                    $vatAmount = round($totalVal - $subTotalVal, 2);
-                                }
-                                if ($vatAmount == 0 && $subTotalVal > 0) {
-                                    $vatAmount = round($subTotalVal * (floatval($vatRate) / 100), 2);
-                                }
-                            }
-                        @endphp
-                        <tr>
-                            <td>
-                                @if($isZeroRated)
-                                    VAT (0% - Zero Rated):
-                                @else
-                                    VAT ({{ $vatRate }}%):
-                                @endif
-                            </td>
-                            <td class="text-right">{{ $sym }} {{ number_format($vatAmount, 2) }}</td>
+                            <td>Total VAT{{ $isZR ? ' (0% - Zero Rated)' : ' (' . $vr . '%)' }}:</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($sumVat, 2) }}</td>
                         </tr>
                         <tr class="total-row">
                             <td>Total:</td>
-                            <td class="text-right">{{ $currSym }} {{ number_format($record->total, 2) }}</td>
+                            <td class="text-right">{{ $sym }} {{ number_format($grandTotal, 2) }}</td>
                         </tr>
                     </table>
                 </td>
