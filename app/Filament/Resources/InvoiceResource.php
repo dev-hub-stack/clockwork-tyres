@@ -1074,7 +1074,7 @@ class InvoiceResource extends Resource
                             ->rows(2),
                     ])
                     ->action(function ($record, array $data) {
-                        Payment::create([
+                        $payment = Payment::create([
                             'order_id' => $record->id,
                             'customer_id' => $record->customer_id,
                             'recorded_by' => auth()->id(),
@@ -1088,6 +1088,20 @@ class InvoiceResource extends Resource
                             'notes' => $data['notes'] ?? null,
                             'status' => 'completed',
                         ]);
+                        
+                        // Send payment receipt email to customer
+                        if ($record->customer?->email) {
+                            try {
+                                $record->refresh();
+                                \Illuminate\Support\Facades\Mail::to($record->customer->email)
+                                    ->send(new \App\Mail\PaymentReceiptMail($record, $payment));
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('InvoiceResource: failed to send PaymentReceiptMail', [
+                                    'order_id' => $record->id,
+                                    'error'    => $e->getMessage(),
+                                ]);
+                            }
+                        }
                         
                         $currency = CurrencySetting::getBase();
                         $currencySymbol = $currency ? $currency->currency_symbol : 'AED';
@@ -1348,25 +1362,39 @@ class InvoiceResource extends Resource
                                 'shipped_quantity' => $item->quantity,
                             ]);
                         }
-                        
-                        // Send shipping confirmation email to customer
-                        if ($record->customer?->email) {
-                            try {
-                                \Illuminate\Support\Facades\Mail::to($record->customer->email)
-                                    ->send(new \App\Mail\OrderShippedMail($record));
-                            } catch (\Exception $e) {
-                                \Illuminate\Support\Facades\Log::error('InvoiceResource: failed to send OrderShippedMail', [
-                                    'order_id' => $record->id,
-                                    'error'    => $e->getMessage(),
-                                ]);
-                            }
-                        }
 
                         Notification::make()
                             ->title('Order Marked as Shipped')
                             ->body("Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}")
                             ->success()
                             ->send();
+                    }),
+                
+                Action::make('sendTrackingEmail')
+                    ->label('Send Tracking Email')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->tooltip('Manually send shipping confirmation with tracking details to the customer')
+                    ->visible(fn($record) => $record->order_status->value === 'shipped' && !empty($record->customer?->email))
+                    ->requiresConfirmation()
+                    ->modalHeading('Send Tracking Email')
+                    ->modalDescription(fn($record) => "Send shipping confirmation email with tracking #{$record->tracking_number} to {$record->customer?->email}?")
+                    ->action(function ($record) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($record->customer->email)
+                                ->send(new \App\Mail\OrderShippedMail($record));
+                            Notification::make()
+                                ->title('Tracking Email Sent')
+                                ->body("Shipping confirmation sent to {$record->customer->email}")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Email Failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
                 
                 Action::make('markCompleted')

@@ -2,9 +2,8 @@
 
 namespace App\Observers;
 
+use App\Mail\OrderCancelledMail;
 use App\Mail\OrderCompletedMail;
-use App\Mail\OrderProcessingMail;
-use App\Mail\OrderShippedMail;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
@@ -56,14 +55,8 @@ class OrderObserver
             $customerEmail = $order->customer?->email ?? null;
             if ($customerEmail) {
                 try {
-                    if ($newStatus === OrderStatus::PROCESSING
-                        && $order->document_type === DocumentType::INVOICE
-                        && !$order->isDirty('document_type')) {
-                        // Only send OrderProcessingMail for direct status changes (not quote→invoice
-                        // conversions, which send QuoteApprovedMail from QuoteConversionService)
-                        Mail::to($customerEmail)->send(new OrderProcessingMail($order));
-                    } elseif ($newStatus === OrderStatus::SHIPPED) {
-                        Mail::to($customerEmail)->send(new OrderShippedMail($order));
+                    if ($newStatus === OrderStatus::CANCELLED) {
+                        Mail::to($customerEmail)->send(new OrderCancelledMail($order));
                     } elseif (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::COMPLETED])) {
                         Mail::to($customerEmail)->send(new OrderCompletedMail($order));
                     }

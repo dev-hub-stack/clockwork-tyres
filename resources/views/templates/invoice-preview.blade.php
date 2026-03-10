@@ -105,7 +105,7 @@
         <table class="layout-table header-table">
             <tr>
                 <td style="width: 60%;">
-                    <h1>{{ $documentType === 'quote' ? 'QUOTE' : ($documentType === 'delivery_note' ? 'DELIVERY NOTE' : 'INVOICE') }}</h1>
+                    <h1>{{ $documentType === 'quote' ? 'QUOTE' : ($documentType === 'delivery_note' ? 'DELIVERY NOTE' : 'TAX INVOICE') }}</h1>
                     <p style="margin-top: 5px; font-size: 14px; font-weight: 600; color: #333;">{{ $documentType === 'quote' ? ($record->quote_number ?? 'N/A') : ($record->order_number ?? 'N/A') }}</p>
                 </td>
                 <td style="width: 40%; text-align: right;">
@@ -145,16 +145,16 @@
                     <div class="info-box">
                         @if($documentType === 'quote')
                             <h4>Quote Date:</h4>
-                            <p>{{ $record->created_at->format('m/d/Y') }}</p>
+                            <p>{{ $record->created_at->format('d/m/Y') }}</p>
                             
                             <h4 style="margin-top: 10px;">Valid Until:</h4>
-                            <p>{{ $record->valid_until ? \Carbon\Carbon::parse($record->valid_until)->format('m/d/Y') : 'N/A' }}</p>
+                            <p>{{ $record->valid_until ? \Carbon\Carbon::parse($record->valid_until)->format('d/m/Y') : 'N/A' }}</p>
                         @else
                             <h4>Invoice Date:</h4>
-                            <p>{{ $record->created_at->format('m/d/Y') }}</p>
+                            <p>{{ $record->created_at->format('d/m/Y') }}</p>
                             
                             <h4 style="margin-top: 10px;">Due Date:</h4>
-                            <p>{{ $record->due_date ? \Carbon\Carbon::parse($record->due_date)->format('m/d/Y') : \Carbon\Carbon::parse($record->created_at)->addDays(30)->format('m/d/Y') }}</p>
+                            <p>{{ $record->due_date ? \Carbon\Carbon::parse($record->due_date)->format('d/m/Y') : \Carbon\Carbon::parse($record->created_at)->addDays(30)->format('d/m/Y') }}</p>
                         @endif
                         
                         <h4 style="margin-top: 10px;">Status:</h4>
@@ -205,16 +205,22 @@
         @endif
 
         <!-- Line Items Table -->
-        @php $currSym = is_string($currency) ? $currency : ($currency->symbol ?? 'AED'); @endphp
+        @php
+            $currSym = is_string($currency) ? $currency : ($currency->symbol ?? 'AED');
+            $hasItemDiscount = $documentType !== 'delivery_note' && $record->items->filter(fn($i) => ($i->discount ?? 0) > 0)->isNotEmpty();
+        @endphp
         <table class="data-table">
             <thead>
                 <tr>
                     <th style="width: 5%;">#</th>
-                    <th style="width: {{ $documentType === 'delivery_note' ? '85%' : '55%' }};">Description</th>
+                    <th style="width: {{ $documentType === 'delivery_note' ? '85%' : ($hasItemDiscount ? '43%' : '55%') }};">Description</th>
                     <th style="width: {{ $documentType === 'delivery_note' ? '10%' : '8%' }};" class="text-center">Qty</th>
                     @if($documentType !== 'delivery_note')
-                        <th style="width: 16%;" class="text-right">Unit Price</th>
-                        <th style="width: 16%;" class="text-right">Total</th>
+                        <th style="width: {{ $hasItemDiscount ? '13%' : '16%' }};" class="text-right">Unit Price</th>
+                        @if($hasItemDiscount)
+                            <th style="width: 13%;" class="text-right">Discount</th>
+                        @endif
+                        <th style="width: 18%;" class="text-right">Total</th>
                     @endif
                 </tr>
             </thead>
@@ -305,6 +311,11 @@
                             <td class="text-right">
                                 {{ $currSym }} {{ number_format($item->unit_price, 2) }}
                             </td>
+                            @if($hasItemDiscount)
+                                <td class="text-right" style="color: #e53e3e;">
+                                    {{ ($item->discount ?? 0) > 0 ? '-' . $currSym . ' ' . number_format($item->discount, 2) : '-' }}
+                                </td>
+                            @endif
                             <td class="text-right">
                                 {{ $currSym }} {{ number_format($item->line_total, 2) }}
                             </td>
