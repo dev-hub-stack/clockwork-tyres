@@ -86,15 +86,15 @@ class ConsignmentForm
                                     ->searchable()
                                     ->getSearchResultsUsing(function (string $search) {
                                         return \App\Modules\Products\Models\ProductVariant::query()
-                                            ->with(['product.brand', 'product.model', 'finishRelation'])
+                                            ->with(['product.brand', 'product.model', 'product.finish'])
                                             ->where(function ($query) use ($search) {
                                                 $query->where('sku', 'like', "%{$search}%")
                                                     ->orWhereHas('product', function ($q) use ($search) {
                                                         $q->where('name', 'like', "%{$search}%")
                                                           ->orWhereHas('brand', fn($b) => $b->where('name', 'like', "%{$search}%"))
-                                                          ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"));
+                                                          ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"))
+                                                          ->orWhereHas('finish', fn($f) => $f->where('finish', 'like', "%{$search}%"));
                                                     })
-                                                    ->orWhereHas('finishRelation', fn($f) => $f->where('finish', 'like', "%{$search}%"))
                                                     ->orWhere('size', 'like', "%{$search}%")
                                                     ->orWhere('bolt_pattern', 'like', "%{$search}%")
                                                     ->orWhere('offset', 'like', "%{$search}%");
@@ -108,7 +108,7 @@ class ConsignmentForm
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
                                                     $variant->product->model?->name ?? 'N/A',
-                                                    $variant->finishRelation?->finish ?? 'N/A',
+                                                    $variant->product?->finish?->finish ?? 'N/A',
                                                     $variant->size ?? 'N/A',
                                                     $variant->bolt_pattern ?? 'N/A',
                                                     $variant->offset ?? 'N/A'
@@ -118,7 +118,7 @@ class ConsignmentForm
                                     ->getOptionLabelUsing(function ($value) {
                                         if (!$value) return 'Unknown';
                                         
-                                        $variant = \App\Modules\Products\Models\ProductVariant::with(['product.brand', 'product.model', 'finishRelation'])->find($value);
+                                        $variant = \App\Modules\Products\Models\ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($value);
                                         if (!$variant || !$variant->product) return 'Unknown Product';
                                         
                                         return sprintf(
@@ -126,7 +126,7 @@ class ConsignmentForm
                                             $variant->sku ?? 'NO-SKU',
                                             $variant->product->brand?->name ?? 'N/A',
                                             $variant->product->model?->name ?? 'N/A',
-                                            $variant->finishRelation?->finish ?? 'N/A',
+                                            $variant->product?->finish?->finish ?? 'N/A',
                                             $variant->size ?? 'N/A',
                                             $variant->bolt_pattern ?? 'N/A',
                                             $variant->offset ?? 'N/A'
