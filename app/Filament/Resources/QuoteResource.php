@@ -281,15 +281,15 @@ class QuoteResource extends Resource
                                     ->getSearchResultsUsing(function (string $search) {
                                         // Search Products
                                         $products = ProductVariant::query()
-                                            ->with(['product.brand', 'product.model', 'product.finish'])
+                                            ->with(['product.brand', 'product.model', 'finishRelation'])
                                             ->where(function ($query) use ($search) {
                                                 $query->where('sku', 'like', "%{$search}%")
                                                     ->orWhereHas('product', function ($q) use ($search) {
                                                         $q->where('name', 'like', "%{$search}%")
                                                           ->orWhereHas('brand', fn($b) => $b->where('name', 'like', "%{$search}%"))
-                                                          ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"))
-                                                          ->orWhereHas('finish', fn($f) => $f->where('name', 'like', "%{$search}%"));
+                                                          ->orWhereHas('model', fn($m) => $m->where('name', 'like', "%{$search}%"));
                                                     })
+                                                    ->orWhereHas('finishRelation', fn($f) => $f->where('finish', 'like', "%{$search}%"))
                                                     ->orWhere('size', 'like', "%{$search}%")
                                                     ->orWhere('bolt_pattern', 'like', "%{$search}%")
                                                     ->orWhere('offset', 'like', "%{$search}%");
@@ -303,7 +303,7 @@ class QuoteResource extends Resource
                                                     $variant->sku ?? 'NO-SKU',
                                                     $variant->product->brand?->name ?? 'N/A',
                                                     $variant->product->model?->name ?? 'N/A',
-                                                    $variant->finish ?? ($variant->product->finish?->name ?? 'N/A'),
+                                                    $variant->finishRelation?->finish ?? ($variant->finish ?? 'N/A'),
                                                     $variant->size ?? 'N/A',
                                                     $variant->bolt_pattern ?? 'N/A',
                                                     $variant->offset ?? 'N/A'
@@ -354,15 +354,18 @@ class QuoteResource extends Resource
                                         }
                                         
                                         $id = str_starts_with($value, 'product_') ? substr($value, 8) : $value;
-                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'product.finish'])->find($id);
+                                        $variant = ProductVariant::with(['product.brand', 'product.model', 'finishRelation'])->find($id);
                                         if (!$variant || !$variant->product) return 'Unknown Product';
                                         
                                         return sprintf(
-                                            '%s - %s | %s | %s',
+                                            '%s - %s | %s | %s | Size: %s | Bolt: %s | Offset: %s',
                                             $variant->sku ?? 'NO-SKU',
                                             $variant->product->brand?->name ?? 'N/A',
                                             $variant->product->model?->name ?? 'N/A',
-                                            $variant->finish ?? ($variant->product->finish?->name ?? 'N/A')
+                                            $variant->finishRelation?->finish ?? ($variant->finish ?? 'N/A'),
+                                            $variant->size ?? 'N/A',
+                                            $variant->bolt_pattern ?? 'N/A',
+                                            $variant->offset ?? 'N/A'
                                         );
                                     })
                                     ->afterStateHydrated(function ($component, $state, $record) {

@@ -259,9 +259,9 @@
                 <i class="bi bi-cloud-download"></i> Import Inventory
             </button>
             @endif
-            <a href="{{ route('admin.inventory.export-csv') }}" class="btn btn-info" id="export-btn">
+            <button type="button" class="btn btn-info" id="export-btn" onclick="exportInventoryGrid()">
                 <i class="bi bi-file-earmark-csv"></i> Export CSV
-            </a>
+            </button>
             <a href="/admin/inventory-movement-log" class="btn btn-secondary" id="view-log-btn">
                 <i class="bi bi-clock-history"></i> Movement Log
             </a>
@@ -438,6 +438,15 @@
     <!-- pqGrid PRO JS - LOCAL (Required for filter headers!) -->
     <script src="{{ asset('pqgridf/pqgrid-pro.min.js') }}"></script>
     
+    <script>
+    function exportInventoryGrid() {
+        if (typeof grid === 'undefined') { alert('Grid not ready'); return; }
+        var blob = grid.exportData({ format: 'csv', nopqdata: true, render: true });
+        if (typeof blob === 'string') blob = new Blob([blob]);
+        saveAs(blob, 'Inventory-' + new Date().toISOString().slice(0,10) + '.csv');
+    }
+    </script>
+
     <!-- FileSaver.js for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
