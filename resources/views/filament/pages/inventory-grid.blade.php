@@ -244,12 +244,16 @@
     <div class="page-content">
         <!-- Action Buttons -->
         <div class="action-buttons mb-4">
+            @if($this->canBulkTransfer)
             <button type="button" class="btn btn-warning" id="bulk-transfer-btn">
                 <i class="bi bi-arrow-left-right"></i> Bulk Transfer
             </button>
+            @endif
+            @if($this->canAddInventory)
             <button type="button" class="btn btn-success" id="add-inventory-btn">
                 <i class="bi bi-plus-circle"></i> Add Inventory
             </button>
+            @endif
             @if($this->canEditCells)
             <button type="button" class="btn btn-primary" id="import-inv-btn">
                 <i class="bi bi-cloud-download"></i> Import Inventory
@@ -441,7 +445,7 @@
     <script>
         var api_data = @json($this->products_data);
         var allWarehouses = @json($this->warehouses);
-        var canEditCells = @json($this->canEditCells);  // true = super_admin only
+        var canEditCells = @json($this->canEditCells);  // true = admin only
         console.log('✅ Loaded ' + api_data.length + ' product variants');
         console.log('✅ Loaded ' + allWarehouses.length + ' warehouses');
         console.log('✅ canEditCells:', canEditCells);

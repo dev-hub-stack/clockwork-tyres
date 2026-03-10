@@ -92,26 +92,32 @@
         </style>
 
         <!-- Stats Cards -->
-        @if(!auth()->user()?->hasRole('sales_rep'))
         <div class="stats-grid">
+            @if(auth()->user()?->can('view_pending_orders_card'))
             <div class="stat-card card-blue">
                 <p>Pending Orders</p>
                 <h2>{{ $pendingOrders }}</h2>
             </div>
+            @endif
+            @if(auth()->user()?->can('view_monthly_revenue_card'))
             <div class="stat-card card-green">
                 <p>Monthly Revenue</p>
                 <h2>{{ $currency }} {{ number_format($monthlyRevenue, 2) }}</h2>
             </div>
+            @endif
+            @if(auth()->user()?->can('view_today_orders_card'))
             <div class="stat-card card-red">
                 <p>Today's Orders</p>
                 <h2>{{ $todayOrders }}</h2>
             </div>
+            @endif
+            @if(auth()->user()?->can('view_pending_warranty_card'))
             <div class="stat-card card-orange">
                 <p>Pending Warranty Claims</p>
                 <h2>{{ $notifications }}</h2>
             </div>
+            @endif
         </div>
-        @endif
 
         <!-- Order Sheet Table -->
         <div class="order-table" x-data="orderSheet()">

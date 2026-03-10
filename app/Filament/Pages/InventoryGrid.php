@@ -28,11 +28,15 @@ class InventoryGrid extends Page
     public $products_data = [];
     public $warehouses = [];
     public bool $canEditCells = false;
+    public bool $canBulkTransfer = false;
+    public bool $canAddInventory = false;
 
     public function mount(): void
     {
-        // Only super_admin can directly edit grid cells
-        $this->canEditCells = auth()->user()?->hasRole('super_admin') ?? false;
+        $user = auth()->user();
+        $this->canEditCells    = $user?->can('edit_inventory_grid')   ?? false;
+        $this->canBulkTransfer = $user?->can('view_bulk_transfer')    ?? false;
+        $this->canAddInventory = $user?->can('view_add_inventory')    ?? false;
         $this->loadInventoryData();
     }
 

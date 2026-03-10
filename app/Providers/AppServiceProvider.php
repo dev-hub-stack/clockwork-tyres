@@ -14,6 +14,7 @@ use App\Observers\AddonInventoryObserver;
 use App\Modules\Orders\Models\Order;
 use App\Observers\OrderObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,6 +31,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // super_admin bypasses all permission checks
+        Gate::before(function ($user, $ability) {
+            if ($user->hasRole('super_admin')) {
+                return true;
+            }
+        });
+
         // Register observers for auto-inventory creation
         Warehouse::observe(WarehouseObserver::class);
         ProductVariant::observe(ProductVariantInventoryObserver::class);

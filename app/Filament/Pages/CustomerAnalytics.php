@@ -18,6 +18,11 @@ class CustomerAnalytics extends Page
     
     protected static ?int $navigationSort = 2;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->can('view_reports') ?? false;
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('view_reports') ?? false;
