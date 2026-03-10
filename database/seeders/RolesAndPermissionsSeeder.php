@@ -16,8 +16,12 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Define all permissions
         $permissions = [
-            // Dashboard
+            // Dashboard cards (per-card visibility)
             'view_dashboard',
+            'view_pending_orders_card',
+            'view_monthly_revenue_card',
+            'view_today_orders_card',
+            'view_pending_warranty_card',
 
             // Sales - Quotes
             'view_quotes',
@@ -37,8 +41,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'edit_consignments',
             'delete_consignments',
 
-            // Inventory - Warehouse
+            // Inventory - Warehouse & Grid
             'view_inventory',
+            'edit_inventory_grid',   // super_admin only: direct cell editing
+            'view_bulk_transfer',    // button: transfer stock between warehouses
+            'view_add_inventory',    // button: bulk add qty to warehouse/incoming
             'view_warehouses',
             'create_warehouses',
             'edit_warehouses',
@@ -95,7 +102,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // Define roles (delete & recreate for clean permissions)
         // -------------------------------------------------------
 
-        // Super Admin — all permissions
+        // Super Admin — full control including cell editing
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $superAdmin->syncPermissions(Permission::all());
 
@@ -103,27 +110,32 @@ class RolesAndPermissionsSeeder extends Seeder
         $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $admin->syncPermissions(Permission::all());
 
-        // Accountant — all except reports, settings, and deletes
+        // Accountant — no user management, no reports, no deletes, no cell editing
         $accountant = Role::firstOrCreate(['name' => 'accountant', 'guard_name' => 'web']);
         $accountant->syncPermissions([
             'view_dashboard',
+            'view_pending_orders_card',
+            'view_monthly_revenue_card',
+            'view_today_orders_card',
+            'view_pending_warranty_card',
             'view_quotes', 'create_quotes', 'edit_quotes',
             'view_invoices', 'create_invoices', 'edit_invoices',
             'view_consignments', 'create_consignments', 'edit_consignments',
-            'view_inventory',
+            'view_inventory', 'view_bulk_transfer', 'view_add_inventory',
             'view_warehouses', 'create_warehouses', 'edit_warehouses',
             'view_products', 'create_products', 'edit_products',
             'view_categories', 'create_categories', 'edit_categories',
             'view_customers', 'create_customers', 'edit_customers',
             'view_warranty_claims', 'create_warranty_claims', 'edit_warranty_claims',
             'view_expenses',
-            'view_users', 'create_users', 'edit_users',
         ]);
 
-        // Sales — all except reports, settings, expenses, and deletes
+        // Sales — view/create/edit only, no inventory editing, no reports
         $sales = Role::firstOrCreate(['name' => 'sales', 'guard_name' => 'web']);
         $sales->syncPermissions([
             'view_dashboard',
+            'view_pending_orders_card',
+            'view_today_orders_card',
             'view_quotes', 'create_quotes', 'edit_quotes',
             'view_invoices', 'create_invoices', 'edit_invoices',
             'view_consignments', 'create_consignments', 'edit_consignments',
@@ -135,18 +147,21 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_warranty_claims', 'create_warranty_claims', 'edit_warranty_claims',
         ]);
 
-        // Marketing — view only: invoices and customers
+        // Marketing — view only
         $marketing = Role::firstOrCreate(['name' => 'marketing', 'guard_name' => 'web']);
         $marketing->syncPermissions([
             'view_dashboard',
+            'view_pending_orders_card',
+            'view_today_orders_card',
             'view_invoices',
             'view_customers',
         ]);
 
-        // Remove obsolete roles if they exist
+        // Remove obsolete roles
         Role::whereIn('name', ['sales_rep', 'warehouse_manager'])->delete();
 
         $this->command->info('Roles and permissions seeded successfully.');
         $this->command->info('Roles: super_admin, admin (legacy), accountant, sales, marketing');
+        $this->command->info('New permissions: view_bulk_transfer, view_add_inventory, edit_inventory_grid, dashboard card permissions');
     }
 }
