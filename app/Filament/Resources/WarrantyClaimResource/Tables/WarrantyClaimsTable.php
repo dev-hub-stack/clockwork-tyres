@@ -42,9 +42,9 @@ class WarrantyClaimsTable
                     ->searchable(['business_name', 'first_name', 'last_name'])
                     ->sortable()
                     ->formatStateUsing(function ($record) {
-                        return $record->customer->business_name ?? 
-                               $record->customer->name ?? 
-                               'Unknown Customer';
+                        return $record->customer?->business_name 
+                            ?? $record->customer?->name 
+                            ?? 'N/A';
                     })
                     ->description(fn ($record) => $record->customer?->email),
                 

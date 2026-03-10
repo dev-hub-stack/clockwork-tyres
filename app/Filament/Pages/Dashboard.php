@@ -41,7 +41,7 @@ class Dashboard extends Page
             ->count();
         
         $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
-            ->where('order_status', 'completed')
+            ->whereIn('order_status', ['delivered', 'completed'])
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('total');
