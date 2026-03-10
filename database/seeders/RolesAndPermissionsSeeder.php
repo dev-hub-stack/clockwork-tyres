@@ -102,13 +102,15 @@ class RolesAndPermissionsSeeder extends Seeder
         // Define roles (delete & recreate for clean permissions)
         // -------------------------------------------------------
 
-        // Super Admin — full control including cell editing
+        // Super Admin — full control including direct grid cell editing
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $superAdmin->syncPermissions(Permission::all());
 
-        // Legacy admin — all permissions (backward compatibility)
+        // Admin — full control except direct grid cell editing (super_admin only)
         $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $admin->syncPermissions(Permission::all());
+        $admin->syncPermissions(
+            Permission::where('name', '!=', 'edit_inventory_grid')->get()
+        );
 
         // Accountant — no user management, no reports, no deletes, no cell editing
         $accountant = Role::firstOrCreate(['name' => 'accountant', 'guard_name' => 'web']);
@@ -161,7 +163,8 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::whereIn('name', ['sales_rep', 'warehouse_manager'])->delete();
 
         $this->command->info('Roles and permissions seeded successfully.');
-        $this->command->info('Roles: super_admin, admin (legacy), accountant, sales, marketing');
-        $this->command->info('New permissions: view_bulk_transfer, view_add_inventory, edit_inventory_grid, dashboard card permissions');
+        $this->command->info('super_admin: all permissions including edit_inventory_grid');
+        $this->command->info('admin: all permissions EXCEPT edit_inventory_grid');
+        $this->command->info('Other roles: accountant, sales, marketing');
     }
 }
