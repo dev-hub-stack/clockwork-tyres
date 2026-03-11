@@ -201,7 +201,7 @@ class OrderController extends BaseWholesaleController
         $orders = Order::where('customer_id', $dealer->id)
             ->where('document_type', DocumentType::QUOTE->value)
             ->where('channel', 'wholesale')
-            ->with(['items.productVariant.product.brand'])
+            ->select(['id', 'customer_id', 'total', 'vat', 'status', 'created_at'])
             ->latest()
             ->paginate(20);
 
