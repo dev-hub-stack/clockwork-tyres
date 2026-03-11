@@ -53,7 +53,7 @@ class BrandController extends BaseWholesaleController
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $brands = $query->withCount(['products' => fn($q) => $q->where('status', 1)])->get();
+        $brands = $query->withCount(['products' => fn($q) => $q->where('status', 1)->where('available_on_wholesale', true)])->get();
 
         $formatted = $brands->map(fn(Brand $b) => [
             'id'            => $b->id,
@@ -87,6 +87,7 @@ class BrandController extends BaseWholesaleController
         // Return unique products for this brand that actually have variants
         $products = Product::where('brand_id', $brand->id)
             ->where('status', 1)
+            ->where('available_on_wholesale', true)
             ->whereHas('variants')   // only products that have at least one variant
             ->get(['id', 'name', 'images']);
 
@@ -129,6 +130,7 @@ class BrandController extends BaseWholesaleController
         ->whereHas('product', function ($q) use ($brand, $productSlug) {
             $q->where('brand_id', $brand->id)
               ->where('status', 1)
+              ->where('available_on_wholesale', true)
               ->where('name', urldecode($productSlug));
         })
         ->get();
@@ -177,7 +179,8 @@ class BrandController extends BaseWholesaleController
     public function productMoreSizes(Request $request, int $productId, string $type)
     {
         $query = ProductVariant::with(['finishRelation'])
-            ->where('product_id', $productId);
+            ->where('product_id', $productId)
+            ->whereHas('product', fn($q) => $q->where('available_on_wholesale', true)->where('status', 1));
 
         // $type is a rim diameter (numeric string like "18", "19")
         if (is_numeric($type)) {
