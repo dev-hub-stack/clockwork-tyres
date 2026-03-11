@@ -440,10 +440,7 @@
     
     <script>
     function exportInventoryGrid() {
-        if (typeof grid === 'undefined') { alert('Grid not ready'); return; }
-        var blob = grid.exportData({ format: 'csv', nopqdata: true, render: true });
-        if (typeof blob === 'string') blob = new Blob([blob]);
-        saveAs(blob, 'Inventory-' + new Date().toISOString().slice(0,10) + '.csv');
+        window.location.href = '{{ route("inventory.export-csv") }}';
     }
     </script>
 

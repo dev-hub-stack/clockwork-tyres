@@ -360,8 +360,9 @@ class InventoryController extends Controller
             ->where('code', '!=', 'NON-STOCK')
             ->get(['id', 'warehouse_name', 'code']);
 
-        // Build header: SKU, Product Name, WH-DXB, WH-DXB_eta, WH-DXB_incoming, ...
-        $headers = ['SKU', 'Product Name'];
+        // Build header: SKU, WH-CODE, WH-CODE_eta, WH-CODE_incoming, ...
+        // No extra columns — format is identical to the import template
+        $headers = ['SKU'];
         foreach ($warehouses as $wh) {
             $headers[] = $wh->code;
             $headers[] = $wh->code . '_eta';
@@ -370,27 +371,14 @@ class InventoryController extends Controller
 
         // Fetch all variant inventory in one query
         $variants = DB::table('product_variants as pv')
-            ->leftJoin('products as p', 'p.id', '=', 'pv.product_id')
-            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
-            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
-            ->leftJoin('finishes as f', 'f.id', '=', 'pv.finish_id')
             ->whereNotNull('pv.sku')
-            ->select(
-                'pv.id',
-                'pv.sku',
-                DB::raw("COALESCE(
-                    NULLIF(TRIM(p.`product_full_name`), ''),
-                    NULLIF(TRIM(p.`name`), ''),
-                    NULLIF(TRIM(CONCAT_WS(' ', b.`name`, m.`name`, f.`finish`)), ''),
-                    ''
-                ) as product_name")
-            )
+            ->select('pv.id', 'pv.sku')
             ->orderBy('pv.sku')
             ->get();
 
         $inventoryMap = ProductInventory::all()->groupBy('product_variant_id');
 
-        $filename = 'inventory-export-' . now()->format('Ymd') . '.csv';
+        $filename = 'inventory-import-ready-' . now()->format('Y-m-d') . '.csv';
 
         $callback = function () use ($headers, $warehouses, $variants, $inventoryMap) {
             $out = fopen('php://output', 'w');
@@ -399,7 +387,7 @@ class InventoryController extends Controller
             foreach ($variants as $variant) {
                 if (empty($variant->sku)) continue;
 
-                $row = [$variant->sku, $variant->product_name ?? ''];
+                $row = [$variant->sku];
                 $variantInventory = $inventoryMap->get($variant->id, collect())
                     ->keyBy('warehouse_id');
 
