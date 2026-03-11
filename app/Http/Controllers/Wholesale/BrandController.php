@@ -35,6 +35,7 @@ class BrandController extends BaseWholesaleController
     {
         $brands = Brand::active()
             ->ordered()
+            ->whereHas('products', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true))
             ->get(['id', 'name', 'slug', 'logo', 'description']);
 
         return $this->success($brands);
@@ -47,7 +48,9 @@ class BrandController extends BaseWholesaleController
      */
     public function all(Request $request)
     {
-        $query = Brand::active()->ordered();
+        $query = Brand::active()
+            ->ordered()
+            ->whereHas('products', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
