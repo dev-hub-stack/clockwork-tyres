@@ -126,13 +126,20 @@ class OrderFulfillmentService
                 'skipped'   => true,
             ];
         }
-        
+
+        // Clear any pre-existing OIQ rows (e.g. created by OrderItemObserver when
+        // the item was saved with a warehouse_id). The actual allocation may use a
+        // different warehouse, and leaving stale rows causes phantom returns on
+        // cancellation (e.g. observer creates OIQ for Al Quoz, allocation takes
+        // from Ras Al Khor → cancel returns to BOTH → inflated inventory).
+        $item->quantities()->delete();
+
         // Handle addons — only deduct if track_inventory is enabled
         if ($item->isAddon()) {
             $addon = $item->addon;
             if ($addon && $addon->track_inventory) {
-                // Prefer the explicit warehouseId, then the order's warehouse, then highest stock
-                $preferredWarehouseId = $warehouseId ?? $item->order->warehouse_id ?? null;
+                // Prefer the warehouse set on the item (user-selected), then explicit warehouseId, then the order's warehouse
+                $preferredWarehouseId = $item->warehouse_id ?? $warehouseId ?? $item->order->warehouse_id ?? null;
                 // Find inventory for this addon (prefer specific warehouse)
                 $addonInventories = ProductInventory::where('add_on_id', $item->add_on_id)
                     ->where('quantity', '>', 0)
