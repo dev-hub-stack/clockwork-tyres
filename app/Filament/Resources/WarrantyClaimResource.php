@@ -80,7 +80,7 @@ class WarrantyClaimResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer', 'warehouse', 'invoice', 'items.productVariant', 'representative'])
+            ->with(['customer', 'warehouse', 'invoice.customer', 'items.productVariant', 'representative'])
             ->withCount('items')
             ->latest('claim_date');
     }

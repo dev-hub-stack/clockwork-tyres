@@ -37,16 +37,37 @@ class WarrantyClaimsTable
                     ->copyMessage('Claim number copied')
                     ->weight('bold'),
                 
-                TextColumn::make('customer.business_name')
+                TextColumn::make('customer_id')
                     ->label('CUSTOMER')
-                    ->searchable(['business_name', 'first_name', 'last_name'])
-                    ->sortable()
-                    ->formatStateUsing(function ($record) {
-                        return $record->customer?->business_name 
-                            ?? $record->customer?->name 
-                            ?? 'N/A';
+                    ->searchable(query: function ($query, string $search) {
+                        return $query->whereHas('customer', fn ($q) => $q
+                            ->where('business_name', 'like', "%{$search}%")
+                            ->orWhere('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                        );
                     })
-                    ->description(fn ($record) => $record->customer?->email),
+                    ->sortable(query: function ($query, string $direction) {
+                        return $query->leftJoin('customers', 'warranty_claims.customer_id', '=', 'customers.id')
+                            ->orderBy('customers.business_name', $direction)
+                            ->select('warranty_claims.*');
+                    })
+                    ->getStateUsing(function ($record) {
+                        // Try customer relation first
+                        if ($record->customer) {
+                            return $record->customer->business_name
+                                ?? $record->customer->name
+                                ?? 'N/A';
+                        }
+                        // Fallback: pull from linked invoice
+                        if ($record->invoice?->customer) {
+                            return $record->invoice->customer->business_name
+                                ?? $record->invoice->customer->name
+                                ?? 'N/A';
+                        }
+                        return 'N/A';
+                    })
+                    ->description(fn ($record) => $record->customer?->email ?? $record->invoice?->customer?->email),
                 
                 BadgeColumn::make('status')
                     ->label('STATUS')
