@@ -190,7 +190,7 @@ class ProductVariantGridController extends Controller
                         'us_retail_price' => $data['us_retail_price'] ?? null,
                         'uae_retail_price' => $data['uae_retail_price'] ?? null,
                         'sale_price' => $data['sale_price'] ?? null,
-                        'clearance_corner' => $data['clearance_corner'] ?? 0,
+                        'clearance_corner' => !empty($data['sale_price']) && $data['sale_price'] > 0 ? 1 : 0,
                         'supplier_stock' => $data['supplier_stock'] ?? 0,
                     ]);
                     
@@ -228,7 +228,7 @@ class ProductVariantGridController extends Controller
                         'us_retail_price' => $data['us_retail_price'] ?? null,
                         'uae_retail_price' => $data['uae_retail_price'] ?? null,
                         'sale_price' => $data['sale_price'] ?? null,
-                        'clearance_corner' => $data['clearance_corner'] ?? 0,
+                        'clearance_corner' => !empty($data['sale_price']) && $data['sale_price'] > 0 ? 1 : 0,
                         'supplier_stock' => $data['supplier_stock'] ?? 0,
                     ];
                     
