@@ -34,9 +34,9 @@ class VariantSnapshotService
             'hub_bore' => $variant->hub_bore,
             
             // Finish information
-            'finish' => $variant->finish,
+            'finish' => $variant->getRawOriginal('finish'),
             'finish_id' => $variant->finish_id,
-            'finish_name' => $variant->finishRelation?->name,
+            'finish_name' => $variant->finishRelation?->finish,
             'finish_code' => $variant->finishRelation?->code,
             'color' => $variant->color,
             

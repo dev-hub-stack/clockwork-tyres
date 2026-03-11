@@ -304,7 +304,8 @@
                             // For old items without finish_name in snapshot, load fresh from DB
                             if (!$finishDisplay && !empty($item->product_variant_id)) {
                                 $fv = \App\Modules\Products\Models\ProductVariant::with('finishRelation')->find($item->product_variant_id);
-                                $finishDisplay = $fv?->finishRelation?->finish;
+                                // Try finishRelation (finish_id FK) first, then raw text 'finish' column
+                                $finishDisplay = $fv?->finishRelation?->finish ?? $fv?->getRawOriginal('finish');
                             }
                         @endphp
                         @if($finishDisplay)
