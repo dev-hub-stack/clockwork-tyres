@@ -9,6 +9,7 @@ use App\Modules\Consignments\Models\ConsignmentHistory;
 use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Customers\Services\DealerPricingService;
+use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Models\Order;
@@ -221,10 +222,28 @@ class ConsignmentService
                 $item = $consignment->items()->find($saleData['item_id']);
                 
                 if ($item && $item->canBeSold()) {
-                    $quantity = min($saleData['quantity'], $item->getAvailableToSell());
+                    $quantity  = min($saleData['quantity'], $item->getAvailableToSell());
                     $salePrice = $saleData['actual_sale_price'] ?? null;
-                    
+
+                    $availableBefore = $item->getAvailableToSell();
                     $item->markAsSold($quantity, $salePrice);
+                    $availableAfter  = max(0, $availableBefore - $quantity);
+
+                    // Log consignment sale in the movement log
+                    if ($item->warehouse_id) {
+                        InventoryLog::create([
+                            'warehouse_id'       => $item->warehouse_id,
+                            'product_variant_id' => $item->product_variant_id,
+                            'action'             => InventoryLog::ACTION_SALE,
+                            'quantity_before'    => $availableBefore,
+                            'quantity_after'     => $availableAfter,
+                            'quantity_change'    => -$quantity,
+                            'reference_type'     => 'consignment',
+                            'reference_id'       => $consignment->id,
+                            'notes'              => "Sold from Consignment #{$consignment->consignment_number}",
+                            'user_id'            => auth()->id(),
+                        ]);
+                    }
                 }
             }
 
@@ -299,10 +318,31 @@ class ConsignmentService
             // Deduct inventory from warehouses for each item
             foreach ($consignment->items as $item) {
                 if ($item->warehouse_id && $item->quantity_sent > 0) {
+                    $inv = ProductInventory::where([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->first();
+
+                    $qtyBefore = $inv ? $inv->quantity : 0;
+                    $qtyAfter  = max(0, $qtyBefore - $item->quantity_sent);
+
                     ProductInventory::where([
-                        'warehouse_id' => $item->warehouse_id,
+                        'warehouse_id'       => $item->warehouse_id,
                         'product_variant_id' => $item->product_variant_id,
                     ])->decrement('quantity', $item->quantity_sent);
+
+                    InventoryLog::create([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'action'             => InventoryLog::ACTION_TRANSFER_OUT,
+                        'quantity_before'    => $qtyBefore,
+                        'quantity_after'     => $qtyAfter,
+                        'quantity_change'    => -$item->quantity_sent,
+                        'reference_type'     => 'consignment',
+                        'reference_id'       => $consignment->id,
+                        'notes'              => "Transferred out for Consignment #{$consignment->consignment_number}",
+                        'user_id'            => auth()->id(),
+                    ]);
                 }
             }
 
@@ -343,10 +383,29 @@ class ConsignmentService
             foreach ($consignment->items as $item) {
                 $remaining = ($item->quantity_sent ?? 0) - ($item->quantity_returned ?? 0);
                 if ($remaining > 0 && $item->warehouse_id && $item->product_variant_id) {
+                    $inv = ProductInventory::where([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->first();
+                    $qtyBefore = $inv ? $inv->quantity : 0;
+
                     ProductInventory::where([
                         'warehouse_id'       => $item->warehouse_id,
                         'product_variant_id' => $item->product_variant_id,
                     ])->increment('quantity', $remaining);
+
+                    InventoryLog::create([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'action'             => InventoryLog::ACTION_TRANSFER_IN,
+                        'quantity_before'    => $qtyBefore,
+                        'quantity_after'     => $qtyBefore + $remaining,
+                        'quantity_change'    => $remaining,
+                        'reference_type'     => 'consignment',
+                        'reference_id'       => $consignment->id,
+                        'notes'              => "Returned to warehouse — cancelled Consignment #{$consignment->consignment_number}",
+                        'user_id'            => auth()->id(),
+                    ]);
                 }
             }
 
@@ -397,17 +456,36 @@ class ConsignmentService
                 
                 // Add good items back to inventory
                 if ($condition === 'good' && $warehouseId && $item->product_variant_id) {
+                    $inv = ProductInventory::where([
+                        'warehouse_id'       => $warehouseId,
+                        'product_variant_id' => $item->product_variant_id,
+                    ])->first();
+                    $qtyBefore = $inv ? $inv->quantity : 0;
+
                     ProductInventory::where([
                         'warehouse_id'       => $warehouseId,
                         'product_variant_id' => $item->product_variant_id,
                     ])->increment('quantity', $quantity);
-                    
+
+                    InventoryLog::create([
+                        'warehouse_id'       => $warehouseId,
+                        'product_variant_id' => $item->product_variant_id,
+                        'action'             => InventoryLog::ACTION_TRANSFER_IN,
+                        'quantity_before'    => $qtyBefore,
+                        'quantity_after'     => $qtyBefore + $quantity,
+                        'quantity_change'    => $quantity,
+                        'reference_type'     => 'consignment',
+                        'reference_id'       => $consignment->id,
+                        'notes'              => "Item returned to warehouse — cancelled Consignment #{$consignment->consignment_number}",
+                        'user_id'            => auth()->id(),
+                    ]);
+
                     Log::info('Added cancelled items to inventory', [
                         'consignment_id' => $consignment->id,
-                        'item_id' => $item->id,
-                        'quantity' => $quantity,
-                        'warehouse_id' => $warehouseId,
-                        'condition' => $condition,
+                        'item_id'        => $item->id,
+                        'quantity'       => $quantity,
+                        'warehouse_id'   => $warehouseId,
+                        'condition'      => $condition,
                     ]);
                 }
                 
@@ -565,13 +643,27 @@ class ConsignmentService
     protected function updateInventoryForReturn(ConsignmentItem $item, int $quantity, int $warehouseId): void
     {
         $inventory = ProductInventory::firstOrCreate([
-            'warehouse_id' => $warehouseId,
+            'warehouse_id'       => $warehouseId,
             'product_variant_id' => $item->product_variant_id,
         ], [
             'quantity' => 0,
         ]);
 
+        $qtyBefore = $inventory->quantity;
         $inventory->increment('quantity', $quantity);
+
+        InventoryLog::create([
+            'warehouse_id'       => $warehouseId,
+            'product_variant_id' => $item->product_variant_id,
+            'action'             => InventoryLog::ACTION_TRANSFER_IN,
+            'quantity_before'    => $qtyBefore,
+            'quantity_after'     => $qtyBefore + $quantity,
+            'quantity_change'    => $quantity,
+            'reference_type'     => 'consignment',
+            'reference_id'       => $item->consignment_id,
+            'notes'              => 'Returned from consignment to warehouse',
+            'user_id'            => auth()->id(),
+        ]);
     }
 
     /**

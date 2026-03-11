@@ -4,6 +4,7 @@ namespace App\Modules\Warranties\Models;
 
 use App\Models\User;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Warranties\Enums\ClaimActionType;
@@ -215,7 +216,21 @@ class WarrantyClaim extends Model
                 ->first();
 
             if ($inventory && $inventory->quantity >= $item->quantity) {
+                $qtyBefore = $inventory->quantity;
                 $inventory->decrement('quantity', $item->quantity);
+
+                InventoryLog::create([
+                    'warehouse_id'       => $this->warehouse_id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'action'             => InventoryLog::ACTION_ADJUSTMENT,
+                    'quantity_before'    => $qtyBefore,
+                    'quantity_after'     => $qtyBefore - $item->quantity,
+                    'quantity_change'    => -$item->quantity,
+                    'reference_type'     => 'warranty_claim',
+                    'reference_id'       => $this->id,
+                    'notes'              => "Warranty replacement — Claim #{$this->claim_number}",
+                    'user_id'            => auth()->id(),
+                ]);
             }
 
             // 2. Increase damaged inventory
