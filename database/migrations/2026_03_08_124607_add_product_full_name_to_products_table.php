@@ -12,9 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->string('product_full_name', 255)->nullable()->after('name');
-        });
+        if (!Schema::hasColumn('products', 'product_full_name')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->string('product_full_name', 255)->nullable()->after('name');
+            });
+        }
 
         // Populate product_full_name from tunerstop source DB (same MySQL server)
         DB::statement("
@@ -47,8 +49,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->dropColumn('product_full_name');
-        });
+        if (Schema::hasColumn('products', 'product_full_name')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->dropColumn('product_full_name');
+            });
+        }
     }
 };
