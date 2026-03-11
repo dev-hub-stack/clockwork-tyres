@@ -440,7 +440,7 @@
     
     <script>
     function exportInventoryGrid() {
-        window.location.href = '{{ route("inventory.export-csv") }}';
+        window.location.href = '{{ route("admin.inventory.export-csv") }}';
     }
     </script>
 
