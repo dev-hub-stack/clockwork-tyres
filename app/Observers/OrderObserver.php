@@ -148,6 +148,16 @@ class OrderObserver
      */
     protected function autoAllocateInventory(Order $order): void
     {
+        // Skip if all items are already fully allocated (e.g. confirmOrder() already ran).
+        $order->load('items');
+        $alreadyAllocated = $order->items->every(
+            fn($item) => $item->allocated_quantity >= $item->quantity
+        );
+        if ($alreadyAllocated && $order->items->isNotEmpty()) {
+            Log::info("Auto-allocate skipped: order already fully allocated", ['order_id' => $order->id]);
+            return;
+        }
+
         try {
             $fulfillmentService = app(OrderFulfillmentService::class);
             $results = $fulfillmentService->allocateInventory($order);

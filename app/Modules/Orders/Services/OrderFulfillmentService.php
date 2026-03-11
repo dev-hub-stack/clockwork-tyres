@@ -112,6 +112,20 @@ class OrderFulfillmentService
     {
         $quantityNeeded = $item->quantity;
         $quantityAllocated = 0;
+
+        // Idempotency guard: if this item is already fully allocated, skip it.
+        // This prevents double-allocation when allocateInventory() is called more
+        // than once (e.g. once by confirmOrder() and once by the OrderObserver).
+        if ($item->allocated_quantity >= $quantityNeeded && $quantityNeeded > 0) {
+            return [
+                'item_id'   => $item->id,
+                'sku'       => $item->sku,
+                'requested' => $quantityNeeded,
+                'allocated' => $item->allocated_quantity,
+                'is_addon'  => $item->isAddon(),
+                'skipped'   => true,
+            ];
+        }
         
         // Handle addons — only deduct if track_inventory is enabled
         if ($item->isAddon()) {
@@ -339,7 +353,9 @@ class OrderFulfillmentService
                 if ($item->isAddon()) {
                     $addon = $item->addon;
                     if ($addon && $addon->track_inventory) {
-                        foreach ($item->quantities as $quantity) {
+                        // Use a fresh DB query to avoid acting on stale in-memory cached allocations
+                        // (e.g. when cancelOrderWithReturns() already deleted them before triggering this path)
+                        foreach ($item->quantities()->get() as $quantity) {
                             $inventory = ProductInventory::where('warehouse_id', $quantity->warehouse_id)
                                 ->where('add_on_id', $item->add_on_id)
                                 ->first();
@@ -366,7 +382,9 @@ class OrderFulfillmentService
                     continue;
                 }
                 
-                foreach ($item->quantities as $quantity) {
+                // Use a fresh DB query to avoid acting on stale in-memory cached allocations
+                // (e.g. when cancelOrderWithReturns() already deleted them before triggering this path)
+                foreach ($item->quantities()->get() as $quantity) {
                     // Find the inventory record
                     $inventory = ProductInventory::where('warehouse_id', $quantity->warehouse_id)
                         ->where('product_variant_id', $item->product_variant_id)
