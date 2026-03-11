@@ -131,10 +131,12 @@ class OrderFulfillmentService
         if ($item->isAddon()) {
             $addon = $item->addon;
             if ($addon && $addon->track_inventory) {
+                // Prefer the explicit warehouseId, then the order's warehouse, then highest stock
+                $preferredWarehouseId = $warehouseId ?? $item->order->warehouse_id ?? null;
                 // Find inventory for this addon (prefer specific warehouse)
                 $addonInventories = ProductInventory::where('add_on_id', $item->add_on_id)
                     ->where('quantity', '>', 0)
-                    ->when($warehouseId, fn($q) => $q->orderByRaw("CASE WHEN warehouse_id = {$warehouseId} THEN 0 ELSE 1 END"))
+                    ->when($preferredWarehouseId, fn($q) => $q->orderByRaw("CASE WHEN warehouse_id = {$preferredWarehouseId} THEN 0 ELSE 1 END"))
                     ->orderBy('quantity', 'desc')
                     ->get();
 

@@ -623,6 +623,7 @@ class InventoryController extends Controller
         $query = DB::table('inventory_logs as il')
             ->leftJoin('warehouses as w', 'w.id', '=', 'il.warehouse_id')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'il.product_variant_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'il.add_on_id')
             ->leftJoin('users as u', 'u.id', '=', 'il.user_id')
             ->select(
                 'il.id',
@@ -636,12 +637,15 @@ class InventoryController extends Controller
                 'il.created_at',
                 'w.code as warehouse_code',
                 'w.warehouse_name',
-                'pv.sku',
+                DB::raw('COALESCE(pv.sku, a.part_number) as sku'),
                 'u.name as user_name'
             )
             ->orderByDesc('il.id');
 
-        if ($request->filled('sku'))          $query->where('pv.sku', 'like', '%' . $request->sku . '%');
+        if ($request->filled('sku'))          $query->where(function($q) use ($request) {
+            $q->where('pv.sku', 'like', '%' . $request->sku . '%')
+              ->orWhere('a.part_number', 'like', '%' . $request->sku . '%');
+        });
         if ($request->filled('action'))       $query->where('il.action', $request->action);
         if ($request->filled('warehouse_id')) $query->where('il.warehouse_id', $request->warehouse_id);
         if ($request->filled('from_date'))    $query->whereDate('il.created_at', '>=', $request->from_date);

@@ -215,9 +215,10 @@
 
         <!-- Line Items Table -->
         @php
-            $currSym = is_string($currency) ? $currency : ($currency->symbol ?? 'AED');
-            $isZR = !empty($record->is_zero_rated);
-            $vr   = $documentType !== 'delivery_note' ? floatval($vatRate ?? 5) : 0;
+            $currSym     = is_string($currency) ? $currency : ($currency->symbol ?? 'AED');
+            $isZR        = !empty($record->is_zero_rated);
+            $vr          = $documentType !== 'delivery_note' ? floatval($vatRate ?? 5) : 0;
+            $taxInclusive = !empty($record->tax_inclusive);  // prices already include VAT
             $hasItemDiscount = $documentType !== 'delivery_note' && $record->items->filter(fn($i) => ($i->discount ?? 0) > 0)->isNotEmpty();
         @endphp
         <table class="data-table">
@@ -242,9 +243,17 @@
                     @php
                         $rawSubtotal = $item->unit_price * $item->quantity;
                         $discountAmt = floatval($item->discount ?? 0);
-                        $taxableAmt  = $rawSubtotal - $discountAmt;
-                        $itemVat     = $isZR ? 0.0 : round($taxableAmt * $vr / 100, 2);
-                        $lineAmt     = $taxableAmt + $itemVat;
+                        $inclusiveTotal = $rawSubtotal - $discountAmt;
+                        if ($taxInclusive && !$isZR && $vr > 0) {
+                            // Price already includes VAT: back-calculate ex-VAT taxable amount
+                            $taxableAmt = round($inclusiveTotal / (1 + $vr / 100), 2);
+                            $itemVat    = round($inclusiveTotal - $taxableAmt, 2);
+                            $lineAmt    = $inclusiveTotal; // customer pays the inclusive price
+                        } else {
+                            $taxableAmt = $inclusiveTotal;
+                            $itemVat    = $isZR ? 0.0 : round($taxableAmt * $vr / 100, 2);
+                            $lineAmt    = $taxableAmt + $itemVat;
+                        }
                         $discountPct = $rawSubtotal > 0 ? round($discountAmt / $rawSubtotal * 100) : 0;
                     @endphp
                     <tr>
@@ -388,10 +397,16 @@
                             $sumTaxable = 0;
                             $sumVat     = 0;
                             foreach($record->items as $li) {
-                                $liRaw      = $li->unit_price * $li->quantity;
-                                $liDisc     = floatval($li->discount ?? 0);
-                                $liTaxable  = $liRaw - $liDisc;
-                                $liVat      = $isZR ? 0.0 : round($liTaxable * $vr / 100, 2);
+                                $liRaw     = $li->unit_price * $li->quantity;
+                                $liDisc    = floatval($li->discount ?? 0);
+                                $liIncl    = $liRaw - $liDisc;
+                                if ($taxInclusive && !$isZR && $vr > 0) {
+                                    $liTaxable = round($liIncl / (1 + $vr / 100), 2);
+                                    $liVat     = round($liIncl - $liTaxable, 2);
+                                } else {
+                                    $liTaxable = $liIncl;
+                                    $liVat     = $isZR ? 0.0 : round($liTaxable * $vr / 100, 2);
+                                }
                                 $sumTaxable += $liTaxable;
                                 $sumVat     += $liVat;
                             }
