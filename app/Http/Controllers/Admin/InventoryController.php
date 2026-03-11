@@ -369,14 +369,18 @@ class InventoryController extends Controller
             $headers[] = $wh->code . '_incoming';
         }
 
-        // Fetch all variant inventory in one query
+        // Fetch only variants whose product has track_inventory enabled
         $variants = DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('p.track_inventory', true)
             ->whereNotNull('pv.sku')
             ->select('pv.id', 'pv.sku')
             ->orderBy('pv.sku')
             ->get();
 
-        $inventoryMap = ProductInventory::all()->groupBy('product_variant_id');
+        $variantIds = $variants->pluck('id')->all();
+        $inventoryMap = ProductInventory::whereIn('product_variant_id', $variantIds)
+            ->get()->groupBy('product_variant_id');
 
         $filename = 'inventory-import-ready-' . now()->format('Y-m-d') . '.csv';
 
