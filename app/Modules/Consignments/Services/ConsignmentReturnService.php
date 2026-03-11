@@ -6,6 +6,7 @@ use App\Modules\Consignments\Models\Consignment;
 use App\Modules\Consignments\Models\ConsignmentItem;
 use App\Modules\Consignments\Enums\ConsignmentStatus;
 use App\Modules\Inventory\Models\DamagedInventory;
+use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\ProductInventory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -156,8 +157,23 @@ class ConsignmentReturnService
                 );
                 
                 // Increment quantity
+                $qtyBefore = $inventory->quantity;
                 $inventory->increment('quantity', $quantity);
-                
+
+                // Log movement
+                InventoryLog::create([
+                    'warehouse_id'       => $warehouseId,
+                    'product_variant_id' => $item->product_variant_id,
+                    'action'             => InventoryLog::ACTION_TRANSFER_IN,
+                    'quantity_before'    => $qtyBefore,
+                    'quantity_after'     => $qtyBefore + $quantity,
+                    'quantity_change'    => $quantity,
+                    'reference_type'     => 'consignment',
+                    'reference_id'       => $consignment->id,
+                    'notes'              => "Returned from Consignment #{$consignment->consignment_number}",
+                    'user_id'            => auth()->id(),
+                ]);
+
                 Log::info('Warehouse inventory updated after consignment return', [
                     'product_variant_id' => $item->product_variant_id,
                     'warehouse_id' => $warehouseId,

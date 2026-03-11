@@ -12,6 +12,7 @@ use App\Modules\Orders\Models\Payment;
 use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\TaxSetting;
+use App\Modules\Inventory\Models\InventoryLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -366,11 +367,16 @@ class ConsignmentInvoiceService
             $item = $consignment->items()->find($itemData['item_id']);
 
             if ($item) {
-                $newQtySold = $item->quantity_sold + $itemData['quantity'];
+                $soldQty    = $itemData['quantity'];
+                $newQtySold = $item->quantity_sold + $soldQty;
                 $available  = $item->quantity_sent - ($item->quantity_returned ?? 0);
 
                 // 'sold' only when ALL sent (non-returned) quantity has been invoiced
                 $newStatus = ($newQtySold >= $available) ? 'sold' : 'partially_sold';
+
+                // Capture available-before BEFORE updating quantity_sold
+                $availableBefore = $available - $item->quantity_sold;
+                $availableAfter  = max(0, $availableBefore - $soldQty);
 
                 $item->update([
                     'quantity_sold'     => $newQtySold,
@@ -378,6 +384,22 @@ class ConsignmentInvoiceService
                     'status'            => $newStatus,
                     'date_sold'         => now(),
                 ]);
+
+                // Log consignment sale in movement log
+                if ($item->warehouse_id && $item->product_variant_id) {
+                    InventoryLog::create([
+                        'warehouse_id'       => $item->warehouse_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'action'             => InventoryLog::ACTION_SALE,
+                        'quantity_before'    => $availableBefore,
+                        'quantity_after'     => $availableAfter,
+                        'quantity_change'    => -$soldQty,
+                        'reference_type'     => 'consignment',
+                        'reference_id'       => $consignment->id,
+                        'notes'              => "Sold from Consignment #{$consignment->consignment_number}",
+                        'user_id'            => auth()->id(),
+                    ]);
+                }
             }
         }
 
