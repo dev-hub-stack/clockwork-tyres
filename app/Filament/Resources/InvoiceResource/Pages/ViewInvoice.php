@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InvoiceResource\Pages;
 
 use App\Filament\Resources\InvoiceResource;
+use App\Filament\Resources\InvoiceResource\Actions\CancelOrderAction;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use Filament\Actions;
@@ -124,6 +125,8 @@ class ViewInvoice extends ViewRecord
                         'order_status' => OrderStatus::DELIVERED,
                     ]);
                 }),
+
+            CancelOrderAction::make(),
 
             Actions\EditAction::make(),
             Actions\DeleteAction::make(),
