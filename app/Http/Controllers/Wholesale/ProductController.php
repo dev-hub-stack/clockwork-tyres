@@ -64,7 +64,7 @@ class ProductController extends BaseWholesaleController
         };
 
         $page      = $request->pagination ?? $request->page ?? 1;
-        $cacheKey  = 'products_' . $dealer->id . '_' . md5(serialize($request->except(['_token'])));
+        $cacheKey  = 'products_' . ($dealer?->id ?? 'guest') . '_' . md5(serialize($request->except(['_token'])));
         $paginator = \Cache::remember($cacheKey, 300, fn() =>
             $query->paginate($perPage, ['product_variants.*'], 'page', $page)
         );
