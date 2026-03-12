@@ -54,7 +54,6 @@ class RoleResource extends Resource
                 ->schema([
                     CheckboxList::make('permissions')
                         ->label('')
-                        ->relationship('permissions', 'name')
                         ->options(function () {
                             return Permission::orderBy('name')
                                 ->get()
