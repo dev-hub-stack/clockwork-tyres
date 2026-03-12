@@ -365,7 +365,8 @@ class AddonResource extends Resource
                     ->icon('heroicon-o-pencil'),
                 
                 DeleteAction::make()
-                    ->label('Delete'),
+                    ->label('Delete')
+                    ->visible(fn ($record) => auth()->user()?->can('delete_products') ?? false),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),

@@ -244,9 +244,11 @@ class CustomerResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_customers') ?? false),
                 RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ForceDeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_customers') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

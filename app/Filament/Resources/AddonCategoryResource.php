@@ -118,7 +118,8 @@ class AddonCategoryResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_categories') ?? false),
             ])
             ->bulkActions([
                 DeleteBulkAction::make(),

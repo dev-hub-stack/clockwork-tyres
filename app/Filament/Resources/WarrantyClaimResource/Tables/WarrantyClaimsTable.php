@@ -205,7 +205,8 @@ class WarrantyClaimsTable
                     ->tooltip('Download clean PDF for customer'),
                 EditAction::make()
                     ->visible(fn ($record) => $record->canBeEdited()),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_warranty_claims') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

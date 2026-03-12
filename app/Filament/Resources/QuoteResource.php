@@ -1097,7 +1097,8 @@ class QuoteResource extends Resource
                     }),
                 
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_quotes') ?? false),
             ])
             ->defaultSort('issue_date', 'desc');
     }

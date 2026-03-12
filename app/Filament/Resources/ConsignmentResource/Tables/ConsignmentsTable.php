@@ -350,7 +350,8 @@ class ConsignmentsTable
                 CancelConsignmentAction::make()
                     ->tooltip('Cancel this consignment'),
                 
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_consignments') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

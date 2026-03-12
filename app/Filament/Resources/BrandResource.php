@@ -184,9 +184,11 @@ class BrandResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_products') ?? false),
                 RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ForceDeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_products') ?? false),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),

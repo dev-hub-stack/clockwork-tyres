@@ -138,7 +138,8 @@ class WarehouseResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn ($record) => auth()->user()?->can('delete_warehouses') ?? false),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),
