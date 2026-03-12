@@ -50,19 +50,21 @@ abstract class BaseWholesaleController extends Controller
      */
     protected function dealer(): ?Customer
     {
-        // 1. Check if already resolved in Auth facade
-        if (Auth::check()) {
-            $user = Auth::user();
-            return ($user instanceof Customer) ? $user : null;
+        // Auth::setUser() (called by WholesaleAuth middleware) does NOT set
+        // the internal $loggedIn flag, so Auth::check() returns false.
+        // Use Auth::user() directly — it returns the bound user regardless.
+        $user = Auth::user();
+        if ($user instanceof Customer) {
+            return $user;
         }
 
-        // 2. Manual token resolution for Windows stability
+        // Fallback: manual token resolution
         $tokenStr = request()->bearerToken();
         if ($tokenStr) {
             $token = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenStr);
             if ($token && $token->tokenable instanceof Customer) {
                 $user = $token->tokenable;
-                Auth::setUser($user); // Cache for this request
+                Auth::setUser($user);
                 return $user;
             }
         }

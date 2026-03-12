@@ -211,6 +211,7 @@ class WholesaleProductTransformer
                 'final_price'         => $basePrice,
                 'discount_amount'     => 0,
                 'discount_percentage' => 0,
+                'discount_type'       => 'none',
                 'tier'                => 'Retail',
             ];
         }
