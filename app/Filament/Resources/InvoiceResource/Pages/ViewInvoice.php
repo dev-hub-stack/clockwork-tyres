@@ -95,13 +95,19 @@ class ViewInvoice extends ViewRecord
                     \Filament\Forms\Components\TextInput::make('shipping_carrier')
                         ->label('Shipping Carrier')
                         ->required(),
+                    \Filament\Forms\Components\TextInput::make('tracking_url')
+                        ->label('Tracking Link')
+                        ->url()
+                        ->placeholder('https://track.carrier.com/...')
+                        ->default(fn () => $this->record->tracking_url),
                 ])
                 ->action(function (array $data) {
                     $this->record->update([
-                        'order_status' => OrderStatus::SHIPPED,
-                        'tracking_number' => $data['tracking_number'],
+                        'order_status'     => OrderStatus::SHIPPED,
+                        'tracking_number'  => $data['tracking_number'],
                         'shipping_carrier' => $data['shipping_carrier'],
-                        'shipped_at' => now(),
+                        'tracking_url'     => $data['tracking_url'] ?? null,
+                        'shipped_at'       => now(),
                     ]);
                 }),
 
