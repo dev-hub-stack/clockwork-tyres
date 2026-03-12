@@ -154,15 +154,31 @@ class CartController extends BaseWholesaleController
      */
     public function addAddon(Request $request)
     {
-        $request->validate([
+        // Frontend sends { session_id, cart_id, addons: [{ addon_id, quantity }] }
+        // Unwrap the addons array into flat fields so validation works.
+        $payload = $request->all();
+        if (isset($payload['addons'][0])) {
+            $payload['addon_id'] = $payload['addons'][0]['addon_id'] ?? null;
+            $payload['quantity'] = $payload['addons'][0]['quantity'] ?? null;
+        }
+
+        $validator = validator($payload, [
             'addon_id'   => 'required|integer|exists:addons,id',
             'quantity'   => 'required|integer|min:1',
             'session_id' => 'required|string',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
         $dealer = $this->dealer();
-        $cart   = $this->cartService->getOrCreateCart($dealer, $request->session_id);
-        $cart   = $this->cartService->addAddon($cart, $request->all());
+        $cart   = $this->cartService->getOrCreateCart($dealer, $payload['session_id']);
+        $cart   = $this->cartService->addAddon($cart, $payload);
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }
