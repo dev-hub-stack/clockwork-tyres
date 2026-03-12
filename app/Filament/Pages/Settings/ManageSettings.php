@@ -32,6 +32,11 @@ class ManageSettings extends Page implements HasForms
     
     protected static ?int $navigationSort = 99;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->can('view_settings') ?? false;
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('view_settings') ?? false;

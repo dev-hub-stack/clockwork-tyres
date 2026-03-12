@@ -21,6 +21,11 @@ class InventoryMovementLog extends Page
 
     protected string $view = 'filament.pages.inventory-movement-log';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->can('view_inventory') ?? false;
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('view_inventory') ?? false;
