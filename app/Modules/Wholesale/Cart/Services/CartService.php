@@ -323,10 +323,10 @@ class CartService
      */
     public function recalculateTotals(Cart $cart): void
     {
-        $cart->load('items', 'addons.addon');
+        $cart->loadMissing(['items', 'addons.addon']);
 
         // ── Tax settings ──────────────────────────────────────────────────────
-        $tax              = TaxSetting::getDefault();
+        $tax              = \Cache::remember('tax_setting_default', 300, fn() => TaxSetting::getDefault());
         $vatRate          = $tax ? (float) $tax->rate / 100 : 0.0;
         $globalInclusive  = $tax ? (bool) $tax->tax_inclusive_default : false;
 
@@ -406,14 +406,14 @@ class CartService
      */
     public function formatCartResponse(Cart $cart): array
     {
-        $cart->load([
-            'items.variant.product.brand', 
+        $cart->loadMissing([
+            'items.variant.product.brand',
             'items.variant.product.model',
-            'items.variant.finishRelation', 
+            'items.variant.finishRelation',
             'items.variant.inventories.warehouse',
-            'items.warehouse', 
-            'addons.addon.category', 
-            'coupon', 
+            'items.warehouse',
+            'addons.addon.category',
+            'coupon',
             'shippingAddress'
         ]);
         $dealer = $cart->dealer ?? ($cart->dealer_id ? Customer::find($cart->dealer_id) : null);
@@ -492,17 +492,17 @@ class CartService
      */
     private function getAvailableStock(int $variantId, ?int $warehouseId = null): ?int
     {
-        $query = ProductInventory::where('product_variant_id', $variantId);
+        // Single query: get both record count and total stock
+        $result = ProductInventory::where('product_variant_id', $variantId)
+            ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->selectRaw('COUNT(*) as record_count, COALESCE(SUM(quantity), 0) as total_qty')
+            ->first();
 
-        if ($warehouseId) {
-            $query->where('warehouse_id', $warehouseId);
-        }
-
-        if (! $query->exists()) {
+        if (!$result || $result->record_count == 0) {
             return null; // No inventory records → no restriction
         }
 
-        return (int) $query->sum('quantity');
+        return (int) $result->total_qty;
     }
 
     private function recalculateAndReturn(Cart $cart): Cart
@@ -517,7 +517,7 @@ class CartService
      */
     private function getVatRate(): float
     {
-        $tax = TaxSetting::getDefault();
+        $tax = \Cache::remember('tax_setting_default', 300, fn() => TaxSetting::getDefault());
         return $tax ? (float) $tax->rate / 100 : 0.0;
     }
 

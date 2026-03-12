@@ -40,12 +40,16 @@ class AddOnController extends BaseWholesaleController
     public function byProduct(Request $request, int $productId)
     {
         $dealer = $this->dealer();
+        $dealerId = $dealer?->id ?? 0;
 
-        $addons = AddOn::with('category')
-            ->whereNull('deleted_at')
-            ->orderBy('addon_category_id')
-            ->orderBy('title')
-            ->get();
+        // Cache the raw addon list (no dealer pricing) — invalidate after 5 min
+        $addons = \Cache::remember('addons_all_list', 300, fn() =>
+            AddOn::with(['category', 'inventories'])
+                ->whereNull('deleted_at')
+                ->orderBy('addon_category_id')
+                ->orderBy('title')
+                ->get()
+        );
 
         $formatted = $addons->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer));
 
@@ -87,7 +91,7 @@ class AddOnController extends BaseWholesaleController
         $perPage  = (int) $request->get('perPage', 30);
         $sortBy   = $request->get('sortBy', 'newest');
 
-        $query = AddOn::with(['category'])
+        $query = AddOn::with(['category', 'inventories'])
             ->whereHas('category', fn($q) => $q->where('slug', $slug))
             ->whereNull('addons.deleted_at');
 
