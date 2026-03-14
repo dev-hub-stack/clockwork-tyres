@@ -27,7 +27,7 @@ class CancelOrderAction
             ->icon('heroicon-o-x-circle')
             ->color('danger')
             ->visible(fn (Order $record) => 
-                !in_array($record->order_status->value, ['cancelled', 'completed']) && $record->document_type === 'invoice'
+                !in_array($record->order_status->value, ['cancelled', 'completed']) && $record->document_type->value === 'invoice'
             )
             ->requiresConfirmation()
             ->modalHeading(fn (Order $record) => 'Cancel Order #' . $record->order_number)

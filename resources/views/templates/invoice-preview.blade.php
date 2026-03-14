@@ -244,7 +244,8 @@
                         $rawSubtotal = $item->unit_price * $item->quantity;
                         $discountAmt = floatval($item->discount ?? 0);
                         $inclusiveTotal = $rawSubtotal - $discountAmt;
-                        if ($taxInclusive && !$isZR && $vr > 0) {
+                        $itemTaxInclusive = !empty($item->tax_inclusive); // use per-item flag
+                        if ($itemTaxInclusive && !$isZR && $vr > 0) {
                             // Price already includes VAT: back-calculate ex-VAT taxable amount
                             $taxableAmt = round($inclusiveTotal / (1 + $vr / 100), 2);
                             $itemVat    = round($inclusiveTotal - $taxableAmt, 2);
@@ -401,7 +402,8 @@
                                 $liRaw     = $li->unit_price * $li->quantity;
                                 $liDisc    = floatval($li->discount ?? 0);
                                 $liIncl    = $liRaw - $liDisc;
-                                if ($taxInclusive && !$isZR && $vr > 0) {
+                                $liTaxInclusive = !empty($li->tax_inclusive); // use per-item flag
+                                if ($liTaxInclusive && !$isZR && $vr > 0) {
                                     $liTaxable = round($liIncl / (1 + $vr / 100), 2);
                                     $liVat     = round($liIncl - $liTaxable, 2);
                                 } else {
