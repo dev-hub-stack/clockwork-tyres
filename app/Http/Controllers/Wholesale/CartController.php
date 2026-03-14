@@ -226,7 +226,9 @@ class CartController extends BaseWholesaleController
     {
         $dealer = $this->dealer();
 
-        $addresses = AddressBook::where('customer_id', $dealer->id)->get();
+        $addresses = $dealer
+            ? AddressBook::where('customer_id', $dealer->id)->get()
+            : collect();
 
         // Read checkout option flags from system_settings (managed from CRM Settings page)
         $settings = SystemSetting::whereIn('key', [
