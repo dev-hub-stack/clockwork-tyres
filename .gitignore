@@ -54,6 +54,14 @@ check_*.php
 fix_*.php
 test_*.php
 migrate_*.php
+debug_*.php
+analyze_*.php
+verify_*.php
+setup_*.php
+apply_*.php
+dryrun_*.php
+create_super_admin*.php
+*_output.txt
 logs.txt
 cors.json
 
