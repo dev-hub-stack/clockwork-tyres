@@ -109,8 +109,6 @@ class AddonResource extends Resource
                             ->image()
                             ->disk('s3')
                             ->directory('addons')
-                            ->visibility('public')
-                            ->preserveFilenames()
                             ->maxSize(2048)
                             ->afterStateHydrated(function ($component, $state) {
                                 if ($state && str_starts_with($state, 'http')) {
@@ -123,8 +121,6 @@ class AddonResource extends Resource
                             ->image()
                             ->disk('s3')
                             ->directory('addons')
-                            ->visibility('public')
-                            ->preserveFilenames()
                             ->maxSize(2048)
                             ->afterStateHydrated(function ($component, $state) {
                                 if ($state && str_starts_with($state, 'http')) {
@@ -195,60 +191,74 @@ class AddonResource extends Resource
 
 
                 Section::make('Category-Specific Fields')
-                    ->schema([
-                        // Lug Nuts / Lug Bolts
-                        TextInput::make('thread_size')
-                            ->label('Thread Size')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => in_array($get('addon_category_id'), [2, 3])), // Lug Nuts, Lug Bolts
+                    ->schema(function () {
+                        // Look up IDs by slug so the form works regardless of
+                        // which auto-increment ID each category was assigned in the DB.
+                        $cats         = AddonCategory::pluck('id', 'slug');
+                        $lugNutsId    = $cats->get('lug-nuts');
+                        $lugBoltsId   = $cats->get('lug-bolts');
+                        $hubRingsId   = $cats->get('hub-rings');
+                        $spacersId    = $cats->get('spacers');
 
-                        TextInput::make('color')
-                            ->label('Color')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => in_array($get('addon_category_id'), [2, 3])),
+                        $lugIds    = array_filter([$lugNutsId, $lugBoltsId]);
+                        $hubIds    = array_filter([$hubRingsId]);
+                        $spacerIds = array_filter([$spacersId]);
 
-                        TextInput::make('lug_nut_length')
-                            ->label('Lug Nut Length')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 2),
+                        return [
+                            // Lug Nuts
+                            TextInput::make('thread_size')
+                                ->label('Thread Size')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), $lugIds)),
 
-                        TextInput::make('lug_nut_diameter')
-                            ->label('Lug Nut Diameter')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 2),
+                            TextInput::make('color')
+                                ->label('Color')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), $lugIds)),
 
-                        TextInput::make('thread_length')
-                            ->label('Thread Length')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 3), // Lug Bolts
+                            TextInput::make('lug_nut_length')
+                                ->label('Lug Nut Length')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => $get('addon_category_id') == $lugNutsId),
 
-                        TextInput::make('lug_bolt_diameter')
-                            ->label('Lug Bolt Diameter')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 3),
+                            TextInput::make('lug_nut_diameter')
+                                ->label('Lug Nut Diameter')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => $get('addon_category_id') == $lugNutsId),
 
-                        // Hub Rings
-                        TextInput::make('ext_center_bore')
-                            ->label('External Center Bore')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 4), // Hub Rings
+                            TextInput::make('thread_length')
+                                ->label('Thread Length')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => $get('addon_category_id') == $lugBoltsId),
 
-                        TextInput::make('center_bore')
-                            ->label('Center Bore')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => in_array($get('addon_category_id'), [4, 5])), // Hub Rings, Spacers
+                            TextInput::make('lug_bolt_diameter')
+                                ->label('Lug Bolt Diameter')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => $get('addon_category_id') == $lugBoltsId),
 
-                        // Spacers
-                        TextInput::make('bolt_pattern')
-                            ->label('Bolt Pattern')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 5), // Spacers
+                            // Hub Rings
+                            TextInput::make('ext_center_bore')
+                                ->label('External Center Bore')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), $hubIds)),
 
-                        TextInput::make('width')
-                            ->label('Width')
-                            ->maxLength(255)
-                            ->visible(fn ($get) => $get('addon_category_id') == 5),
-                    ])
+                            TextInput::make('center_bore')
+                                ->label('Center Bore')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), array_merge($hubIds, $spacerIds))),
+
+                            // Spacers
+                            TextInput::make('bolt_pattern')
+                                ->label('Bolt Pattern')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), $spacerIds)),
+
+                            TextInput::make('width')
+                                ->label('Width')
+                                ->maxLength(255)
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), $spacerIds)),
+                        ];
+                    })
                     ->columns(2),
             ]);
     }
