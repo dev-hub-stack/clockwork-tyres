@@ -205,11 +205,11 @@ class AddonResource extends Resource
                         $spacerIds = array_filter([$spacersId]);
 
                         return [
-                            // Lug Nuts
+                            // Lug Nuts / Lug Bolts / Spacers (thread_size shared)
                             TextInput::make('thread_size')
                                 ->label('Thread Size')
                                 ->maxLength(255)
-                                ->visible(fn ($get) => in_array($get('addon_category_id'), $lugIds)),
+                                ->visible(fn ($get) => in_array($get('addon_category_id'), array_merge($lugIds, $spacerIds))),
 
                             TextInput::make('color')
                                 ->label('Color')
