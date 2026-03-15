@@ -31,6 +31,11 @@ class Cart extends Model
         'notes',
     ];
 
+    protected $appends = [
+        'count',
+        'eta',
+    ];
+
     protected $casts = [
         'discount'  => 'decimal:2',
         'sub_total' => 'decimal:2',

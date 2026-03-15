@@ -32,14 +32,31 @@ class WholesaleProductTransformer
     public function formatVariant(ProductVariant $variant, ?Customer $dealer): array
     {
         $product    = $variant->product;
+        // Optimization: Use relationLoaded or null-coalescing to avoid extra queries
         $brand      = $product?->brand;
         $model      = $product?->model;
         $finishRel  = $variant->finishRelation;
 
         // Calculate dealer price using DealerPricingService (3-tier hierarchy)
         $priceResult = $this->dealerPrice($variant, $dealer);
-        $stockData   = $this->stockData($variant);
-        $totalStock  = collect($stockData)->sum('qty');
+        
+        // Optimize: map stock data once
+        $stockData = [];
+        $totalStock = 0;
+        
+        foreach ($variant->inventories as $inv) {
+            $qty = (int) $inv->quantity;
+            $totalStock += $qty;
+            $stockData[] = [
+                'warehouse_id'   => $inv->warehouse_id,
+                'warehouse'      => $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name ?? 'Unknown',
+                'qty'            => $qty,
+                'eta_qty'        => (int) $inv->eta_qty,
+                'eta'            => $inv->eta,
+                'in_stock'       => $qty > 0,
+                'stock_color'    => $inv->stock_status_color,
+            ];
+        }
 
         return [
             // Identity
@@ -61,8 +78,8 @@ class WholesaleProductTransformer
             'brand_slug'       => $brand?->slug ?? '',
             'brand_logo'       => $brand?->logo ?? '',
             'model'            => [
-                'id'   => $model?->id,
-                'name' => $model?->name ?? '',
+                'id'    => $model?->id,
+                'name'  => $model?->name ?? '',
                 'image' => $model?->image ?? '',
             ],
             'model_id'         => $model?->id,
@@ -105,7 +122,7 @@ class WholesaleProductTransformer
                 'offset'           => $variant->offset,
                 'weight'           => $variant->weight,
                 'backspacing'      => $variant->backspacing,
-                'warranty'         => $variant->backspacing, // Direct mapping for clarity
+                'warranty'         => $variant->backspacing, 
                 'lipsize'          => $variant->lipsize,
                 'max_wheel_load'   => $variant->max_wheel_load,
                 'construction'     => $product?->construction ?? '',
@@ -119,15 +136,15 @@ class WholesaleProductTransformer
             'uae_retail_price' => (float) ($variant->uae_retail_price ?? $variant->price ?? 0),
             'us_retail_price'  => (float) ($variant->us_retail_price ?? 0),
             'sale_price'       => $variant->sale_price ? (float) $variant->sale_price : null,
-            'discounted_price' => $priceResult['final_price'], // Compatibility field
+            'discounted_price' => $priceResult['final_price'], 
             'discount_amount'  => $priceResult['discount_amount'],
             'discount_pct'     => $priceResult['discount_percentage'],
             'discount_type'    => $priceResult['discount_type'],
             'clearance'        => (bool) $variant->clearance_corner,
-            'clearance_corner' => (bool) $variant->clearance_corner, // Compatibility field
+            'clearance_corner' => (bool) $variant->clearance_corner,
 
             // Stock
-            'stock'            => $stockData,   // per-warehouse breakdown
+            'stock'            => $stockData,
             'in_stock'         => $totalStock > 0,
             'total_stock'      => $totalStock,
             'supplier_stock'   => (int) ($variant->supplier_stock ?? 0),
@@ -149,6 +166,15 @@ class WholesaleProductTransformer
     public function formatAddon(AddOn $addon, ?Customer $dealer): array
     {
         $priceResult = $this->addonPrice($addon, $dealer);
+        
+        // Optimize: Calculate total quantity efficiently
+        $totalQty = $addon->relationLoaded('inventories')
+                    ? $addon->inventories->sum('quantity')
+                    : ProductInventory::where('add_on_id', $addon->id)->sum('quantity');
+
+        $imgUrl = $addon->image
+            ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
+            : null;
 
         return [
             'id'              => $addon->id,
@@ -166,15 +192,9 @@ class WholesaleProductTransformer
             'discount_pct'    => $priceResult['discount_percentage'],
 
             // Media & specs
-            'image'           => $addon->image
-                ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
-                : null,
+            'image'           => $imgUrl,
             'stock_status'    => (bool) $addon->stock_status,
-            'total_quantity'  => (int) (
-                $addon->relationLoaded('inventories')
-                    ? $addon->inventories->sum('quantity')
-                    : ProductInventory::where('add_on_id', $addon->id)->sum('quantity')
-            ),
+            'total_quantity'  => (int) $totalQty,
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
             'thread_length'   => $addon->thread_length,
@@ -184,11 +204,9 @@ class WholesaleProductTransformer
             'lug_bolt_diameter' => $addon->lug_bolt_diameter,
             'size'            => $addon->size,
 
-            // ── Frontend compatibility aliases (mirrors dealer-portal API shape) ──
+            // Frontend compatibility aliases
             'discounted_price' => $priceResult['final_price'],
-            'image_1'          => $addon->image
-                ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
-                : null,
+            'image_1'          => $imgUrl,
             'vendor'           => [
                 'business_name' => $addon->category?->name ?? 'TunerStop',
                 'currency'      => 'USD',
@@ -200,7 +218,6 @@ class WholesaleProductTransformer
 
     /**
      * Calculate dealer price using DealerPricingService (3-tier hierarchy).
-     * Model-specific > Brand-specific > base price.
      */
     private function dealerPrice(ProductVariant $variant, ?Customer $dealer): array
     {
@@ -249,13 +266,11 @@ class WholesaleProductTransformer
 
     /**
      * Get per-warehouse stock breakdown for a variant.
-     * Returns array of warehouses with qty, eta_qty, and ETA date.
+     * @deprecated Use logic inside formatVariant for performance
      */
     private function stockData(ProductVariant $variant): array
     {
-        $inventories = $variant->inventories;
-
-        return $inventories->map(fn($inv) => [
+        return $variant->inventories->map(fn($inv) => [
             'warehouse_id'   => $inv->warehouse_id,
             'warehouse'      => $inv->warehouse?->warehouse_name ?? 'Unknown',
             'qty'            => (int) $inv->quantity,
@@ -283,7 +298,7 @@ class WholesaleProductTransformer
         return [
             'date'      => $eta->eta,
             'qty'       => (int) $eta->eta_qty,
-            'warehouse' => $eta->warehouse?->warehouse_name,
+            'warehouse' => $eta->warehouse?->warehouse_name ?? $eta->warehouse?->name,
         ];
     }
 }

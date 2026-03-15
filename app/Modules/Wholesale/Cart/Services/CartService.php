@@ -323,7 +323,7 @@ class CartService
      */
     public function recalculateTotals(Cart $cart): void
     {
-        $cart->loadMissing(['items', 'addons.addon']);
+        $cart->load(['items', 'addons.addon']);
 
         // ── Tax settings ──────────────────────────────────────────────────────
         $tax              = \Cache::remember('tax_setting_default', 300, fn() => TaxSetting::getDefault());
@@ -406,16 +406,7 @@ class CartService
      */
     public function formatCartResponse(Cart $cart): array
     {
-        $cart->loadMissing([
-            'items.variant.product.brand',
-            'items.variant.product.model',
-            'items.variant.finishRelation',
-            'items.variant.inventories.warehouse',
-            'items.warehouse',
-            'addons.addon.category',
-            'coupon',
-            'shippingAddress'
-        ]);
+        $cart->load(['items.variant.product.brand', 'items.variant.product.model', 'items.variant.finishRelation', 'items.variant.inventories.warehouse', 'items.warehouse', 'addons.addon.category', 'coupon', 'shippingAddress']);
         $dealer = $cart->dealer ?? ($cart->dealer_id ? Customer::find($cart->dealer_id) : null);
 
         $cartItems = $cart->items->map(function (CartItem $item) use ($dealer) {

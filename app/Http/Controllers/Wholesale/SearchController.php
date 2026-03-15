@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Products\Models\AddOn;
 use Illuminate\Http\Request;
 
 /**
@@ -25,43 +26,72 @@ class SearchController extends BaseWholesaleController
         $keyword = $request->get('query');
 
         if (! $keyword) {
-            return $this->success(['query' => '', 'products' => [], 'variants' => []]);
+            return $this->success(['query' => '', 'products' => [], 'addons' => [], 'variants' => []]);
         }
 
-        // Basic keyword search across Product and ProductVariant titles/SKUs
-        $products = Product::with(['brand'])
+        $term = '%' . $keyword . '%';
+
+        // 1. Search Products
+        $products = Product::with(['brand:id,name'])
             ->where('status', 1)
-            ->where('available_on_wholesale', true)
-            ->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('brand', fn($bq) => $bq->where('name', 'like', '%' . $keyword . '%'));
+            ->where('available_on_wholesale', 1)
+            ->where(function ($query) use ($term) {
+                $query->where('name', 'like', $term)
+                    ->orWhere('product_full_name', 'like', $term)
+                    ->orWhere('sku', 'like', $term);
             })
+            ->select(['id', 'name', 'product_full_name', 'sku', 'images', 'brand_id'])
+            ->take(15)
+            ->get();
+
+        // 2. Search AddOns
+        $addons = AddOn::with(['category:id,name'])
+            ->where('stock_status', '!=', 0)
+            ->where(function ($q) use ($term) {
+                $q->where('title', 'like', $term)
+                  ->orWhere('part_number', 'like', $term);
+            })
+            ->select(['id', 'title', 'part_number', 'image_1', 'addon_category_id'])
             ->take(10)
             ->get();
 
-        $variants = ProductVariant::with(['product.brand', 'finish'])
-            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true))
-            ->where('sku', 'like', '%' . $keyword . '%')
+        // 3. Search Product Variants
+        $variants = ProductVariant::with(['product:id,name,brand_id', 'product.brand:id,name'])
+            ->whereHas('product', function ($q) {
+                $q->where('status', 1)->where('available_on_wholesale', 1);
+            })
+            ->where('sku', 'like', $term)
+            ->select(['id', 'product_id', 'sku', 'image', 'finish'])
             ->take(10)
             ->get();
 
-        // Format to a generic search result structure
+        // Standardize output for Frontend
         $results = [
-            'query'    => $keyword,
+            'query' => $keyword,
             'products' => $products->map(fn($p) => [
-                'id'       => $p->id,
-                'name'     => $p->name,
-                'brand'    => $p->brand->name ?? null,
-                'slug'     => $p->name,
+                'id' => $p->id,
+                'name' => $p->name,
+                'brand' => $p->brand->name ?? null,
+                'images' => $p->images,
+                'sku' => $p->sku,
+                'type' => 'product'
+            ]),
+            'addons' => $addons->map(fn($a) => [
+                'id' => $a->id,
+                'name' => $a->title,
+                'brand' => $a->category->name ?? null,
+                'sku' => $a->part_number,
+                'images' => $a->image_1,
+                'type' => 'addon'
             ]),
             'variants' => $variants->map(fn($v) => [
-                'id'            => $v->id,
-                'product_title' => $v->product->name ?? 'Unknown',
-                'brand'         => $v->product->brand->name ?? null,
-                'finish'        => $v->finish->finish ?? 'Standard',
-                'sku'           => $v->sku,
-                'slug'          => $v->sku,
-            ]),
+                'id' => $v->id,
+                'name' => ($v->product->name ?? 'Unknown') . ' (' . ($v->finish ?? 'N/A') . ')',
+                'brand' => $v->product->brand->name ?? null,
+                'sku' => $v->sku,
+                'images' => $v->image,
+                'type' => 'variant'
+            ])
         ];
 
         return $this->success($results, 'Search results loaded.');

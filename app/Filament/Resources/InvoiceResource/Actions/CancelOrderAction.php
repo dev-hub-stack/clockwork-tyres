@@ -98,8 +98,8 @@ class CancelOrderAction
                                         ->afterStateUpdated(function ($state, callable $set) use ($cancellableItems) {
                                             $item = $cancellableItems->firstWhere('id', $state);
                                             if ($item) {
-                                                $set('max_quantity', $item->quantity_cancellable);
-                                                $set('quantity', clone $item->quantity_cancellable);
+                                                $set('max_quantity', (int) $item->quantity_cancellable);
+                                                $set('quantity', (int) $item->quantity_cancellable);
                                             }
                                         })
                                         ->searchable()
@@ -186,8 +186,8 @@ class CancelOrderAction
                         
                         $cItems->push([
                             'item_id' => $item->id,
-                            'quantity' => clone $item->quantity,
-                            'max_quantity' => clone $item->quantity,
+                            'quantity' => (int) $item->quantity,
+                            'max_quantity' => (int) $item->quantity,
                             'warehouse_id' => $whId,
                             'condition' => 'good',
                         ]);

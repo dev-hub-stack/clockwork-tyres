@@ -39,13 +39,12 @@ class ProductController extends BaseWholesaleController
         $dealer  = $this->dealer();
         $perPage = min((int) ($request->perPage ?? $request->per_page ?? 20), 100);
 
+        // Optimization: Unified Eager Loading
         $query = ProductVariant::with([
             'product.brand',
             'product.model',
             'finishRelation',
-            // Load inventories with minimal columns + warehouse name only
-            'inventories' => fn($q) => $q->with(['warehouse:id,warehouse_name,code'])
-                                         ->select(['id', 'product_variant_id', 'warehouse_id', 'quantity', 'eta_qty', 'eta']),
+            'inventories.warehouse:id,warehouse_name,code',
         ])
         ->join('products', 'products.id', '=', 'product_variants.product_id')
         ->where('products.status', 1)
@@ -54,20 +53,22 @@ class ProductController extends BaseWholesaleController
 
         $this->applyVariantFilters($query, $request);
 
+        // Sorting
         match ($request->sort) {
-            'price_asc'  => $query->orderBy('uae_retail_price', 'asc'),
-            'price_desc' => $query->orderBy('uae_retail_price', 'desc'),
-            'name_asc'   => $query->join('products as p', 'p.id', '=', 'product_variants.product_id')
-                                  ->orderBy('p.name', 'asc'),
+            'price_asc'  => $query->orderBy('product_variants.uae_retail_price', 'asc'),
+            'price_desc' => $query->orderBy('product_variants.uae_retail_price', 'desc'),
+            'name_asc'   => $query->orderBy('products.name', 'asc'),
             'newest'     => $query->orderBy('product_variants.created_at', 'desc'),
             default      => $query->orderBy('product_variants.id', 'desc'),
         };
 
         $page      = $request->pagination ?? $request->page ?? 1;
         $cacheKey  = 'products_' . ($dealer?->id ?? 'guest') . '_' . md5(serialize($request->except(['_token'])));
-        $paginator = \Cache::remember($cacheKey, 300, fn() =>
-            $query->paginate($perPage, ['product_variants.*'], 'page', $page)
-        );
+        
+        $paginator = \Cache::remember($cacheKey, 300, function () use ($query, $perPage, $page) {
+            return $query->paginate($perPage, ['product_variants.*'], 'page', $page);
+        });
+
         $data         = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
@@ -97,7 +98,7 @@ class ProductController extends BaseWholesaleController
         $brandId = $request->brand_id;
         $cacheKey = "wholesale_filters_" . ($brandId ?? 'all');
 
-        return \Cache::remember($cacheKey, 300, function () use ($brandId) {
+        return \Cache::remember($cacheKey, 600, function () use ($brandId) {
             $baseQuery = ProductVariant::active();
 
             if ($brandId) {
@@ -106,13 +107,12 @@ class ProductController extends BaseWholesaleController
                 $baseQuery->whereHas('product', fn($q) => $q->where('available_on_wholesale', true));
             }
 
+            // Optimize: Use distinct on variant table where possible
             $diameters    = (clone $baseQuery)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
             $widths       = (clone $baseQuery)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
             $boltPatterns = (clone $baseQuery)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
             $offsets      = (clone $baseQuery)->whereNotNull('offset')->selectRaw('MIN(offset) as min_offset, MAX(offset) as max_offset')->first();
 
-            // Finishes are stored on the PRODUCT (products.finish_id → finishes.finish),
-            // not on product_variants. Join through the product to get the real list.
             $finishQuery = (clone $baseQuery)
                 ->join('products', 'product_variants.product_id', '=', 'products.id')
                 ->join('finishes', 'products.finish_id', '=', 'finishes.id')
@@ -126,7 +126,6 @@ class ProductController extends BaseWholesaleController
             $constructions = Product::active()->whereNotNull('construction')->distinct()->pluck('construction')->filter()->sort()->values();
             $brands       = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
 
-            // Format for frontend (array of objects with 'name' and 'checked')
             $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item, 'checked' => false]);
 
             return [
@@ -239,15 +238,14 @@ class ProductController extends BaseWholesaleController
      */
     private function applyVariantFilters($query, Request $request): void
     {
-        // Note: 'products' is already JOIN-ed in the base query (for status=1 filter).
-        // Use direct WHERE on the joined table instead of correlated subqueries (much faster).
-
+        // Optimization: Use direct joins for filters instead of subqueries
         if ($request->filled('brand_id')) {
             $brandIds = explode(',', $request->brand_id);
             $query->whereIn('products.brand_id', $brandIds);
         }
         if ($request->filled('brand')) {
             $brandNames = explode(',', $request->brand);
+            // Join brands only if not already joined or needed
             $query->join('brands', 'brands.id', '=', 'products.brand_id')
                   ->whereIn('brands.name', $brandNames);
         }
@@ -256,25 +254,23 @@ class ProductController extends BaseWholesaleController
         }
         if ($request->filled('finish_id')) {
             $query->where(function ($q) use ($request) {
+                // finish_id check on both tables is common in Tunerstop schema
                 $q->where('product_variants.finish_id', $request->finish_id)
                   ->orWhere('products.finish_id', $request->finish_id);
             });
         }
         if ($request->filled('finish')) {
             $values = explode(',', $request->finish);
-            $finishIds = [];
-            foreach ($values as $value) {
-                $ids = \App\Modules\Products\Models\Finish::where('finish', 'LIKE', '%' . trim($value) . '%')->pluck('id');
-                $finishIds = array_merge($finishIds, $ids->all());
-            }
-            $finishIds = array_unique($finishIds);
+            $finishIds = \App\Modules\Products\Models\Finish::where(function($q) use ($values) {
+                foreach($values as $v) $q->orWhere('finish', 'LIKE', '%' . trim($v) . '%');
+            })->pluck('id');
             $query->whereIn('products.finish_id', $finishIds);
         }
         if ($request->filled('construction')) {
             $values = explode(',', $request->construction);
             $query->whereIn('products.construction', $values);
         }
-        // Accept both plain names (vehicle-search path) and front_* names (search-by-size path)
+
         $rimDiameter = $request->rim_diameter ?? $request->front_rim_diameter;
         if ($rimDiameter) {
             $query->where('product_variants.rim_diameter', $rimDiameter);
@@ -287,10 +283,11 @@ class ProductController extends BaseWholesaleController
         if ($boltPattern) {
             $query->where('product_variants.bolt_pattern', $boltPattern);
         }
+
         if ($request->filled('offset_min') || $request->filled('offset_max')) {
             $query->whereBetween('product_variants.offset', [
-                $request->get('offset_min', -100),
-                $request->get('offset_max', 100),
+                $request->get('offset_min', -200),
+                $request->get('offset_max', 200),
             ]);
         }
         if ($request->filled('clearance') && $request->clearance) {

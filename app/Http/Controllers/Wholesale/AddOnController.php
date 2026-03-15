@@ -53,7 +53,7 @@ class AddOnController extends BaseWholesaleController
 
         $formatted = $addons->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer));
 
-        // Group by category for cleaner frontend rendering
+        // Group by category for cleaner frontend rendering - Only show categories that actually have items
         $grouped = $formatted->groupBy('category')->map(fn($items, $category) => [
             'category' => $category,
             'items'    => $items->values(),
