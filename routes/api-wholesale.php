@@ -18,6 +18,7 @@ use App\Http\Controllers\Wholesale\WishlistController;
 use App\Http\Controllers\Wholesale\ReviewController;
 use App\Http\Controllers\Wholesale\SearchController;
 use App\Http\Controllers\Wholesale\HomepageController;
+use App\Http\Controllers\Wholesale\WheelSizeProxyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -115,6 +116,15 @@ Route::middleware('wholesale.auth')->group(function () {
     Route::put('order/update/{orderId}',   [OrderController::class, 'update']);
     Route::get('order/process',            [OrderController::class, 'process']);
     Route::get('order/{sessionId}/get',    [OrderController::class, 'get']);
+    
+    // ── Phase 6: Wheel-Size Proxy ─────────────────────────────────────────────
+    Route::prefix('wheel-size')->group(function () {
+        Route::get('makes',         [WheelSizeProxyController::class, 'makes']);
+        Route::get('models',        [WheelSizeProxyController::class, 'models']);
+        Route::get('years',         [WheelSizeProxyController::class, 'years']);
+        Route::get('modifications', [WheelSizeProxyController::class, 'modifications']);
+        Route::get('search/by_model', [WheelSizeProxyController::class, 'searchByModel']);
+    });
 
     // ── Phase 3: Payments ─────────────────────────────────────────────────────
     Route::post('payment',               [PaymentController::class, 'initiate']);
