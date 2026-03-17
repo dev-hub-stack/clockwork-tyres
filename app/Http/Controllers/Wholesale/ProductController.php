@@ -62,7 +62,7 @@ class ProductController extends BaseWholesaleController
             default      => $query->orderBy('product_variants.id', 'desc'),
         };
 
-        $page      = $request->pagination ?? $request->page ?? 1;
+        $page      = $request->page ?? $request->pagination ?? 1;
         $cacheKey  = 'products_' . ($dealer?->id ?? 'guest') . '_' . md5(serialize($request->except(['_token'])));
         
         $paginator = \Cache::remember($cacheKey, 300, function () use ($query, $perPage, $page) {
@@ -99,22 +99,27 @@ class ProductController extends BaseWholesaleController
         $cacheKey = "wholesale_filters_" . ($brandId ?? 'all');
 
         return \Cache::remember($cacheKey, 600, function () use ($brandId) {
-            $baseQuery = ProductVariant::active();
+            $baseQuery = ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true);
 
             if ($brandId) {
-                $baseQuery->whereHas('product', fn($q) => $q->where('brand_id', $brandId)->where('available_on_wholesale', true));
-            } else {
-                $baseQuery->whereHas('product', fn($q) => $q->where('available_on_wholesale', true));
+                $baseQuery->where('products.brand_id', $brandId);
             }
 
             // Optimize: Use distinct on variant table where possible
+            // Note: Use select() to avoid column collisions before pluck() if needed, 
+            // but pluck works on the column name so should be fine.
             $diameters    = (clone $baseQuery)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
             $widths       = (clone $baseQuery)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
             $boltPatterns = (clone $baseQuery)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
-            $offsets      = (clone $baseQuery)->whereNotNull('offset')->selectRaw('MIN(offset) as min_offset, MAX(offset) as max_offset')->first();
+            
+            // For aggregates, we can keep the join
+            $offsets      = (clone $baseQuery)->whereNotNull('product_variants.offset')
+                ->selectRaw('MIN(product_variants.offset) as min_offset, MAX(product_variants.offset) as max_offset')
+                ->first();
 
             $finishQuery = (clone $baseQuery)
-                ->join('products', 'product_variants.product_id', '=', 'products.id')
                 ->join('finishes', 'products.finish_id', '=', 'finishes.id')
                 ->whereNotNull('products.finish_id')
                 ->distinct()
@@ -123,8 +128,17 @@ class ProductController extends BaseWholesaleController
 
             $finishes = $finishQuery->filter()->values();
 
-            $constructions = Product::active()->whereNotNull('construction')->distinct()->pluck('construction')->filter()->sort()->values();
-            $brands       = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
+            // Brands and constructions can be pulled directly from Product/Brand with active scopes
+            $constructions = Product::active()
+                ->where('available_on_wholesale', true)
+                ->whereNotNull('construction')
+                ->distinct()
+                ->pluck('construction')
+                ->filter()
+                ->sort()
+                ->values();
+                
+            $brands = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
 
             $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item, 'checked' => false]);
 
@@ -165,7 +179,9 @@ class ProductController extends BaseWholesaleController
         ]);
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
-            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
+            ->join('products', 'products.id', '=', 'product_variants.product_id')
+            ->where('products.status', 1)
+            ->where('products.available_on_wholesale', true);
 
         if ($request->filled('rim_diameter')) {
             $query->where('rim_diameter', $request->rim_diameter);
@@ -177,7 +193,7 @@ class ProductController extends BaseWholesaleController
             $query->where('bolt_pattern', $request->bolt_pattern);
         }
 
-        $variants = $query->get();
+        $variants = $query->select('product_variants.*')->get();
 
         return $this->success($this->transformer->formatVariants($variants, $dealer));
     }
@@ -188,12 +204,20 @@ class ProductController extends BaseWholesaleController
      */
     public function searchSizeParams(Request $request)
     {
-        $base = ProductVariant::whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
+        $base = ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
+            ->where('products.status', 1)
+            ->where('products.available_on_wholesale', true);
+
+        $diameters    = (clone $base)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
+        $widths       = (clone $base)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
+        $boltPatterns = (clone $base)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
+
+        $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item]);
 
         return $this->success([
-            'diameters'    => (clone $base)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values(),
-            'widths'       => (clone $base)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values(),
-            'bolt_patterns'=> (clone $base)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values(),
+            'diameter'     => $formatter($diameters)->all(),
+            'width'        => $formatter($widths)->all(),
+            'bolt_pattern' => $formatter($boltPatterns)->all(),
         ]);
     }
 
@@ -205,10 +229,12 @@ class ProductController extends BaseWholesaleController
     public function searchVehicles(Request $request)
     {
         $dealer = $this->dealer();
-        $page   = $request->get('pagination', 1);
+        $page   = $request->page ?? $request->pagination ?? 1;
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
-            ->whereHas('product', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
+            ->join('products', 'products.id', '=', 'product_variants.product_id')
+            ->where('products.status', 1)
+            ->where('products.available_on_wholesale', true);
 
         // Filter by bolt pattern from vehicle fitment (primary fitment filter)
         if ($request->filled('bolt_pattern')) {
@@ -220,7 +246,7 @@ class ProductController extends BaseWholesaleController
             $query->where('rim_diameter', $request->rim_diameter);
         }
 
-        $paginator = $query->paginate(20, ['*'], 'page', $page);
+        $paginator = $query->select('product_variants.*')->paginate(20, ['*'], 'page', $page);
         $data      = $paginator->toArray();
         $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
 
@@ -299,6 +325,15 @@ class ProductController extends BaseWholesaleController
                 $q->where('product_variants.sku', 'like', $term)
                   ->orWhere('products.name', 'like', $term);
             });
+        }
+
+        if ($request->filled('min_quantity')) {
+            $minQty = (int)$request->min_quantity;
+            $query->whereRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) >= ?', [$minQty]);
+        }
+
+        if ($request->get('hide_out_of_stock') == '1' || $request->get('hide_out_of_stock') === 'true') {
+             $query->whereRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0');
         }
     }
 

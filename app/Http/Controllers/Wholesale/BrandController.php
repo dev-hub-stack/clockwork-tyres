@@ -33,12 +33,17 @@ class BrandController extends BaseWholesaleController
      */
     public function index()
     {
-        $brands = Brand::active()
-            ->ordered()
-            ->whereHas('products', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true))
-            ->get(['id', 'name', 'slug', 'logo', 'description']);
+        return \Cache::remember('wholesale_brands_nav', 600, function () {
+            $brandIds = Product::where('status', 1)
+                ->where('available_on_wholesale', true)
+                ->distinct()
+                ->pluck('brand_id');
 
-        return $this->success($brands);
+            return Brand::active()
+                ->ordered()
+                ->whereIn('id', $brandIds)
+                ->get(['id', 'name', 'slug', 'logo', 'description']);
+        });
     }
 
     /**
@@ -48,32 +53,41 @@ class BrandController extends BaseWholesaleController
      */
     public function all(Request $request)
     {
-        $query = Brand::active()
-            ->ordered()
-            ->whereHas('products', fn($q) => $q->where('status', 1)->where('available_on_wholesale', true));
+        $search = $request->search;
+        $cacheKey = "wholesale_all_brands_" . ($search ?? 'none');
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
+        return \Cache::remember($cacheKey, 600, function () use ($search) {
+            $brandIds = Product::where('status', 1)
+                ->where('available_on_wholesale', true)
+                ->distinct()
+                ->pluck('brand_id');
 
-        $brands = $query->withCount(['products' => fn($q) => $q->where('status', 1)->where('available_on_wholesale', true)])->get();
+            $query = Brand::active()
+                ->ordered()
+                ->whereIn('id', $brandIds);
 
-        $formatted = $brands->map(fn(Brand $b) => [
-            'id'            => $b->id,
-            'name'          => $b->name,
-            'slug'          => $b->slug,
-            'image'         => $b->logo,   // Angular template uses brand.image
-            'description'   => $b->description,
-            'product_count' => $b->products_count,
-        ])->values()->all();
+            if ($search) {
+                $query->where('name', 'like', '%' . $search . '%');
+            }
 
-        // Angular brand component expects: response.data.brands.data + response.data.brands.next_page_url
-        return $this->success([
-            'brands' => [
-                'data'          => $formatted,
-                'next_page_url' => null,
-            ],
-        ]);
+            $brands = $query->withCount(['products' => fn($q) => $q->where('status', 1)->where('available_on_wholesale', true)])->get();
+
+            $formatted = $brands->map(fn(Brand $b) => [
+                'id'            => $b->id,
+                'name'          => $b->name,
+                'slug'          => $b->slug,
+                'image'         => $b->logo,
+                'description'   => $b->description,
+                'product_count' => $b->products_count,
+            ])->values()->all();
+
+            return [
+                'brands' => [
+                    'data'          => $formatted,
+                    'next_page_url' => null,
+                ],
+            ];
+        });
     }
 
     /**

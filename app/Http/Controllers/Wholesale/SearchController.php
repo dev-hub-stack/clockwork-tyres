@@ -32,7 +32,7 @@ class SearchController extends BaseWholesaleController
         $term = '%' . $keyword . '%';
 
         // 1. Search Products
-        $products = Product::with(['brand:id,name'])
+        $products = Product::with(['brand:id,name', 'variants:id,product_id,sku'])
             ->where('status', 1)
             ->where('available_on_wholesale', 1)
             ->where(function ($query) use ($term) {
@@ -56,7 +56,7 @@ class SearchController extends BaseWholesaleController
             ->get();
 
         // 3. Search Product Variants
-        $variants = ProductVariant::with(['product:id,name,brand_id', 'product.brand:id,name'])
+        $variants = ProductVariant::with(['product:id,name,images,brand_id', 'product.brand:id,name'])
             ->whereHas('product', function ($q) {
                 $q->where('status', 1)->where('available_on_wholesale', 1);
             })
@@ -68,30 +68,68 @@ class SearchController extends BaseWholesaleController
         // Standardize output for Frontend
         $results = [
             'query' => $keyword,
-            'products' => $products->map(fn($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'brand' => $p->brand->name ?? null,
-                'images' => $p->images,
-                'sku' => $p->sku,
-                'type' => 'product'
-            ]),
-            'addons' => $addons->map(fn($a) => [
-                'id' => $a->id,
+            'products' => $products->map(function($p) {
+                $imgs = $p->images;
+                $firstImg = null;
+
+                if ($imgs instanceof \Illuminate\Support\Collection) {
+                    $firstImg = $imgs->first();
+                } elseif (is_array($imgs)) {
+                    $firstImg = $imgs[0] ?? null;
+                } elseif (is_string($imgs) && !empty($imgs)) {
+                    $decoded = json_decode($imgs, true);
+                    $firstImg = is_array($decoded) ? ($decoded[0] ?? null) : $imgs;
+                }
+
+                $sku = $p->sku;
+                if (empty($sku)) {
+                    $sku = $p->variants->first()?->sku;
+                }
+
+                return [
+                    'id' => $p->id,
+                    'name' => $p->product_full_name ?? $p->name,
+                    'brand' => $p->brand->name ?? null,
+                    'images' => $firstImg,
+                    'sku' => $sku,
+                    'slug' => $p->name,
+                    'type' => 'product'
+                ];
+            }),
+            'addons' => $addons->map(function($a) {
+                return [
+                    'id' => $a->id,
                 'name' => $a->title,
                 'brand' => $a->category->name ?? null,
                 'sku' => $a->part_number,
                 'images' => $a->image_1,
+                'slug' => $a->title,
                 'type' => 'addon'
-            ]),
-            'variants' => $variants->map(fn($v) => [
-                'id' => $v->id,
-                'name' => ($v->product->name ?? 'Unknown') . ' (' . ($v->finish ?? 'N/A') . ')',
-                'brand' => $v->product->brand->name ?? null,
-                'sku' => $v->sku,
-                'images' => $v->image,
-                'type' => 'variant'
-            ])
+                ];
+            }),
+            'variants' => $variants->map(function($v) {
+                $variantImg = $v->image;
+                if (!$variantImg && $v->product) {
+                    $pImgs = $v->product->images;
+                    if ($pImgs instanceof \Illuminate\Support\Collection) {
+                        $variantImg = $pImgs->first();
+                    } elseif (is_array($pImgs)) {
+                        $variantImg = $pImgs[0] ?? null;
+                    } elseif (is_string($pImgs) && !empty($pImgs)) {
+                        $decoded = json_decode($pImgs, true);
+                        $variantImg = is_array($decoded) ? ($decoded[0] ?? null) : $pImgs;
+                    }
+                }
+                return [
+                    'id' => $v->id,
+                    'name' => ($v->product->product_full_name ?? $v->product->name ?? 'Unknown') . ($v->finish ? ' - ' . $v->finish : ''),
+                    'brand' => $v->product->brand->name ?? null,
+                    'sku' => $v->sku,
+                    'slug' => $v->product->name ?? 'Unknown',
+                    'images' => $variantImg,
+                    'type' => 'variant'
+                ];
+            })
         ];
 
         return $this->success($results, 'Search results loaded.');
