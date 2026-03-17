@@ -53,7 +53,10 @@ class ProductController extends BaseWholesaleController
 
         $this->applyVariantFilters($query, $request);
 
-        // Sorting
+        // Priority Sorting: In-Stock items first
+        $query->orderByRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0 DESC');
+
+        // User Sorting
         match ($request->sort) {
             'price_asc'  => $query->orderBy('product_variants.uae_retail_price', 'asc'),
             'price_desc' => $query->orderBy('product_variants.uae_retail_price', 'desc'),
