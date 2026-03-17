@@ -25,12 +25,24 @@ class WheelSizeProxyController extends BaseWholesaleController
 
         try {
             $response = Http::get($this->apiUrl . $endpoint . '/', $queryParams);
-            
+
             if ($response->successful()) {
-                return response()->json($response->json());
+                $json = $response->json();
+                // Wheel-size API returns { count, results: [...] }
+                // Angular expects { status, data: [...] }
+                $data = isset($json['results']) ? $json['results'] : $json;
+                return response()->json([
+                    'status' => true,
+                    'data'   => $data,
+                ]);
             }
 
-            return $response->json();
+            return response()->json([
+                'status'  => false,
+                'message' => 'External API error',
+                'data'    => $response->json(),
+            ], $response->status());
+
         } catch (\Exception $e) {
             return $this->error('Proxy request failed: ' . $e->getMessage(), null, 500);
         }
