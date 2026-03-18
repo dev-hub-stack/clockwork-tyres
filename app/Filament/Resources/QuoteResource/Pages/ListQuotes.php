@@ -38,12 +38,6 @@ class ListQuotes extends ListRecords
                 ->modifyQueryUsing(function (Builder $query) {
                     return $query->where('quote_type', 'abandoned_cart');
                 }),
-
-            'confirmed_wholesale' => Tab::make('Wholesale Confirmed')
-                ->badge(Order::confirmedWholesaleQuotes()->count())
-                ->modifyQueryUsing(function (Builder $query) {
-                    return $query->where('quote_type', 'confirmed_order');
-                }),
                 
             'retail' => Tab::make('Retail Orders')
                 ->badge(Order::quotes()->where(function($q) {

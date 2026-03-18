@@ -283,7 +283,7 @@ php artisan email:suppress off
   - `standard` — manual/imported non-checkout quotes.
 - [x] In the Quotes list view, add a **Type** column and a filter dropdown.
 - [x] Visually differentiate abandoned carts with a grey **Abandoned Cart** badge.
-- [x] Add dedicated tabs for **Abandoned Carts** and **Wholesale Confirmed**.
+- [x] Add a dedicated **Abandoned Carts** tab while keeping the existing **Wholesale Orders** tab for the full wholesale view.
 
 ---
 
