@@ -88,6 +88,7 @@ class OrderController extends BaseWholesaleController
         $order = $this->orderService->createOrder([
             'document_type'      => DocumentType::QUOTE->value,
             'quote_status'       => 'sent',
+            'quote_type'         => 'abandoned_cart',
             'channel'            => 'wholesale',
             'currency'           => 'AED',
             'customer_id'        => $dealer->id,
@@ -224,6 +225,7 @@ class OrderController extends BaseWholesaleController
         $dealer = $this->dealer();
 
         $order = Order::where('customer_id', $dealer->id)->findOrFail($request->order_id);
+        $order->update(['quote_type' => 'confirmed_order']);
         $this->orderService->completeOrder($order);
 
         return $this->success(['order_id' => $order->id, 'status' => $order->fresh()->status]);
@@ -270,6 +272,7 @@ class OrderController extends BaseWholesaleController
 
         // Confirm and allocate inventory
         $this->orderService->confirmOrder($order);
+        $order->update(['quote_type' => 'confirmed_order']);
 
         // Clear the dealer's cart now that payment is confirmed — standard e-commerce flow:
         // cart is only emptied after successful payment, not at order placement.

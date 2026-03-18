@@ -273,15 +273,17 @@ php artisan email:suppress off
 
 **Goal:** In the Quotes section, clearly distinguish wholesale abandoned carts from real confirmed/pending orders.
 
+**Status:** Completed on 2026-03-18.
+
 ### Steps
 
-- [ ] Add a `source` or `type` field to quotes:
+- [x] Add a `quote_type` field to quotes:
   - `abandoned_cart` — created from wholesale checkout but never completed.
   - `confirmed_order` — customer completed checkout.
-  - `manual` — created by staff in the CRM.
-- [ ] In the Quotes list view, add a **Type** column and a filter dropdown.
-- [ ] Visually differentiate abandoned carts (e.g., grey row, "Abandoned" badge).
-- [ ] Optionally: move abandoned carts to a separate tab or sub-section.
+  - `standard` — manual/imported non-checkout quotes.
+- [x] In the Quotes list view, add a **Type** column and a filter dropdown.
+- [x] Visually differentiate abandoned carts with a grey **Abandoned Cart** badge.
+- [x] Add dedicated tabs for **Abandoned Carts** and **Wholesale Confirmed**.
 
 ---
 

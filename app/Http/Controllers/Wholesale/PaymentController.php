@@ -99,6 +99,10 @@ class PaymentController extends BaseWholesaleController
                 $order->update(['payment_status' => PaymentStatus::PENDING]);
             }
 
+            if ($order->quote_type !== 'confirmed_order') {
+                $order->update(['quote_type' => 'confirmed_order']);
+            }
+
             $cart = Cart::where('dealer_id', $dealer->id)->first();
             if ($cart) {
                 $this->cartService->clearCart($cart);
@@ -123,7 +127,13 @@ class PaymentController extends BaseWholesaleController
 
     private function handleBankTransfer(Request $request, Order $order, $dealer): \Illuminate\Http\JsonResponse
     {
-        $order->update(['payment_status' => 'pending_bank_transfer', 'order_status' => 'pending']);
+        $order->update([
+            'payment_status' => PaymentStatus::PENDING,
+            'payment_method' => 'bank_transfer',
+            'payment_gateway' => 'BankTransfer',
+            'order_status' => OrderStatus::PENDING,
+            'quote_type' => 'confirmed_order',
+        ]);
 
         return $this->success([
             'order_id' => $order->id,
