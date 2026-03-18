@@ -56,9 +56,27 @@ class OrderObserver
             if ($customerEmail) {
                 try {
                     if ($newStatus === OrderStatus::CANCELLED) {
-                        Mail::to($customerEmail)->send(new OrderCancelledMail($order));
+                        app(\App\Support\TransactionalCustomerMail::class)->send(
+                            $customerEmail,
+                            new OrderCancelledMail($order),
+                            [
+                                'trigger' => 'order.status_cancelled',
+                                'order_id' => $order->id,
+                                'order_number' => $order->order_number,
+                                'status' => $newStatus->value,
+                            ]
+                        );
                     } elseif (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::COMPLETED])) {
-                        Mail::to($customerEmail)->send(new OrderCompletedMail($order));
+                        app(\App\Support\TransactionalCustomerMail::class)->send(
+                            $customerEmail,
+                            new OrderCompletedMail($order),
+                            [
+                                'trigger' => 'order.status_completed',
+                                'order_id' => $order->id,
+                                'order_number' => $order->order_number,
+                                'status' => $newStatus->value,
+                            ]
+                        );
                     }
                 } catch (\Exception $e) {
                     Log::error('OrderObserver: failed to send status change email', [

@@ -52,8 +52,18 @@ class ViewInvoice extends ViewRecord
                 ])
                 ->action(function (array $data) {
                     try {
-                        Mail::to($data['email'])->send(new \App\Mail\InvoiceCreatedMail($this->record));
-                        $note = "Email sent to {$data['email']}.";
+                        $mailStatus = app(\App\Support\TransactionalCustomerMail::class)->send(
+                            $data['email'],
+                            new \App\Mail\InvoiceCreatedMail($this->record),
+                            [
+                                'trigger' => 'invoice.send',
+                                'invoice_id' => $this->record->id,
+                                'order_number' => $this->record->order_number,
+                            ]
+                        );
+                        $note = $mailStatus === 'suppressed'
+                            ? 'Email suppressed by system setting.'
+                            : "Email sent to {$data['email']}.";
                         $success = true;
                     } catch (\Throwable $e) {
                         Log::warning('Failed to send invoice email', [

@@ -86,8 +86,15 @@ class QuoteConversionService
             $customerEmail = $quote->customer?->email ?? null;
             if ($customerEmail) {
                 try {
-                    \Illuminate\Support\Facades\Mail::to($customerEmail)
-                        ->send(new \App\Mail\QuoteApprovedMail($quote));
+                    app(\App\Support\TransactionalCustomerMail::class)->send(
+                        $customerEmail,
+                        new \App\Mail\QuoteApprovedMail($quote),
+                        [
+                            'trigger' => 'quote.converted_to_invoice',
+                            'quote_id' => $quote->id,
+                            'order_number' => $quote->order_number,
+                        ]
+                    );
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('QuoteConversionService: failed to send QuoteApprovedMail', [
                         'order_id' => $quote->id,

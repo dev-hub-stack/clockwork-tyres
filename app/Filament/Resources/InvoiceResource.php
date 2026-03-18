@@ -1093,8 +1093,16 @@ class InvoiceResource extends Resource
                         if ($record->customer?->email) {
                             try {
                                 $record->refresh();
-                                \Illuminate\Support\Facades\Mail::to($record->customer->email)
-                                    ->send(new \App\Mail\PaymentReceiptMail($record, $payment));
+                                app(\App\Support\TransactionalCustomerMail::class)->send(
+                                    $record->customer->email,
+                                    new \App\Mail\PaymentReceiptMail($record, $payment),
+                                    [
+                                        'trigger' => 'invoice.payment_receipt',
+                                        'invoice_id' => $record->id,
+                                        'order_number' => $record->order_number,
+                                        'payment_id' => $payment->id,
+                                    ]
+                                );
                             } catch (\Exception $e) {
                                 \Illuminate\Support\Facades\Log::error('InvoiceResource: failed to send PaymentReceiptMail', [
                                     'order_id' => $record->id,
@@ -1381,11 +1389,21 @@ class InvoiceResource extends Resource
                     ->modalDescription(fn($record) => "Send shipping confirmation email with tracking #{$record->tracking_number} to {$record->customer?->email}?")
                     ->action(function ($record) {
                         try {
-                            \Illuminate\Support\Facades\Mail::to($record->customer->email)
-                                ->send(new \App\Mail\OrderShippedMail($record));
+                            $mailStatus = app(\App\Support\TransactionalCustomerMail::class)->send(
+                                $record->customer->email,
+                                new \App\Mail\OrderShippedMail($record),
+                                [
+                                    'trigger' => 'invoice.shipping_confirmation',
+                                    'invoice_id' => $record->id,
+                                    'order_number' => $record->order_number,
+                                    'tracking_number' => $record->tracking_number,
+                                ]
+                            );
                             Notification::make()
-                                ->title('Tracking Email Sent')
-                                ->body("Shipping confirmation sent to {$record->customer->email}")
+                                ->title($mailStatus === 'suppressed' ? 'Tracking Email Suppressed' : 'Tracking Email Sent')
+                                ->body($mailStatus === 'suppressed'
+                                    ? 'Shipping confirmation email was suppressed by system setting.'
+                                    : "Shipping confirmation sent to {$record->customer->email}")
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {

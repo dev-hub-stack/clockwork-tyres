@@ -6,6 +6,7 @@ use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Settings\Models\TaxSetting;
+use App\Support\TransactionalCustomerMail;
 use BackedEnum;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -94,6 +95,7 @@ class ManageSettings extends Page implements HasForms
             'ws_eta_message'           => SystemSetting::get('admin.eta_item_message', ''),
             'ws_shipping_rate_four'    => SystemSetting::get('admin.shipping_rate_upto_four', 200),
             'ws_shipping_rate_per_item'=> SystemSetting::get('admin.shipping_rate_per_item', 50),
+            'suppress_customer_transactional_emails' => (bool) SystemSetting::get(TransactionalCustomerMail::SUPPRESSION_KEY, '0'),
         ]);
     }
 
@@ -266,6 +268,16 @@ class ManageSettings extends Page implements HasForms
                     ->columns(2)
                     ->collapsible(),
 
+                Section::make('Notifications')
+                    ->description('Control outbound transactional emails sent to customers')
+                    ->schema([
+                        Toggle::make('suppress_customer_transactional_emails')
+                            ->label('Suppress Customer Transactional Emails')
+                            ->helperText('When enabled, quote, invoice, payment, shipping, and order status emails are logged internally but not sent to customers.'),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
+
                 Section::make('Tax Settings')
                     ->description('Configure default tax rate and behavior')
                     ->schema([
@@ -367,6 +379,7 @@ class ManageSettings extends Page implements HasForms
             SystemSetting::set('admin.eta_item_message',    $data['ws_eta_message'] ?? '',            'string',  'Estimated delivery message shown at checkout');
             SystemSetting::set('admin.shipping_rate_upto_four',  $data['ws_shipping_rate_four'] ?? 200,   'float', 'Delivery rate for up to 4 items (AED)');
             SystemSetting::set('admin.shipping_rate_per_item',   $data['ws_shipping_rate_per_item'] ?? 50, 'float', 'Delivery rate per extra item beyond 4 (AED)');
+            SystemSetting::set(TransactionalCustomerMail::SUPPRESSION_KEY, $data['suppress_customer_transactional_emails'] ? '1' : '0', 'boolean', 'Suppress transactional customer emails and log them internally');
 
             // Clear settings cache
             app(\App\Modules\Settings\Services\SettingsService::class)->clearCache();

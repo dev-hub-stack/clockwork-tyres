@@ -34,8 +34,18 @@ class ViewQuote extends ViewRecord
                     ]);
                     
                     try {
-                        \Illuminate\Support\Facades\Mail::to($data['email'])->send(new \App\Mail\QuoteSentMail($this->record));
-                        $note = "Email sent to {$data['email']}.";
+                        $mailStatus = app(\App\Support\TransactionalCustomerMail::class)->send(
+                            $data['email'],
+                            new \App\Mail\QuoteSentMail($this->record),
+                            [
+                                'trigger' => 'quote.send',
+                                'quote_id' => $this->record->id,
+                                'quote_number' => $this->record->quote_number,
+                            ]
+                        );
+                        $note = $mailStatus === 'suppressed'
+                            ? 'Email suppressed by system setting.'
+                            : "Email sent to {$data['email']}.";
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::warning('Failed to send quote email', [
                             'quote_id' => $this->record->id,

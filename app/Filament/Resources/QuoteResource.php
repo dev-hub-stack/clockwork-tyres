@@ -998,8 +998,18 @@ class QuoteResource extends Resource
                         
                         // Send email with PDF attachment
                         try {
-                            \Illuminate\Support\Facades\Mail::to($data['email'])->send(new \App\Mail\QuoteSentMail($record));
-                            $emailNote = " Email sent to {$data['email']}.";
+                            $mailStatus = app(\App\Support\TransactionalCustomerMail::class)->send(
+                                $data['email'],
+                                new \App\Mail\QuoteSentMail($record),
+                                [
+                                    'trigger' => 'quote.send',
+                                    'quote_id' => $record->id,
+                                    'quote_number' => $record->quote_number,
+                                ]
+                            );
+                            $emailNote = $mailStatus === 'suppressed'
+                                ? ' Email suppressed by system setting.'
+                                : " Email sent to {$data['email']}.";
                         } catch (\Exception $emailEx) {
                             \Illuminate\Support\Facades\Log::warning('Failed to send quote email', [
                                 'quote_id' => $record->id,
