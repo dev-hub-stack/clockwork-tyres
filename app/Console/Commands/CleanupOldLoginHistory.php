@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Modules\Settings\Models\SystemSetting;
 use App\Models\UserLoginHistory;
 use Illuminate\Console\Command;
 
@@ -27,7 +28,7 @@ class CleanupOldLoginHistory extends Command
     public function handle(): int
     {
         // Get retention days from settings or use command option as override
-        $settingDays = \App\Modules\Settings\Models\SystemSetting::get('login_history_retention_days', 90);
+        $settingDays = SystemSetting::get('log_archive_retention_days', SystemSetting::get('login_history_retention_days', 90));
         $days = $this->option('days') ?: $settingDays;
         $cutoffDate = now()->subDays($days);
         

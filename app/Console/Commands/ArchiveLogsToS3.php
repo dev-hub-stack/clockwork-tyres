@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -10,7 +11,7 @@ class ArchiveLogsToS3 extends Command
 {
     protected $signature = 'logs:archive-to-s3
         {--tables=activity_logs,user_login_histories,inventory_logs : Comma-separated list of tables to archive}
-        {--days=365 : Archive rows older than this many days}
+        {--days= : Archive rows older than this many days}
         {--disk=s3_archive : Filesystem disk to use for archive upload}
         {--prefix=archives/logs : S3 prefix/folder path}
         {--delete : Delete rows after a successful upload}
@@ -36,7 +37,12 @@ class ArchiveLogsToS3 extends Command
     public function handle(): int
     {
         $disk = (string) $this->option('disk');
-        $days = max(1, (int) $this->option('days'));
+        $configuredDays = (int) SystemSetting::get(
+            'log_archive_retention_days',
+            SystemSetting::get('login_history_retention_days', 365)
+        );
+        $daysOption = $this->option('days');
+        $days = max(1, (int) ($daysOption !== null ? $daysOption : $configuredDays));
         $cutoff = now()->subDays($days);
         $prefix = trim((string) $this->option('prefix'), '/');
         $delete = (bool) $this->option('delete');
@@ -55,6 +61,7 @@ class ArchiveLogsToS3 extends Command
 
         $this->info('Archiving CRM logs to S3');
         $this->line("Disk: {$disk}");
+        $this->line('Retention window: ' . $days . ' day(s)' . ($daysOption !== null ? ' (command override)' : ' (from settings)'));
         $this->line('Cutoff: ' . $cutoff->toDateTimeString());
         $this->line('Mode: ' . ($dryRun ? 'dry-run' : ($delete ? 'upload + delete' : 'upload only')));
 

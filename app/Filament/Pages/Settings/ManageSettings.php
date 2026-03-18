@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Settings;
 
+use Filament\Actions\Action;
 use App\Modules\Settings\Models\CompanyBranding;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Settings\Models\SystemSetting;
@@ -20,6 +21,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
+use Illuminate\Support\Facades\Artisan;
 
 class ManageSettings extends Page implements HasForms
 {
@@ -46,6 +48,8 @@ class ManageSettings extends Page implements HasForms
     protected string $view = 'filament.pages.settings.manage-settings';
 
     public ?array $data = [];
+
+    protected int $defaultLogArchiveRetentionDays = 365;
 
     public function mount(): void
     {
@@ -95,8 +99,67 @@ class ManageSettings extends Page implements HasForms
             'ws_eta_message'           => SystemSetting::get('admin.eta_item_message', ''),
             'ws_shipping_rate_four'    => SystemSetting::get('admin.shipping_rate_upto_four', 200),
             'ws_shipping_rate_per_item'=> SystemSetting::get('admin.shipping_rate_per_item', 50),
+            'log_archive_retention_days' => $this->getLogArchiveRetentionDays(),
             'suppress_customer_transactional_emails' => (bool) SystemSetting::get(TransactionalCustomerMail::SUPPRESSION_KEY, '0'),
         ]);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('archiveLogsToS3')
+                ->label('Archive Logs to S3')
+                ->icon('heroicon-o-cloud-arrow-up')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Archive CRM Logs to S3')
+                ->modalDescription(function (): string {
+                    $days = $this->getLogArchiveRetentionDays();
+                    $bucket = config('filesystems.disks.s3_archive.bucket');
+
+                    $message = "This will archive CRM logs older than the saved retention window of {$days} days to the configured S3 archive bucket";
+
+                    if (! empty($bucket)) {
+                        $message .= " ({$bucket})";
+                    }
+
+                    return $message . '. Enable row deletion below if you also want archived records removed from the database.';
+                })
+                ->modalSubmitActionLabel('Run Archive')
+                ->form([
+                    Toggle::make('delete_archived_rows')
+                        ->label('Delete archived rows after upload')
+                        ->default(true)
+                        ->helperText('Recommended for keeping the CRM database lean after the archive files are written to S3.'),
+                    Toggle::make('dry_run')
+                        ->label('Dry run only')
+                        ->default(false)
+                        ->helperText('Preview the archive scope without uploading or deleting anything.'),
+                ])
+                ->action(function (array $data): void {
+                    $arguments = [
+                        '--days' => $this->getLogArchiveRetentionDays(),
+                        '--disk' => 's3_archive',
+                    ];
+
+                    if ($data['delete_archived_rows'] ?? true) {
+                        $arguments['--delete'] = true;
+                    }
+
+                    if ($data['dry_run'] ?? false) {
+                        $arguments['--dry-run'] = true;
+                    }
+
+                    $exitCode = Artisan::call('logs:archive-to-s3', $arguments);
+                    $output = trim(Artisan::output());
+
+                    Notification::make()
+                        ->title($exitCode === 0 ? 'Log archive completed' : 'Log archive failed')
+                        ->body($output !== '' ? str($output)->limit(500)->toString() : null)
+                        ->{$exitCode === 0 ? 'success' : 'danger'}()
+                        ->send();
+                }),
+        ];
     }
 
     public function form(Schema $schema): Schema
@@ -278,6 +341,21 @@ class ManageSettings extends Page implements HasForms
                     ->columns(1)
                     ->collapsible(),
 
+                Section::make('Logs & Archival')
+                    ->description('Configure how long CRM audit logs stay in the database before they are archived to S3')
+                    ->schema([
+                        TextInput::make('log_archive_retention_days')
+                            ->label('Retention Window (days)')
+                            ->numeric()
+                            ->required()
+                            ->default($this->defaultLogArchiveRetentionDays)
+                            ->minValue(1)
+                            ->suffix('days')
+                            ->helperText('The archive action and scheduled log archival should use this cutoff when deciding which rows move to S3.'),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
+
                 Section::make('Tax Settings')
                     ->description('Configure default tax rate and behavior')
                     ->schema([
@@ -379,6 +457,8 @@ class ManageSettings extends Page implements HasForms
             SystemSetting::set('admin.eta_item_message',    $data['ws_eta_message'] ?? '',            'string',  'Estimated delivery message shown at checkout');
             SystemSetting::set('admin.shipping_rate_upto_four',  $data['ws_shipping_rate_four'] ?? 200,   'float', 'Delivery rate for up to 4 items (AED)');
             SystemSetting::set('admin.shipping_rate_per_item',   $data['ws_shipping_rate_per_item'] ?? 50, 'float', 'Delivery rate per extra item beyond 4 (AED)');
+            SystemSetting::set('log_archive_retention_days', (int) ($data['log_archive_retention_days'] ?? $this->defaultLogArchiveRetentionDays), 'integer', 'Number of days to keep CRM logs in the database before archiving them to S3');
+            SystemSetting::set('login_history_retention_days', (int) ($data['log_archive_retention_days'] ?? $this->defaultLogArchiveRetentionDays), 'integer', 'Number of days to keep login history records before archival or cleanup');
             SystemSetting::set(TransactionalCustomerMail::SUPPRESSION_KEY, $data['suppress_customer_transactional_emails'] ? '1' : '0', 'boolean', 'Suppress transactional customer emails and log them internally');
 
             // Clear settings cache
@@ -392,5 +472,16 @@ class ManageSettings extends Page implements HasForms
         } catch (Halt $exception) {
             return;
         }
+    }
+
+    protected function getLogArchiveRetentionDays(): int
+    {
+        return max(
+            1,
+            (int) SystemSetting::get(
+                'log_archive_retention_days',
+                SystemSetting::get('login_history_retention_days', $this->defaultLogArchiveRetentionDays)
+            )
+        );
     }
 }
