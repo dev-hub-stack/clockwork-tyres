@@ -414,6 +414,8 @@ class OrderService
      */
     public function confirmOrder(Order $order, ?int $warehouseId = null): array
     {
+        $order->loadMissing('items.productVariant.product', 'items.addon');
+
         // Validate inventory availability first
         $fulfillmentService = app(OrderFulfillmentService::class);
         $validation = $fulfillmentService->validateInventoryAvailability($order);
@@ -426,7 +428,7 @@ class OrderService
         $results = $fulfillmentService->allocateInventory($order, $warehouseId);
         
         // Update order status
-        if (count($results['failed']) === 0) {
+        if (count($results['failed']) === 0 && $order->order_status !== OrderStatus::PROCESSING) {
             $this->updateStatus($order, OrderStatus::PROCESSING);
         }
         

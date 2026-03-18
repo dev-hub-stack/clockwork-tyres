@@ -19,6 +19,7 @@ use App\Http\Controllers\Wholesale\ReviewController;
 use App\Http\Controllers\Wholesale\SearchController;
 use App\Http\Controllers\Wholesale\HomepageController;
 use App\Http\Controllers\Wholesale\WheelSizeProxyController;
+use App\Http\Controllers\Webhook\StripeWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +33,10 @@ use App\Http\Controllers\Wholesale\WheelSizeProxyController;
 | Protected: Requires Bearer token via 'dealer' Sanctum guard
 |
 */
+
+// ─── Stripe Webhook (No auth — Stripe calls this directly) ────────────────────
+Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle'])
+    ->name('webhooks.stripe');
 
 // ─── Phase 4: CMS Pages (Public) ──────────────────────────────────────────────
 Route::get('page/{slug}',           [PageController::class, 'show']);

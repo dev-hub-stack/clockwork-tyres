@@ -44,6 +44,11 @@ return new class extends Migration
     private function hasIndex(string $table, string $index): bool
     {
         $conn = Schema::getConnection();
+
+        if ($conn->getDriverName() === 'sqlite') {
+            return false;
+        }
+
         return (bool) $conn->select(
             "SELECT COUNT(1) as cnt FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ?",
             [$conn->getDatabaseName(), $table, $index]

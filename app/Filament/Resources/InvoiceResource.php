@@ -1355,6 +1355,18 @@ class InvoiceResource extends Resource
                             ->required(),
                     ])
                     ->action(function ($record, array $data) {
+                        try {
+                            $captureResult = app(\App\Services\Wholesale\StripePaymentLifecycleService::class)
+                                ->captureAuthorizedPayment($record);
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Payment Capture Failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
                         // Update order with tracking info
                         $record->update([
                             'order_status' => OrderStatus::SHIPPED,
@@ -1373,7 +1385,9 @@ class InvoiceResource extends Resource
 
                         Notification::make()
                             ->title('Order Marked as Shipped')
-                            ->body("Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}")
+                            ->body(($captureResult['status'] ?? null) === 'captured'
+                                ? "Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}. Stripe payment captured."
+                                : "Tracking: {$data['tracking_number']} via {$data['shipping_carrier']}")
                             ->success()
                             ->send();
                     }),

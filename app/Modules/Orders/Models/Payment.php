@@ -59,6 +59,12 @@ class Payment extends Model
             $payment->order->recalculatePaymentStatus();
         });
 
+        static::updated(function ($payment) {
+            if ($payment->wasChanged(['status', 'amount'])) {
+                $payment->order->recalculatePaymentStatus();
+            }
+        });
+
         static::deleted(function ($payment) {
             // Recalculate when payment is deleted
             $payment->order->recalculatePaymentStatus();

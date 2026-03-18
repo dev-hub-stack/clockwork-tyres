@@ -206,6 +206,22 @@ class OrderFulfillmentService
             ];
         }
 
+        $item->loadMissing('productVariant.product');
+        $tracksInventory = (bool) ($item->productVariant?->product?->track_inventory ?? true);
+
+        if (! $tracksInventory) {
+            $item->update(['allocated_quantity' => $quantityNeeded]);
+
+            return [
+                'item_id' => $item->id,
+                'sku' => $item->sku,
+                'requested' => $quantityNeeded,
+                'allocated' => $quantityNeeded,
+                'is_addon' => false,
+                'special_order' => true,
+            ];
+        }
+
         $inventories = $this->getAvailableInventory(
             $item->product_variant_id,
             $warehouseId ?? $item->order->warehouse_id
@@ -303,6 +319,18 @@ class OrderFulfillmentService
         ];
         
         foreach ($order->items as $item) {
+            if ($item->allocated_quantity >= $item->quantity && $item->quantity > 0) {
+                $results['items'][] = [
+                    'item_id' => $item->id,
+                    'sku' => $item->sku,
+                    'available' => true,
+                    'quantity_needed' => $item->quantity,
+                    'quantity_available' => $item->allocated_quantity,
+                    'shortage' => 0,
+                ];
+                continue;
+            }
+
             // Skip addons
             if ($item->isAddon()) {
                 $results['items'][] = [
@@ -311,6 +339,21 @@ class OrderFulfillmentService
                     'available' => true,
                     'quantity_needed' => $item->quantity,
                     'quantity_available' => $item->quantity,
+                ];
+                continue;
+            }
+
+            $item->loadMissing('productVariant.product');
+            $tracksInventory = (bool) ($item->productVariant?->product?->track_inventory ?? true);
+
+            if (! $tracksInventory) {
+                $results['items'][] = [
+                    'item_id' => $item->id,
+                    'sku' => $item->sku,
+                    'available' => true,
+                    'quantity_needed' => $item->quantity,
+                    'quantity_available' => $item->quantity,
+                    'shortage' => 0,
                 ];
                 continue;
             }

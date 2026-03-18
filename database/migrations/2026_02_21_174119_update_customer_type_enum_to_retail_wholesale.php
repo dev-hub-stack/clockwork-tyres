@@ -12,6 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement("UPDATE customers SET customer_type = 'wholesale' WHERE customer_type IN ('dealer', 'corporate')");
+            return;
+        }
+
         // Step 1: Expand ENUM to include wholesale alongside existing values
         DB::statement("ALTER TABLE customers MODIFY COLUMN customer_type ENUM('retail', 'dealer', 'wholesale', 'corporate') NOT NULL DEFAULT 'retail'");
 
@@ -27,6 +32,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("ALTER TABLE customers MODIFY COLUMN customer_type ENUM('retail', 'dealer', 'wholesale', 'corporate') NOT NULL DEFAULT 'retail'");
     }
 };

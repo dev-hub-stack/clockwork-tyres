@@ -82,6 +82,42 @@ class ViewInvoice extends ViewRecord
                         ->send();
                 }),
 
+            Actions\Action::make('captureStripePayment')
+                ->label('Capture Payment')
+                ->icon('heroicon-o-credit-card')
+                ->color('success')
+                ->visible(fn () => $this->record->payments()
+                    ->where('payment_method', 'stripe')
+                    ->where('status', 'authorized')
+                    ->exists())
+                ->requiresConfirmation()
+                ->modalHeading('Capture Stripe Payment')
+                ->modalDescription("This will capture the authorized Stripe payment. The customer's card will be charged immediately.")
+                ->action(function () {
+                    try {
+                        $result = app(\App\Services\Wholesale\StripePaymentLifecycleService::class)
+                            ->captureAuthorizedPayment($this->record);
+
+                        $message = match ($result['status']) {
+                            'captured' => 'Payment captured successfully.',
+                            'already_captured' => 'Payment was already captured.',
+                            default => 'No authorized Stripe payment found for this order.',
+                        };
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Payment Captured')
+                            ->body($message)
+                            ->send();
+                    } catch (\Throwable $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Capture Failed')
+                            ->body($e->getMessage())
+                            ->send();
+                    }
+                }),
+
             Actions\Action::make('startProcessing')
                 ->label('Start Processing')
                 ->icon('heroicon-o-cog-6-tooth')
@@ -113,6 +149,18 @@ class ViewInvoice extends ViewRecord
                         ->default(fn () => $this->record->tracking_url),
                 ])
                 ->action(function (array $data) {
+                    try {
+                        app(\App\Services\Wholesale\StripePaymentLifecycleService::class)
+                            ->captureAuthorizedPayment($this->record);
+                    } catch (\Throwable $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Payment Capture Failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
                     $this->record->update([
                         'order_status'     => OrderStatus::SHIPPED,
                         'tracking_number'  => $data['tracking_number'],
