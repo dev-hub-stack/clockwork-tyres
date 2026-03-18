@@ -52,8 +52,9 @@ Route::get('countries',             [SearchController::class, 'countries']);
 Route::post('auth/login',           [AuthController::class,  'postLogin']);
 Route::post('auth/forgot',          [AuthController::class,  'forgot']);
 Route::post('auth/reset-password',  [AuthController::class,  'reset']);
-Route::post('dealer',               [DealerController::class,'store']); // Retailer Registration
-Route::post('vendor',               [DealerController::class,'store']); // Brand Registration
+Route::post('auth/set-password',    [AuthController::class,  'setPassword']); // Invited dealer sets password
+Route::post('dealer',               [DealerController::class,'store']); // Wholesale inquiry (no account created)
+Route::post('vendor',               [DealerController::class,'store']); // Brand inquiry
 
 // ─── Protected routes (Bearer token required) ─────────────────────────────────
 Route::middleware('wholesale.auth')->group(function () {

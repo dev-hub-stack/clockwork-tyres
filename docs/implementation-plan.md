@@ -26,8 +26,9 @@
 
 ## Status Update (2026-03-18)
 
+- [x] **Task 3 — Hold Email Notifications** completed: suppression toggle live in Settings; currently **ON** (enabled via `php artisan email:suppress on` — George to confirm when to disable after data entry).
 - [x] **Task 4 — Wholesale Search by Size** completed: backend + frontend wired, staggered front/rear layout added, stock modal restored.
-- [~] **Task 5 — Wholesale Checkout Fix** mostly completed: staggered front/rear cart payload bugs fixed; final end-to-end order verification in Reporting CRM still pending.
+- [x] **Task 5 — Wholesale Checkout Fix (Stripe)** completed: staggered cart payload bugs fixed; Stripe auth-on-checkout + capture-on-ship + manual CRM capture + webhook + PostPay removal all committed (`aa8c399`, `5ff0247`). 4/4 integration tests passing.
 - [x] **Task 6 — Special Order for Non-Tracked Products** completed: non-tracked wholesale products remain visible, show as Special Order, and can be added to cart and checked out.
 
 ---
@@ -71,16 +72,30 @@
 
 **Goal:** Prevent customers from receiving notification emails while historical invoices (Jan 1 – today) are being backfilled.
 
+**Status:** ✅ Complete — suppression is currently **ON**.
+
 ### Steps
 
-- [ ] Add a **global toggle in Settings** (or a simple config flag) to suppress outbound email notifications.
-- [ ] When the toggle is ON: quote-to-invoice conversions, payment recordings, and order updates do NOT send emails.
-- [ ] When the toggle is OFF (default): normal email behavior resumes.
-- [ ] George will confirm when to re-enable notifications after all historical data is entered.
+- [x] Add a **global toggle in Settings** — `Notifications` section in CRM Settings page.
+- [x] When the toggle is ON: all outbound customer emails are logged internally but not sent.
+- [x] When the toggle is OFF (default): normal email behavior resumes.
+- [ ] George to confirm when all historical data is entered → run `php artisan email:suppress off` to re-enable.
+
+### CLI Toggle
+```bash
+# Check current status
+php artisan email:suppress
+
+# Enable suppression (block emails)
+php artisan email:suppress on
+
+# Disable suppression (resume emails)
+php artisan email:suppress off
+```
 
 ### Notes
-- This toggle must apply system-wide, not per-invoice.
-- Log suppressed emails internally so there is an audit trail.
+- System-wide. Applies to all quote, invoice, payment, shipping, and order status emails.
+- All suppressed emails are logged in `laravel.log` with full context for audit trail.
 
 ---
 

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Wholesale;
 use App\Modules\Customers\Actions\CreateCustomerAction;
 use App\Modules\Customers\Actions\UpdateCustomerAction;
 use App\Modules\Customers\Models\Customer;
+use App\Mail\WholesaleSignupInquiryMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -32,58 +34,45 @@ class DealerController extends BaseWholesaleController
 
     /**
      * POST /api/dealer
-     * Register a new dealer account.
+     * Submit a wholesale account inquiry.
+     *
+     * No account is created immediately. An admin notification email is sent so
+     * George can review the inquiry and manually register the customer in the CRM.
+     * Once registered, George clicks "Send Wholesale Invite" in the CRM which emails
+     * the dealer a secure link to set their password.
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'first_name'    => 'nullable|string|max:100',
             'last_name'     => 'nullable|string|max:100',
-            'email'         => 'required|email|unique:customers,email',
-            'password'      => 'required|min:6',
+            'email'         => 'required|email|max:200',
+            'password'      => 'nullable|string|max:200', // kept for frontend compat but ignored
             'phone'         => 'nullable|string|max:30',
             'business_name' => 'nullable|string|max:200',
             'address'       => 'nullable|string',
             'city'          => 'nullable|string|max:100',
-            'country'       => 'nullable|string|max:100', // Frontend string
+            'country'       => 'nullable|string|max:100',
             'trade_license' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
-        // Map incoming type from frontend to valid CRM enum
-        // DB only allows 'retail' or 'wholesale'
-        $customerType = 'wholesale';
-
-        // Attempt to find country ID from name
-        $countryId = null;
-        if (!empty($validated['country'])) {
-            $country = \App\Modules\Customers\Models\Country::where('name', $validated['country'])->first();
-            $countryId = $country ? $country->id : null;
-        }
-
-        // Upload trade license file to S3 before creating the customer
+        // Upload trade license so admin has it on file
         $tradeLicensePath = null;
         if ($request->hasFile('trade_license')) {
             $tradeLicensePath = $request->file('trade_license')->store('dealers/documents', 's3');
         }
-        unset($validated['trade_license']); // Remove UploadedFile object — not a model field
 
-        $dealer = $this->createCustomerAction->execute(array_merge($validated, [
-            'first_name'         => $validated['first_name'] ?? 'Wholesale',
-            'last_name'          => $validated['last_name'] ?? 'User',
-            'phone'              => $validated['phone'] ?? '+10000000000',
-            'customer_type'      => $customerType,
-            'country_id'         => $countryId,
-            'password'           => Hash::make($validated['password']),
-            'status'             => 'active',
+        // Notify admin
+        $adminEmail = config('mail.admin_address', env('ADMIN_EMAIL', env('MAIL_FROM_ADDRESS')));
+        Mail::to($adminEmail)->send(new WholesaleSignupInquiryMail([
+            'business_name'      => $validated['business_name'] ?? null,
+            'email'              => $validated['email'],
+            'phone'              => $validated['phone'] ?? null,
+            'country'            => $validated['country'] ?? null,
             'trade_license_path' => $tradeLicensePath,
         ]));
 
-        $token = $dealer->createToken('wholesale-app')->plainTextToken;
-
-        return $this->success([
-            'access_token' => $token,
-            'user_data'    => $this->formatDealerData($dealer->load('country')),
-        ], 'Registration successful', 201);
+        return $this->success(null, 'Thank you for your inquiry. Our team will be in touch with you shortly.', 200);
     }
 
     /**

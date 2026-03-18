@@ -48,6 +48,9 @@ class Customer extends Authenticatable
         'profile_image',
         'trade_license_path',
         'vat_certificate_path',
+        'wholesale_invite_token',
+        'wholesale_invite_expires_at',
+        'wholesale_invited_at',
     ];
 
     /**
@@ -60,9 +63,11 @@ class Customer extends Authenticatable
     ];
 
     protected $casts = [
-        'expiry'            => 'date',
-        'email_verified_at' => 'datetime',
-        'password'          => 'hashed',
+        'expiry'                       => 'date',
+        'email_verified_at'            => 'datetime',
+        'password'                     => 'hashed',
+        'wholesale_invite_expires_at'  => 'datetime',
+        'wholesale_invited_at'         => 'datetime',
     ];
 
     /**

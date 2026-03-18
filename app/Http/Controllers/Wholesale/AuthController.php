@@ -43,6 +43,14 @@ class AuthController extends BaseWholesaleController
         error_log('[LOGIN] customer found: ' . ($customer ? $customer->id : 'NULL'));
 
         if (! $customer || ! Hash::check($request->password, $customer->password)) {
+            // Give a helpful hint if an invite is pending
+            if ($customer
+                && $customer->wholesale_invite_token
+                && $customer->wholesale_invite_expires_at
+                && $customer->wholesale_invite_expires_at->isFuture()
+            ) {
+                return $this->error('Your account has been created. Please check your email for the invite link to set your password.', null, 401);
+            }
             return $this->error('Invalid email or password.', null, 401);
         }
 
@@ -152,6 +160,50 @@ class AuthController extends BaseWholesaleController
         } catch (\Throwable $e) {
             return $this->error('Profile error: ' . $e->getMessage(), null, 500);
         }
+    }
+
+    /**
+     * POST /api/auth/set-password
+     * Allow an invited dealer to set their password using the token from the invite email.
+     * On success issues a Sanctum token so they are immediately logged in.
+     */
+    public function setPassword(Request $request)
+    {
+        $request->validate([
+            'email'                 => 'required|email',
+            'token'                 => 'required|string',
+            'password'              => 'required|min:6|confirmed',
+            'password_confirmation' => 'required',
+        ]);
+
+        $customer = Customer::where('email', strtolower(trim($request->email)))
+            ->whereIn('customer_type', ['dealer', 'wholesale'])
+            ->whereNotNull('wholesale_invite_token')
+            ->first();
+
+        if (
+            ! $customer
+            || ! hash_equals((string) $customer->wholesale_invite_token, (string) $request->token)
+            || ! $customer->wholesale_invite_expires_at
+            || $customer->wholesale_invite_expires_at->isPast()
+        ) {
+            return $this->error('This invite link is invalid or has expired. Please contact us to request a new one.', null, 422);
+        }
+
+        $customer->update([
+            'password'                    => Hash::make($request->password),
+            'status'                      => 'active',
+            'email_verified_at'           => $customer->email_verified_at ?? now(),
+            'wholesale_invite_token'      => null,
+            'wholesale_invite_expires_at' => null,
+        ]);
+
+        $token = $customer->createToken('wholesale-app')->plainTextToken;
+
+        return $this->success([
+            'access_token' => $token,
+            'user_data'    => $this->formatProfileData($customer->fresh('country')),
+        ], 'Password set successfully. Welcome to TunerStop Wholesale!');
     }
 
     /**
