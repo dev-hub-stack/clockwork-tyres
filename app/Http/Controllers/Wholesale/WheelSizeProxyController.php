@@ -28,9 +28,9 @@ class WheelSizeProxyController extends BaseWholesaleController
 
             if ($response->successful()) {
                 $json = $response->json();
-                // Wheel-size API returns { count, results: [...] }
+                // Wheel-size API returns { count, data: [...] } or { count, results: [...] }
                 // Angular expects { status, data: [...] }
-                $data = isset($json['results']) ? $json['results'] : $json;
+                $data = $json['data'] ?? $json['results'] ?? $json;
                 return response()->json([
                     'status' => true,
                     'data'   => $data,
