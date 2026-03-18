@@ -30,6 +30,9 @@
 - [x] **Task 4 — Wholesale Search by Size** completed: backend + frontend wired, staggered front/rear layout added, stock modal restored.
 - [x] **Task 5 — Wholesale Checkout Fix (Stripe)** completed: staggered cart payload bugs fixed; Stripe auth-on-checkout + capture-on-ship + manual CRM capture + webhook + PostPay removal all committed (`aa8c399`, `5ff0247`). 4/4 integration tests passing.
 - [x] **Task 6 — Special Order for Non-Tracked Products** completed: non-tracked wholesale products remain visible, show as Special Order, and can be added to cart and checked out.
+- [x] **Task 8 — User Activity Log** completed 2026-03-18: `activity_logs` table + logging hooks + filterable Filament log UI shipped.
+- [x] **Task 9 — Payment History Log** completed 2026-03-18: payment recording audit trail available per invoice and in a standalone history report.
+- [x] **Task 10 — Separate Abandoned Carts** completed 2026-03-18: wholesale abandoned carts now come from `wholesale_carts` with a dedicated CRM page.
 - [x] **Task 1 — Data Cleanup (Invoices & Orders)** completed 2026-03-18: 850 tunerstop_historical invoices moved to Quotes section; 25 consignment-test invoices deleted; 9 zero-total test quotes deleted. Run via `php artisan cleanup:historical-data`.
 - [x] **Task 2 — Data Cleanup (Inventory Grid)** completed 2026-03-18: 258 inventory movement logs cleared; 10 damaged inventory entries cleared; 36 consignments (test data) cleared; 9 warranty claims (test data) cleared.
 
@@ -366,5 +369,5 @@ php artisan email:suppress off
 |-----------|-------|--------|
 | **Ready for demo** | Data cleanup (1–3), final checkout verification (5) | **Mon 2026-03-23** |
 | **Wholesale v1 launch** | Wholesale Registration (7) | Week of 2026-03-30 |
-| **CRM v1 stable** | Logs (8, 9), Abandoned Carts (10) | Week of 2026-04-06 |
+| **CRM v1 stable** | Logs (8, 9), Abandoned Carts (10) | Completed 2026-03-18 |
 | **Advanced features** | Bulk Import (11), AI Pricing (12), Lag fix (13) | TBD after data entry |
