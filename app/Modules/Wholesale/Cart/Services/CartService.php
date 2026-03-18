@@ -414,20 +414,27 @@ class CartService
                 ? $this->transformer->formatVariant($item->variant, $dealer)
                 : [];
 
+            $isSpecialOrder = ($variantData['track_inventory'] ?? true) === false && ! $item->warehouse;
+            $warehouseName = $isSpecialOrder
+                ? 'Special Order'
+                : ($item->warehouse?->warehouse_name ?? 'Unknown Warehouse');
+
             return [
                 'id'                 => $item->id,
                 'cart_id'            => $item->cart_id,
                 'product_id'         => $item->variant?->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'product_variant'    => $variantData,
-                'warehouse'          => $item->warehouse ? ['id' => $item->warehouse->id, 'name' => $item->warehouse->warehouse_name] : null,
+                'warehouse'          => $item->warehouse
+                    ? ['id' => $item->warehouse->id, 'name' => $item->warehouse->warehouse_name]
+                    : ($isSpecialOrder ? ['id' => null, 'name' => 'Special Order'] : null),
                 'type'               => $item->type,
                 'quantity'           => $item->quantity,
                 'warehouse_quantity' => [
                     [
                         'quantity'   => $item->quantity,
                         'ware_house' => [
-                            'warehouse_name' => $item->warehouse?->warehouse_name ?? 'Unknown Warehouse'
+                            'warehouse_name' => $warehouseName
                         ]
                     ]
                 ],

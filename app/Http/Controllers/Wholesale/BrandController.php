@@ -56,7 +56,7 @@ class BrandController extends BaseWholesaleController
         $search = $request->search;
         $cacheKey = "wholesale_all_brands_" . ($search ?? 'none');
 
-        return \Cache::remember($cacheKey, 600, function () use ($search) {
+        $data = \Cache::remember($cacheKey, 600, function () use ($search) {
             $brandIds = Product::where('status', 1)
                 ->where('available_on_wholesale', true)
                 ->distinct()
@@ -88,6 +88,8 @@ class BrandController extends BaseWholesaleController
                 ],
             ];
         });
+
+        return $this->success($data);
     }
 
     /**
@@ -149,7 +151,7 @@ class BrandController extends BaseWholesaleController
               ->where('status', 1)
               ->where('available_on_wholesale', true)
               ->where('name', urldecode($productSlug));
-        });
+        })
         ->get();
 
         if ($variants->isEmpty()) {
@@ -179,8 +181,8 @@ class BrandController extends BaseWholesaleController
                     'name'   => $product->name,
                     'images' => $product->images ?? [],
                     'finish' => [
-                    'finish' => $firstVariant->getRawOriginal('finish') ?? '',   // avoid finish() relation shadowing column
-                ],
+                        'finish' => $firstVariant->getRawOriginal('finish') ?? '',   // avoid finish() relation shadowing column
+                    ],
                 ],
             ],
             'more_sizes' => $moreSizes,
