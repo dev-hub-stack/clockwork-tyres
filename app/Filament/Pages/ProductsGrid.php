@@ -89,6 +89,20 @@ class ProductsGrid extends Page
 
         foreach ($rows as $row) {
             $finish = $row->finish_name ?: ($row->finish ?? '');
+            $images = '';
+
+            if (is_string($row->images) && $row->images !== '') {
+                $decodedImages = json_decode($row->images, true);
+
+                if (is_array($decodedImages)) {
+                    $images = implode(', ', array_values(array_filter($decodedImages, fn ($image) => is_scalar($image) && $image !== '')));
+                } elseif (is_string($decodedImages) && $decodedImages !== '') {
+                    $images = $decodedImages;
+                } else {
+                    $images = $row->images;
+                }
+            }
+
             $this->products_data[] = [
                 'id'                  => $row->id,
                 'product_id'          => $row->product_id,
@@ -112,9 +126,7 @@ class ProductsGrid extends Page
                 'sale_price'          => $row->sale_price ?? 0,
                 'available_on_wholesale' => (bool) $row->available_on_wholesale,
                 'track_inventory'     => (bool) $row->track_inventory,
-                'images'              => is_string($row->images)
-                    ? implode(', ', json_decode($row->images, true) ?: [])
-                    : '',
+                'images'              => $images,
                 'inventory'           => [],
             ];
         }
