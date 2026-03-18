@@ -53,6 +53,19 @@ class ProductController extends BaseWholesaleController
 
         $this->applyVariantFilters($query, $request);
 
+        // For search-by-size with rear dimensions: only return front variants that also have a matching rear variant
+        if ($request->get('search_by_size') && $request->filled('rear_rim_diameter')) {
+            $rearDiameter = $request->rear_rim_diameter;
+            $rearWidth    = $request->rear_rim_width;
+            $query->whereExists(function ($sub) use ($rearDiameter, $rearWidth) {
+                $sub->selectRaw('1')
+                    ->from('product_variants as pv_rear')
+                    ->whereColumn('pv_rear.product_id', 'product_variants.product_id')
+                    ->where('pv_rear.rim_diameter', $rearDiameter)
+                    ->when($rearWidth, fn($q) => $q->where('pv_rear.rim_width', $rearWidth));
+            });
+        }
+
         // Priority Sorting: In-Stock items first
         $query->orderByRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0 DESC');
 
@@ -366,10 +379,13 @@ class ProductController extends BaseWholesaleController
             $query->where('product_variants.bolt_pattern', $boltPattern);
         }
 
-        if ($request->filled('offset_min') || $request->filled('offset_max')) {
+        // Accept both offset_min/offset_max (legacy) and min_offset/max_offset (search-by-size URL format)
+        $offsetMin = $request->get('offset_min') ?? $request->get('min_offset');
+        $offsetMax = $request->get('offset_max') ?? $request->get('max_offset');
+        if ($offsetMin !== null || $offsetMax !== null) {
             $query->whereBetween('product_variants.offset', [
-                $request->get('offset_min', -200),
-                $request->get('offset_max', 200),
+                (float) ($offsetMin ?? -200),
+                (float) ($offsetMax ?? 200),
             ]);
         }
         if ($request->filled('clearance') && $request->clearance) {
