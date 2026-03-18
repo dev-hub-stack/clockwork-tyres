@@ -11,8 +11,12 @@ use App\Modules\Products\Models\ProductVariant;
 use App\Observers\ProductVariantInventoryObserver;
 use App\Models\Addon;
 use App\Observers\AddonInventoryObserver;
+use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Orders\Models\Payment;
+use App\Observers\InventoryLogObserver;
 use App\Observers\OrderObserver;
+use App\Observers\PaymentObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
 
@@ -42,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
         Warehouse::observe(WarehouseObserver::class);
         ProductVariant::observe(ProductVariantInventoryObserver::class);
         Addon::observe(AddonInventoryObserver::class);
+        InventoryLog::observe(InventoryLogObserver::class);
+        Payment::observe(PaymentObserver::class);
         
         // Register observer for auto-generating order numbers
         Order::observe(OrderObserver::class);

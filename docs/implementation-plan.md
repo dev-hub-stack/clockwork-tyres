@@ -222,6 +222,8 @@ php artisan email:suppress off
 
 ## 8. User Activity Log
 
+**Status:** ✅ Completed on 2026-03-18.
+
 **Goal:** Track every action performed by every logged-in user in the Reporting CRM.
 
 ### Events to Log
@@ -236,13 +238,13 @@ php artisan email:suppress off
 
 ### Steps
 
-- [ ] Create an `activity_logs` database table:
+- [x] Create an `activity_logs` database table:
   ```
   id, user_id, action, model_type, model_id, description, ip_address, created_at
   ```
-- [ ] Create an `ActivityLog` model and a reusable service/trait to log events.
-- [ ] Hook logging into all relevant controllers and actions.
-- [ ] Build a UI page (under Reports or a dedicated "Logs" section):
+- [x] Create an `ActivityLog` model and a reusable service/trait to log events.
+- [x] Hook logging into all relevant controllers and actions.
+- [x] Build a UI page (under Reports or a dedicated "Logs" section):
   - Filterable by user, date range, action type.
   - Sortable by date descending.
   - Paginated list view.
@@ -251,21 +253,26 @@ php artisan email:suppress off
 
 ## 9. Payment History Log
 
+**Status:** ✅ Completed on 2026-03-18.
+
 **Goal:** Per invoice, show a full timeline of all payment recordings — who recorded it and when.
 
 ### Steps
 
-- [ ] Create a `payment_logs` table (or extend existing payments table):
+- [x] Extend the existing `payments` table usage as the payment history source of truth:
   ```
   id, invoice_id, user_id, amount, payment_method, recorded_at, notes
   ```
-- [ ] On every "Record Payment" action, write a row to this log.
-- [ ] On the Invoice detail page, add a **Payment History** panel showing:
+- [x] On every "Record Payment" action, write a row to this log.
+- [x] On the Invoice detail page, add a **Payment History** panel showing:
   - Date & time of recording
   - Amount recorded
   - Payment method
   - User who recorded it
-- [ ] Add a standalone **Payment History Log** report page filterable by date range, showing all payments recorded across all invoices for that period.
+- [x] Add a standalone **Payment History Log** report page filterable by date range, showing all payments recorded across all invoices for that period.
+
+### Notes
+- Reused the existing `payments` table instead of creating `payment_logs`, because it already stores `recorded_by`, amount, method, payment date, notes, and timestamps.
 
 ---
 

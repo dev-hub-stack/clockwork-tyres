@@ -8,6 +8,7 @@ use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Services\OrderFulfillmentService;
+use App\Services\ActivityLogService;
 use App\Modules\Settings\Models\CompanyBranding;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -28,6 +29,34 @@ class OrderObserver
         // Always generate order number (used for all document types)
         if (empty($order->order_number)) {
             $order->order_number = $this->generateOrderNumber();
+        }
+    }
+
+    /**
+     * Handle the Order "created" event.
+     */
+    public function created(Order $order): void
+    {
+        if (! auth()->check()) {
+            return;
+        }
+
+        if ($order->document_type === DocumentType::QUOTE) {
+            ActivityLogService::log(
+                'quote_created',
+                "Created quote {$order->quote_number}",
+                $order,
+            );
+
+            return;
+        }
+
+        if ($order->document_type === DocumentType::INVOICE) {
+            ActivityLogService::log(
+                'invoice_created',
+                "Created invoice {$order->order_number}",
+                $order,
+            );
         }
     }
 

@@ -3,9 +3,8 @@
 namespace App\Listeners;
 
 use App\Models\UserLoginHistory;
+use App\Services\ActivityLogService;
 use Illuminate\Auth\Events\Login;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 class LogSuccessfulLogin
 {
@@ -37,5 +36,11 @@ class LogSuccessfulLogin
             'last_login_at' => now(),
             'last_login_ip' => request()->ip(),
         ]);
+
+        ActivityLogService::log(
+            'user_login',
+            'User logged in',
+            userId: $user->id,
+        );
     }
 }

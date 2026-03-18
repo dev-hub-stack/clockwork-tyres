@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Addon;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Models\ProductInventory;
+use App\Services\ActivityLogService;
 
 class AddonInventoryObserver
 {
@@ -32,6 +33,30 @@ class AddonInventoryObserver
             'addon_title' => $addon->title,
             'warehouses_count' => $warehouses->count(),
         ]);
+
+        if (auth()->check()) {
+            ActivityLogService::log(
+                'product_added',
+                'Added add-on ' . ($addon->title ?: ('#' . $addon->id)),
+                $addon,
+            );
+        }
+    }
+
+    /**
+     * Handle the Addon "updated" event.
+     */
+    public function updated(Addon $addon): void
+    {
+        if (! auth()->check() || empty($addon->getChanges())) {
+            return;
+        }
+
+        ActivityLogService::log(
+            'product_updated',
+            'Updated add-on ' . ($addon->title ?: ('#' . $addon->id)),
+            $addon,
+        );
     }
 
     /**

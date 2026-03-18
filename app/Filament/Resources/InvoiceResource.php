@@ -761,7 +761,9 @@ class InvoiceResource extends Resource
                             ->label('Payment History')
                             ->modalHeading('Payment History')
                             ->modalWidth('4xl')
-                            ->modalContent(fn ($record) => view('filament.resources.invoices.payment-history', ['payments' => $record->payments]))
+                            ->modalContent(fn ($record) => view('filament.resources.invoices.payment-history', [
+                                'payments' => $record->payments()->with('recordedBy')->latest('created_at')->get(),
+                            ]))
                             ->modalSubmitAction(false)
                             ->modalCancelAction(fn ($action) => $action->label('Close'))
                     ),

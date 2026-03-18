@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Models\ProductInventory;
+use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -55,10 +56,34 @@ class ProductVariantInventoryObserver
             }
             
             Log::info("Initialized inventory for variant {$variant->id} (SKU: {$variant->sku}) across {$createdCount} warehouses");
+
+            if (auth()->check()) {
+                ActivityLogService::log(
+                    'product_added',
+                    'Added product variant ' . ($variant->sku ?: ('#' . $variant->id)),
+                    $variant,
+                );
+            }
             
         } catch (\Exception $e) {
             Log::error("Failed to initialize inventory for variant {$variant->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Handle the ProductVariant "updated" event.
+     */
+    public function updated(ProductVariant $variant): void
+    {
+        if (! auth()->check() || empty($variant->getChanges())) {
+            return;
+        }
+
+        ActivityLogService::log(
+            'product_updated',
+            'Updated product variant ' . ($variant->sku ?: ('#' . $variant->id)),
+            $variant,
+        );
     }
     
     /**

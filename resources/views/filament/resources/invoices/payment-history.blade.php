@@ -133,8 +133,8 @@
         <div class="summary-card">
             <h4>Last Payment</h4>
             <p class="amount last-payment">
-                @if($payments->first() && $payments->first()->payment_date)
-                    {{ $payments->sortByDesc('payment_date')->first()->payment_date->format('M d, Y') }}
+                @if($payments->first() && $payments->first()->created_at)
+                    {{ $payments->sortByDesc('created_at')->first()->created_at->format('M d, Y g:i A') }}
                 @else
                     N/A
                 @endif
@@ -148,7 +148,8 @@
         <table>
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th>Recorded At</th>
+                    <th>Payment Date</th>
                     <th>Amount</th>
                     <th>Method</th>
                     <th>Bank Name</th>
@@ -160,11 +161,12 @@
             <tbody>
                 @forelse($payments as $payment)
                     <tr>
+                        <td>{{ $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '-' }}</td>
                         <td>{{ $payment->payment_date ? $payment->payment_date->format('M d, Y') : '-' }}</td>
                         <td><span class="amount-green">{{ number_format($payment->amount, 2) }}</span></td>
                         <td>
                             <span class="method-badge">
-                                {{ ucfirst(str_replace('_', ' ', $payment->payment_method->value ?? $payment->payment_method)) }}
+                                {{ ucfirst(str_replace('_', ' ', data_get($payment->payment_method, 'value', $payment->payment_method))) }}
                             </span>
                         </td>
                         <td><strong>{{ $payment->bank_name ?? '-' }}</strong></td>
@@ -174,7 +176,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>

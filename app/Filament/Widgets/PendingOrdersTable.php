@@ -3,14 +3,13 @@
 namespace App\Filament\Widgets;
 
 use App\Modules\Orders\Models\Order;
+use App\Modules\Orders\Models\Payment;
 use Filament\Forms;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class PendingOrdersTable extends BaseWidget
 {
@@ -169,18 +168,17 @@ class PendingOrdersTable extends BaseWidget
                             'payment_status' => $newAmountPaid >= $record->total ? 'paid' : 'partial',
                         ]);
                         
-                        // Create payment record if payments table exists
-                        if (Schema::hasTable('payments')) {
-                            DB::table('payments')->insert([
-                                'order_id' => $record->id,
-                                'amount' => $amount,
-                                'payment_method' => $data['payment_method'],
-                                'payment_date' => $data['payment_date'],
-                                'notes' => $data['notes'] ?? null,
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ]);
-                        }
+                        Payment::create([
+                            'order_id' => $record->id,
+                            'customer_id' => $record->customer_id,
+                            'recorded_by' => auth()->id(),
+                            'amount' => $amount,
+                            'payment_method' => $data['payment_method'],
+                            'payment_type' => $newAmountPaid >= $record->total ? 'full' : 'partial',
+                            'payment_date' => $data['payment_date'],
+                            'notes' => $data['notes'] ?? null,
+                            'status' => 'completed',
+                        ]);
                         
                         \Filament\Notifications\Notification::make()
                             ->success()

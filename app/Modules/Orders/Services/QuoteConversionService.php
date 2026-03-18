@@ -7,6 +7,7 @@ use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Events\QuoteConverted;
 use App\Modules\Orders\Models\Order;
+use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -78,6 +79,12 @@ class QuoteConversionService
                 'order_number' => $quote->order_number,
                 'document_type' => $quote->document_type->value,
             ]);
+
+            ActivityLogService::log(
+                'quote_converted_to_invoice',
+                "Converted quote {$quote->quote_number} to invoice {$quote->order_number}",
+                $quote,
+            );
             
             // Fire event for notifications, emails, etc.
             event(new QuoteConverted($quote));
