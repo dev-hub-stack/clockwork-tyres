@@ -599,11 +599,11 @@ class OrderFulfillmentService
             // Mark the order as cancelled
             $order->update(['order_status' => \App\Modules\Orders\Enums\OrderStatus::CANCELLED]);
             
-            // Add note to order history
-            $order->notes()->create([
-                'note' => "Order cancelled. Reason: {$reason}. " . ($notes ? "Notes: {$notes}" : ""),
-                'created_by' => auth()->id() ?? 1,
-            ]);
+            // Append cancellation note to the order_notes text field
+            $cancellationNote = '[' . now()->toDateTimeString() . '] Cancelled by ' . (auth()->user()?->name ?? 'system')
+                . ". Reason: {$reason}." . ($notes ? " Notes: {$notes}" : "");
+            $existing = $order->order_notes ?? '';
+            $order->update(['order_notes' => trim($existing . ($existing ? "\n\n" : '') . $cancellationNote)]);
             
             // recalculate (zeros out)
             $order->calculateTotals();
