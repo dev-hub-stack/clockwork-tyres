@@ -67,8 +67,13 @@ class PendingOrdersTable extends BaseWidget
                     ->label('Vehicle')
                     ->size('sm')
                     ->getStateUsing(fn (Order $record) => 
-                        $record->vehicle_year && $record->vehicle_make 
-                            ? "{$record->vehicle_year} {$record->vehicle_make} {$record->vehicle_model}"
+                        $record->vehicle_year || $record->vehicle_make || $record->vehicle_model || $record->vehicle_sub_model
+                            ? implode(' ', array_filter([
+                                $record->vehicle_year,
+                                $record->vehicle_make,
+                                $record->vehicle_model,
+                                $record->vehicle_sub_model,
+                            ]))
                             : ''
                     ),
                     

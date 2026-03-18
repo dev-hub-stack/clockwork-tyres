@@ -204,7 +204,7 @@
                     </td>
                     <td>
                         <div class="vehicle-item">
-                            <strong>Sub Model:</strong>
+                            <strong>Generation:</strong>
                             <span>{{ $record->vehicle_sub_model ?? '-' }}</span>
                         </div>
                     </td>

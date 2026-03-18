@@ -115,7 +115,7 @@ class ConsignmentInfolist
                                     ->placeholder('N/A'),
                                 
                                 TextEntry::make('vehicle_sub_model')
-                                    ->label('Sub Model / Trim')
+                                    ->label('Generation')
                                     ->placeholder('N/A'),
                             ]),
                     ])

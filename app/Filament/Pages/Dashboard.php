@@ -81,12 +81,13 @@ class Dashboard extends Page
             }
             
             $vehicle = 'N/A';
-            if ($order->vehicle_year || $order->vehicle_make || $order->vehicle_model) {
-                $vehicle = trim(
-                    ($order->vehicle_year ?? '') . ' ' . 
-                    ($order->vehicle_make ?? '') . ' ' . 
-                    ($order->vehicle_model ?? '')
-                );
+            if ($order->vehicle_year || $order->vehicle_make || $order->vehicle_model || $order->vehicle_sub_model) {
+                $vehicle = implode(' ', array_filter([
+                    $order->vehicle_year,
+                    $order->vehicle_make,
+                    $order->vehicle_model,
+                    $order->vehicle_sub_model,
+                ]));
             }
             
             // Collect all items for expandable view

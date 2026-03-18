@@ -72,10 +72,10 @@
                             <strong style="color:#222;">Date:</strong> {{ $record->issue_date ? \Carbon\Carbon::parse($record->issue_date)->format('M d, Y') : date('M d, Y') }}
                         </td>
                     </tr>
-                    @if($record->vehicle_year || $record->vehicle_make || $record->vehicle_model)
+                    @if($record->vehicle_year || $record->vehicle_make || $record->vehicle_model || $record->vehicle_sub_model)
                     <tr>
                         <td colspan="2" style="padding:6px 0;font-size:13px;color:#666;">
-                            <strong style="color:#222;">Vehicle:</strong> {{ implode(' ', array_filter([$record->vehicle_year, $record->vehicle_make, $record->vehicle_model])) }}
+                            <strong style="color:#222;">Vehicle:</strong> {{ implode(' ', array_filter([$record->vehicle_year, $record->vehicle_make, $record->vehicle_model, $record->vehicle_sub_model])) }}
                         </td>
                     </tr>
                     @endif

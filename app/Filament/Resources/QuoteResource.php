@@ -260,7 +260,7 @@ class QuoteResource extends Resource
                                     ->columnSpan(1),
                                 
                                 TextInput::make('vehicle_sub_model')
-                                    ->label('Sub Model')
+                                    ->label('Generation')
                                     ->maxLength(100)
                                     ->placeholder('Wildtrak')
                                     ->columnSpan(1),
@@ -587,7 +587,6 @@ class QuoteResource extends Resource
                                     ->required()
                                     ->minValue(1)
                                     ->live(onBlur: true)
-                                    ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($state ?? 0);
                                         $price = floatval($get('unit_price') ?? 0);
@@ -609,7 +608,6 @@ class QuoteResource extends Resource
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($get('quantity') ?? 0);
                                         $price = floatval($state ?? 0);
@@ -631,7 +629,6 @@ class QuoteResource extends Resource
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
                                     ->live(onBlur: true)
-                                    ->reactive()
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($get('quantity') ?? 0);
                                         $price = floatval($get('unit_price') ?? 0);

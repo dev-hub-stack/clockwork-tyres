@@ -279,7 +279,7 @@ class InvoiceResource extends Resource
                                     ->columnSpan(1),
                                 
                                 TextInput::make('vehicle_sub_model')
-                                    ->label('Sub Model')
+                                    ->label('Generation')
                                     ->maxLength(100)
                                     ->placeholder('Wildtrak')
                                     ->columnSpan(1),
@@ -533,30 +533,28 @@ class InvoiceResource extends Resource
                                     ->visible(fn ($get) => !(bool) $get('is_custom'))
                                     ->helperText('Select warehouse for this item')
                                     ->columnSpan(2),
-                                                                TextInput::make('quantity')
+
+                                TextInput::make('quantity')
                                     ->label('Quantity')
                                     ->numeric()
                                     ->default(1)
                                     ->required()
                                     ->minValue(1)
-                                    ->live(onBlur: true)
-                                    ->reactive(),
+                                    ->live(onBlur: true),
                                 
                                 TextInput::make('unit_price')
                                     ->label('Unit Price')
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->required()
-                                    ->live(onBlur: true)
-                                    ->reactive(),
+                                    ->live(onBlur: true),
                                 
                                 TextInput::make('discount')
                                     ->label('Discount')
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
-                                    ->live(onBlur: true)
-                                    ->reactive(),
+                                    ->live(onBlur: true),
                                 
                                 \Filament\Forms\Components\Toggle::make('tax_inclusive')
                                     ->label('Tax Inclusive')

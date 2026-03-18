@@ -95,7 +95,7 @@
                         <div style="font-size:13px;font-weight:600;color:#222;">{{ $record->customer->business_name ?? $record->customer->name }}</div>
                         @if($record->customer->email)<div style="font-size:12px;color:#666;">{{ $record->customer->email }}</div>@endif
                     </td>
-                    @if($record->vehicle_year || $record->vehicle_make || $record->vehicle_model)
+                    @if($record->vehicle_year || $record->vehicle_make || $record->vehicle_model || $record->vehicle_sub_model)
                     <td style="vertical-align:top;">
                         <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Vehicle</div>
                         <div style="font-size:13px;font-weight:600;color:#222;">{{ implode(' ', array_filter([$record->vehicle_year, $record->vehicle_make, $record->vehicle_model, $record->vehicle_sub_model])) }}</div>
