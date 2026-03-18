@@ -901,6 +901,15 @@ class QuoteResource extends Resource
                     ->sortable(false)
                     ->toggleable(),
                 
+                BadgeColumn::make('channel')
+                    ->label('Channel')
+                    ->colors([
+                        'primary' => 'wholesale',
+                        'secondary' => 'retail',
+                    ])
+                    ->formatStateUsing(fn ($state) => $state ? ucfirst($state) : 'Retail')
+                    ->toggleable(),
+
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime()
@@ -908,6 +917,14 @@ class QuoteResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('channel')
+                    ->label('Channel')
+                    ->options([
+                        'retail' => 'Retail',
+                        'wholesale' => 'Wholesale',
+                    ])
+                    ->placeholder('All Channels'),
+
                 SelectFilter::make('quote_status')
                     ->label('Status')
                     ->options([

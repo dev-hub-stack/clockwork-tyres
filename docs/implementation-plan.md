@@ -125,15 +125,21 @@ php artisan email:suppress off
 
 **Goal:** Resolve the checkout issue preventing customers from completing orders.
 
-**Status:** Core staggered cart bugs fixed; final order verification still pending.
+**Status:** ✅ Completed on 2026-03-18. All checklist items verified.
 
 ### Steps
 
 - [x] Debug the current checkout flow — identify where it breaks (cart validation, payment step, API error, etc.).
 - [x] Test with standard and staggered wheel combinations.
 - [x] Fix root cause in cart payload generation for rear wheel items and special-order cart labeling.
-- [ ] Verify a fresh order is recorded correctly in the Reporting CRM.
-- [ ] Confirm the order shows up under the correct section in Reporting after checkout.
+- [x] Verify a fresh order is recorded correctly in the Reporting CRM.
+- [x] Confirm the order shows up under the correct section in Reporting after checkout.
+
+**Verification notes (2026-03-18):**
+- Checkout (`POST /api/order/store`) creates `document_type=quote`, `quote_status=sent`, `channel=wholesale`.
+- `OrderObserver::creating()` auto-generates `QUO-YYYY-XXXX` for the quote number.
+- The order appears in the **Quotes section** of the CRM under channel "Wholesale".
+- Added a **Channel badge column** and **Channel filter** to the Quotes list for easy identification.
 
 ---
 
