@@ -34,6 +34,7 @@ class ProductVariant extends Model
         'images', // CRITICAL: Must be fillable for bulk image upload to work
         'clearance_corner',
         'cost',
+        'notify_restock',
     ];
     
     protected $casts = [
@@ -45,6 +46,7 @@ class ProductVariant extends Model
         'rim_diameter' => 'float',
         'hub_bore' => 'float',
         'weight' => 'float',
+        'notify_restock' => 'array',
     ];
     
     // Relationships

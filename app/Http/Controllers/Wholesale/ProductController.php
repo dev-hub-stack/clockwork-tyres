@@ -282,6 +282,27 @@ class ProductController extends BaseWholesaleController
     // ─── Private: Shared filter logic ────────────────────────────────────────
 
     /**
+     * Save the authenticated dealer's email for restock notification on a variant.
+     * GET /api/products/notify-restock/{variantId}
+     */
+    public function notifyRestock(Request $request, int $variantId)
+    {
+        $variant = ProductVariant::findOrFail($variantId);
+        $dealer  = $this->dealer();
+        $email   = $dealer?->email ?? $request->user()?->email ?? null;
+
+        if ($email) {
+            $emails = $variant->notify_restock ?? [];
+            if (! in_array($email, $emails)) {
+                $emails[] = $email;
+                $variant->update(['notify_restock' => $emails]);
+            }
+        }
+
+        return $this->success(null, 'You will be notified when this item is back in stock.');
+    }
+
+    /**
      * Pair rear variants with front variants for search-by-size results.
      * For each front variant found, looks up a matching rear variant of the same product model.
      * Adds rear_* properties to the formatted data array.

@@ -70,6 +70,7 @@ Route::middleware('wholesale.auth')->group(function () {
     Route::post('search-sizes',         [ProductController::class, 'searchSizes']);
     Route::get('search-form-params',    [ProductController::class, 'searchSizeParams']);
     Route::post('search-vehicles',      [ProductController::class, 'searchVehicles']);
+    Route::get('products/notify-restock/{variantId}', [ProductController::class, 'notifyRestock']);
 
     // ── Phase 2: Product detail ───────────────────────────────────────────────
     Route::get('product/{slug}/{sku}',              [ProductVariantController::class, 'show']);
