@@ -23,7 +23,7 @@ class WholesaleInviteMail extends Mailable
         public readonly Customer $customer,
         string $token
     ) {
-        $frontendBase = rtrim(config('services.wholesale.frontend_url', env('WHOLESALE_FRONTEND_URL', 'https://wholesale.tunerstop.com')), '/');
+        $frontendBase = rtrim(config('services.wholesale.frontend_url', env('WHOLESALE_FRONTEND_URL', 'https://tunerstopwholesale.com')), '/');
         $this->setPasswordUrl = $frontendBase . '/set-password?email=' . urlencode($customer->email) . '&token=' . $token;
     }
 
