@@ -271,19 +271,16 @@ php artisan email:suppress off
 
 ## 10. Separate Abandoned Carts from Confirmed Orders
 
-**Goal:** In the Quotes section, clearly distinguish wholesale abandoned carts from real confirmed/pending orders.
+**Goal:** Track wholesale abandoned carts using the cart itself, not a pre-created quote/order.
 
 **Status:** Completed on 2026-03-18.
 
 ### Steps
 
-- [x] Add a `quote_type` field to quotes:
-  - `abandoned_cart` — created from wholesale checkout but never completed.
-  - `confirmed_order` — customer completed checkout.
-  - `standard` — manual/imported non-checkout quotes.
-- [x] In the Quotes list view, add a **Type** column and a filter dropdown.
-- [x] Visually differentiate abandoned carts with a grey **Abandoned Cart** badge.
-- [x] Add a dedicated **Abandoned Carts** tab while keeping the existing **Wholesale Orders** tab for the full wholesale view.
+- [x] Define abandoned carts the standard way using `wholesale_carts` with items/addons and no activity for at least 60 minutes.
+- [x] Keep the Quotes screen focused on real quotes/orders only.
+- [x] Add a dedicated **Abandoned Carts** page under **Sales** based on cart records.
+- [x] Clear the wholesale cart when checkout is successfully confirmed so completed orders do not appear as abandoned.
 
 ---
 

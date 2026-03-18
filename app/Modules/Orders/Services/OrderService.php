@@ -46,9 +46,6 @@ class OrderService
             // Create the order
             $order = Order::create([
                 'document_type' => $documentType,
-                'quote_type' => $documentType === DocumentType::QUOTE
-                    ? ($data['quote_type'] ?? 'standard')
-                    : null,
                 'customer_id' => $data['customer_id'],
                 'warehouse_id' => $data['warehouse_id'] ?? null,
                 'representative_id' => $data['representative_id'] ?? null,

@@ -79,6 +79,21 @@ class Cart extends Model
     }
 
     /**
+     * Industry-standard abandoned carts: carts with contents, identified dealer,
+     * and no activity for at least one hour.
+     */
+    public function scopeAbandoned($query, int $minutes = 60)
+    {
+        return $query
+            ->whereNotNull('dealer_id')
+            ->where(function ($query) {
+                $query->whereHas('items')
+                    ->orWhereHas('addons');
+            })
+            ->where('updated_at', '<=', now()->subMinutes($minutes));
+    }
+
+    /**
      * Total item count (wheels + addons).
      * Matches Angular Cart.count field.
      */

@@ -27,7 +27,6 @@ class Order extends Model
         // Quote fields
         'quote_number',
         'quote_status',
-        'quote_type',
         
         // Order/Invoice fields
         'order_number',
@@ -216,24 +215,6 @@ class Order extends Model
     public function scopeQuotes($query)
     {
         return $query->where('document_type', DocumentType::QUOTE);
-    }
-
-    /**
-     * Scope: Wholesale checkout quotes that were never completed.
-     */
-    public function scopeAbandonedCarts($query)
-    {
-        return $query->where('document_type', DocumentType::QUOTE)
-            ->where('quote_type', 'abandoned_cart');
-    }
-
-    /**
-     * Scope: Wholesale checkout quotes that reached a confirmed state.
-     */
-    public function scopeConfirmedWholesaleQuotes($query)
-    {
-        return $query->where('document_type', DocumentType::QUOTE)
-            ->where('quote_type', 'confirmed_order');
     }
 
     /**

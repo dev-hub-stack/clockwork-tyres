@@ -61,9 +61,6 @@ class OrderSyncService
             $preparedData = [
                 'document_type' => DocumentType::QUOTE,
                 'quote_status' => QuoteStatus::SENT,  // Changed from DRAFT to SENT so approve/reject buttons show
-                'quote_type' => $source === 'wholesale' || (($orderData['channel'] ?? null) === 'wholesale')
-                    ? 'confirmed_order'
-                    : 'standard',
                 'customer_id' => $customer->id,
                 'external_order_id' => $orderData['order_id'],
                 'external_source' => $source,

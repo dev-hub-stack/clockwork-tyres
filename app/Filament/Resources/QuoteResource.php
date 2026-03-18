@@ -870,19 +870,6 @@ class QuoteResource extends Resource
                         'danger' => 'rejected',
                         'warning' => 'expired',
                     ]),
-
-                BadgeColumn::make('quote_type')
-                    ->label('Type')
-                    ->formatStateUsing(fn (?string $state): string => match ($state ?? 'standard') {
-                        'abandoned_cart' => 'Abandoned Cart',
-                        'confirmed_order' => 'Confirmed Order',
-                        default => 'Standard',
-                    })
-                    ->colors([
-                        'gray' => 'abandoned_cart',
-                        'success' => 'confirmed_order',
-                        'secondary' => 'standard',
-                    ]),
                 
                 TextColumn::make('total')
                     ->label('Amount')
@@ -930,14 +917,6 @@ class QuoteResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('quote_type')
-                    ->label('Type')
-                    ->options([
-                        'standard' => 'Standard',
-                        'abandoned_cart' => 'Abandoned Cart',
-                        'confirmed_order' => 'Confirmed Order',
-                    ]),
-
                 SelectFilter::make('channel')
                     ->label('Channel')
                     ->options([
