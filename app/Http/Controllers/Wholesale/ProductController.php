@@ -72,8 +72,15 @@ class ProductController extends BaseWholesaleController
             return $query->paginate($perPage, ['product_variants.*'], 'page', $page);
         });
 
-        $data         = $paginator->toArray();
-        $data['data'] = $this->transformer->formatVariants($paginator->items(), $dealer);
+        $data      = $paginator->toArray();
+        $formatted = $this->transformer->formatVariants($paginator->items(), $dealer);
+
+        // Pair rear variants for search-by-size queries
+        if ($request->get('search_by_size') && $request->filled('rear_rim_diameter')) {
+            $formatted = $this->attachRearVariants($formatted, $request, $dealer);
+        }
+
+        $data['data'] = $formatted;
 
         return $this->success([
             'products' => $data,
@@ -260,6 +267,52 @@ class ProductController extends BaseWholesaleController
     }
 
     // ─── Private: Shared filter logic ────────────────────────────────────────
+
+    /**
+     * Pair rear variants with front variants for search-by-size results.
+     * For each front variant found, looks up a matching rear variant of the same product model.
+     * Adds rear_* properties to the formatted data array.
+     */
+    private function attachRearVariants(array $formatted, Request $request, $dealer): array
+    {
+        $rearDiameter = $request->rear_rim_diameter;
+        $rearWidth    = $request->rear_rim_width;
+
+        // Batch-fetch rear variants for all matching product_ids in one query
+        $productIds = array_unique(array_column($formatted, 'product_id'));
+
+        $rearVariants = ProductVariant::with(['inventories.warehouse'])
+            ->whereIn('product_id', $productIds)
+            ->where('rim_diameter', $rearDiameter)
+            ->when($rearWidth, fn($q) => $q->where('rim_width', $rearWidth))
+            ->get()
+            ->keyBy('product_id');
+
+        foreach ($formatted as $i => $variant) {
+            $rearVariant = $rearVariants->get($variant['product_id'] ?? null);
+            if (!$rearVariant) continue;
+
+            $rearPriceResult = $this->transformer->publicDealerPrice($rearVariant, $dealer);
+            $rearStock = $rearVariant->inventories->sum('quantity');
+
+            $formatted[$i]['rear_sku']               = $rearVariant->sku;
+            $formatted[$i]['rear_size']               = $rearVariant->size ?? ($rearVariant->rim_diameter . 'x' . $rearVariant->rim_width);
+            $formatted[$i]['rear_rim_diameter']       = $rearVariant->rim_diameter;
+            $formatted[$i]['rear_rim_width']          = $rearVariant->rim_width;
+            $formatted[$i]['rear_bolt_pattern']       = $rearVariant->bolt_pattern;
+            $formatted[$i]['rear_offset']             = $rearVariant->offset;
+            $formatted[$i]['rear_us_retail_price']    = (float) ($rearVariant->us_retail_price ?? 0);
+            $formatted[$i]['rear_discounted_price']   = $rearPriceResult['final_price'];
+            $formatted[$i]['rear_price']              = $rearPriceResult['final_price'];
+            $formatted[$i]['rear_product_id']         = $rearVariant->product_id;
+            $formatted[$i]['rear_variant_id']         = $rearVariant->id;
+            $formatted[$i]['rear_varient_id']         = $rearVariant->id; // legacy spelling
+            $formatted[$i]['rear_in_stock_quantity']  = $rearStock;
+            $formatted[$i]['rear_total_stock']        = $rearStock;
+        }
+
+        return $formatted;
+    }
 
     /**
      * Apply query string filters to a ProductVariant query builder.

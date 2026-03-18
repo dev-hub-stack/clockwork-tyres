@@ -149,6 +149,16 @@ class WholesaleProductTransformer
             'total_stock'      => $totalStock,
             'supplier_stock'   => (int) ($variant->supplier_stock ?? 0),
             'eta'              => $this->etaData($variant),
+
+            // Frontend compatibility aliases
+            'total_quantity'    => $totalStock,
+            'product_inventory' => array_map(fn($s) => [
+                'quantity'  => $s['qty'],
+                'eta'       => $s['eta'],
+                'eta_qty'   => $s['eta_qty'],
+                'warehouse' => $s['warehouse'],
+            ], $stockData),
+            'track_inventory'   => (bool) ($product?->track_inventory ?? true),
         ];
     }
 
@@ -215,6 +225,15 @@ class WholesaleProductTransformer
     }
 
     // ─── Private helpers ────────────────────────────────────────────────────
+
+    /**
+     * Public wrapper for dealer price calculation — used by controllers that
+     * need pricing for rear/secondary variants without a full formatVariant call.
+     */
+    public function publicDealerPrice(ProductVariant $variant, ?Customer $dealer): array
+    {
+        return $this->dealerPrice($variant, $dealer);
+    }
 
     /**
      * Calculate dealer price using DealerPricingService (3-tier hierarchy).

@@ -149,7 +149,7 @@ class BrandController extends BaseWholesaleController
               ->where('status', 1)
               ->where('available_on_wholesale', true)
               ->where('name', urldecode($productSlug));
-        })
+        });
         ->get();
 
         if ($variants->isEmpty()) {
