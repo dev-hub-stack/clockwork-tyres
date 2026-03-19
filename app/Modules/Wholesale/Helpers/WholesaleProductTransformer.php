@@ -46,21 +46,31 @@ class WholesaleProductTransformer
         
         foreach ($variant->inventories as $inv) {
             $qty = (int) $inv->quantity;
+            $etaQty = (int) $inv->eta_qty;
+            $warehouseName = $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name ?? 'Unknown';
+            $isPrimary = (bool) ($inv->warehouse?->is_primary ?? false);
+
             $totalStock += $qty;
             $stockData[] = [
                 'warehouse_id'   => $inv->warehouse_id,
-                'warehouse'      => $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name ?? 'Unknown',
+                'warehouse'      => $warehouseName,
+                'warehouse_name' => $warehouseName,
                 'qty'            => $qty,
-                'eta_qty'        => (int) $inv->eta_qty,
+                'eta_qty'        => $etaQty,
                 'eta'            => $inv->eta,
                 'in_stock'       => $qty > 0,
+                'is_primary'     => $isPrimary,
                 'stock_color'    => $inv->stock_status_color,
             ];
         }
 
+        usort($stockData, fn(array $left, array $right) => $this->compareStockRows($left, $right));
+
         return [
             // Identity
             'id'               => $variant->id,
+            'variant_id'       => $variant->id,
+            'product_variant_id' => $variant->id,
             'product_id'       => $variant->product_id,
             'sku'              => $variant->sku,
             'name'             => $product?->name ?? '',
@@ -153,6 +163,9 @@ class WholesaleProductTransformer
             // Frontend compatibility aliases
             'total_quantity'    => $totalStock,
             'product_inventory' => array_map(fn($s) => [
+                'warehouse_id' => $s['warehouse_id'],
+                'warehouse_name' => $s['warehouse_name'],
+                'is_primary' => $s['is_primary'],
                 'quantity'  => $s['qty'],
                 'eta'       => $s['eta'],
                 'eta_qty'   => $s['eta_qty'],
@@ -258,6 +271,42 @@ class WholesaleProductTransformer
             $variant->product?->model_id,
             $variant->product?->brand_id
         );
+    }
+
+    private function compareStockRows(array $left, array $right): int
+    {
+        $priorityCompare = $this->stockPriority($left) <=> $this->stockPriority($right);
+
+        if ($priorityCompare !== 0) {
+            return $priorityCompare;
+        }
+
+        return strcasecmp($left['warehouse_name'] ?? '', $right['warehouse_name'] ?? '');
+    }
+
+    private function stockPriority(array $stockRow): int
+    {
+        $hasStock = (int) ($stockRow['qty'] ?? 0) > 0;
+        $hasEta = (int) ($stockRow['eta_qty'] ?? 0) > 0 || !empty($stockRow['eta']);
+        $isPrimary = (bool) ($stockRow['is_primary'] ?? false);
+
+        if ($hasStock && $isPrimary) {
+            return 0;
+        }
+
+        if ($hasStock) {
+            return 1;
+        }
+
+        if ($hasEta && $isPrimary) {
+            return 2;
+        }
+
+        if ($hasEta) {
+            return 3;
+        }
+
+        return 4;
     }
 
     /**

@@ -73,6 +73,7 @@ Route::middleware('wholesale.auth')->group(function () {
     Route::get('products',              [ProductController::class, 'index']);
     Route::get('filters',               [ProductController::class, 'filters']);
     Route::get('filter-wheels',         [ProductController::class, 'filterWheels']);
+    Route::post('product/inventory',    [ProductController::class, 'inventory']);
     Route::post('search-sizes',         [ProductController::class, 'searchSizes']);
     Route::get('search-form-params',    [ProductController::class, 'searchSizeParams']);
     Route::post('search-vehicles',      [ProductController::class, 'searchVehicles']);

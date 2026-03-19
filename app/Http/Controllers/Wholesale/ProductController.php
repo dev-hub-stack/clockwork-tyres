@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Wholesale;
 
+use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\Brand;
@@ -44,7 +45,7 @@ class ProductController extends BaseWholesaleController
             'product.brand',
             'product.model',
             'finishRelation',
-            'inventories.warehouse:id,warehouse_name,code',
+            'inventories.warehouse:id,warehouse_name,code,is_primary',
         ])
         ->join('products', 'products.id', '=', 'product_variants.product_id')
         ->where('products.status', 1)
@@ -184,6 +185,70 @@ class ProductController extends BaseWholesaleController
     public function filterWheels(Request $request)
     {
         return $this->index($request);
+    }
+
+    /**
+     * POST /api/product/inventory
+     * Returns warehouse inventory rows for the stock selection modal.
+     */
+    public function inventory(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+            'variant_id' => 'required|integer|exists:product_variants,id',
+        ]);
+
+        $variant = ProductVariant::query()
+            ->whereKey($validated['variant_id'])
+            ->where('product_id', $validated['product_id'])
+            ->first();
+
+        if (! $variant) {
+            return $this->error('Product variant does not belong to the requested product.', null, 404);
+        }
+
+        $dealer = $this->dealer();
+        $inventoryQuery = ProductInventory::query()
+            ->with('warehouse:id,warehouse_name,code,lat,lng,is_primary')
+            ->join('warehouses', 'warehouses.id', '=', 'product_inventories.warehouse_id')
+            ->select('product_inventories.*')
+            ->where('product_id', $validated['product_id'])
+            ->where('product_variant_id', $validated['variant_id'])
+            ->where(function ($query) {
+                $query->where('quantity', '>', 0)
+                    ->orWhere('eta_qty', '>', 0)
+                    ->orWhereNotNull('eta');
+            })
+            ->orderByRaw('CASE WHEN product_inventories.quantity > 0 THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN warehouses.is_primary = 1 THEN 0 ELSE 1 END')
+            ->orderBy('warehouses.warehouse_name');
+
+        if ($dealer?->lat && $dealer?->lng) {
+            $inventoryQuery->selectRaw(
+                    '( 6371 * acos( cos( radians(?) ) * cos( radians( warehouses.lat ) ) * cos( radians( warehouses.lng ) - radians(?) ) + sin( radians(?) ) * sin( radians( warehouses.lat ) ) ) ) AS distance',
+                    [$dealer->lat, $dealer->lng, $dealer->lat]
+                )
+                ->orderByRaw('distance IS NULL')
+                ->orderBy('distance');
+        }
+
+        $inventory = $inventoryQuery
+            ->get()
+            ->map(function (ProductInventory $item) {
+                return [
+                    'id' => $item->warehouse_id,
+                    'warehouse_id' => $item->warehouse_id,
+                    'code' => $item->warehouse?->code,
+                    'warehouse_name' => $item->warehouse?->warehouse_name ?? $item->warehouse?->name ?? 'Warehouse',
+                    'is_primary' => (bool) ($item->warehouse?->is_primary ?? false),
+                    'quantity' => (int) $item->quantity,
+                    'eta' => $item->eta,
+                    'eta_qty' => (int) $item->eta_qty,
+                ];
+            })
+            ->all();
+
+        return $this->success($inventory);
     }
 
     /**
