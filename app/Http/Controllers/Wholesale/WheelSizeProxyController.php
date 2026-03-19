@@ -38,13 +38,17 @@ class WheelSizeProxyController extends BaseWholesaleController
             }
 
             return response()->json([
-                'status'  => false,
-                'message' => 'External API error',
-                'data'    => $response->json(),
-            ], $response->status());
+                'status'       => false,
+                'message'      => 'External API error',
+                'http_status'  => $response->status(),
+                'body'         => $response->body(),
+            ], 200); // always 200 so Angular can read the payload
 
         } catch (\Exception $e) {
-            return $this->error('Proxy request failed: ' . $e->getMessage(), null, 500);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Proxy request failed: ' . $e->getMessage(),
+            ], 200);
         }
     }
 
