@@ -63,8 +63,21 @@ class DealerController extends BaseWholesaleController
         }
 
         // Notify admin
-        $adminEmail = config('mail.admin_address', env('ADMIN_EMAIL', env('MAIL_FROM_ADDRESS')));
-        Mail::to($adminEmail)->send(new WholesaleSignupInquiryMail([
+        $recipientEmails = User::query()
+            ->permission('receive_wholesale_inquiries')
+            ->whereNotNull('email')
+            ->pluck('email')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($recipientEmails)) {
+            $fallbackEmail = config('mail.admin_address', env('ADMIN_EMAIL', env('MAIL_FROM_ADDRESS')));
+            $recipientEmails = array_values(array_filter([$fallbackEmail]));
+        }
+
+        Mail::to($recipientEmails)->send(new WholesaleSignupInquiryMail([
             'business_name'      => $validated['business_name'] ?? null,
             'email'              => $validated['email'],
             'phone'              => $validated['phone'] ?? null,

@@ -68,6 +68,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'create_customers',
             'edit_customers',
             'delete_customers',
+            'receive_wholesale_inquiries',
 
             // Warranty Claims
             'view_warranty_claims',

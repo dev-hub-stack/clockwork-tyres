@@ -126,6 +126,7 @@ class AbandonedCartResource extends Resource
                     ->label('Dealer')
                     ->relationship('dealer', 'business_name')
                     ->searchable()
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Dealer')
                     ->preload(),
 
                 Filter::make('updated_at')

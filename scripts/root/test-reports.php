@@ -1,6 +1,6 @@
 <?php
 // Bootstrap Laravel
-$app = require __DIR__.'/bootstrap/app.php';
+$app = require_once dirname(__DIR__) . '/bootstrap.php';
 
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 

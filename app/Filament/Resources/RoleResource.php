@@ -19,6 +19,14 @@ class RoleResource extends Resource
 {
     protected static ?string $model = Role::class;
 
+    protected static function formatPermissionLabel(string $permissionName): string
+    {
+        return match ($permissionName) {
+            'receive_wholesale_inquiries' => 'Receives wholesale signup inquiry emails',
+            default => ucwords(str_replace('_', ' ', $permissionName)),
+        };
+    }
+
     protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-shield-check';
 
     protected static UnitEnum|string|null $navigationGroup = 'Administration';
@@ -50,7 +58,7 @@ class RoleResource extends Resource
             ]),
 
             Section::make('Permissions')
-                ->description('Check the permissions this role grants to all users assigned to it.')
+                ->description('Check the permissions this role grants to all users assigned to it. Use "Receives wholesale signup inquiry emails" for roles that should get dealer signup inquiry notifications.')
                 ->schema([
                     CheckboxList::make('permissions')
                         ->label('')
@@ -58,7 +66,7 @@ class RoleResource extends Resource
                             return Permission::orderBy('name')
                                 ->get()
                                 ->mapWithKeys(fn ($p) => [
-                                    $p->id => ucwords(str_replace('_', ' ', $p->name))
+                                    $p->id => static::formatPermissionLabel($p->name)
                                 ]);
                         })
                         ->columns(4)

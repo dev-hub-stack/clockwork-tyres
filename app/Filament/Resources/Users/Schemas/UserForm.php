@@ -15,6 +15,14 @@ use Spatie\Permission\Models\Permission;
 
 class UserForm
 {
+    protected static function formatPermissionLabel(string $permissionName): string
+    {
+        return match ($permissionName) {
+            'receive_wholesale_inquiries' => 'Receives wholesale signup inquiry emails',
+            default => ucwords(str_replace('_', ' ', $permissionName)),
+        };
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -71,7 +79,7 @@ class UserForm
                                     
                                     return collect($role->permissions)
                                         ->pluck('name')
-                                        ->map(fn($name) => ucwords(str_replace('_', ' ', $name)))
+                                        ->map(fn($name) => static::formatPermissionLabel($name))
                                         ->join(', ');
                                 })
                                 ->visible(fn (Get $get) => filled($get('role')))
@@ -80,13 +88,13 @@ class UserForm
                     ]),
                 
                 Section::make('Permissions')
-                    ->description('Users automatically inherit permissions from their assigned Role. Select items below ONLY if you want to grant EXTRA access beyond the role.')
+                    ->description('Users automatically inherit permissions from their assigned Role. Select items below ONLY if you want to grant EXTRA access beyond the role. Use "Receives wholesale signup inquiry emails" for users who should get dealer signup inquiry notifications.')
                     ->schema([
                         CheckboxList::make('permissions')
                             ->label('')
                             ->options(function () {
                                 return Permission::all()
-                                    ->mapWithKeys(fn($p) => [$p->name => ucwords(str_replace('_', ' ', $p->name))]);
+                                    ->mapWithKeys(fn($p) => [$p->name => static::formatPermissionLabel($p->name)]);
                             })
                             ->columns(4)
                             ->gridDirection('row')

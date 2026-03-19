@@ -1,6 +1,6 @@
 # Server Scripts
 
-This directory contains executable scripts for server management.
+This directory contains executable scripts for server management plus ad hoc maintenance helpers consolidated from the repository root.
 
 ## Scripts Overview
 
@@ -9,6 +9,14 @@ This directory contains executable scripts for server management.
 | `setup-supervisor.sh` | Configure supervisor for queue workers | `sudo bash scripts/setup-supervisor.sh` |
 | `deploy.sh` | Deploy latest code and restart services | `bash scripts/deploy.sh` |
 | `queue-worker.sh` | Manage queue workers | `bash scripts/queue-worker.sh {status\|start\|stop\|restart\|logs}` |
+
+## Additional Folders
+
+- `scripts/root/` contains one-off checks, fixes, imports, and test helpers that used to live in the repository root.
+- `scripts/diagnostics/` contains deeper diagnostic scripts.
+- `scripts/seeds/` contains seeding and bootstrap helpers.
+
+All PHP scripts under `scripts/` can load Laravel through `scripts/bootstrap.php`.
 
 ## Quick Start (New Server)
 

@@ -199,14 +199,14 @@ class OrderController extends BaseWholesaleController
         $dealer = $this->dealer();
 
         $orders = Order::where('customer_id', $dealer->id)
-            ->where('document_type', DocumentType::QUOTE->value)
             ->where('channel', 'wholesale')
-            ->select(['id', 'customer_id', 'total', 'vat', 'order_status', 'created_at'])
             ->latest()
             ->paginate(20);
 
         return $this->success([
-            'data'          => $orders->items(),
+            'data'          => collect($orders->items())
+                ->map(fn (Order $order) => $this->formatOrderSummary($order))
+                ->values(),
             'current_page'  => $orders->currentPage(),
             'total'         => $orders->total(),
             'last_page'     => $orders->lastPage(),
@@ -315,11 +315,14 @@ class OrderController extends BaseWholesaleController
         // Billing = same address (wholesale uses one address for both)
         $billingData = $addressData;
 
+        $status = $this->resolveStatus($order);
+
         return [
             'id'               => $order->id,
             'order_number'     => $order->quote_number ?? $order->order_number,
             'document_type'    => $order->document_type,
-            'status'           => $order->quote_status ?? $order->order_status,
+            'status'           => $status,
+            'status_label'     => $this->formatStatusLabel($status),
             'payment_status'   => $order->payment_status ?? null,
             'channel'          => $order->channel,
             'sub_total'        => (float) $order->sub_total,
@@ -368,5 +371,50 @@ class OrderController extends BaseWholesaleController
                     'total_price' => (float) $item->line_total,
                 ])->values(),
         ];
+    }
+
+    private function formatOrderSummary(Order $order): array
+    {
+        $status = $this->resolveStatus($order);
+
+        return [
+            'id' => $order->id,
+            'order_number' => $order->quote_number ?? $order->order_number,
+            'display_number' => $order->quote_number
+                ?? $order->order_number
+                ?? str_pad((string) $order->id, 8, '0', STR_PAD_LEFT),
+            'document_type' => $order->document_type,
+            'status' => $status,
+            'status_label' => $this->formatStatusLabel($status),
+            'payment_status' => $order->payment_status ?? null,
+            'tracking_number' => $order->tracking_number,
+            'total' => (float) $order->total,
+            'vat' => (float) ($order->tax ?? 0),
+            'created_at' => $order->created_at,
+        ];
+    }
+
+    private function resolveStatus(Order $order): ?string
+    {
+        return $this->normalizeStatusValue($order->order_status)
+            ?? $this->normalizeStatusValue($order->quote_status);
+    }
+
+    private function normalizeStatusValue(mixed $status): ?string
+    {
+        if ($status instanceof \BackedEnum) {
+            return $status->value;
+        }
+
+        return is_string($status) && $status !== '' ? $status : null;
+    }
+
+    private function formatStatusLabel(?string $status): ?string
+    {
+        if (! $status) {
+            return null;
+        }
+
+        return strtoupper(str_replace('_', ' ', $status));
     }
 }

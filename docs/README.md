@@ -2,6 +2,8 @@
 
 Welcome to the Reporting CRM v2.0 documentation. This directory contains all technical documentation, architecture decisions, and implementation guides.
 
+Historical root-level notes and completion reports are now consolidated under `docs/root/` to keep the repository root cleaner.
+
 ---
 
 ## 📚 Documentation Structure
@@ -10,8 +12,10 @@ Welcome to the Reporting CRM v2.0 documentation. This directory contains all tec
 docs/
 ├── README.md                     # This file - documentation index
 ├── IMPLEMENTATION_PLAN.md        # 16-week phased development plan
-├── NEXT_STEPS_TODO.md           # 28-day immediate action items
-└── architecture/                # Architecture documentation
+├── PROGRESS.md                  # Current progress snapshot
+├── architecture/                # Architecture documentation
+├── root/                        # Historical root-level notes and completion reports
+└── ...                          # Module notes, plans, and implementation reports
     ├── ARCHITECTURE_MASTER_INDEX.md
     ├── ARCHITECTURE_SUMMARY.md
     ├── NEW_SYSTEM_ARCHITECTURE.md
@@ -30,7 +34,7 @@ docs/
    - Read: `IMPLEMENTATION_PLAN.md` (Development roadmap)
 
 2. **Implementation Team:**
-   - Start with: `NEXT_STEPS_TODO.md` (28-day action plan)
+   - Start with: `PROGRESS.md` (current state and recent work)
    - Follow: `IMPLEMENTATION_PLAN.md` (Week-by-week guide)
 
 3. **Module Development:**
@@ -43,7 +47,7 @@ docs/
 
 ### Planning & Implementation
 - **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - 16-week phased development plan with daily tasks
-- **[NEXT_STEPS_TODO.md](./NEXT_STEPS_TODO.md)** - Immediate 28-day action items for rapid start
+- **[PROGRESS.md](./PROGRESS.md)** - Current project progress snapshot
 
 ### Architecture Overview
 - **[ARCHITECTURE_MASTER_INDEX.md](./architecture/ARCHITECTURE_MASTER_INDEX.md)** - Complete architecture overview and module index
