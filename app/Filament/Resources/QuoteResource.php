@@ -80,6 +80,25 @@ class QuoteResource extends Resource
     protected static ?string $pluralModelLabel = 'Quotes & Proformas';
 
     /**
+     * Show a badge on the sidebar with the count of new wholesale orders
+     * that are pending review (quote_status = 'sent', channel = 'wholesale').
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $count = Order::quotes()
+            ->where('channel', 'wholesale')
+            ->where('quote_status', 'sent')
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'warning';
+    }
+
+    /**
      * Global scope to only show quotes
      */
     public static function getEloquentQuery(): Builder

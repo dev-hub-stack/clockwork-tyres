@@ -6,7 +6,6 @@ use App\Modules\Wholesale\Cart\Services\CartService;
 use App\Modules\Wholesale\Cart\Models\Cart;
 use App\Modules\Orders\Services\OrderService;
 use App\Modules\Orders\Enums\DocumentType;
-use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use Illuminate\Http\Request;
 
@@ -225,9 +224,8 @@ class OrderController extends BaseWholesaleController
 
         $order = Order::where('customer_id', $dealer->id)->findOrFail($request->order_id);
 
-        if ($order->order_status !== OrderStatus::PROCESSING) {
-            $this->orderService->confirmOrder($order->loadMissing('items.productVariant.product', 'items.addon'));
-        }
+        // DO NOT allocate inventory here — wholesale orders are quotes pending admin review.
+        // Inventory is only deducted when the admin converts the quote to an invoice.
 
         $cart = Cart::where('dealer_id', $dealer->id)->first();
         if ($cart) {
