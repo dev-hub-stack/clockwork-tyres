@@ -80,14 +80,13 @@ class QuoteResource extends Resource
     protected static ?string $pluralModelLabel = 'Quotes & Proformas';
 
     /**
-     * Show a badge on the sidebar with the count of new wholesale orders
-     * that are pending review (quote_status = 'sent', channel = 'wholesale').
+     * Show a sidebar badge for wholesale quotes/proformas the same way
+     * abandoned carts use a navigation badge: count the records in this section.
      */
     public static function getNavigationBadge(): ?string
     {
         $count = Order::quotes()
             ->where('channel', 'wholesale')
-            ->where('quote_status', 'sent')
             ->count();
 
         return $count > 0 ? (string) $count : null;
