@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 class OrderStatsOverview extends BaseWidget
 {
     protected static ?int $sort = 1;
+
+    private const REVENUE_CUTOFF_DATE = '2026-01-01';
     
     protected function getStats(): array
     {
@@ -18,6 +20,7 @@ class OrderStatsOverview extends BaseWidget
         
         // Monthly revenue from completed orders
         $monthlyRevenue = Order::where('order_status', 'completed')
+            ->whereDate('created_at', '>=', self::REVENUE_CUTOFF_DATE)
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('total');

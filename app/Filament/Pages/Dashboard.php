@@ -8,6 +8,8 @@ use Filament\Pages\Page;
 
 class Dashboard extends Page
 {
+    private const REVENUE_CUTOFF_DATE = '2026-01-01';
+
     protected string $view = 'filament.pages.dashboard';
     
     protected static ?string $navigationLabel = 'Dashboard';
@@ -42,6 +44,7 @@ class Dashboard extends Page
         
         $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
             ->whereIn('order_status', ['delivered', 'completed'])
+            ->whereDate('created_at', '>=', self::REVENUE_CUTOFF_DATE)
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('total');
