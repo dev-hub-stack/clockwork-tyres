@@ -265,6 +265,7 @@ class ProductController extends BaseWholesaleController
         $productId = $request->input('product_id');
         $modelId = $request->input('model_id');
         $brandId = $request->input('brand_id');
+        $resolvedProductId = null;
 
         $request->validate([
             'rim_diameter' => 'sometimes|numeric',
@@ -272,10 +273,22 @@ class ProductController extends BaseWholesaleController
             'rim_width'    => 'sometimes|numeric',
             'width'        => 'sometimes|numeric',
             'bolt_pattern' => 'sometimes|string',
-            'product_id'   => 'sometimes|integer|exists:products,id',
+            'product_id'   => 'sometimes|integer',
             'model_id'     => 'sometimes|integer',
             'brand_id'     => 'sometimes|integer',
         ]);
+
+        if ($productId) {
+            $resolvedProductId = Product::query()->whereKey($productId)->value('id');
+
+            if (!$resolvedProductId) {
+                $resolvedProductId = ProductVariant::query()->whereKey($productId)->value('product_id');
+            }
+
+            if (!$resolvedProductId) {
+                return $this->success([]);
+            }
+        }
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
             ->join('products', 'products.id', '=', 'product_variants.product_id')
@@ -291,8 +304,8 @@ class ProductController extends BaseWholesaleController
         if ($request->filled('bolt_pattern')) {
             $query->where('product_variants.bolt_pattern', $request->bolt_pattern);
         }
-        if ($productId) {
-            $query->where('products.id', $productId);
+        if ($resolvedProductId) {
+            $query->where('products.id', $resolvedProductId);
         }
         if ($modelId) {
             $query->where('products.model_id', $modelId);

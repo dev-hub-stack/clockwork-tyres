@@ -244,10 +244,13 @@ class CartController extends BaseWholesaleController
         ])->pluck('value', 'key')->toArray();
 
         // Tax rate comes from the main Tax Settings (not system_settings)
-        $taxRate = optional(TaxSetting::getDefault())->rate ?? 0;
+        $taxSetting = TaxSetting::getDefault();
+        $taxRate = optional($taxSetting)->rate ?? 0;
+        $taxInclusiveDefault = (bool) optional($taxSetting)->tax_inclusive_default;
 
         return $this->success(array_merge($settings, [
             'admin.tax_rate' => (string) $taxRate,
+            'admin.tax_inclusive_default' => $taxInclusiveDefault,
             'addresses'      => $addresses,
         ]));
     }
