@@ -420,10 +420,15 @@ class QuoteResource extends Resource
                                                  $id = substr($state, 6);
                                                  $addon = \App\Modules\Products\Models\AddOn::find($id);
                                                  if ($addon) {
+                                                     $customerId = $get('../../customer_id');
+                                                     $customer = $customerId
+                                                         ? \App\Modules\Customers\Models\Customer::find($customerId)
+                                                         : null;
+
                                                      $set('is_custom', false);
                                                      $set('add_on_id', $id);
                                                      $set('product_variant_id', null); // Clear product variant
-                                                     $set('unit_price', floatval($addon->price ?? 0));
+                                                     $set('unit_price', $addon->resolvePriceForCustomer($customer));
                                                      $set('quantity', 1);
                                                      
                                                      // Set tax_inclusive from system setting

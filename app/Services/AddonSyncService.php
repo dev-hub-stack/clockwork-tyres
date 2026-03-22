@@ -6,10 +6,12 @@ use App\Modules\Products\Models\AddOn;
 use App\Modules\Products\Models\AddOnCategory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class AddonSyncService
 {
     protected $categorySyncService;
+    protected ?array $addonColumns = null;
 
     public function __construct(AddonCategorySyncService $categorySyncService)
     {
@@ -26,13 +28,15 @@ class AddonSyncService
     public function syncAddon(array $data): AddOn
     {
         return DB::transaction(function () use ($data) {
+            $source = $this->normalizeSource($data['external_source'] ?? 'retail');
+
             Log::info('AddonSyncService: Syncing addon', [
                 'external_addon_id' => $data['external_addon_id'],
                 'part_number' => $data['part_number']
             ]);
 
             // EDGE CASE 1: Ensure category exists (embedded sync)
-            $category = $this->ensureCategory($data['category']);
+            $category = $this->ensureCategory($data['category'], $source);
 
             // EDGE CASE 2: Check for duplicate part_number from different source
             $this->handleDuplicatePartNumber($data);
@@ -45,7 +49,7 @@ class AddonSyncService
             $addon = AddOn::updateOrCreate(
                 [
                     'external_addon_id' => $data['external_addon_id'],
-                    'external_source' => $data['external_source'] ?? 'tunerstop'
+                    'external_source' => $source
                 ],
                 $addonData
             );
@@ -63,11 +67,11 @@ class AddonSyncService
     /**
      * EDGE CASE HANDLER: Ensure category exists via embedded sync
      */
-    protected function ensureCategory(array $categoryData): AddOnCategory
+    protected function ensureCategory(array $categoryData, string $source): AddOnCategory
     {
         // First try to find existing category by external_id
         $category = AddOnCategory::where('external_id', $categoryData['external_id'])
-            ->where('external_source', $categoryData['external_source'] ?? 'tunerstop')
+            ->where('external_source', $this->normalizeSource($categoryData['external_source'] ?? $source))
             ->first();
 
         if ($category) {
@@ -81,7 +85,7 @@ class AddonSyncService
         ]);
 
         return $this->categorySyncService->syncCategory($categoryData + [
-            'external_source' => 'tunerstop'
+            'external_source' => $this->normalizeSource($categoryData['external_source'] ?? $source)
         ]);
     }
 
@@ -98,7 +102,7 @@ class AddonSyncService
         $existingAddon = AddOn::where('part_number', $data['part_number'])
             ->where(function ($query) use ($data) {
                 $query->whereNull('external_source')
-                    ->orWhere('external_source', '!=', $data['external_source'] ?? 'tunerstop');
+                    ->orWhere('external_source', '!=', $this->normalizeSource($data['external_source'] ?? 'retail'));
             })
             ->first();
 
@@ -107,7 +111,7 @@ class AddonSyncService
                 'part_number' => $data['part_number'],
                 'existing_id' => $existingAddon->id,
                 'existing_source' => $existingAddon->external_source,
-                'new_source' => $data['external_source'] ?? 'tunerstop'
+                'new_source' => $this->normalizeSource($data['external_source'] ?? 'retail')
             ]);
             // Not blocking - just log for manual review
         }
@@ -154,7 +158,25 @@ class AddonSyncService
             }
         }
 
-        return $addonData;
+        return array_intersect_key($addonData, array_flip($this->addonColumns()));
+    }
+
+    private function addonColumns(): array
+    {
+        if ($this->addonColumns !== null) {
+            return $this->addonColumns;
+        }
+
+        return $this->addonColumns = Schema::getColumnListing('addons');
+    }
+
+    private function normalizeSource(?string $source): string
+    {
+        return match (strtolower((string) $source)) {
+            'tunerstop', 'tunerstop_admin', 'retail' => 'retail',
+            'wholesale' => 'wholesale',
+            default => 'retail',
+        };
     }
 
     /**
@@ -182,13 +204,14 @@ class AddonSyncService
      */
     protected function sanitizeStockStatus($status): string
     {
-        $validStatuses = ['in_stock', 'out_of_stock', 'pre_order'];
+        $normalizedStatus = $status === 'pre_order' ? 'backorder' : $status;
+        $validStatuses = ['in_stock', 'out_of_stock', 'backorder', 'discontinued'];
         
-        if (!in_array($status, $validStatuses)) {
+        if (!in_array($normalizedStatus, $validStatuses, true)) {
             Log::warning('AddonSyncService: Invalid stock_status, defaulting to in_stock', ['status' => $status]);
             return 'in_stock';
         }
 
-        return $status;
+        return $normalizedStatus;
     }
 }

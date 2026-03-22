@@ -132,25 +132,32 @@ class InventoryController extends Controller
             'warehouse_id' => $warehouseId
         ]);
 
+        $inventory->quantity = $inventory->quantity ?? 0;
+        $inventory->eta_qty = $inventory->eta_qty ?? 0;
+
+        $normalizedValue = $this->normalizeInventoryValue($field, $value);
         $oldValue = $inventory->{$field} ?? null;
         
         // Only update if value changed
-        if ($oldValue != $value) {
-            $inventory->{$field} = $value;
+        if ($oldValue != $normalizedValue) {
+            $inventory->{$field} = $normalizedValue;
             $inventory->save();
+
+            $quantityBefore = (int) (($field === 'quantity' ? $oldValue : $inventory->quantity) ?? 0);
+            $quantityAfter = (int) (($field === 'quantity' ? $normalizedValue : $inventory->quantity) ?? 0);
 
             // Log the change
             InventoryLog::create([
                 'warehouse_id' => $warehouseId,
                 'product_variant_id' => $inventory->product_variant_id,
                 'action' => InventoryLog::ACTION_ADJUSTMENT,
-                'quantity_before' => $field === 'quantity' ? $oldValue : $inventory->quantity,
-                'quantity_after' => $field === 'quantity' ? $value : $inventory->quantity,
-                'quantity_change' => $field === 'quantity' ? ($value - ($oldValue ?? 0)) : 0,
+                'quantity_before' => $quantityBefore,
+                'quantity_after' => $quantityAfter,
+                'quantity_change' => $field === 'quantity' ? ($quantityAfter - $quantityBefore) : 0,
                 'eta_before' => $field === 'eta' ? $oldValue : $inventory->eta,
-                'eta_after' => $field === 'eta' ? $value : $inventory->eta,
-                'eta_qty_before' => $field === 'eta_qty' ? $oldValue : $inventory->eta_qty,
-                'eta_qty_after' => $field === 'eta_qty' ? $value : $inventory->eta_qty,
+                'eta_after' => $field === 'eta' ? $normalizedValue : $inventory->eta,
+                'eta_qty_before' => (int) (($field === 'eta_qty' ? $oldValue : $inventory->eta_qty) ?? 0),
+                'eta_qty_after' => (int) (($field === 'eta_qty' ? $normalizedValue : $inventory->eta_qty) ?? 0),
                 'notes' => 'Updated via Inventory Grid',
                 'user_id' => auth()->id()
             ]);
@@ -160,6 +167,24 @@ class InventoryController extends Controller
                 $this->updateProductTotals($variant->product_id);
             }
         }
+    }
+
+    protected function normalizeInventoryValue(string $field, $value)
+    {
+        if ($field === 'eta') {
+            $value = trim((string) ($value ?? ''));
+            return $value === '' ? null : $value;
+        }
+
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        if (is_string($value)) {
+            $value = str_replace(',', '', trim($value));
+        }
+
+        return max(0, (int) $value);
     }
 
     /**

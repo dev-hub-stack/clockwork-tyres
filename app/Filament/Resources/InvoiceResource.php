@@ -406,10 +406,15 @@ class InvoiceResource extends Resource
                                             $id = substr($state, 6);
                                             $addon = \App\Modules\Products\Models\AddOn::find($id);
                                             if ($addon) {
+                                                $customerId = $get('../../customer_id');
+                                                $customer = $customerId
+                                                    ? \App\Modules\Customers\Models\Customer::find($customerId)
+                                                    : null;
+
                                                 $set('is_custom', false);
                                                 $set('add_on_id', $id);
                                                 $set('product_variant_id', null);
-                                                $set('unit_price', floatval($addon->price ?? 0));
+                                                $set('unit_price', $addon->resolvePriceForCustomer($customer));
                                                 $set('quantity', 1);
                                                 $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
                                                 $set('tax_inclusive', $taxSetting ? $taxSetting->tax_inclusive_default : true);
@@ -1375,6 +1380,9 @@ class InvoiceResource extends Resource
                             'tracking_url' => $data['tracking_url'] ?? null,
                             'shipped_at' => $data['shipped_at'],
                         ]);
+
+                        app(\App\Services\TunerstopOrderStatusSyncService::class)
+                            ->sync($record->fresh(), 'invoice_marked_shipped');
                         
                         // Update shipped quantities for all items
                         foreach ($record->items as $item) {
@@ -1441,6 +1449,9 @@ class InvoiceResource extends Resource
                         $record->update([
                             'order_status' => OrderStatus::DELIVERED,
                         ]);
+
+                        app(\App\Services\TunerstopOrderStatusSyncService::class)
+                            ->sync($record->fresh(), 'invoice_marked_delivered');
                         
                         Notification::make()
                             ->title('Order Marked as Delivered')

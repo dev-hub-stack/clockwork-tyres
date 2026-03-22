@@ -2,6 +2,8 @@
 
 namespace App\Modules\Products\Models;
 
+use App\Modules\Customers\Models\Customer;
+use App\Modules\Customers\Services\DealerPricingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,6 +11,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class AddOn extends Model
 {
     use HasFactory, SoftDeletes;
+
+    public const STOCK_IN_STOCK = 1;
+    public const STOCK_OUT_OF_STOCK = 2;
+    public const STOCK_BACKORDER = 3;
+    public const STOCK_DISCONTINUED = 4;
 
     protected $table = 'addons';
 
@@ -52,6 +59,8 @@ class AddOn extends Model
         'price' => 'decimal:2',
         'wholesale_price' => 'decimal:2',
         'tax_inclusive' => 'boolean',
+        'stock_status' => 'integer',
+        'total_quantity' => 'integer',
         'track_inventory' => 'boolean',
         'notify_restock' => 'array',
     ];
@@ -93,12 +102,63 @@ class AddOn extends Model
      */
     public function getStockStatusTextAttribute()
     {
-        return match($this->stock_status) {
-            1 => 'in_stock',
-            0 => 'out_of_stock',
-            2 => 'pre_order',
+        return match($this->normalized_stock_status) {
+            self::STOCK_IN_STOCK => 'in_stock',
+            self::STOCK_OUT_OF_STOCK => 'out_of_stock',
+            self::STOCK_BACKORDER => 'backorder',
+            self::STOCK_DISCONTINUED => 'discontinued',
             default => 'in_stock'
         };
+    }
+
+    public function getNormalizedStockStatusAttribute(): int
+    {
+        return match ((int) $this->stock_status) {
+            0 => self::STOCK_OUT_OF_STOCK,
+            self::STOCK_IN_STOCK,
+            self::STOCK_OUT_OF_STOCK,
+            self::STOCK_BACKORDER,
+            self::STOCK_DISCONTINUED => (int) $this->stock_status,
+            default => self::STOCK_IN_STOCK,
+        };
+    }
+
+    public function getAvailabilityStatusAttribute(): string
+    {
+        $status = $this->normalized_stock_status;
+
+        if ($status === self::STOCK_DISCONTINUED) {
+            return 'discontinued';
+        }
+
+        if (!($this->track_inventory ?? false)) {
+            return match ($status) {
+                self::STOCK_IN_STOCK => 'in_stock',
+                self::STOCK_BACKORDER => 'backorder',
+                default => 'out_of_stock',
+            };
+        }
+
+        if (($this->total_quantity ?? 0) > 0) {
+            return 'in_stock';
+        }
+
+        return $status === self::STOCK_BACKORDER ? 'backorder' : 'out_of_stock';
+    }
+
+    public function getAvailabilityLabelAttribute(): string
+    {
+        return match ($this->availability_status) {
+            'in_stock' => 'In Stock',
+            'backorder' => 'Backorder',
+            'discontinued' => 'Discontinued',
+            default => 'Out Of Stock',
+        };
+    }
+
+    public function getIsOrderableAttribute(): bool
+    {
+        return $this->availability_status === 'in_stock';
     }
 
     /**
@@ -108,13 +168,21 @@ class AddOn extends Model
     {
         if (is_string($value)) {
             $this->attributes['stock_status'] = match($value) {
-                'in_stock' => 1,
-                'out_of_stock' => 0,
-                'pre_order' => 2,
-                default => 1
+                'in_stock' => self::STOCK_IN_STOCK,
+                'out_of_stock' => self::STOCK_OUT_OF_STOCK,
+                'pre_order', 'backorder' => self::STOCK_BACKORDER,
+                'discontinued' => self::STOCK_DISCONTINUED,
+                default => self::STOCK_IN_STOCK
             };
         } else {
-            $this->attributes['stock_status'] = $value;
+            $this->attributes['stock_status'] = match ((int) $value) {
+                0 => self::STOCK_OUT_OF_STOCK,
+                self::STOCK_IN_STOCK,
+                self::STOCK_OUT_OF_STOCK,
+                self::STOCK_BACKORDER,
+                self::STOCK_DISCONTINUED => (int) $value,
+                default => self::STOCK_IN_STOCK,
+            };
         }
     }
     /**
@@ -125,9 +193,7 @@ class AddOn extends Model
      */
     public function getPriceForCustomer($customer): float
     {
-        // TODO: Implement dealer pricing logic for addons
-        // For now, return standard price
-        return (float) $this->price;
+        return $this->resolvePriceForCustomer($this->resolveCustomer($customer));
     }
 
     /**
@@ -138,7 +204,43 @@ class AddOn extends Model
      */
     public function getDiscountForCustomer($customer): float
     {
-        // TODO: Implement dealer discount logic for addons
-        return 0.0;
+        $basePrice = (float) ($this->price ?? 0);
+        $finalPrice = $this->getPriceForCustomer($customer);
+
+        return max(0, $basePrice - $finalPrice);
+    }
+
+    public function resolvePriceForCustomer(?Customer $customer): float
+    {
+        $basePrice = (float) ($this->price ?? 0);
+
+        if (!$customer || !$customer->isDealer()) {
+            return $basePrice;
+        }
+
+        if ((float) ($this->wholesale_price ?? 0) > 0) {
+            return (float) $this->wholesale_price;
+        }
+
+        $pricing = app(DealerPricingService::class)->calculateAddonPrice(
+            $customer,
+            $basePrice,
+            $this->addon_category_id
+        );
+
+        return (float) ($pricing['final_price'] ?? $basePrice);
+    }
+
+    protected function resolveCustomer($customer): ?Customer
+    {
+        if ($customer instanceof Customer) {
+            return $customer;
+        }
+
+        if (is_numeric($customer)) {
+            return Customer::find((int) $customer);
+        }
+
+        return null;
     }
 }

@@ -38,7 +38,7 @@ class AddonSyncController extends Controller
                 'category' => 'required|array',
                 'category.external_id' => 'required|integer',
                 'category.slug' => 'required|string',
-                'stock_status' => 'nullable|in:in_stock,out_of_stock,pre_order',
+                'stock_status' => 'nullable|in:in_stock,out_of_stock,pre_order,backorder,discontinued',
                 'price' => 'nullable|numeric|min:0',
                 'wholesale_price' => 'nullable|numeric|min:0',
                 'wh2_california' => 'nullable|integer|min:0',

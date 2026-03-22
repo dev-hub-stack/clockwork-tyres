@@ -169,8 +169,13 @@ class OrderService
             $item->sku = $addon->part_number;
             $item->product_name = $addon->title;
             $item->product_description = $addon->description;
-            
-            $item->unit_price = $itemData['unit_price'] ?? $addon->price;
+
+            if (isset($itemData['unit_price'])) {
+                $item->unit_price = $itemData['unit_price'];
+            } else {
+                $customer = $order->customer_id ? Customer::find($order->customer_id) : null;
+                $item->unit_price = $addon->resolvePriceForCustomer($customer);
+            }
         } else {
             // External sync items: Use denormalized data from itemData
             // These items have external IDs stored in snapshots but no local FKs yet

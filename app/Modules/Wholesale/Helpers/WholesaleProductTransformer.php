@@ -199,6 +199,10 @@ class WholesaleProductTransformer
             ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
             : null;
 
+        $availabilityStatus = $addon->availability_status;
+        $availabilityLabel = $addon->availability_label;
+        $effectiveInStock = $addon->is_orderable;
+
         return [
             'id'              => $addon->id,
             'title'           => $addon->title,
@@ -216,7 +220,11 @@ class WholesaleProductTransformer
 
             // Media & specs
             'image'           => $imgUrl,
-            'stock_status'    => (bool) $addon->stock_status,
+            'stock_status'    => $effectiveInStock,
+            'manual_stock_status' => $addon->normalized_stock_status,
+            'availability_status' => $availabilityStatus,
+            'availability_label' => $availabilityLabel,
+            'is_orderable'    => $effectiveInStock,
             'total_quantity'  => (int) $totalQty,
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
