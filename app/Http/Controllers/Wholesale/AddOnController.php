@@ -208,6 +208,12 @@ class AddOnController extends BaseWholesaleController
             ->join('warehouses', 'warehouses.id', '=', 'product_inventories.warehouse_id')
             ->select('product_inventories.*')
             ->where('add_on_id', $id)
+            ->where('warehouses.code', '!=', 'NON-STOCK')
+            ->where(function ($query) {
+                $query->where('product_inventories.quantity', '>', 0)
+                    ->orWhere('product_inventories.eta_qty', '>', 0)
+                    ->orWhereNotNull('product_inventories.eta');
+            })
             ->orderByRaw('CASE WHEN product_inventories.quantity > 0 THEN 0 ELSE 1 END')
             ->orderByRaw('CASE WHEN warehouses.is_primary = 1 THEN 0 ELSE 1 END')
             ->orderBy('warehouses.warehouse_name')
