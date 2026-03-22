@@ -231,6 +231,31 @@ class OrderController extends BaseWholesaleController
     }
 
     /**
+     * POST /api/activity/checkout-started
+     * Record that the dealer entered the checkout flow.
+     */
+    public function checkoutStarted(Request $request)
+    {
+        $dealer = $this->dealer();
+
+        $cart = null;
+        if ($request->filled('session_id')) {
+            $cart = Cart::where('dealer_id', $dealer->id)
+                ->where('session_id', $request->session_id)
+                ->first();
+        }
+
+        ActivityLogService::logForCustomer(
+            'dealer_checkout_started',
+            'Started checkout',
+            $cart,
+            $dealer->id,
+        );
+
+        return $this->success(['logged' => true], 'Checkout activity recorded.');
+    }
+
+    /**
      * POST /api/order/completed
      * Mark an order as completed.
      * Body: { order_id }
@@ -241,6 +266,13 @@ class OrderController extends BaseWholesaleController
         $dealer = $this->dealer();
 
         $order = Order::where('customer_id', $dealer->id)->findOrFail($request->order_id);
+
+        ActivityLogService::logForCustomer(
+            'dealer_payment_submitted',
+            'Submitted payment via ' . ($order->payment_method ?: 'offline method'),
+            $order,
+            $dealer->id,
+        );
 
         // DO NOT allocate inventory here — wholesale orders are quotes pending admin review.
         // Inventory is only deducted when the admin converts the quote to an invoice.

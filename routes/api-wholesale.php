@@ -117,6 +117,7 @@ Route::middleware('wholesale.auth')->group(function () {
     Route::get('calculate-vat/{cartId}',                  [ShippingController::class, 'calculateVat']);
 
     // ── Phase 3: Orders ───────────────────────────────────────────────────────
+    Route::post('activity/checkout-started', [OrderController::class, 'checkoutStarted']);
     Route::post('order/store',             [OrderController::class, 'store']);
     Route::get('order/getById/{orderId}',  [OrderController::class, 'getById']);
     Route::post('order/all',               [OrderController::class, 'all']);
@@ -136,6 +137,7 @@ Route::middleware('wholesale.auth')->group(function () {
 
     // ── Phase 3: Payments ─────────────────────────────────────────────────────
     Route::post('payment',               [PaymentController::class, 'initiate']);
+    Route::post('payment/failed',        [PaymentController::class, 'logFailedAttempt']);
     Route::post('send-purchase-event',   [PaymentController::class, 'sendPurchaseEvent']);
 
 // ─── Protected routes (Bearer token required for user-specific data) ──────────

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Wholesale\Wishlists\Models\Wishlist;
 use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -144,6 +145,23 @@ class AuthController extends BaseWholesaleController
 
             // Return in the shape the Angular MyAccountData interface expects:
             // { my_profile: {...}, addressBooks: [], myOrders: [], wishlist: [] }
+            $wishlist = Wishlist::query()
+                ->with(['productVariant.product.brand'])
+                ->where('dealer_id', $dealer->id)
+                ->latest('id')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'user_id' => $item->dealer_id,
+                        'created_at' => $item->created_at,
+                        'updated_at' => $item->updated_at,
+                        'product_variant' => $item->productVariant,
+                    ];
+                })
+                ->values();
+
             return $this->success([
                 'my_profile'   => $this->formatProfileData($dealer),
                 'addressBooks' => $dealer->addresses->map(fn($a) => [
@@ -163,7 +181,7 @@ class AuthController extends BaseWholesaleController
                     'updated_at' => $a->updated_at,
                 ])->values(),
                 'myOrders' => [],
-                'wishlist'  => [],
+                'wishlist'  => $wishlist,
             ], 'Profile retrieved successfully');
         } catch (\Throwable $e) {
             return $this->error('Profile error: ' . $e->getMessage(), null, 500);

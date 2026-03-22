@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Wholesale\Wishlists\Models\Wishlist;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 
 /**
@@ -34,6 +35,18 @@ class WishlistController extends BaseWholesaleController
         // Eager load data required by Angular frontend (like product, brand)
         $wishlist->load(['productVariant.product.brand']);
 
+        if ($wishlist->wasRecentlyCreated && $wishlist->productVariant) {
+            $productName = $wishlist->productVariant->product?->name ?? 'Product';
+            $sku = $wishlist->productVariant->sku ? " ({$wishlist->productVariant->sku})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_added_to_wishlist',
+                "Added to wishlist {$productName}{$sku}",
+                $wishlist->productVariant,
+                $dealer->id,
+            );
+        }
+
         return $this->success($wishlist, 'Item added to wishlist.');
     }
 
@@ -45,7 +58,22 @@ class WishlistController extends BaseWholesaleController
         $dealer = $this->dealer();
 
         // Ensure dealer only deletes their own wishlist items
-        $wishlist = Wishlist::where('dealer_id', $dealer->id)->findOrFail($id);
+        $wishlist = Wishlist::where('dealer_id', $dealer->id)
+            ->with('productVariant.product')
+            ->findOrFail($id);
+
+        if ($wishlist->productVariant) {
+            $productName = $wishlist->productVariant->product?->name ?? 'Product';
+            $sku = $wishlist->productVariant->sku ? " ({$wishlist->productVariant->sku})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_removed_from_wishlist',
+                "Removed from wishlist {$productName}{$sku}",
+                $wishlist->productVariant,
+                $dealer->id,
+            );
+        }
+
         $wishlist->delete();
 
         return $this->success(null, 'Item removed from wishlist.');

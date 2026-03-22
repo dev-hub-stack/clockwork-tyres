@@ -23,15 +23,27 @@ class ActivityLog extends Model
         'user_logout' => 'User Logout',
         'dealer_login' => 'Logged In',
         'dealer_added_to_cart' => 'Added to Cart',
+        'dealer_removed_from_cart' => 'Removed from Cart',
+        'dealer_added_to_wishlist' => 'Added to Wishlist',
+        'dealer_removed_from_wishlist' => 'Removed from Wishlist',
         'dealer_viewed_product' => 'Viewed Product',
+        'dealer_checkout_started' => 'Checkout Started',
         'dealer_placed_order' => 'Placed Order',
+        'dealer_payment_submitted' => 'Payment Submitted',
+        'dealer_payment_failed' => 'Payment Failed',
     ];
 
     public const DEALER_ACTION_LABELS = [
         'dealer_login' => 'Logged In',
         'dealer_added_to_cart' => 'Added to Cart',
+        'dealer_removed_from_cart' => 'Removed from Cart',
+        'dealer_added_to_wishlist' => 'Added to Wishlist',
+        'dealer_removed_from_wishlist' => 'Removed from Wishlist',
         'dealer_viewed_product' => 'Viewed Product',
+        'dealer_checkout_started' => 'Checkout Started',
         'dealer_placed_order' => 'Placed Order',
+        'dealer_payment_submitted' => 'Payment Submitted',
+        'dealer_payment_failed' => 'Payment Failed',
     ];
 
     public $timestamps = false;

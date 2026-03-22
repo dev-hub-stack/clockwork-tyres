@@ -146,7 +146,21 @@ class CartController extends BaseWholesaleController
             ->whereHas('items', fn($q) => $q->where('id', $itemId))
             ->firstOrFail();
 
+        $cartItem = $cart->items()->with('variant.product')->find($itemId);
+
         $cart = $this->cartService->removeItem($cart, $itemId);
+
+        if ($cartItem?->variant) {
+            $productName = $cartItem->variant->product?->name ?? 'Product';
+            $sku = $cartItem->variant->sku ? " ({$cartItem->variant->sku})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_removed_from_cart',
+                "Removed from cart {$productName}{$sku}",
+                $cartItem->variant,
+                $dealer->id,
+            );
+        }
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }
@@ -223,7 +237,20 @@ class CartController extends BaseWholesaleController
             ->whereHas('addons', fn($q) => $q->where('addon_id', $addonId))
             ->firstOrFail();
 
+        $cartAddon = $cart->addons()->with('addon')->where('addon_id', $addonId)->first();
+
         $cart = $this->cartService->removeAddon($cart, $addonId);
+
+        if ($cartAddon?->addon) {
+            $partNumber = $cartAddon->addon->part_number ? " ({$cartAddon->addon->part_number})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_removed_from_cart',
+                "Removed from cart {$cartAddon->addon->title}{$partNumber}",
+                $cartAddon->addon,
+                $dealer->id,
+            );
+        }
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }
