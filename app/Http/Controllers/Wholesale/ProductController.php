@@ -254,16 +254,27 @@ class ProductController extends BaseWholesaleController
     /**
      * POST /api/search-sizes
      * Find variants matching an exact size combination.
-     * Angular sends: { rim_diameter, rim_width, bolt_pattern }
+     * Accepts both legacy wholesale keys and tunerstop-style keys.
      */
     public function searchSizes(Request $request)
     {
         $dealer = $this->dealer();
 
+        $rimDiameter = $request->input('rim_diameter', $request->input('diameter'));
+        $rimWidth = $request->input('rim_width', $request->input('width'));
+        $productId = $request->input('product_id');
+        $modelId = $request->input('model_id');
+        $brandId = $request->input('brand_id');
+
         $request->validate([
             'rim_diameter' => 'sometimes|numeric',
+            'diameter'     => 'sometimes|numeric',
             'rim_width'    => 'sometimes|numeric',
+            'width'        => 'sometimes|numeric',
             'bolt_pattern' => 'sometimes|string',
+            'product_id'   => 'sometimes|integer|exists:products,id',
+            'model_id'     => 'sometimes|integer',
+            'brand_id'     => 'sometimes|integer',
         ]);
 
         $query = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
@@ -271,14 +282,23 @@ class ProductController extends BaseWholesaleController
             ->where('products.status', 1)
             ->where('products.available_on_wholesale', true);
 
-        if ($request->filled('rim_diameter')) {
-            $query->where('rim_diameter', $request->rim_diameter);
+        if ($rimDiameter !== null && $rimDiameter !== '') {
+            $query->where('product_variants.rim_diameter', $rimDiameter);
         }
-        if ($request->filled('rim_width')) {
-            $query->where('rim_width', $request->rim_width);
+        if ($rimWidth !== null && $rimWidth !== '') {
+            $query->where('product_variants.rim_width', $rimWidth);
         }
         if ($request->filled('bolt_pattern')) {
-            $query->where('bolt_pattern', $request->bolt_pattern);
+            $query->where('product_variants.bolt_pattern', $request->bolt_pattern);
+        }
+        if ($productId) {
+            $query->where('products.id', $productId);
+        }
+        if ($modelId) {
+            $query->where('products.model_id', $modelId);
+        }
+        if ($brandId) {
+            $query->where('products.brand_id', $brandId);
         }
 
         $variants = $query->select('product_variants.*')->get();
