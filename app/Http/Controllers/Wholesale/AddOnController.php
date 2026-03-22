@@ -51,7 +51,19 @@ class AddOnController extends BaseWholesaleController
                 ->get()
         );
 
-        $formatted = $addons->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer));
+        $formatted = $addons
+            ->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer))
+            ->sort(function (array $left, array $right) {
+                $leftInStock = ($left['total_quantity'] ?? 0) > 0;
+                $rightInStock = ($right['total_quantity'] ?? 0) > 0;
+
+                if ($leftInStock !== $rightInStock) {
+                    return $leftInStock ? -1 : 1;
+                }
+
+                return strcasecmp((string) ($left['title'] ?? ''), (string) ($right['title'] ?? ''));
+            })
+            ->values();
 
         // Group by category for cleaner frontend rendering - Only show categories that actually have items
         $grouped = $formatted->groupBy('category')->map(fn($items, $category) => [
@@ -92,6 +104,7 @@ class AddOnController extends BaseWholesaleController
         $sortBy   = $request->get('sortBy', 'newest');
 
         $query = AddOn::with(['category', 'inventories'])
+            ->withSum('inventories as inventory_quantity_sum', 'quantity')
             ->whereHas('category', fn($q) => $q->where('slug', $slug))
             ->whereNull('addons.deleted_at');
 
@@ -115,6 +128,8 @@ class AddOnController extends BaseWholesaleController
         }
 
         // --- Sorting ------------------------------------------------------------
+        $query->orderByRaw('CASE WHEN COALESCE(inventory_quantity_sum, 0) > 0 THEN 0 ELSE 1 END asc');
+
         match ($sortBy) {
             'price_low_to_high'  => $query->orderBy('price', 'asc'),
             'price_high_to_low'  => $query->orderBy('price', 'desc'),
