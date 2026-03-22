@@ -61,8 +61,10 @@ class AbandonedCartResource extends Resource
     {
         return parent::getEloquentQuery()
             ->abandoned()
-            ->with(['dealer', 'shippingAddress', 'items', 'addons'])
+            ->with(['dealer', 'shippingAddress', 'items.variant.product.brand', 'addons.addon'])
             ->withCount(['items', 'addons'])
+            ->withSum('items as items_quantity_sum', 'quantity')
+            ->withSum('addons as addons_quantity_sum', 'quantity')
             ->latest('updated_at');
     }
 
@@ -91,9 +93,33 @@ class AbandonedCartResource extends Resource
                     ->copyable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                TextColumn::make('cart_details')
+                    ->label('Cart Details')
+                    ->getStateUsing(function (Cart $record): string {
+                        $details = [];
+
+                        foreach ($record->items as $item) {
+                            $variant = $item->variant;
+                            $product = $variant?->product;
+                            $brandName = $product?->brand?->name;
+                            $variantName = $variant?->full_name ?: $product?->product_full_name ?: $product?->name ?: 'Wheel';
+                            $details[] = trim(implode(' ', array_filter([$brandName, $variantName]))) . ' x' . (int) $item->quantity;
+                        }
+
+                        foreach ($record->addons as $addonItem) {
+                            $addonName = $addonItem->addon?->title ?: 'Addon';
+                            $details[] = $addonName . ' x' . (int) $addonItem->quantity;
+                        }
+
+                        return implode(', ', $details);
+                    })
+                    ->wrap()
+                    ->searchable(false)
+                    ->sortable(false),
+
                 TextColumn::make('items_summary')
                     ->label('Cart Qty')
-                    ->getStateUsing(fn (Cart $record): int => $record->items->sum('quantity') + $record->addons->sum('quantity'))
+                    ->getStateUsing(fn (Cart $record): int => (int) (($record->items_quantity_sum ?? 0) + ($record->addons_quantity_sum ?? 0)))
                     ->sortable(false),
 
                 TextColumn::make('total_lines')
