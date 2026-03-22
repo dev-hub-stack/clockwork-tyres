@@ -203,15 +203,24 @@ class AddOnController extends BaseWholesaleController
     {
         $addon = AddOn::findOrFail($id);
 
-        $inventory = ProductInventory::with('warehouse')
+        $inventory = ProductInventory::query()
+            ->with('warehouse:id,warehouse_name,code,is_primary')
+            ->join('warehouses', 'warehouses.id', '=', 'product_inventories.warehouse_id')
+            ->select('product_inventories.*')
             ->where('add_on_id', $id)
+            ->orderByRaw('CASE WHEN product_inventories.quantity > 0 THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN warehouses.is_primary = 1 THEN 0 ELSE 1 END')
+            ->orderBy('warehouses.warehouse_name')
             ->get()
             ->map(fn($inv) => [
                 'warehouse_name' => $inv->warehouse?->warehouse_name ?? 'Stock',
+                'warehouse_id'    => $inv->warehouse_id,
+                'code'            => $inv->warehouse?->code,
+                'is_primary'      => (bool) ($inv->warehouse?->is_primary ?? false),
                 'quantity'       => (int) $inv->quantity,
                 'eta_qty'        => (int) ($inv->eta_qty ?? 0),
                 'eta'            => $inv->eta,
-                'id'             => $inv->id,
+                'id'             => $inv->warehouse_id,
             ]);
 
         return $this->success([
