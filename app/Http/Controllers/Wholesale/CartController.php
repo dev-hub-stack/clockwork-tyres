@@ -6,6 +6,7 @@ use App\Modules\Wholesale\Cart\Services\CartService;
 use App\Modules\Customers\Models\AddressBook;
 use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Settings\Models\TaxSetting;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 
 /**
@@ -78,6 +79,21 @@ class CartController extends BaseWholesaleController
             $cart = $this->cartService->addItem($cart, $payload);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage());
+        }
+
+        $variant = \App\Modules\Products\Models\ProductVariant::with('product')
+            ->find($payload['product_variant_id']);
+
+        if ($dealer && $variant) {
+            $productName = $variant->product?->name ?? 'Product';
+            $sku = $variant->sku ? " ({$variant->sku})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_added_to_cart',
+                "Added to cart {$productName}{$sku}",
+                $variant,
+                $dealer->id,
+            );
         }
 
         return $this->success($this->cartService->formatCartResponse($cart));
@@ -179,6 +195,19 @@ class CartController extends BaseWholesaleController
         $dealer = $this->dealer();
         $cart   = $this->cartService->getOrCreateCart($dealer, $payload['session_id']);
         $cart   = $this->cartService->addAddon($cart, $payload);
+
+        $addon = \App\Modules\Products\Models\AddOn::find($payload['addon_id']);
+
+        if ($dealer && $addon) {
+            $partNumber = $addon->part_number ? " ({$addon->part_number})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_added_to_cart',
+                "Added to cart {$addon->title}{$partNumber}",
+                $addon,
+                $dealer->id,
+            );
+        }
 
         return $this->success($this->cartService->formatCartResponse($cart));
     }

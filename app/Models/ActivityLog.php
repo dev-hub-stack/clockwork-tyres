@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Modules\Customers\Models\Customer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -20,12 +21,24 @@ class ActivityLog extends Model
         'inventory_adjusted' => 'Inventory Adjusted',
         'user_login' => 'User Login',
         'user_logout' => 'User Logout',
+        'dealer_login' => 'Logged In',
+        'dealer_added_to_cart' => 'Added to Cart',
+        'dealer_viewed_product' => 'Viewed Product',
+        'dealer_placed_order' => 'Placed Order',
+    ];
+
+    public const DEALER_ACTION_LABELS = [
+        'dealer_login' => 'Logged In',
+        'dealer_added_to_cart' => 'Added to Cart',
+        'dealer_viewed_product' => 'Viewed Product',
+        'dealer_placed_order' => 'Placed Order',
     ];
 
     public $timestamps = false;
 
     protected $fillable = [
         'user_id',
+        'customer_id',
         'action',
         'model_type',
         'model_id',
@@ -41,6 +54,11 @@ class ActivityLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function getActionLabelAttribute(): string

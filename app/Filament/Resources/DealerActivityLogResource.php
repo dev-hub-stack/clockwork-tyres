@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ActivityLogResource\Pages;
+use App\Filament\Resources\DealerActivityLogResource\Pages;
 use App\Models\ActivityLog;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -15,17 +15,17 @@ use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 use BackedEnum;
 
-class ActivityLogResource extends Resource
+class DealerActivityLogResource extends Resource
 {
     protected static ?string $model = ActivityLog::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-storefront';
 
-    protected static ?string $navigationLabel = 'User Activity Log';
+    protected static ?string $navigationLabel = 'Dealer Activity Log';
 
     protected static string|UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 21;
 
     public static function canViewAny(): bool
     {
@@ -50,8 +50,8 @@ class ActivityLogResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->whereNull('customer_id')
-            ->with('user')
+            ->whereNotNull('customer_id')
+            ->with('customer')
             ->latest('created_at');
     }
 
@@ -65,10 +65,15 @@ class ActivityLogResource extends Resource
                     ->dateTime()
                     ->sortable(),
 
-                TextColumn::make('user.name')
-                    ->label('User')
-                    ->placeholder('System')
+                TextColumn::make('customer.name')
+                    ->label('Dealer')
+                    ->placeholder('Unknown Dealer')
                     ->sortable()
+                    ->searchable(['customer.business_name', 'customer.first_name', 'customer.last_name', 'customer.email']),
+
+                TextColumn::make('customer.email')
+                    ->label('Email')
+                    ->toggleable()
                     ->searchable(),
 
                 TextColumn::make('action_label')
@@ -89,15 +94,16 @@ class ActivityLogResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('user_id')
-                    ->label('User')
-                    ->relationship('user', 'name')
+                SelectFilter::make('customer_id')
+                    ->label('Dealer')
+                    ->relationship('customer', 'business_name')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                     ->searchable()
                     ->preload(),
 
                 SelectFilter::make('action')
                     ->label('Action')
-                    ->options(ActivityLog::ACTION_LABELS),
+                    ->options(ActivityLog::DEALER_ACTION_LABELS),
 
                 Filter::make('created_at')
                     ->label('Date Range')
@@ -124,7 +130,7 @@ class ActivityLogResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListActivityLogs::route('/'),
+            'index' => Pages\ListDealerActivityLogs::route('/'),
         ];
     }
 }

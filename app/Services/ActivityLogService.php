@@ -21,6 +21,31 @@ class ActivityLogService
 
         return ActivityLog::create([
             'user_id' => $resolvedUserId,
+            'customer_id' => null,
+            'action' => $action,
+            'model_type' => $model ? $model::class : null,
+            'model_id' => $model?->getKey(),
+            'description' => $description,
+            'ip_address' => request()?->ip(),
+            'created_at' => now(),
+        ]);
+    }
+
+    public static function logForCustomer(
+        string $action,
+        string $description,
+        ?Model $model = null,
+        ?int $customerId = null,
+    ): ?ActivityLog {
+        $resolvedCustomerId = $customerId;
+
+        if (! $resolvedCustomerId) {
+            return null;
+        }
+
+        return ActivityLog::create([
+            'user_id' => null,
+            'customer_id' => $resolvedCustomerId,
             'action' => $action,
             'model_type' => $model ? $model::class : null,
             'model_id' => $model?->getKey(),

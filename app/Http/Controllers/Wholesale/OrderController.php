@@ -7,6 +7,7 @@ use App\Modules\Wholesale\Cart\Models\Cart;
 use App\Modules\Orders\Services\OrderService;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Models\Order;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 
 /**
@@ -44,6 +45,10 @@ class OrderController extends BaseWholesaleController
             'payment_method'     => 'nullable|string',
             'delivery_options'   => 'nullable|string',
             'notes'              => 'nullable|string',
+            'order_notes'        => 'nullable|string',
+            'vehicle_year'       => 'nullable|string|max:4',
+            'vehicle_make'       => 'nullable|string|max:50',
+            'vehicle_model'      => 'nullable|string|max:50',
             'billing'            => 'nullable|array',
             'shipping'           => 'nullable|array',
             'is_same_shipping'   => 'nullable|boolean',
@@ -92,6 +97,9 @@ class OrderController extends BaseWholesaleController
             'customer_id'        => $dealer->id,
             'shipping_address_id'=> $addressBook->id,
             'order_notes'        => $request->notes ?? $request->order_notes,
+            'vehicle_year'       => $request->vehicle_year,
+            'vehicle_make'       => $request->vehicle_make,
+            'vehicle_model'      => $request->vehicle_model,
             'payment_method'     => $request->payment_method ?? 'pending',
             'delivery_options'   => $request->delivery_options,
             'sub_total'          => $cart->sub_total,
@@ -132,6 +140,9 @@ class OrderController extends BaseWholesaleController
         // so we force-restore the correct cart totals here as the final write.
         $order->update([
             'quote_status'       => 'sent',
+            'vehicle_year'       => $request->vehicle_year,
+            'vehicle_make'       => $request->vehicle_make,
+            'vehicle_model'      => $request->vehicle_model,
             'payment_method'     => $request->payment_method ?? 'pending',
             'delivery_options'   => $request->delivery_options,
             'shipping_address_id'=> $addressBook->id,
@@ -141,6 +152,13 @@ class OrderController extends BaseWholesaleController
             'discount'           => $cart->discount,
             'shipping'           => $cart->shipping,
         ]);
+
+        ActivityLogService::logForCustomer(
+            'dealer_placed_order',
+            'Placed wholesale order ' . ($order->quote_number ?? $order->order_number ?? ('#' . $order->id)),
+            $order,
+            $dealer->id,
+        );
 
         // DO NOT clear the cart here — cart is only cleared after successful payment.
         // This allows the user to return and retry payment if they navigate away.
@@ -247,7 +265,20 @@ class OrderController extends BaseWholesaleController
         $dealer = $this->dealer();
         $order  = Order::where('customer_id', $dealer->id)->findOrFail($orderId);
 
-        $order->update($request->only(['notes', 'shipping_address_id']));
+        $payload = $request->only([
+            'shipping_address_id',
+            'vehicle_year',
+            'vehicle_make',
+            'vehicle_model',
+            'payment_method',
+            'delivery_options',
+        ]);
+
+        if ($request->filled('notes') || $request->filled('order_notes')) {
+            $payload['order_notes'] = $request->input('order_notes', $request->input('notes'));
+        }
+
+        $order->update($payload);
 
         return $this->success($this->formatOrder($order->fresh()));
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wholesale;
 
 use App\Modules\Customers\Models\Customer;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -58,6 +59,13 @@ class AuthController extends BaseWholesaleController
         error_log('[LOGIN] creating new token');
         $token = $customer->createToken('wholesale-app')->plainTextToken;
         error_log('[LOGIN] token created: ' . substr($token, 0, 10) . '...');
+
+        ActivityLogService::logForCustomer(
+            'dealer_login',
+            'Logged in to wholesale portal',
+            $customer,
+            $customer->id,
+        );
 
         error_log('[LOGIN] formatting profile data');
         $profileData = $this->formatProfileData($customer);

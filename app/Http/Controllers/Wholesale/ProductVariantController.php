@@ -7,6 +7,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use App\Modules\Products\Models\AddOn;
 use App\Modules\Customers\Services\DealerPricingService;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 
 /**
@@ -92,6 +93,18 @@ class ProductVariantController extends BaseWholesaleController
             $variant->product?->model_id, 
             $variant->product?->brand_id
         );
+
+        if ($dealer) {
+            $productName = $variant->product?->name ?? 'Product';
+            $sku = $variant->sku ? " ({$variant->sku})" : '';
+
+            ActivityLogService::logForCustomer(
+                'dealer_viewed_product',
+                "Viewed {$productName}{$sku}",
+                $variant,
+                $dealer->id,
+            );
+        }
 
         return $this->success([
             'product'          => $this->transformer->formatVariant($variant, $dealer),
