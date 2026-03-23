@@ -45,6 +45,11 @@ class WholesaleProductTransformer
         $totalStock = 0;
         
         foreach ($variant->inventories as $inv) {
+            $warehouseCode = $inv->warehouse?->code;
+            if ($warehouseCode === 'NON-STOCK') {
+                continue;
+            }
+
             $qty = (int) $inv->quantity;
             $etaQty = (int) $inv->eta_qty;
             $warehouseName = $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name ?? 'Unknown';
@@ -346,15 +351,17 @@ class WholesaleProductTransformer
      */
     private function stockData(ProductVariant $variant): array
     {
-        return $variant->inventories->map(fn($inv) => [
-            'warehouse_id'   => $inv->warehouse_id,
-            'warehouse'      => $inv->warehouse?->warehouse_name ?? 'Unknown',
-            'qty'            => (int) $inv->quantity,
-            'eta_qty'        => (int) $inv->eta_qty,
-            'eta'            => $inv->eta,
-            'in_stock'       => $inv->quantity > 0,
-            'stock_color'    => $inv->stock_status_color,
-        ])->toArray();
+        return $variant->inventories
+            ->filter(fn($inv) => $inv->warehouse?->code !== 'NON-STOCK')
+            ->map(fn($inv) => [
+                'warehouse_id'   => $inv->warehouse_id,
+                'warehouse'      => $inv->warehouse?->warehouse_name ?? 'Unknown',
+                'qty'            => (int) $inv->quantity,
+                'eta_qty'        => (int) $inv->eta_qty,
+                'eta'            => $inv->eta,
+                'in_stock'       => $inv->quantity > 0,
+                'stock_color'    => $inv->stock_status_color,
+            ])->toArray();
     }
 
     /**
@@ -362,7 +369,9 @@ class WholesaleProductTransformer
      */
     private function etaData(ProductVariant $variant): ?array
     {
-        $eta = $variant->inventories->where('eta_qty', '>', 0)
+        $eta = $variant->inventories
+            ->filter(fn($inv) => $inv->warehouse?->code !== 'NON-STOCK')
+            ->where('eta_qty', '>', 0)
             ->whereNotNull('eta')
             ->sortBy('eta')
             ->first();
