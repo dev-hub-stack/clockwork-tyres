@@ -283,14 +283,16 @@ class ProductController extends BaseWholesaleController
         $resolvedProductId = null;
 
         $request->validate([
-            'rim_diameter' => 'sometimes|numeric',
-            'diameter'     => 'sometimes|numeric',
-            'rim_width'    => 'sometimes|numeric',
-            'width'        => 'sometimes|numeric',
-            'bolt_pattern' => 'sometimes|string',
-            'product_id'   => 'sometimes|integer',
-            'model_id'     => 'sometimes|integer',
-            'brand_id'     => 'sometimes|integer',
+            'rim_diameter'  => 'sometimes|numeric',
+            'diameter'      => 'sometimes|numeric',
+            'rim_width'     => 'sometimes|numeric',
+            'width'         => 'sometimes|numeric',
+            'bolt_pattern'  => 'sometimes|string',
+            'product_id'    => 'sometimes|integer',
+            'model_id'      => 'sometimes|integer',
+            'brand_id'      => 'sometimes|integer',
+            'rear_diameter' => 'sometimes|numeric',
+            'rear_width'    => 'sometimes|numeric',
         ]);
 
         if ($productId) {
@@ -330,8 +332,42 @@ class ProductController extends BaseWholesaleController
         }
 
         $variants = $query->select('product_variants.*')->get();
+        $frontFormatted = $this->transformer->formatVariants($variants, $dealer);
 
-        return $this->success($this->transformer->formatVariants($variants, $dealer));
+        // If rear dimensions are provided, query rear variants separately
+        $rearDiameter = $request->input('rear_diameter');
+        $rearWidth = $request->input('rear_width');
+
+        if ($rearDiameter && $rearWidth) {
+            $rearQuery = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
+                ->join('products', 'products.id', '=', 'product_variants.product_id')
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true)
+                ->where('product_variants.rim_diameter', $rearDiameter)
+                ->where('product_variants.rim_width', $rearWidth);
+
+            if ($request->filled('bolt_pattern')) {
+                $rearQuery->where('product_variants.bolt_pattern', $request->bolt_pattern);
+            }
+            if ($resolvedProductId) {
+                $rearQuery->where('products.id', $resolvedProductId);
+            }
+            if ($modelId) {
+                $rearQuery->where('products.model_id', $modelId);
+            }
+            if ($brandId) {
+                $rearQuery->where('products.brand_id', $brandId);
+            }
+
+            $rearVariants = $rearQuery->select('product_variants.*')->get();
+
+            return $this->success([
+                'front' => $frontFormatted,
+                'rear'  => $this->transformer->formatVariants($rearVariants, $dealer),
+            ]);
+        }
+
+        return $this->success($frontFormatted);
     }
 
     /**
