@@ -108,10 +108,13 @@ class ProductVariantController extends BaseWholesaleController
             ])->toArray();
 
         // Pre-calculate price to avoid extra service call if information is available
+        $retail  = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $salePr  = $variant->sale_price ? (float) $variant->sale_price : null;
+        $basePrice = ($salePr && $salePr < $retail) ? $salePr : $retail;
         $pricing = $this->pricingService->calculateProductPrice(
-            $dealer, 
-            (float)($variant->uae_retail_price ?? $variant->price), 
-            $variant->product?->model_id, 
+            $dealer,
+            $basePrice,
+            $variant->product?->model_id,
             $variant->product?->brand_id
         );
 

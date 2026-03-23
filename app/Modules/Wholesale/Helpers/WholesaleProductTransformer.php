@@ -266,7 +266,9 @@ class WholesaleProductTransformer
      */
     private function dealerPrice(ProductVariant $variant, ?Customer $dealer): array
     {
-        $basePrice = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $retail    = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $salePr    = $variant->sale_price ? (float) $variant->sale_price : null;
+        $basePrice = ($salePr && $salePr < $retail) ? $salePr : $retail;
 
         if (!$dealer) {
             return [

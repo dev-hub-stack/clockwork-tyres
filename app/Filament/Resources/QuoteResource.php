@@ -449,8 +449,10 @@ class QuoteResource extends Resource
                                                      $set('product_variant_id', $id); // Ensure clean ID is set
                                                      $set('add_on_id', null); // Clear addon
                                                      
-                                                     // Use uae_retail_price from tunerstop-admin
-                                                     $price = floatval($variant->uae_retail_price ?? 0);
+                                                     // Use sale_price if available and lower, otherwise MSRP
+                                                     $retail = floatval($variant->uae_retail_price ?? 0);
+                                                     $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
+                                                     $price  = ($salePr && $salePr < $retail) ? $salePr : $retail;
                                                      
                                                      // Apply Dealer Pricing if applicable
                                                      $customerId = $get('../../customer_id');

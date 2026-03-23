@@ -433,7 +433,9 @@ class InvoiceResource extends Resource
                                                 $set('is_custom', false);
                                                 $set('product_variant_id', $id);
                                                 $set('add_on_id', null);
-                                                $price = floatval($variant->uae_retail_price ?? 0);
+                                                $retail = floatval($variant->uae_retail_price ?? 0);
+                                                $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
+                                                $price  = ($salePr && $salePr < $retail) ? $salePr : $retail;
                                                 $customerId = $get('../../customer_id');
                                                 if ($customerId) {
                                                     $customer = \App\Modules\Customers\Models\Customer::find($customerId);

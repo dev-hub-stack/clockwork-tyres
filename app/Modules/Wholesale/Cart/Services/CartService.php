@@ -101,9 +101,12 @@ class CartService
         // ─────────────────────────────────────────────────────────────────────
 
         $dealer     = $cart->dealer;
+        $cartRetail = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $cartSalePr = $variant->sale_price ? (float) $variant->sale_price : null;
+        $cartBase   = ($cartSalePr && $cartSalePr < $cartRetail) ? $cartSalePr : $cartRetail;
         $priceInfo  = $this->pricingService->calculateProductPrice(
             $dealer,
-            (float) ($variant->uae_retail_price ?? $variant->price ?? 0),
+            $cartBase,
             $variant->product?->model_id,
             $variant->product?->brand_id
         );
