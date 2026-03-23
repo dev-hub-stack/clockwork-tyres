@@ -72,7 +72,13 @@ class ProductController extends BaseWholesaleController
         }
 
         // Priority Sorting: In-Stock items first
-        $query->orderByRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0 DESC');
+                $query->orderByRaw("(
+                        SELECT COALESCE(SUM(product_inventories.quantity), 0)
+                        FROM product_inventories
+                        JOIN warehouses ON warehouses.id = product_inventories.warehouse_id
+                        WHERE product_variants.id = product_inventories.product_variant_id
+                            AND warehouses.code != 'NON-STOCK'
+                ) > 0 DESC");
 
         // User Sorting — accept both CRM-style `sort` and tunerstop-style `sortBy`
         $sortParam = $request->sort ?? $request->sortBy;
@@ -85,7 +91,7 @@ class ProductController extends BaseWholesaleController
         };
 
         $page      = $request->page ?? $request->pagination ?? 1;
-        $cacheKey  = 'products_' . ($dealer?->id ?? 'guest') . '_' . md5(serialize($request->except(['_token'])));
+        $cacheKey  = 'products_v2_' . ($dealer?->id ?? 'guest') . '_' . md5(serialize($request->except(['_token'])));
         
         $paginator = \Cache::remember($cacheKey, 300, function () use ($query, $perPage, $page) {
             return $query->paginate($perPage, ['product_variants.*'], 'page', $page);
@@ -614,11 +620,23 @@ class ProductController extends BaseWholesaleController
 
         if ($request->filled('min_quantity')) {
             $minQty = (int)$request->min_quantity;
-            $query->whereRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) >= ?', [$minQty]);
+                        $query->whereRaw("(
+                                SELECT COALESCE(SUM(product_inventories.quantity), 0)
+                                FROM product_inventories
+                                JOIN warehouses ON warehouses.id = product_inventories.warehouse_id
+                                WHERE product_variants.id = product_inventories.product_variant_id
+                                    AND warehouses.code != 'NON-STOCK'
+                        ) >= ?", [$minQty]);
         }
 
         if ($request->get('hide_out_of_stock') == '1' || $request->get('hide_out_of_stock') === 'true') {
-             $query->whereRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0');
+                         $query->whereRaw("(
+                                SELECT COALESCE(SUM(product_inventories.quantity), 0)
+                                FROM product_inventories
+                                JOIN warehouses ON warehouses.id = product_inventories.warehouse_id
+                                WHERE product_variants.id = product_inventories.product_variant_id
+                                    AND warehouses.code != 'NON-STOCK'
+                        ) > 0");
         }
     }
 
