@@ -162,7 +162,17 @@ class ProductController extends BaseWholesaleController
                 ->sort()
                 ->values();
                 
-            $brands = Brand::active()->ordered()->get(['id', 'name', 'slug', 'logo']);
+            $brandIds = Product::active()
+                ->where('available_on_wholesale', true)
+                ->distinct()
+                ->pluck('brand_id')
+                ->filter()
+                ->values();
+
+            $brands = Brand::active()
+                ->ordered()
+                ->whereIn('id', $brandIds)
+                ->get(['id', 'name', 'slug', 'logo']);
 
             $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item, 'checked' => false]);
 

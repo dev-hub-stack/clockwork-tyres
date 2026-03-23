@@ -12,8 +12,8 @@ class WheelSizeProxyController extends BaseWholesaleController
 
     public function __construct()
     {
-        $this->apiKey = env('WHEEL_SIZE_API_KEY');
-        $this->apiUrl = env('WHEEL_SIZE_API_URL', 'https://api.wheel-size.com/v2/');
+        $this->apiKey = config('wheel_size.key') ?: env('WHEEL_SIZE_API_KEY');
+        $this->apiUrl = rtrim(config('wheel_size.url', env('WHEEL_SIZE_API_URL', 'https://api.wheel-size.com/v2/')), '/') . '/';
     }
 
     /**
