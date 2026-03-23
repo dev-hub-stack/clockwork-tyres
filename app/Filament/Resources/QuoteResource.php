@@ -452,7 +452,8 @@ class QuoteResource extends Resource
                                                      // Dealer % applies to MSRP; best price wins vs sale_price
                                                      $retail = floatval($variant->uae_retail_price ?? 0);
                                                      $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
-                                                     $price  = $retail;
+                                                     // Dealer % applies to sale_price when set, otherwise MSRP
+                                                     $price  = ($salePr && $salePr < $retail) ? $salePr : $retail;
                                                      
                                                      // Apply Dealer Pricing if applicable
                                                      $customerId = $get('../../customer_id');
@@ -462,7 +463,7 @@ class QuoteResource extends Resource
                                                              $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
                                                              $pricing = $dealerService->calculateProductPrice(
                                                                  $customer,
-                                                                 $retail,
+                                                                 $price,
                                                                  $variant->product->model_id ?? null,
                                                                  $variant->product->brand_id ?? null
                                                              );
@@ -471,10 +472,6 @@ class QuoteResource extends Resource
                                                                  $price = $pricing['final_price'];
                                                              }
                                                          }
-                                                     }
-                                                     // Best price wins: if sale_price beats dealer rate, use it
-                                                     if ($salePr && $salePr < $price) {
-                                                         $price = $salePr;
                                                      }
                                                      
                                                      $set('unit_price', $price);

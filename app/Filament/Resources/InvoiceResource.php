@@ -435,14 +435,15 @@ class InvoiceResource extends Resource
                                                 $set('add_on_id', null);
                                                 $retail = floatval($variant->uae_retail_price ?? 0);
                                                 $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
-                                                $price  = $retail;
+                                                // Dealer % applies to sale_price when set, otherwise MSRP
+                                                $price  = ($salePr && $salePr < $retail) ? $salePr : $retail;
                                                 $customerId = $get('../../customer_id');
                                                 if ($customerId) {
                                                     $customer = \App\Modules\Customers\Models\Customer::find($customerId);
                                                     if ($customer && $customer->isDealer()) {
                                                         $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
                                                         $pricing = $dealerService->calculateProductPrice(
-                                                            $customer, $retail,
+                                                            $customer, $price,
                                                             $variant->product->model_id ?? null,
                                                             $variant->product->brand_id ?? null
                                                         );
@@ -451,11 +452,6 @@ class InvoiceResource extends Resource
                                                             $set('discount', $pricing['discount_amount']);
                                                         }
                                                     }
-                                                }
-                                                // Best price wins: if sale_price beats dealer rate, use it
-                                                if ($salePr && $salePr < $price) {
-                                                    $price = $salePr;
-                                                    $set('discount', $retail - $salePr);
                                                 }
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);

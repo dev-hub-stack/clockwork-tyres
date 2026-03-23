@@ -266,14 +266,14 @@ class WholesaleProductTransformer
      */
     private function dealerPrice(ProductVariant $variant, ?Customer $dealer): array
     {
-        $retail = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
-        $salePr = $variant->sale_price ? (float) $variant->sale_price : null;
+        $retail    = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $salePr    = $variant->sale_price ? (float) $variant->sale_price : null;
+        // Use sale_price as the base when set — dealer % applies on top of any sale
+        $basePrice = ($salePr && $salePr < $retail) ? $salePr : $retail;
 
         if (!$dealer) {
-            // For non-dealers: show sale price if lower, else retail
-            $displayPrice = ($salePr && $salePr < $retail) ? $salePr : $retail;
             return [
-                'final_price'         => $displayPrice,
+                'final_price'         => $basePrice,
                 'discount_amount'     => 0,
                 'discount_percentage' => 0,
                 'discount_type'       => 'none',
@@ -281,26 +281,12 @@ class WholesaleProductTransformer
             ];
         }
 
-        // Dealer: apply their % to MSRP, then take whichever is lower (best price wins)
-        $dealerResult = $this->pricingService->calculateProductPrice(
+        return $this->pricingService->calculateProductPrice(
             $dealer,
-            $retail,
+            $basePrice,
             $variant->product?->model_id,
             $variant->product?->brand_id
         );
-
-        if ($salePr && $salePr < $dealerResult['final_price']) {
-            // Sale price beats the dealer's personal rate — give them the sale price
-            return [
-                'final_price'         => $salePr,
-                'discount_amount'     => $retail - $salePr,
-                'discount_percentage' => round((($retail - $salePr) / $retail) * 100, 2),
-                'discount_type'       => 'sale',
-                'tier'                => 'Sale',
-            ];
-        }
-
-        return $dealerResult;
     }
 
     private function compareStockRows(array $left, array $right): int

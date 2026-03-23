@@ -107,21 +107,16 @@ class ProductVariantController extends BaseWholesaleController
                 ]
             ])->toArray();
 
-        // Pre-calculate price — dealer % off MSRP, then best price wins vs sale_price
-        $retail  = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
-        $salePr  = $variant->sale_price ? (float) $variant->sale_price : null;
-        $pricing = $this->pricingService->calculateProductPrice(
+        // Dealer % applies to sale_price when set, otherwise to MSRP
+        $retail    = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
+        $salePr    = $variant->sale_price ? (float) $variant->sale_price : null;
+        $basePrice = ($salePr && $salePr < $retail) ? $salePr : $retail;
+        $pricing   = $this->pricingService->calculateProductPrice(
             $dealer,
-            $retail,
+            $basePrice,
             $variant->product?->model_id,
             $variant->product?->brand_id
         );
-        if ($salePr && $salePr < $pricing['final_price']) {
-            $pricing['final_price']         = $salePr;
-            $pricing['discount_amount']     = $retail - $salePr;
-            $pricing['discount_percentage'] = $retail > 0 ? round((($retail - $salePr) / $retail) * 100, 2) : 0;
-            $pricing['discount_type']       = 'sale';
-        }
 
         if ($dealer) {
             $productName = $variant->product?->name ?? 'Product';

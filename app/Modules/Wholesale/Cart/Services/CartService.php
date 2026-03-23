@@ -103,16 +103,14 @@ class CartService
         $dealer     = $cart->dealer;
         $cartRetail = (float) ($variant->uae_retail_price ?? $variant->price ?? 0);
         $cartSalePr = $variant->sale_price ? (float) $variant->sale_price : null;
+        // Dealer % applies to sale_price when set, otherwise to MSRP
+        $cartBase   = ($cartSalePr && $cartSalePr < $cartRetail) ? $cartSalePr : $cartRetail;
         $priceInfo  = $this->pricingService->calculateProductPrice(
             $dealer,
-            $cartRetail,
+            $cartBase,
             $variant->product?->model_id,
             $variant->product?->brand_id
         );
-        // Best price wins: if sale_price beats the dealer's personal rate, use it
-        if ($cartSalePr && $cartSalePr < $priceInfo['final_price']) {
-            $priceInfo['final_price'] = $cartSalePr;
-        }
         $unitPrice = $priceInfo['final_price'];
 
         // Check if same variant + warehouse already in cart — merge if so
