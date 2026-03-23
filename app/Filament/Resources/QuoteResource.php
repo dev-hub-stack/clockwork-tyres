@@ -449,10 +449,10 @@ class QuoteResource extends Resource
                                                      $set('product_variant_id', $id); // Ensure clean ID is set
                                                      $set('add_on_id', null); // Clear addon
                                                      
-                                                     // Use sale_price if available and lower, otherwise MSRP
+                                                     // Dealer % applies to MSRP; best price wins vs sale_price
                                                      $retail = floatval($variant->uae_retail_price ?? 0);
                                                      $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
-                                                     $price  = ($salePr && $salePr < $retail) ? $salePr : $retail;
+                                                     $price  = $retail;
                                                      
                                                      // Apply Dealer Pricing if applicable
                                                      $customerId = $get('../../customer_id');
@@ -462,18 +462,19 @@ class QuoteResource extends Resource
                                                              $dealerService = new \App\Modules\Customers\Services\DealerPricingService();
                                                              $pricing = $dealerService->calculateProductPrice(
                                                                  $customer,
-                                                                 $price,
+                                                                 $retail,
                                                                  $variant->product->model_id ?? null,
                                                                  $variant->product->brand_id ?? null
                                                              );
                                                              
                                                              if ($pricing['discount_amount'] > 0) {
                                                                  $price = $pricing['final_price'];
-                                                                 // We set the unit price to the discounted price to ensure totals are correct
-                                                                 // regardless of quantity changes, as we don't have logic to auto-update
-                                                                 // the discount field when quantity changes.
                                                              }
                                                          }
+                                                     }
+                                                     // Best price wins: if sale_price beats dealer rate, use it
+                                                     if ($salePr && $salePr < $price) {
+                                                         $price = $salePr;
                                                      }
                                                      
                                                      $set('unit_price', $price);
