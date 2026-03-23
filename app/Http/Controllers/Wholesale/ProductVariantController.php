@@ -72,19 +72,40 @@ class ProductVariantController extends BaseWholesaleController
             ->map(fn($addon) => $this->transformer->formatAddon($addon, $dealer));
 
         // Optimized inventory mapping to avoid warehouse lookup loops
-        $inventory = $variant->inventories->map(fn($inv) => [
-            'id'                 => $inv->id,
-            'product_id'         => $variant->product_id,
-            'product_variant_id' => $variant->id,
-            'warehouse_id'       => $inv->warehouse_id,
-            'quantity'           => $inv->quantity,
-            'eta'                => $inv->eta,
-            'warehouse'          => [
-                'id'             => $inv->warehouse?->id,
-                'code'           => $inv->warehouse?->code,
-                'warehouse_name' => $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name,
-            ]
-        ])->toArray();
+        $inventory = $variant->inventories
+            ->filter(function ($inv) {
+                $warehouseCode = $inv->warehouse?->code;
+
+                if ($warehouseCode === 'NON-STOCK') {
+                    return false;
+                }
+
+                return (int) $inv->quantity > 0
+                    || (int) ($inv->eta_qty ?? 0) > 0
+                    || ! empty($inv->eta);
+            })
+            ->sortBy([
+                fn($inv) => ($inv->warehouse?->is_primary && (int) $inv->quantity > 0) ? 0 : 1,
+                fn($inv) => ((int) $inv->quantity > 0) ? 0 : 1,
+                fn($inv) => $inv->warehouse?->is_primary ? 0 : 1,
+                fn($inv) => $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name ?? 'Warehouse',
+            ])
+            ->values()
+            ->map(fn($inv) => [
+                'id'                 => $inv->id,
+                'product_id'         => $variant->product_id,
+                'product_variant_id' => $variant->id,
+                'warehouse_id'       => $inv->warehouse_id,
+                'quantity'           => (int) $inv->quantity,
+                'eta_qty'            => (int) ($inv->eta_qty ?? 0),
+                'eta'                => $inv->eta,
+                'warehouse'          => [
+                    'id'             => $inv->warehouse?->id,
+                    'code'           => $inv->warehouse?->code,
+                    'is_primary'     => (bool) ($inv->warehouse?->is_primary ?? false),
+                    'warehouse_name' => $inv->warehouse?->warehouse_name ?? $inv->warehouse?->name,
+                ]
+            ])->toArray();
 
         // Pre-calculate price to avoid extra service call if information is available
         $pricing = $this->pricingService->calculateProductPrice(

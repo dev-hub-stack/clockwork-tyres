@@ -229,13 +229,18 @@ class ProductController extends BaseWholesaleController
             ->select('product_inventories.*')
             ->where('product_id', $validated['product_id'])
             ->where('product_variant_id', $validated['variant_id'])
+            ->where('warehouses.code', '!=', 'NON-STOCK')
             ->where(function ($query) {
                 $query->where('quantity', '>', 0)
                     ->orWhere('eta_qty', '>', 0)
                     ->orWhereNotNull('eta');
             })
-            ->orderByRaw('CASE WHEN product_inventories.quantity > 0 THEN 0 ELSE 1 END')
-            ->orderByRaw('CASE WHEN warehouses.is_primary = 1 THEN 0 ELSE 1 END')
+            ->orderByRaw("CASE
+                WHEN warehouses.is_primary = 1 AND product_inventories.quantity > 0 THEN 0
+                WHEN product_inventories.quantity > 0 THEN 1
+                WHEN warehouses.is_primary = 1 THEN 2
+                ELSE 3
+            END")
             ->orderBy('warehouses.warehouse_name');
 
         if ($dealer?->lat && $dealer?->lng) {
