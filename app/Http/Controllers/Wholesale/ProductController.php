@@ -56,27 +56,32 @@ class ProductController extends BaseWholesaleController
 
         // For search-by-size with rear dimensions: only return front variants that also have a matching rear variant
         if ($request->get('search_by_size') && $request->filled('rear_rim_diameter')) {
-            $rearDiameter = $request->rear_rim_diameter;
-            $rearWidth    = $request->rear_rim_width;
-            $query->whereExists(function ($sub) use ($rearDiameter, $rearWidth) {
+            $rearDiameter    = $request->rear_rim_diameter;
+            $rearWidth       = $request->rear_rim_width;
+            $rearBoltPattern = $request->front_bolt_pattern ?? $request->bolt_pattern;
+            $rearOffset      = $this->parseOffsetParam($request->get('rear_offset'));
+            $query->whereExists(function ($sub) use ($rearDiameter, $rearWidth, $rearBoltPattern, $rearOffset) {
                 $sub->selectRaw('1')
                     ->from('product_variants as pv_rear')
                     ->whereColumn('pv_rear.product_id', 'product_variants.product_id')
                     ->where('pv_rear.rim_diameter', $rearDiameter)
-                    ->when($rearWidth, fn($q) => $q->where('pv_rear.rim_width', $rearWidth));
+                    ->when($rearWidth, fn($q) => $q->where('pv_rear.rim_width', $rearWidth))
+                    ->when($rearBoltPattern, fn($q) => $q->where('pv_rear.bolt_pattern', $rearBoltPattern))
+                    ->when($rearOffset, fn($q) => $q->whereBetween('pv_rear.offset', [$rearOffset['min'], $rearOffset['max']]));
             });
         }
 
         // Priority Sorting: In-Stock items first
         $query->orderByRaw('(SELECT SUM(quantity) FROM product_inventories WHERE product_variants.id = product_inventories.product_variant_id) > 0 DESC');
 
-        // User Sorting
-        match ($request->sort) {
-            'price_asc'  => $query->orderBy('product_variants.uae_retail_price', 'asc'),
-            'price_desc' => $query->orderBy('product_variants.uae_retail_price', 'desc'),
-            'name_asc'   => $query->orderBy('products.name', 'asc'),
-            'newest'     => $query->orderBy('product_variants.created_at', 'desc'),
-            default      => $query->orderBy('product_variants.id', 'desc'),
+        // User Sorting — accept both CRM-style `sort` and tunerstop-style `sortBy`
+        $sortParam = $request->sort ?? $request->sortBy;
+        match ($sortParam) {
+            'price_asc', 'price_low_to_high'   => $query->orderBy('product_variants.uae_retail_price', 'asc'),
+            'price_desc', 'price_high_to_low'  => $query->orderBy('product_variants.uae_retail_price', 'desc'),
+            'name_asc', 'brand'                => $query->orderBy('products.name', 'asc'),
+            'newest'                           => $query->orderBy('product_variants.created_at', 'desc'),
+            default                            => $query->orderBy('product_variants.uae_retail_price', 'asc'),
         };
 
         $page      = $request->page ?? $request->pagination ?? 1;
@@ -423,10 +428,15 @@ class ProductController extends BaseWholesaleController
         // Batch-fetch rear variants for all matching product_ids in one query
         $productIds = array_unique(array_column($formatted, 'product_id'));
 
+        $rearBoltPattern = $request->front_bolt_pattern ?? $request->bolt_pattern;
+        $rearOffset      = $this->parseOffsetParam($request->get('rear_offset'));
+
         $rearVariants = ProductVariant::with(['inventories.warehouse'])
             ->whereIn('product_id', $productIds)
             ->where('rim_diameter', $rearDiameter)
             ->when($rearWidth, fn($q) => $q->where('rim_width', $rearWidth))
+            ->when($rearBoltPattern, fn($q) => $q->where('bolt_pattern', $rearBoltPattern))
+            ->when($rearOffset, fn($q) => $q->whereBetween('offset', [$rearOffset['min'], $rearOffset['max']]))
             ->get()
             ->keyBy('product_id');
 
@@ -454,6 +464,28 @@ class ProductController extends BaseWholesaleController
         }
 
         return $formatted;
+    }
+
+    /**
+     * Parse tunerstop-style offset "XtoY" string into min/max array, or null.
+     */
+    private function parseOffsetParam(?string $value): ?array
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (str_contains($value, 'to')) {
+            $parts = explode('to', $value, 2);
+            $min = is_numeric($parts[0]) ? (float) $parts[0] : null;
+            $max = is_numeric($parts[1]) ? (float) $parts[1] : null;
+            if ($min !== null || $max !== null) {
+                return ['min' => $min ?? -200, 'max' => $max ?? 200];
+            }
+        }
+        if (is_numeric($value)) {
+            return ['min' => (float) $value, 'max' => (float) $value];
+        }
+        return null;
     }
 
     /**
@@ -508,14 +540,25 @@ class ProductController extends BaseWholesaleController
             $query->where('product_variants.bolt_pattern', $boltPattern);
         }
 
-        // Accept both offset_min/offset_max (legacy) and min_offset/max_offset (search-by-size URL format)
+        // Accept offset_min/offset_max, min_offset/max_offset, or tunerstop-style "XtoY" in `offset`
         $offsetMin = $request->get('offset_min') ?? $request->get('min_offset');
         $offsetMax = $request->get('offset_max') ?? $request->get('max_offset');
+        if ($offsetMin === null && $offsetMax === null) {
+            $parsed = $this->parseOffsetParam($request->get('offset'));
+            if ($parsed) {
+                $offsetMin = $parsed['min'];
+                $offsetMax = $parsed['max'];
+            }
+        }
         if ($offsetMin !== null || $offsetMax !== null) {
             $query->whereBetween('product_variants.offset', [
                 (float) ($offsetMin ?? -200),
                 (float) ($offsetMax ?? 200),
             ]);
+        }
+        if ($request->filled('hub_bore') || $request->filled('centre_bore')) {
+            $hubBore = $request->get('hub_bore') ?? $request->get('centre_bore');
+            $query->where('product_variants.hub_bore', '>=', (float) $hubBore);
         }
         if ($request->filled('clearance') && $request->clearance) {
             $query->where('product_variants.clearance_corner', true);
