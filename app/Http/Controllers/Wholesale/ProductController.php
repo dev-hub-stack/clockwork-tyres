@@ -294,16 +294,16 @@ class ProductController extends BaseWholesaleController
         $resolvedProductId = null;
 
         $request->validate([
-            'rim_diameter'  => 'sometimes|numeric',
-            'diameter'      => 'sometimes|numeric',
-            'rim_width'     => 'sometimes|numeric',
-            'width'         => 'sometimes|numeric',
-            'bolt_pattern'  => 'sometimes|string',
-            'product_id'    => 'sometimes|integer',
-            'model_id'      => 'sometimes|integer',
-            'brand_id'      => 'sometimes|integer',
-            'rear_diameter' => 'sometimes|numeric',
-            'rear_width'    => 'sometimes|numeric',
+            'rim_diameter'  => 'sometimes|nullable|numeric',
+            'diameter'      => 'sometimes|nullable|numeric',
+            'rim_width'     => 'sometimes|nullable|numeric',
+            'width'         => 'sometimes|nullable|numeric',
+            'bolt_pattern'  => 'sometimes|nullable|string',
+            'product_id'    => 'sometimes|nullable|integer',
+            'model_id'      => 'sometimes|nullable|integer',
+            'brand_id'      => 'sometimes|nullable|integer',
+            'rear_diameter' => 'sometimes|nullable|numeric',
+            'rear_width'    => 'sometimes|nullable|numeric',
         ]);
 
         if ($productId) {
