@@ -214,6 +214,13 @@ class QuoteResource extends Resource
                                     ->preload(),
                             ])
                             ->createOptionUsing(function (array $data) {
+                                if (!empty($data['email'])) {
+                                    $customer = Customer::where('email', $data['email'])->first();
+                                    if ($customer) {
+                                        $customer->update(collect($data)->except('email')->filter()->all());
+                                        return $customer->id;
+                                    }
+                                }
                                 return Customer::create($data)->id;
                             })
                             ->live()
