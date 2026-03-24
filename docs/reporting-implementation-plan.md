@@ -17,6 +17,14 @@
 
 ---
 
+## Implementation Progress Snapshot
+
+- Completed: Phase 0 Foundation, Phase 1 Sales Reports, Phase 2 Profit Reports, Phase 3 Inventory Reports, Phase 4 Dealer Reports, Phase 5 Team Reports, Phase 6 Reports Dashboard
+- Remaining implementation: deferred website tracking reports, dealer vehicle searches, export tooling, UI polish
+- Latest completed slice: Team Reports (`Orders by User`)
+
+---
+
 ## 1. Architecture Overview
 
 ### Tech Stack (Already in Place)
@@ -903,25 +911,25 @@ return Cache::remember($cacheKey, now()->addMinutes(15), fn() => $this->runQuery
 ### Phase 3 — Inventory Reports
 | # | Task | Depends On |
 |---|------|-----------|
-| 3.1 | Add `inventoryByDimension()` + `soldItemDetails()` to ReportService | Phase 0 |
-| 3.2 | Create `report-sold-popup.blade.php` Alpine modal component | — |
-| 3.3 | Build `inventory-report.blade.php` shared view | 0.3, 0.4, 3.2 |
-| 3.4 | Build Inventory by SKU | 3.1, 3.3 |
-| 3.5 | Clone for Inventory by Brand, Model | 3.4 |
+| 3.1 | Done - Add `inventoryByDimension()` + sold drilldown support to ReportService | Phase 0 |
+| 3.2 | Done - Implement sold-quantity popup behavior in the inventory report view | — |
+| 3.3 | Done - Build `inventory-report.blade.php` shared view | 0.3, 0.4, 3.2 |
+| 3.4 | Done - Build Inventory by SKU | 3.1, 3.3 |
+| 3.5 | Done - Clone for Inventory by Brand, Model | 3.4 |
 
 ### Phase 4 — Dealer Reports
 | # | Task | Depends On |
 |---|------|-----------|
-| 4.1 | Build `dealer-sales-report.blade.php` (adds dealer dropdown) | Phase 1 |
-| 4.2 | Build Dealer Sales by Brand | 4.1 |
-| 4.3 | Clone for Dealer Sales by Model | 4.2 |
+| 4.1 | Done - Build `dealer-sales-report.blade.php` (adds dealer dropdown) | Phase 1 |
+| 4.2 | Done - Build Dealer Sales by Brand | 4.1 |
+| 4.3 | Done - Clone for Dealer Sales by Model | 4.2 |
 
 ### Phase 5 — Team Reports
 | # | Task | Depends On |
 |---|------|-----------|
-| 5.1 | Add `teamPerformance()` + `userOrderDetails()` to ReportService | Phase 0 |
-| 5.2 | Build `team-report.blade.php` (two-part layout) | 0.3, 0.4 |
-| 5.3 | Build Orders by User | 5.1, 5.2 |
+| 5.1 | Done - Add `teamPerformance()` + `userOrderDetails()` to ReportService | Phase 0 |
+| 5.2 | Done - Build `team-report.blade.php` (two-part layout) | 0.3, 0.4 |
+| 5.3 | Done - Build Orders by User | 5.1, 5.2 |
 
 ### Phase 6 — Reports Dashboard
 | # | Task | Depends On |

@@ -180,7 +180,7 @@
                 <div>
                     <p class="reports-kicker">Reporting Module</p>
                     <h1 class="reports-title">Reports</h1>
-                    <p class="reports-copy">This first slice wires in the reporting entry point and the Sales by Brand implementation on top of CRM invoices. The remaining report families are staged behind it and will reuse the same service and filter structure.</p>
+                    <p class="reports-copy">{{ $pageDescription }}</p>
                 </div>
 
                 <form method="GET" action="{{ request()->url() }}" class="reports-refresh-form">

@@ -376,6 +376,103 @@ class ReportService
         })->values();
     }
 
+    public function teamPerformance(Carbon $startDate, Carbon $endDate, array $filters = []): Collection
+    {
+        $rows = DB::table('order_items as oi')
+            ->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->selectRaw('o.representative_id as user_id')
+            ->selectRaw("COALESCE(NULLIF(TRIM(u.name), ''), 'Unassigned') as user_name")
+            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw('SUM(oi.quantity) as qty')
+            ->selectRaw('SUM(oi.line_total) as value')
+            ->where('o.document_type', DocumentType::INVOICE->value)
+            ->whereNull('o.deleted_at')
+            ->whereBetween(DB::raw('DATE(COALESCE(o.issue_date, o.created_at))'), [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
+            ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
+                $query->where('o.external_source', $filters['channel']);
+            })
+            ->groupBy('user_id', 'user_name', 'month_key')
+            ->orderBy('user_name')
+            ->orderBy('month_key')
+            ->get();
+
+        $months = $this->monthsBetween($startDate, $endDate)->pluck('key')->all();
+
+        return $rows
+            ->groupBy(fn ($row) => ($row->user_id ?? 'null') . '|' . $row->user_name)
+            ->map(function (Collection $group) use ($months) {
+                $first = $group->first();
+                $monthMap = [];
+
+                foreach ($months as $monthKey) {
+                    $monthMap[$monthKey] = [
+                        'qty' => 0,
+                        'value' => 0.0,
+                    ];
+                }
+
+                foreach ($group as $row) {
+                    $monthMap[$row->month_key] = [
+                        'qty' => (int) $row->qty,
+                        'value' => (float) $row->value,
+                    ];
+                }
+
+                return [
+                    'user_id' => $first->user_id !== null ? (int) $first->user_id : null,
+                    'label' => $first->user_name,
+                    'months' => $monthMap,
+                    'total_qty' => collect($monthMap)->sum('qty'),
+                    'total_value' => collect($monthMap)->sum('value'),
+                ];
+            })
+            ->sortBy(fn (array $row) => mb_strtolower($row['label']))
+            ->values();
+    }
+
+    public function userOrderDetails(?int $userId, Carbon $startDate, Carbon $endDate, array $filters = []): Collection
+    {
+        if ($userId === null) {
+            return collect();
+        }
+
+        return DB::table('orders as o')
+            ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
+            ->leftJoin('order_items as oi', 'oi.order_id', '=', 'o.id')
+            ->selectRaw('o.id')
+            ->selectRaw('COALESCE(o.order_number, CONCAT("INV-", o.id)) as invoice_number')
+            ->selectRaw("COALESCE(MAX(NULLIF(oi.brand_name, '')), MAX(NULLIF(oi.product_name, '')), 'Invoice') as description")
+            ->selectRaw('MAX(o.total) as value')
+            ->selectRaw('MAX(COALESCE(o.gross_profit, 0)) as profit')
+            ->selectRaw("COALESCE(MAX(NULLIF(c.business_name, '')), MAX(CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, ''))), 'Unknown Customer') as customer_name")
+            ->selectRaw('MAX(DATE(COALESCE(o.issue_date, o.created_at))) as issued_on')
+            ->where('o.document_type', DocumentType::INVOICE->value)
+            ->whereNull('o.deleted_at')
+            ->where('o.representative_id', $userId)
+            ->whereBetween(DB::raw('DATE(COALESCE(o.issue_date, o.created_at))'), [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
+            ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
+                $query->where('o.external_source', $filters['channel']);
+            })
+            ->groupBy('o.id', 'invoice_number')
+            ->orderBy('issued_on', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'invoice_number' => $row->invoice_number,
+                'description' => $row->description,
+                'customer_name' => $row->customer_name,
+                'issued_on' => $row->issued_on,
+                'value' => (float) $row->value,
+                'profit' => (float) $row->profit,
+            ]);
+    }
+
     public function monthsBetween(Carbon $startDate, Carbon $endDate): Collection
     {
         return collect(CarbonPeriod::create(
