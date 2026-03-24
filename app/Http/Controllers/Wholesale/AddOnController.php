@@ -109,13 +109,24 @@ class AddOnController extends BaseWholesaleController
             ->whereNull('addons.deleted_at');
 
         // --- Filter parameters --------------------------------------------------
-        foreach (['thread_size', 'color', 'bolt_pattern', 'center_bore', 'ext_center_bore',
-                  'width', 'thread_length', 'lug_net_length', 'lug_net_diameter',
-                  'lug_bolt_diameter'] as $field) {
-            if ($val = $request->get($field)) {
+        $filterFieldMap = [
+            'thread_size' => 'thread_size',
+            'color' => 'color',
+            'bolt_pattern' => 'bolt_pattern',
+            'center_bore' => 'center_bore',
+            'ext_center_bore' => 'ext_center_bore',
+            'width' => 'width',
+            'thread_length' => 'thread_length',
+            'lug_net_length' => 'lug_nut_length',
+            'lug_net_diameter' => 'lug_nut_diameter',
+            'lug_bolt_diameter' => 'lug_bolt_diameter',
+        ];
+
+        foreach ($filterFieldMap as $requestField => $column) {
+            if ($val = $request->get($requestField)) {
                 $values = array_filter(explode(',', $val));
                 if ($values) {
-                    $query->whereIn($field, $values);
+                    $query->whereIn($column, $values);
                 }
             }
         }
