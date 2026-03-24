@@ -9,6 +9,7 @@ use App\Modules\Products\Models\Brand;
 use App\Modules\Products\Models\Finish;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Wholesale Product Controller
@@ -66,7 +67,7 @@ class ProductController extends BaseWholesaleController
                     ->whereColumn('pv_rear.product_id', 'product_variants.product_id')
                     ->where('pv_rear.rim_diameter', $rearDiameter)
                     ->when($rearWidth, fn($q) => $q->where('pv_rear.rim_width', $rearWidth))
-                    ->when($rearBoltPattern, fn($q) => $q->where('pv_rear.bolt_pattern', $rearBoltPattern))
+                    ->when($rearBoltPattern, fn($q) => $this->applyBoltPatternFilter($q, $rearBoltPattern, 'pv_rear.bolt_pattern'))
                     ->when($rearOffset, fn($q) => $q->whereBetween('pv_rear.offset', [$rearOffset['min'], $rearOffset['max']]));
             });
         }
@@ -131,7 +132,7 @@ class ProductController extends BaseWholesaleController
     protected function getFormattedFilters(Request $request): array
     {
         $brandId = $request->brand_id;
-        $cacheKey = "wholesale_filters_" . ($brandId ?? 'all');
+        $cacheKey = "wholesale_filters_v3_" . ($brandId ?? 'all');
 
         return \Cache::remember($cacheKey, 600, function () use ($brandId) {
             $baseQuery = ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
@@ -147,7 +148,9 @@ class ProductController extends BaseWholesaleController
             // but pluck works on the column name so should be fine.
             $diameters    = (clone $baseQuery)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
             $widths       = (clone $baseQuery)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
-            $boltPatterns = (clone $baseQuery)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
+            $boltPatterns = $this->formatBoltPatternOptions(
+                (clone $baseQuery)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values()
+            );
             
             // For aggregates, we can keep the join
             $offsets      = (clone $baseQuery)->whereNotNull('product_variants.offset')
@@ -173,17 +176,18 @@ class ProductController extends BaseWholesaleController
                 ->sort()
                 ->values();
                 
-            $brandIds = Product::active()
-                ->where('available_on_wholesale', true)
+            $brands = Brand::query()
+                ->select('brands.id', 'brands.name', 'brands.slug', 'brands.logo')
+                ->join('products', 'products.brand_id', '=', 'brands.id')
+                ->join('product_variants', 'product_variants.product_id', '=', 'products.id')
+                ->where('brands.status', 1)
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true)
+                ->when($brandId, fn($query) => $query->where('brands.id', $brandId))
                 ->distinct()
-                ->pluck('brand_id')
-                ->filter()
-                ->values();
-
-            $brands = Brand::active()
-                ->ordered()
-                ->whereIn('id', $brandIds)
-                ->get(['id', 'name', 'slug', 'logo']);
+                ->orderBy('brands.sort_order')
+                ->orderBy('brands.name')
+                ->get();
 
             $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item, 'checked' => false]);
 
@@ -330,7 +334,7 @@ class ProductController extends BaseWholesaleController
             $query->where('product_variants.rim_width', $rimWidth);
         }
         if ($request->filled('bolt_pattern')) {
-            $query->where('product_variants.bolt_pattern', $request->bolt_pattern);
+            $this->applyBoltPatternFilter($query, $request->bolt_pattern, 'product_variants.bolt_pattern');
         }
         if ($resolvedProductId) {
             $query->where('products.id', $resolvedProductId);
@@ -358,7 +362,7 @@ class ProductController extends BaseWholesaleController
                 ->where('product_variants.rim_width', $rearWidth);
 
             if ($request->filled('bolt_pattern')) {
-                $rearQuery->where('product_variants.bolt_pattern', $request->bolt_pattern);
+                $this->applyBoltPatternFilter($rearQuery, $request->bolt_pattern, 'product_variants.bolt_pattern');
             }
             if ($resolvedProductId) {
                 $rearQuery->where('products.id', $resolvedProductId);
@@ -393,7 +397,9 @@ class ProductController extends BaseWholesaleController
 
         $diameters    = (clone $base)->distinct()->orderBy('rim_diameter')->pluck('rim_diameter')->filter()->values();
         $widths       = (clone $base)->distinct()->orderBy('rim_width')->pluck('rim_width')->filter()->values();
-        $boltPatterns = (clone $base)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values();
+        $boltPatterns = $this->formatBoltPatternOptions(
+            (clone $base)->distinct()->orderBy('bolt_pattern')->pluck('bolt_pattern')->filter()->values()
+        );
 
         $formatter = fn($items) => $items->map(fn($item) => ['name' => (string)$item]);
 
@@ -421,7 +427,7 @@ class ProductController extends BaseWholesaleController
 
         // Filter by bolt pattern from vehicle fitment (primary fitment filter)
         if ($request->filled('bolt_pattern')) {
-            $query->where('bolt_pattern', $request->bolt_pattern);
+            $this->applyBoltPatternFilter($query, $request->bolt_pattern, 'product_variants.bolt_pattern');
         }
 
         // Optional diameter constraint from vehicle fitment
@@ -482,7 +488,7 @@ class ProductController extends BaseWholesaleController
             ->whereIn('product_id', $productIds)
             ->where('rim_diameter', $rearDiameter)
             ->when($rearWidth, fn($q) => $q->where('rim_width', $rearWidth))
-            ->when($rearBoltPattern, fn($q) => $q->where('bolt_pattern', $rearBoltPattern))
+            ->when($rearBoltPattern, fn($q) => $this->applyBoltPatternFilter($q, $rearBoltPattern, 'bolt_pattern'))
             ->when($rearOffset, fn($q) => $q->whereBetween('offset', [$rearOffset['min'], $rearOffset['max']]))
             ->get()
             ->keyBy('product_id');
@@ -499,6 +505,8 @@ class ProductController extends BaseWholesaleController
             $formatted[$i]['rear_rim_diameter']       = $rearVariant->rim_diameter;
             $formatted[$i]['rear_rim_width']          = $rearVariant->rim_width;
             $formatted[$i]['rear_bolt_pattern']       = $rearVariant->bolt_pattern;
+            $formatted[$i]['rear_hub_bore']           = $rearVariant->hub_bore;
+            $formatted[$i]['rear_weight']             = $rearVariant->weight;
             $formatted[$i]['rear_offset']             = $rearVariant->offset;
             $formatted[$i]['rear_us_retail_price']    = (float) ($rearVariant->us_retail_price ?? 0);
             $formatted[$i]['rear_discounted_price']   = $rearPriceResult['final_price'];
@@ -550,6 +558,7 @@ class ProductController extends BaseWholesaleController
             $brandNames = explode(',', $request->brand);
             // Join brands only if not already joined or needed
             $query->join('brands', 'brands.id', '=', 'products.brand_id')
+                  ->where('brands.status', 1)
                   ->whereIn('brands.name', $brandNames);
         }
         if ($request->filled('model_id')) {
@@ -584,7 +593,7 @@ class ProductController extends BaseWholesaleController
         }
         $boltPattern = $request->bolt_pattern ?? $request->front_bolt_pattern;
         if ($boltPattern) {
-            $query->where('product_variants.bolt_pattern', $boltPattern);
+            $this->applyBoltPatternFilter($query, $boltPattern, 'product_variants.bolt_pattern');
         }
 
         // Accept offset_min/offset_max, min_offset/max_offset, or tunerstop-style "XtoY" in `offset`
@@ -638,6 +647,60 @@ class ProductController extends BaseWholesaleController
                                     AND warehouses.code != 'NON-STOCK'
                         ) > 0");
         }
+    }
+
+    private function formatBoltPatternOptions(Collection $boltPatterns): Collection
+    {
+        return $boltPatterns
+            ->flatMap(fn($value) => $this->explodeBoltPatternValues((string) $value))
+            ->filter()
+            ->map(fn($value) => trim((string) $value))
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    private function explodeBoltPatternValues(string $value): array
+    {
+        $normalized = trim(preg_replace('/\s+/', ' ', $value));
+        if ($normalized === '') {
+            return [];
+        }
+
+        $values = [$normalized];
+        $parts = preg_split('/\s*(?:\/|,|;|\|)\s*/', $normalized) ?: [];
+
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if ($part !== '') {
+                $values[] = $part;
+            }
+        }
+
+        return array_values(array_unique($values));
+    }
+
+    private function applyBoltPatternFilter($query, string $value, string $column): void
+    {
+        $normalizedValue = preg_replace('/\s+/', '', trim($value));
+
+        $query->where(function ($boltQuery) use ($column, $normalizedValue) {
+            $normalizedColumn = "REPLACE($column, ' ', '')";
+
+            $boltQuery->whereRaw("$normalizedColumn = ?", [$normalizedValue])
+                ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . '/%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%/' . $normalizedValue])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%/' . $normalizedValue . '/%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . ',%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%,' . $normalizedValue])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%,' . $normalizedValue . ',%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . ';%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%;' . $normalizedValue])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%;' . $normalizedValue . ';%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . '|%'])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%|' . $normalizedValue])
+                ->orWhereRaw("$normalizedColumn LIKE ?", ['%|' . $normalizedValue . '|%']);
+        });
     }
 
     /**

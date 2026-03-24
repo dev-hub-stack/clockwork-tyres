@@ -7,6 +7,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Wholesale Brand Controller
@@ -33,16 +34,18 @@ class BrandController extends BaseWholesaleController
      */
     public function index()
     {
-        return \Cache::remember('wholesale_brands_nav', 600, function () {
-            $brandIds = Product::where('status', 1)
-                ->where('available_on_wholesale', true)
+        return \Cache::remember('wholesale_brands_nav_v2', 600, function () {
+            return Brand::query()
+                ->select('brands.id', 'brands.name', 'brands.slug', 'brands.logo', 'brands.description')
+                ->join('products', 'products.brand_id', '=', 'brands.id')
+                ->join('product_variants', 'product_variants.product_id', '=', 'products.id')
+                ->where('brands.status', 1)
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true)
                 ->distinct()
-                ->pluck('brand_id');
-
-            return Brand::active()
-                ->ordered()
-                ->whereIn('id', $brandIds)
-                ->get(['id', 'name', 'slug', 'logo', 'description']);
+                ->orderBy('brands.sort_order')
+                ->orderBy('brands.name')
+                ->get();
         });
     }
 
@@ -54,23 +57,29 @@ class BrandController extends BaseWholesaleController
     public function all(Request $request)
     {
         $search = $request->search;
-        $cacheKey = "wholesale_all_brands_" . ($search ?? 'none');
+        $cacheKey = "wholesale_all_brands_v2_" . ($search ?? 'none');
 
         $data = \Cache::remember($cacheKey, 600, function () use ($search) {
-            $brandIds = Product::where('status', 1)
-                ->where('available_on_wholesale', true)
+            $query = Brand::query()
+                ->select('brands.*')
+                ->join('products', 'products.brand_id', '=', 'brands.id')
+                ->join('product_variants', 'product_variants.product_id', '=', 'products.id')
+                ->where('brands.status', 1)
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true)
                 ->distinct()
-                ->pluck('brand_id');
-
-            $query = Brand::active()
-                ->ordered()
-                ->whereIn('id', $brandIds);
+                ->orderBy('brands.sort_order')
+                ->orderBy('brands.name');
 
             if ($search) {
-                $query->where('name', 'like', '%' . $search . '%');
+                $query->where('brands.name', 'like', '%' . $search . '%');
             }
 
-            $brands = $query->withCount(['products' => fn($q) => $q->where('status', 1)->where('available_on_wholesale', true)])->get();
+            $brands = $query->withCount(['products' => fn($q) => $q
+                ->where('status', 1)
+                ->where('available_on_wholesale', true)
+                ->whereHas('variants')
+            ])->get();
 
             $formatted = $brands->map(fn(Brand $b) => [
                 'id'            => $b->id,
@@ -99,22 +108,23 @@ class BrandController extends BaseWholesaleController
      */
     public function brandProducts(Request $request, string $brandSlug)
     {
-        $brand = Brand::where('slug', $brandSlug)
-            ->orWhere('name', urldecode($brandSlug))
-            ->firstOrFail();
+        $brand = $this->resolveWholesaleBrandOrFail($brandSlug);
 
-        // Return unique products for this brand that actually have variants
-        $products = Product::where('brand_id', $brand->id)
+        $products = Product::with('finish')
+            ->where('brand_id', $brand->id)
             ->where('status', 1)
             ->where('available_on_wholesale', true)
-            ->whereHas('variants')   // only products that have at least one variant
-            ->get(['id', 'name', 'images']);
+            ->whereHas('variants')
+            ->orderBy('name')
+            ->orderBy('finish_id')
+            ->get(['id', 'name', 'images', 'finish_id']);
 
         $formatted = $products
-            ->unique('name')          // deduplicate same-named products
             ->map(fn(Product $p) => [
+                'id'     => $p->id,
                 'name'   => $p->name,
-                'slug'   => $p->name,
+                'finish' => $p->finish?->finish,
+                'slug'   => $this->brandProductSlug($p),
                 'images' => $p->images ?? [],
             ])->values()->all();
 
@@ -137,20 +147,29 @@ class BrandController extends BaseWholesaleController
     {
         $dealer = $this->dealer();
 
-        $brand = Brand::where('slug', $brandSlug)
-            ->orWhere('name', urldecode($brandSlug))
-            ->firstOrFail();
+        $brand = $this->resolveWholesaleBrandOrFail($brandSlug);
 
-        // products table has no slug column — match by name only
+        $product = Product::with('finish')
+            ->where('brand_id', $brand->id)
+            ->where('status', 1)
+            ->where('available_on_wholesale', true)
+            ->whereHas('variants')
+            ->get()
+            ->first(fn(Product $candidate) => $this->brandProductSlug($candidate) === urldecode($productSlug));
+
+        if (! $product) {
+            return $this->error('Product not found.', null, 404);
+        }
+
         $variants = ProductVariant::with([
             'product.brand',
             'product.model',
         ])
-        ->whereHas('product', function ($q) use ($brand, $productSlug) {
+        ->whereHas('product', function ($q) use ($brand, $product) {
             $q->where('brand_id', $brand->id)
               ->where('status', 1)
               ->where('available_on_wholesale', true)
-              ->where('name', urldecode($productSlug));
+              ->where('id', $product->id);
         })
         ->get();
 
@@ -247,5 +266,34 @@ class BrandController extends BaseWholesaleController
                   ->orWhereHas('product', fn($p) => $p->where('name', 'like', $term));
             });
         }
+    }
+
+    private function resolveWholesaleBrandOrFail(string $brandSlug): Brand
+    {
+        return Brand::query()
+            ->where('status', 1)
+            ->where(function ($query) use ($brandSlug) {
+                $query->where('slug', $brandSlug)
+                    ->orWhere('name', urldecode($brandSlug));
+            })
+            ->whereHas('products', function ($query) {
+                $query->where('status', 1)
+                    ->where('available_on_wholesale', true)
+                    ->whereHas('variants');
+            })
+            ->firstOrFail();
+    }
+
+    private function brandProductSlug(Product $product): string
+    {
+        $parts = [$product->name];
+
+        if ($product->relationLoaded('finish') && $product->finish?->finish) {
+            $parts[] = $product->finish->finish;
+        }
+
+        $parts[] = (string) $product->id;
+
+        return Str::slug(implode(' ', array_filter($parts)));
     }
 }

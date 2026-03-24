@@ -622,7 +622,7 @@ $(document).ready(function () {
         },
         // Track inventory toggle
         {
-            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='track-inv-select-all' />&nbsp;Track Inv.</label>",
+            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='track-inv-select-all' />&nbsp;Track Inv. (Product)</label>",
             width: 120,
             dataType: "bool",
             align: "center",
@@ -656,7 +656,7 @@ $(document).ready(function () {
                                 }
                             }
                             gridRef.refreshView();
-                            showToast('✅ Track inventory flag updated for product ' + productId);
+                            showToast('✅ Track inventory updated for all SKUs under product ' + productId);
                         },
                         error: function (err) {
                             showToast('Failed to update track inventory flag', 'error');
