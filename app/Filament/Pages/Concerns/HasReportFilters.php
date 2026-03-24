@@ -74,6 +74,15 @@ trait HasReportFilters
         };
     }
 
+    protected function applyInventorySort(Collection $rows): Collection
+    {
+        return match ($this->sort) {
+            'qty_desc' => $rows->sortByDesc('total_sold')->values(),
+            'value_desc' => $rows->sortByDesc('total_added')->values(),
+            default => $rows->sortBy(fn (array $row) => mb_strtolower($row['label']))->values(),
+        };
+    }
+
     protected function dealerOptions(): array
     {
         return Customer::query()

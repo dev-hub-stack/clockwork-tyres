@@ -75,7 +75,9 @@ class ReportsIndex extends Page
                     ['label' => 'Profit by Categories', 'url' => ProfitByCategories::getUrl(), 'enabled' => true],
                 ],
                 'Inventory Reports' => [
-                    ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],
+                    ['label' => 'Inventory by SKU', 'url' => InventoryBySku::getUrl(), 'enabled' => true],
+                    ['label' => 'Inventory by Brand', 'url' => InventoryByBrand::getUrl(), 'enabled' => true],
+                    ['label' => 'Inventory by Model', 'url' => InventoryByModel::getUrl(), 'enabled' => true],
                 ],
                 'Dealer Reports' => [
                     ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],

@@ -13,6 +13,8 @@
         $decimals = abs($value - round($value)) < 0.00001 ? 0 : 2;
         return number_format($value, $decimals);
     };
+    $totalAdded = $rows->sum('total_added');
+    $totalSold = $rows->sum('total_sold');
 @endphp
 
 <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -81,6 +83,22 @@
                     @endforeach
                     <th class="border-b px-4 py-3 text-center font-semibold">Total</th>
                 </tr>
+            @elseif ($mode === 'inventory')
+                <tr class="bg-slate-100 text-slate-900">
+                    <th rowspan="2" class="min-w-52 border-b border-r border-slate-200 px-4 py-4 text-left font-semibold">{{ $labelHeader }}</th>
+                    @foreach ($months as $month)
+                        <th colspan="2" class="border-b border-r border-slate-200 px-4 py-3 text-center font-semibold">{{ $month['label'] }}</th>
+                    @endforeach
+                    <th colspan="2" class="border-b px-4 py-3 text-center font-semibold">Total</th>
+                </tr>
+                <tr class="bg-slate-50 text-slate-700">
+                    @foreach ($months as $month)
+                        <th class="border-b border-r border-slate-200 px-4 py-2 text-center font-medium">Added</th>
+                        <th class="border-b border-r border-slate-200 px-4 py-2 text-center font-medium">Sold</th>
+                    @endforeach
+                    <th class="border-b border-slate-200 px-4 py-2 text-center font-medium">Added</th>
+                    <th class="border-b border-slate-200 px-4 py-2 text-center font-medium">Sold</th>
+                </tr>
             @else
                 <tr class="bg-slate-100 text-slate-900">
                     <th rowspan="2" class="min-w-52 border-b border-r border-slate-200 px-4 py-4 text-left font-semibold">{{ $labelHeader }}</th>
@@ -109,6 +127,26 @@
                             <td class="border-r border-slate-200 px-4 py-3 text-center">{{ $formatValue((float) $monthData['profit']) }}</td>
                         @endforeach
                         <td class="px-4 py-3 text-center font-semibold">{{ $formatValue((float) $row['total_profit']) }}</td>
+                    @elseif ($mode === 'inventory')
+                        @foreach ($months as $month)
+                            @php($monthData = $row['months'][$month['key']] ?? ['added' => 0, 'sold' => 0, 'details' => []])
+                            <td class="border-r border-slate-200 px-4 py-3 text-center">{{ number_format($monthData['added']) }}</td>
+                            <td class="border-r border-slate-200 px-4 py-3 text-center">
+                                @if (! empty($monthData['details']))
+                                    <button
+                                        type="button"
+                                        class="inventory-sold-trigger"
+                                        data-dimension="{{ e($row['label']) }}"
+                                        data-month="{{ $month['key'] }}"
+                                        style="border: 0; background: transparent; color: #2563eb; font-weight: 700; text-decoration: underline; cursor: pointer;"
+                                    >{{ number_format($monthData['sold']) }}</button>
+                                @else
+                                    {{ number_format($monthData['sold']) }}
+                                @endif
+                            </td>
+                        @endforeach
+                        <td class="px-4 py-3 text-center font-semibold">{{ number_format($row['total_added']) }}</td>
+                        <td class="px-4 py-3 text-center font-semibold">{{ number_format($row['total_sold']) }}</td>
                     @else
                         @foreach ($months as $month)
                             @php($monthData = $row['months'][$month['key']] ?? ['qty' => 0, 'value' => 0])
@@ -135,6 +173,15 @@
                             <th class="border-r border-slate-200 px-4 py-4 text-center font-semibold">{{ $formatValue((float) $monthProfit) }}</th>
                         @endforeach
                         <th class="px-4 py-4 text-center font-semibold">{{ $formatValue((float) $totalProfit) }}</th>
+                    @elseif ($mode === 'inventory')
+                        @foreach ($months as $month)
+                            @php($monthAdded = $rows->sum(fn (array $row) => $row['months'][$month['key']]['added'] ?? 0))
+                            @php($monthSold = $rows->sum(fn (array $row) => $row['months'][$month['key']]['sold'] ?? 0))
+                            <th class="border-r border-slate-200 px-4 py-4 text-center font-semibold">{{ number_format($monthAdded) }}</th>
+                            <th class="border-r border-slate-200 px-4 py-4 text-center font-semibold">{{ number_format($monthSold) }}</th>
+                        @endforeach
+                        <th class="px-4 py-4 text-center font-semibold">{{ number_format($totalAdded) }}</th>
+                        <th class="px-4 py-4 text-center font-semibold">{{ number_format($totalSold) }}</th>
                     @else
                         @foreach ($months as $month)
                             @php

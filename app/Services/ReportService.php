@@ -249,6 +249,133 @@ class ReportService
             ]);
     }
 
+    public function inventoryByDimension(
+        string $inventoryGroupExpression,
+        string $salesGroupExpression,
+        Carbon $startDate,
+        Carbon $endDate,
+        array $filters = [],
+    ): Collection {
+        $months = $this->monthsBetween($startDate, $endDate)->pluck('key')->all();
+
+        $addedRows = DB::table('inventory_logs as il')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'il.product_variant_id')
+            ->leftJoin('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
+            ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->selectRaw("COALESCE(NULLIF(TRIM({$inventoryGroupExpression}), ''), 'Unassigned') as dimension_label")
+            ->selectRaw("DATE_FORMAT(il.created_at, '%Y-%m') as month_key")
+            ->selectRaw("SUM(CASE WHEN il.quantity_change > 0 AND il.action IN ('adjustment', 'transfer_in', 'import', 'return') THEN il.quantity_change ELSE 0 END) as added")
+            ->whereBetween(DB::raw('DATE(il.created_at)'), [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
+            ->when(! empty($filters['user_id']), function ($query) use ($filters) {
+                $query->where('il.user_id', (int) $filters['user_id']);
+            })
+            ->groupBy('dimension_label', 'month_key')
+            ->orderBy('dimension_label')
+            ->orderBy('month_key')
+            ->get();
+
+        $soldRows = DB::table('order_items as oi')
+            ->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
+            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw('SUM(oi.quantity) as sold')
+            ->where('o.document_type', DocumentType::INVOICE->value)
+            ->whereNull('o.deleted_at')
+            ->whereBetween(DB::raw('DATE(COALESCE(o.issue_date, o.created_at))'), [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
+            ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
+                $query->where('o.external_source', $filters['channel']);
+            })
+            ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
+                $query->where('o.customer_id', (int) $filters['dealer_id']);
+            })
+            ->when(! empty($filters['user_id']), function ($query) use ($filters) {
+                $query->where('o.representative_id', (int) $filters['user_id']);
+            })
+            ->groupBy('dimension_label', 'month_key')
+            ->orderBy('dimension_label')
+            ->orderBy('month_key')
+            ->get();
+
+        $detailRows = DB::table('order_items as oi')
+            ->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
+            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw('COALESCE(o.order_number, CONCAT("INV-", o.id)) as invoice_number')
+            ->selectRaw("COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')), 'Unknown Customer') as customer_name")
+            ->selectRaw('DATE(COALESCE(o.issue_date, o.created_at)) as sold_on')
+            ->selectRaw('SUM(oi.quantity) as qty_sold')
+            ->where('o.document_type', DocumentType::INVOICE->value)
+            ->whereNull('o.deleted_at')
+            ->whereBetween(DB::raw('DATE(COALESCE(o.issue_date, o.created_at))'), [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
+            ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
+                $query->where('o.external_source', $filters['channel']);
+            })
+            ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
+                $query->where('o.customer_id', (int) $filters['dealer_id']);
+            })
+            ->when(! empty($filters['user_id']), function ($query) use ($filters) {
+                $query->where('o.representative_id', (int) $filters['user_id']);
+            })
+            ->groupBy('dimension_label', 'month_key', 'invoice_number', 'customer_name', 'sold_on')
+            ->orderBy('sold_on')
+            ->get();
+
+        $addedMap = [];
+        foreach ($addedRows as $row) {
+            $addedMap[$row->dimension_label][$row->month_key] = (int) $row->added;
+        }
+
+        $soldMap = [];
+        foreach ($soldRows as $row) {
+            $soldMap[$row->dimension_label][$row->month_key] = (int) $row->sold;
+        }
+
+        $detailMap = [];
+        foreach ($detailRows as $row) {
+            $detailMap[$row->dimension_label][$row->month_key][] = [
+                'invoice' => $row->invoice_number,
+                'customer' => $row->customer_name,
+                'qty_sold' => (int) $row->qty_sold,
+                'date_sold' => $row->sold_on,
+            ];
+        }
+
+        $labels = collect(array_unique(array_merge(array_keys($addedMap), array_keys($soldMap))));
+
+        return $labels->map(function (string $label) use ($months, $addedMap, $soldMap, $detailMap) {
+            $monthMap = [];
+
+            foreach ($months as $monthKey) {
+                $monthMap[$monthKey] = [
+                    'added' => $addedMap[$label][$monthKey] ?? 0,
+                    'sold' => $soldMap[$label][$monthKey] ?? 0,
+                    'details' => $detailMap[$label][$monthKey] ?? [],
+                ];
+            }
+
+            return [
+                'label' => $label,
+                'months' => $monthMap,
+                'total_added' => collect($monthMap)->sum('added'),
+                'total_sold' => collect($monthMap)->sum('sold'),
+            ];
+        })->values();
+    }
+
     public function monthsBetween(Carbon $startDate, Carbon $endDate): Collection
     {
         return collect(CarbonPeriod::create(
