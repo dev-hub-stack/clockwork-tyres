@@ -7,6 +7,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -35,17 +36,22 @@ class BrandController extends BaseWholesaleController
     public function index()
     {
         return \Cache::remember('wholesale_brands_nav_v2', 600, function () {
-            return Brand::query()
+            $query = Brand::query()
                 ->select('brands.id', 'brands.name', 'brands.slug', 'brands.logo', 'brands.description')
                 ->join('products', 'products.brand_id', '=', 'brands.id')
                 ->join('product_variants', 'product_variants.product_id', '=', 'products.id')
                 ->where('brands.status', 1)
                 ->where('products.status', 1)
                 ->where('products.available_on_wholesale', true)
-                ->distinct()
-                ->orderBy('brands.sort_order')
-                ->orderBy('brands.name')
-                ->get();
+                ->distinct();
+
+            if (Schema::hasColumn('brands', 'sort_order')) {
+                $query->orderBy('brands.sort_order');
+            }
+
+            $query->orderBy('brands.name');
+
+            return $query->get();
         });
     }
 
@@ -67,9 +73,13 @@ class BrandController extends BaseWholesaleController
                 ->where('brands.status', 1)
                 ->where('products.status', 1)
                 ->where('products.available_on_wholesale', true)
-                ->distinct()
-                ->orderBy('brands.sort_order')
-                ->orderBy('brands.name');
+                ->distinct();
+
+            if (Schema::hasColumn('brands', 'sort_order')) {
+                $query->orderBy('brands.sort_order');
+            }
+
+            $query->orderBy('brands.name');
 
             if ($search) {
                 $query->where('brands.name', 'like', '%' . $search . '%');

@@ -10,6 +10,7 @@ use App\Modules\Products\Models\Finish;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Wholesale Product Controller
@@ -115,7 +116,7 @@ class ProductController extends BaseWholesaleController
     }
 
     /**
-     * GET /api/filters
+                ->select('brands.id', 'brands.name', 'brands.slug', 'brands.logo')
      * Returns available filter options based on current product catalog.
      * Angular uses this to build the filter sidebar dynamically.
      */
@@ -185,7 +186,10 @@ class ProductController extends BaseWholesaleController
                 ->where('products.available_on_wholesale', true)
                 ->when($brandId, fn($query) => $query->where('brands.id', $brandId))
                 ->distinct()
-                ->orderBy('brands.sort_order')
+                ->when(
+                    Schema::hasColumn('brands', 'sort_order'),
+                    fn($query) => $query->orderBy('brands.sort_order')
+                )
                 ->orderBy('brands.name')
                 ->get();
 
