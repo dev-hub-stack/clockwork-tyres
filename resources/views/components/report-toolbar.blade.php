@@ -10,6 +10,8 @@
     'showDealerFilter' => false,
     'showUserFilter' => false,
     'showChannelFilter' => true,
+    'exportCsvUrl' => null,
+    'exportPdfUrl' => null,
     'sortOptions' => [
         'alpha' => 'Alphabetical A-Z',
         'qty_desc' => 'Quantity High to Low',
@@ -17,7 +19,6 @@
     ],
 ])
 
-<form method="GET" action="{{ request()->url() }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
     <style>
         .report-toolbar {
             border: 1px solid #e2e8f0;
@@ -80,6 +81,12 @@
             background: #fff;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+        .report-toolbar-links {
+            margin-left: auto;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
     </style>
 
@@ -148,5 +155,21 @@
         <a href="{{ request()->url() }}" class="report-toolbar-button report-toolbar-button-secondary">
             Reset
         </a>
+
+        @if ($exportCsvUrl || $exportPdfUrl)
+            <div class="report-toolbar-links">
+                @if ($exportCsvUrl)
+                    <a href="{{ $exportCsvUrl }}" class="report-toolbar-button report-toolbar-button-secondary">
+                        Export CSV
+                    </a>
+                @endif
+
+                @if ($exportPdfUrl)
+                    <a href="{{ $exportPdfUrl }}" class="report-toolbar-button report-toolbar-button-secondary">
+                        Export PDF
+                    </a>
+                @endif
+            </div>
+        @endif
     </div>
 </form>

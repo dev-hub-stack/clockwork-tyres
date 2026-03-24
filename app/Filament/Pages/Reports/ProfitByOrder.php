@@ -6,6 +6,7 @@ use App\Filament\Pages\Concerns\HasReportFilters;
 use App\Services\ReportService;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class ProfitByOrder extends Page
@@ -77,7 +78,14 @@ class ProfitByOrder extends Page
                     'alpha' => 'Invoice A-Z',
                     'value_desc' => 'Value High to Low',
                 ],
+                'exportCsvUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())),
+                'exportPdfUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())),
             ],
         ];
+    }
+
+    protected function reportKey(): string
+    {
+        return Str::after((string) static::$slug, 'reports/');
     }
 }

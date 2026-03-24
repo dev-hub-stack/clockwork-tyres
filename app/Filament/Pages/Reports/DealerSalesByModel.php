@@ -14,7 +14,7 @@ class DealerSalesByModel extends AbstractDealerSalesReportPage
 
     protected function groupExpression(): string
     {
-        return "COALESCE(oi.model_name, pv.model, 'Unknown Model')";
+        return "COALESCE(NULLIF(oi.model_name, ''), 'Unknown Model')";
     }
 
     protected function labelHeader(): string

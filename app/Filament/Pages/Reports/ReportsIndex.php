@@ -49,7 +49,7 @@ class ReportsIndex extends Page
             'cards' => $reportService->summaryCards($this->reportStartDate(), $this->reportEndDate()),
             'startMonth' => $this->startMonth,
             'endMonth' => $this->endMonth,
-            'pageDescription' => 'The reporting module now covers sales, profit, inventory, dealer, and team views on top of CRM invoice data. Deferred website tracking reports and export tooling can be added on top of this shared reporting foundation.',
+            'pageDescription' => 'The reporting module now covers sales, profit, inventory, dealer, and team views on top of CRM invoice data, with shared CSV and PDF exports across the active report pages. Deferred website tracking reports can be added on top of this shared reporting foundation.',
             'reports' => [
                 'Sales Reports' => [
                     ['label' => 'Sales by Brand', 'url' => SalesByBrand::getUrl(), 'enabled' => true],

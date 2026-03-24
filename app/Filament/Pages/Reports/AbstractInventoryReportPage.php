@@ -6,6 +6,7 @@ use App\Filament\Pages\Concerns\HasReportFilters;
 use App\Services\ReportService;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 abstract class AbstractInventoryReportPage extends Page
@@ -68,8 +69,15 @@ abstract class AbstractInventoryReportPage extends Page
                     'qty_desc' => 'Sold High to Low',
                     'value_desc' => 'Added High to Low',
                 ],
+                'exportCsvUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())),
+                'exportPdfUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())),
             ],
         ];
+    }
+
+    protected function reportKey(): string
+    {
+        return Str::after((string) static::$slug, 'reports/');
     }
 
     abstract protected function inventoryGroupExpression(): string;

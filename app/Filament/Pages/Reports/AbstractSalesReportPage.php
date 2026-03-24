@@ -6,6 +6,7 @@ use App\Filament\Pages\Concerns\HasReportFilters;
 use App\Services\ReportService;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 abstract class AbstractSalesReportPage extends Page
@@ -62,8 +63,15 @@ abstract class AbstractSalesReportPage extends Page
                 'showDealerFilter' => $this->showDealerFilter(),
                 'showUserFilter' => $this->showUserFilter(),
                 'showChannelFilter' => $this->showChannelFilter(),
+                'exportCsvUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())),
+                'exportPdfUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())),
             ],
         ];
+    }
+
+    protected function reportKey(): string
+    {
+        return Str::after((string) static::$slug, 'reports/');
     }
 
     protected function showDealerFilter(): bool

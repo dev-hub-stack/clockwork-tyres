@@ -20,8 +20,9 @@
 ## Implementation Progress Snapshot
 
 - Completed: Phase 0 Foundation, Phase 1 Sales Reports, Phase 2 Profit Reports, Phase 3 Inventory Reports, Phase 4 Dealer Reports, Phase 5 Team Reports, Phase 6 Reports Dashboard
-- Remaining implementation: deferred website tracking reports, dealer vehicle searches, export tooling, UI polish
-- Latest completed slice: Team Reports (`Orders by User`)
+- Completed cross-cutting support: CSV/PDF export tooling for the active report pages
+- Remaining implementation: deferred website tracking reports, dealer vehicle searches, UI polish
+- Latest completed slice: Export tooling across shared report pages
 
 ---
 
