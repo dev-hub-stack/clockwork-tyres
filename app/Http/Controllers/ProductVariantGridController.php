@@ -9,6 +9,7 @@ use App\Modules\Products\Models\Brand;
 use App\Modules\Products\Models\ProductModel;
 use App\Modules\Products\Models\Finish;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 class ProductVariantGridController extends Controller
@@ -168,14 +169,28 @@ class ProductVariantGridController extends Controller
                 'deleteList' => [],
                 'errors' => []
             ];
+
+            $pendingSkuAssignments = [];
             
             // Process additions
             foreach ($addList as $index => $data) {
                 try {
+                    $normalizedSku = $this->normalizeSku($data['sku'] ?? null);
+
+                    if ($normalizedSku === '') {
+                        $results['errors'][] = "Row {$index}: SKU is required";
+                        continue;
+                    }
+
+                    if ($duplicateMessage = $this->validateVariantSkuForBatch($normalizedSku, null, $pendingSkuAssignments)) {
+                        $results['errors'][] = "Row {$index}: {$duplicateMessage}";
+                        continue;
+                    }
+
                     // Create product variant
                     $variant = ProductVariant::create([
                         'product_id' => $data['product_id'] ?? null,
-                        'sku' => $data['sku'],
+                        'sku' => $normalizedSku,
                         'finish_id' => $data['finish_id'] ?? null,
                         'size' => $data['size'] ?? null,
                         'bolt_pattern' => $data['bolt_pattern'] ?? null,
@@ -193,8 +208,15 @@ class ProductVariantGridController extends Controller
                         'clearance_corner' => !empty($data['sale_price']) && $data['sale_price'] > 0 ? 1 : 0,
                         'supplier_stock' => $data['supplier_stock'] ?? 0,
                     ]);
+
+                    $pendingSkuAssignments[$normalizedSku] = [
+                        'id' => $variant->id,
+                        'label' => "new row {$index}",
+                    ];
                     
-                    $results['addList'][] = array_merge($data, ['id' => $variant->id]);
+                    $results['addList'][] = array_merge($data, ['id' => $variant->id, 'sku' => $normalizedSku]);
+                } catch (QueryException $e) {
+                    $results['errors'][] = "Row {$index}: " . $this->formatVariantSaveException($e, $normalizedSku ?? ($data['sku'] ?? null));
                 } catch (\Exception $e) {
                     $results['errors'][] = "Row {$index}: " . $e->getMessage();
                 }
@@ -209,11 +231,23 @@ class ProductVariantGridController extends Controller
                         $results['errors'][] = "Row {$index}: Missing variant ID";
                         continue;
                     }
+
+                    $normalizedSku = $this->normalizeSku($data['sku'] ?? null);
+
+                    if ($normalizedSku === '') {
+                        $results['errors'][] = "Row {$index} (ID: {$data['id']}): SKU is required";
+                        continue;
+                    }
+
+                    if ($duplicateMessage = $this->validateVariantSkuForBatch($normalizedSku, (int) $data['id'], $pendingSkuAssignments)) {
+                        $results['errors'][] = "Row {$index} (ID: {$data['id']}): {$duplicateMessage}";
+                        continue;
+                    }
                     
                     $variant = ProductVariant::findOrFail($data['id']);
                     
                     $updateData = [
-                        'sku' => $data['sku'],
+                        'sku' => $normalizedSku,
                         'finish_id' => $data['finish_id'] ?? null,
                         'size' => $data['size'] ?? null,
                         'bolt_pattern' => $data['bolt_pattern'] ?? null,
@@ -235,10 +269,18 @@ class ProductVariantGridController extends Controller
                     \Log::info('Update data for variant ' . $data['id'] . ':', $updateData);
                     
                     $variant->update($updateData);
+
+                    $pendingSkuAssignments[$normalizedSku] = [
+                        'id' => $variant->id,
+                        'label' => "row {$index} (ID: {$variant->id})",
+                    ];
                     
                     \Log::info('Successfully updated variant ' . $data['id']);
                     
-                    $results['updateList'][] = $data;
+                    $results['updateList'][] = array_merge($data, ['sku' => $normalizedSku]);
+                } catch (QueryException $e) {
+                    \Log::error('Error updating variant ' . ($data['id'] ?? 'unknown') . ': ' . $e->getMessage());
+                    $results['errors'][] = "Row {$index} (ID: {$data['id']}): " . $this->formatVariantSaveException($e, $normalizedSku ?? ($data['sku'] ?? null));
                 } catch (\Exception $e) {
                     \Log::error('Error updating variant ' . ($data['id'] ?? 'unknown') . ': ' . $e->getMessage());
                     $results['errors'][] = "Row {$index} (ID: {$data['id']}): " . $e->getMessage();
@@ -676,5 +718,43 @@ class ProductVariantGridController extends Controller
                 'error' => 'Image upload failed: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function normalizeSku(?string $sku): string
+    {
+        return trim((string) $sku);
+    }
+
+    private function validateVariantSkuForBatch(string $sku, ?int $currentVariantId, array $pendingSkuAssignments): ?string
+    {
+        if (isset($pendingSkuAssignments[$sku]) && ($pendingSkuAssignments[$sku]['id'] ?? null) !== $currentVariantId) {
+            return "SKU '{$sku}' is duplicated in this save batch ({$pendingSkuAssignments[$sku]['label']}).";
+        }
+
+        $existingVariant = ProductVariant::query()
+            ->select('id')
+            ->where('sku', $sku)
+            ->when($currentVariantId, fn($query) => $query->where('id', '!=', $currentVariantId))
+            ->first();
+
+        if ($existingVariant) {
+            return "SKU '{$sku}' already exists on variant ID {$existingVariant->id}.";
+        }
+
+        return null;
+    }
+
+    private function formatVariantSaveException(QueryException $exception, ?string $sku): string
+    {
+        $driverCode = $exception->errorInfo[1] ?? null;
+
+        if ((int) $driverCode === 1062) {
+            $displaySku = $this->normalizeSku($sku);
+            return $displaySku !== ''
+                ? "SKU '{$displaySku}' already exists. Please use a unique SKU."
+                : 'SKU already exists. Please use a unique SKU.';
+        }
+
+        return $exception->getMessage();
     }
 }
