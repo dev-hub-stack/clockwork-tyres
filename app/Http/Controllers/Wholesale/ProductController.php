@@ -513,6 +513,8 @@ class ProductController extends BaseWholesaleController
             $formatted[$i]['rear_weight']             = $rearVariant->weight;
             $formatted[$i]['rear_offset']             = $rearVariant->offset;
             $formatted[$i]['rear_us_retail_price']    = (float) ($rearVariant->us_retail_price ?? 0);
+                $formatted[$i]['rear_uae_retail_price']   = (float) ($rearVariant->uae_retail_price ?? $rearVariant->price ?? 0);
+                $formatted[$i]['rear_sale_price']         = (float) ($rearVariant->sale_price ?? 0);
             $formatted[$i]['rear_discounted_price']   = $rearPriceResult['final_price'];
             $formatted[$i]['rear_price']              = $rearPriceResult['final_price'];
             $formatted[$i]['rear_product_id']         = $rearVariant->product_id;
