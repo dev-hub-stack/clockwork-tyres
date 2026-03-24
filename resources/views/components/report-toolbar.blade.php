@@ -60,6 +60,7 @@
             display: flex;
             gap: 12px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .report-toolbar-button {
             display: inline-flex;
@@ -87,6 +88,15 @@
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
+        }
+        @media (max-width: 768px) {
+            .report-toolbar-links {
+                margin-left: 0;
+                width: 100%;
+            }
+            .report-toolbar-button {
+                width: 100%;
+            }
         }
     </style>
 

@@ -1,5 +1,33 @@
 <x-filament-panels::page>
     @php
+        $titleText = $titleText ?? 'Orders by User';
+        $description = $description ?? 'Compare user-level invoice performance and drill into representative detail.';
+        $toolbar = array_merge([
+            'startMonth' => now()->format('Y-m'),
+            'endMonth' => now()->format('Y-m'),
+            'sort' => 'alpha',
+            'channel' => 'all',
+            'dealerId' => null,
+            'userId' => null,
+            'dealers' => [],
+            'users' => [],
+            'showDealerFilter' => false,
+            'showUserFilter' => false,
+            'showChannelFilter' => true,
+            'sortOptions' => [
+                'alpha' => 'Alphabetical A-Z',
+            ],
+        ], $toolbar ?? []);
+        $months = collect($months ?? []);
+        $rows = collect($rows ?? []);
+        $detailRows = collect($detailRows ?? []);
+        $detailTotals = array_merge([
+            'value' => 0,
+            'profit' => 0,
+        ], $detailTotals ?? []);
+        $selectedUserId = $selectedUserId ?? null;
+        $selectedUserName = $selectedUserName ?? null;
+
         $formatValue = static function (float $value): string {
             $decimals = abs($value - round($value)) < 0.00001 ? 0 : 2;
             return number_format($value, $decimals);
@@ -48,6 +76,24 @@
             font-size: 15px;
             line-height: 1.7;
             color: #475569;
+        }
+        .team-report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .team-report-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 999px;
+            border: 1px solid #fbcfe8;
+            background: rgba(255, 255, 255, 0.88);
+            color: #9d174d;
+            font-size: 13px;
+            font-weight: 700;
         }
         .team-report-back {
             display: inline-flex;
@@ -181,6 +227,15 @@
                     <p class="team-report-kicker">Reports / Team Reports</p>
                     <h1 class="team-report-title">{{ $titleText }}</h1>
                     <p class="team-report-copy">{{ $description }}</p>
+                    <div class="team-report-meta">
+                        <span class="team-report-chip">Range: {{ $toolbar['startMonth'] }} to {{ $toolbar['endMonth'] }}</span>
+                        @if (($toolbar['channel'] ?? 'all') !== 'all')
+                            <span class="team-report-chip">Channel: {{ ucfirst($toolbar['channel']) }}</span>
+                        @endif
+                        @if ($selectedUserName)
+                            <span class="team-report-chip">Selected User: {{ $selectedUserName }}</span>
+                        @endif
+                    </div>
                 </div>
 
                 <a href="{{ \App\Filament\Pages\Reports\ReportsIndex::getUrl() }}" class="team-report-back">

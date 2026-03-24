@@ -7,7 +7,7 @@
     .report-page-hero {
         border: 1px solid #e2e8f0;
         border-radius: 24px;
-        background: #fff;
+        background: linear-gradient(135deg, #fff8fb 0%, #ffffff 48%, #f8fafc 100%);
         padding: 24px 28px;
         box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
     }
@@ -39,6 +39,24 @@
         line-height: 1.7;
         color: #475569;
     }
+    .report-page-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .report-page-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid #fbcfe8;
+        background: rgba(255, 255, 255, 0.88);
+        color: #9d174d;
+        font-size: 13px;
+        font-weight: 700;
+    }
     .report-page-back {
         display: inline-flex;
         align-items: center;
@@ -59,6 +77,33 @@
     }
 </style>
 
+@php
+    $kicker = $kicker ?? 'Reports';
+    $titleText = $titleText ?? 'Report';
+    $description = $description ?? 'Review the selected report output and adjust the filters as needed.';
+    $toolbar = array_merge([
+        'startMonth' => now()->format('Y-m'),
+        'endMonth' => now()->format('Y-m'),
+        'sort' => 'alpha',
+        'channel' => 'all',
+        'dealerId' => null,
+        'userId' => null,
+        'dealers' => [],
+        'users' => [],
+        'showDealerFilter' => false,
+        'showUserFilter' => false,
+        'showChannelFilter' => true,
+        'sortOptions' => [
+            'alpha' => 'Alphabetical A-Z',
+            'qty_desc' => 'Quantity High to Low',
+            'value_desc' => 'Value High to Low',
+        ],
+    ], $toolbar ?? []);
+    $labelHeader = $labelHeader ?? 'Label';
+    $months = $months ?? collect();
+    $rows = $rows ?? collect();
+@endphp
+
 <div class="report-page">
     <section class="report-page-hero">
         <div class="report-page-hero-row">
@@ -66,6 +111,18 @@
                 <p class="report-page-kicker">{{ $kicker }}</p>
                 <h1 class="report-page-title">{{ $titleText }}</h1>
                 <p class="report-page-copy">{{ $description }}</p>
+                <div class="report-page-meta">
+                    <span class="report-page-chip">Range: {{ $toolbar['startMonth'] }} to {{ $toolbar['endMonth'] }}</span>
+                    @if (($toolbar['showChannelFilter'] ?? false) && ($toolbar['channel'] ?? 'all') !== 'all')
+                        <span class="report-page-chip">Channel: {{ ucfirst($toolbar['channel']) }}</span>
+                    @endif
+                    @if (($toolbar['showDealerFilter'] ?? false) && ! empty($toolbar['dealerId']) && isset($toolbar['dealers'][$toolbar['dealerId']]))
+                        <span class="report-page-chip">Dealer: {{ $toolbar['dealers'][$toolbar['dealerId']] }}</span>
+                    @endif
+                    @if (($toolbar['showUserFilter'] ?? false) && ! empty($toolbar['userId']) && isset($toolbar['users'][$toolbar['userId']]))
+                        <span class="report-page-chip">User: {{ $toolbar['users'][$toolbar['userId']] }}</span>
+                    @endif
+                </div>
             </div>
 
             <a href="{{ \App\Filament\Pages\Reports\ReportsIndex::getUrl() }}" class="report-page-back">

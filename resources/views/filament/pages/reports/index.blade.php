@@ -1,5 +1,11 @@
 <x-filament-panels::page>
     @php
+        $pageDescription = $pageDescription ?? 'Browse the available reporting families and use the summary filters to refresh the dashboard window.';
+        $startMonth = $startMonth ?? now()->format('Y-m');
+        $endMonth = $endMonth ?? now()->format('Y-m');
+        $cards = $cards ?? [];
+        $reports = $reports ?? [];
+
         $formatCardValue = static function ($card): string {
             if ($card['type'] === 'currency') {
                 return 'AED ' . number_format((float) $card['value'], abs((float) $card['value'] - round((float) $card['value'])) < 0.00001 ? 0 : 2);
@@ -130,6 +136,16 @@
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 16px;
         }
+        .reports-empty-state {
+            border: 1px dashed #cbd5e1;
+            border-radius: 18px;
+            padding: 24px;
+            background: #fff;
+            color: #64748b;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.7;
+        }
         .reports-section {
             border: 1px solid #e2e8f0;
             border-radius: 18px;
@@ -142,6 +158,25 @@
             font-size: 20px;
             font-weight: 700;
             color: #0f172a;
+        }
+        .reports-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .reports-section-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: #fdf2f8;
+            color: #be185d;
+            font-size: 13px;
+            font-weight: 800;
         }
         .reports-links {
             display: flex;
@@ -201,18 +236,23 @@
         </section>
 
         <section class="reports-cards">
-            @foreach ($cards as $card)
+            @forelse ($cards as $card)
                 <article class="reports-card">
                     <p class="reports-card-label">{{ $card['label'] }}</p>
                     <p class="reports-card-value">{{ $formatCardValue($card) }}</p>
                 </article>
-            @endforeach
+            @empty
+                <div class="reports-empty-state">Summary cards are not available for the current context yet.</div>
+            @endforelse
         </section>
 
         <section class="reports-sections">
-            @foreach ($reports as $section => $items)
+            @forelse ($reports as $section => $items)
                 <article class="reports-section">
-                    <h2>{{ $section }}</h2>
+                    <div class="reports-section-header">
+                        <h2>{{ $section }}</h2>
+                        <span class="reports-section-count">{{ collect($items)->where('enabled', true)->count() }}</span>
+                    </div>
                     <div class="reports-links">
                         @foreach ($items as $item)
                             @if ($item['enabled'])
@@ -223,7 +263,9 @@
                         @endforeach
                     </div>
                 </article>
-            @endforeach
+            @empty
+                <div class="reports-empty-state">No reporting sections are available for the current user or filter state.</div>
+            @endforelse
         </section>
     </div>
 </x-filament-panels::page>
