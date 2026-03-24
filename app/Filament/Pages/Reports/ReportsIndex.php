@@ -80,7 +80,9 @@ class ReportsIndex extends Page
                     ['label' => 'Inventory by Model', 'url' => InventoryByModel::getUrl(), 'enabled' => true],
                 ],
                 'Dealer Reports' => [
-                    ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],
+                    ['label' => 'Dealer Sales by Brand', 'url' => DealerSalesByBrand::getUrl(), 'enabled' => true],
+                    ['label' => 'Dealer Sales by Model', 'url' => DealerSalesByModel::getUrl(), 'enabled' => true],
+                    ['label' => 'Dealer Vehicle Searches', 'url' => null, 'enabled' => false],
                 ],
                 'Website Reports' => [
                     ['label' => 'Deferred pending tracking data', 'url' => null, 'enabled' => false],
