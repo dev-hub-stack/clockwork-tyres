@@ -52,13 +52,14 @@ class ReportsIndex extends Page
             'reports' => [
                 'Sales Reports' => [
                     ['label' => 'Sales by Brand', 'url' => SalesByBrand::getUrl(), 'enabled' => true],
-                    ['label' => 'Sales by Model', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by Size', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by Vehicle', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by Dealer', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by SKU', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by Channel', 'url' => null, 'enabled' => false],
-                    ['label' => 'Sales by Team', 'url' => null, 'enabled' => false],
+                    ['label' => 'Sales by Model', 'url' => SalesByModel::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Size', 'url' => SalesBySize::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Vehicle', 'url' => SalesByVehicle::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Dealer', 'url' => SalesByDealer::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by SKU', 'url' => SalesBySku::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Channel', 'url' => SalesByChannel::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Team', 'url' => SalesByTeam::getUrl(), 'enabled' => true],
+                    ['label' => 'Sales by Categories', 'url' => SalesByCategories::getUrl(), 'enabled' => true],
                 ],
                 'Profit Reports' => [
                     ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],

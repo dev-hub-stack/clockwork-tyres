@@ -64,9 +64,9 @@
         <section class="report-page-hero">
             <div class="report-page-hero-row">
                 <div>
-                    <p class="report-page-kicker">Reports / Sales Reports</p>
-                    <h1 class="report-page-title">Sales by Brand</h1>
-                    <p class="report-page-copy">This report aggregates invoice line items by brand, then pivots quantity and value across the selected month range. It uses CRM invoices only, matching the meeting requirement.</p>
+                    <p class="report-page-kicker">{{ $kicker }}</p>
+                    <h1 class="report-page-title">{{ $titleText }}</h1>
+                    <p class="report-page-copy">{{ $description }}</p>
                 </div>
 
                 <a href="{{ \App\Filament\Pages\Reports\ReportsIndex::getUrl() }}" class="report-page-back">
@@ -77,7 +77,7 @@
 
         <x-report-toolbar
             :start-month="$toolbar['startMonth']"
-            :end-month="$toolbar['endMonth']"
+            :end-month="$toolbar['EndMonth'] ?? $toolbar['endMonth']"
             :sort="$toolbar['sort']"
             :channel="$toolbar['channel']"
             :dealer-id="$toolbar['dealerId']"
@@ -89,6 +89,6 @@
             :show-channel-filter="$toolbar['showChannelFilter']"
         />
 
-        <x-report-table label-header="Brand" :months="$months" :rows="$rows" />
+        <x-report-table :label-header="$labelHeader" :months="$months" :rows="$rows" />
     </div>
 </x-filament-panels::page>
