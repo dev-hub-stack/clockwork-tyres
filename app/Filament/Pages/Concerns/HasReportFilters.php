@@ -66,6 +66,14 @@ trait HasReportFilters
         };
     }
 
+    protected function applyMetricSort(Collection $rows, string $valueKey): Collection
+    {
+        return match ($this->sort) {
+            'value_desc' => $rows->sortByDesc($valueKey)->values(),
+            default => $rows->sortBy(fn (array $row) => mb_strtolower($row['label']))->values(),
+        };
+    }
+
     protected function dealerOptions(): array
     {
         return Customer::query()

@@ -7,6 +7,6 @@
         'months' => $months,
         'rows' => $rows,
         'labelHeader' => $labelHeader,
-        'mode' => 'sales',
+        'mode' => 'profit',
     ])
 </x-filament-panels::page>

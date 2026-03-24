@@ -62,7 +62,17 @@ class ReportsIndex extends Page
                     ['label' => 'Sales by Categories', 'url' => SalesByCategories::getUrl(), 'enabled' => true],
                 ],
                 'Profit Reports' => [
-                    ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],
+                    ['label' => 'Profit by Order', 'url' => ProfitByOrder::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Brand', 'url' => ProfitByBrand::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Model', 'url' => ProfitByModel::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Size', 'url' => ProfitBySize::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Vehicle', 'url' => ProfitByVehicle::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Dealer', 'url' => ProfitByDealer::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by SKU', 'url' => ProfitBySku::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Month', 'url' => ProfitByMonth::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Salesman', 'url' => ProfitBySalesman::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Channel', 'url' => ProfitByChannel::getUrl(), 'enabled' => true],
+                    ['label' => 'Profit by Categories', 'url' => ProfitByCategories::getUrl(), 'enabled' => true],
                 ],
                 'Inventory Reports' => [
                     ['label' => 'Planned in next slice', 'url' => null, 'enabled' => false],

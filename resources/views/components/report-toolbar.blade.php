@@ -10,6 +10,11 @@
     'showDealerFilter' => false,
     'showUserFilter' => false,
     'showChannelFilter' => true,
+    'sortOptions' => [
+        'alpha' => 'Alphabetical A-Z',
+        'qty_desc' => 'Quantity High to Low',
+        'value_desc' => 'Value High to Low',
+    ],
 ])
 
 <form method="GET" action="{{ request()->url() }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -93,9 +98,9 @@
         <label>
             Sort
             <select name="sort">
-                <option value="alpha" @selected($sort === 'alpha')>Alphabetical A-Z</option>
-                <option value="qty_desc" @selected($sort === 'qty_desc')>Quantity High to Low</option>
-                <option value="value_desc" @selected($sort === 'value_desc')>Value High to Low</option>
+                @foreach ($sortOptions as $optionValue => $optionLabel)
+                    <option value="{{ $optionValue }}" @selected($sort === $optionValue)>{{ $optionLabel }}</option>
+                @endforeach
             </select>
         </label>
 
