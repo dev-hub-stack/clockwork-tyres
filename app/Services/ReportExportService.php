@@ -138,6 +138,27 @@ class ReportExportService
         throw new NotFoundHttpException('Unknown report export requested.');
     }
 
+    public function requiredPermission(string $reportKey): string
+    {
+        if (array_key_exists($reportKey, $this->salesConfigs())) {
+            return str_starts_with($reportKey, 'dealer-') ? 'view_dealer_reports' : 'view_sales_reports';
+        }
+
+        if (array_key_exists($reportKey, $this->profitConfigs()) || $reportKey === 'profit-by-order') {
+            return 'view_profit_reports';
+        }
+
+        if (array_key_exists($reportKey, $this->inventoryConfigs())) {
+            return 'view_inventory_reports';
+        }
+
+        if ($reportKey === 'orders-by-user') {
+            return 'view_team_reports';
+        }
+
+        throw new NotFoundHttpException('Unknown report export requested.');
+    }
+
     public function csvFilename(array $payload): string
     {
         return Str::slug($payload['title']) . '-' . now()->format('Ymd-His') . '.csv';

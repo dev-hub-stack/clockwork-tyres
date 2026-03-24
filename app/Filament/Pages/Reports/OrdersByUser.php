@@ -34,12 +34,12 @@ class OrdersByUser extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_reports') ?? false;
+        return static::canViewReportPage();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_reports') ?? false;
+        return static::canViewReportPage();
     }
 
     protected function getViewData(): array
@@ -94,10 +94,23 @@ class OrdersByUser extends Page
                 'sortOptions' => [
                     'alpha' => 'Alphabetical A-Z',
                 ],
-                'exportCsvUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())),
-                'exportPdfUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())),
+                'exportCsvUrl' => $this->canExportReports() ? route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())) : null,
+                'exportPdfUrl' => $this->canExportReports() ? route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())) : null,
             ],
         ];
+    }
+
+    protected static function canViewReportPage(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->can('view_reports') ?? false)
+            && ($user?->can('view_team_reports') ?? false);
+    }
+
+    protected function canExportReports(): bool
+    {
+        return auth()->user()?->can('export_reports') ?? false;
     }
 
     protected function teamFilters(): array

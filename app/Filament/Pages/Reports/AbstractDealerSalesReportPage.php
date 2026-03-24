@@ -37,6 +37,11 @@ abstract class AbstractDealerSalesReportPage extends AbstractSalesReportPage
         return false;
     }
 
+    protected static function requiredReportPermission(): string
+    {
+        return 'view_dealer_reports';
+    }
+
     protected function dealerOptions(): array
     {
         return Customer::query()

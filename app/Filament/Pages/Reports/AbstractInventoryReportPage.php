@@ -26,12 +26,12 @@ abstract class AbstractInventoryReportPage extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_reports') ?? false;
+        return static::canViewReportPage();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_reports') ?? false;
+        return static::canViewReportPage();
     }
 
     protected function getViewData(): array
@@ -69,10 +69,28 @@ abstract class AbstractInventoryReportPage extends Page
                     'qty_desc' => 'Sold High to Low',
                     'value_desc' => 'Added High to Low',
                 ],
-                'exportCsvUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())),
-                'exportPdfUrl' => route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())),
+                'exportCsvUrl' => $this->canExportReports() ? route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'csv'], request()->query())) : null,
+                'exportPdfUrl' => $this->canExportReports() ? route('admin.reports.export', array_merge(['report' => $this->reportKey(), 'format' => 'pdf'], request()->query())) : null,
             ],
         ];
+    }
+
+    protected static function canViewReportPage(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->can('view_reports') ?? false)
+            && ($user?->can(static::requiredReportPermission()) ?? false);
+    }
+
+    protected static function requiredReportPermission(): string
+    {
+        return 'view_inventory_reports';
+    }
+
+    protected function canExportReports(): bool
+    {
+        return auth()->user()?->can('export_reports') ?? false;
     }
 
     protected function reportKey(): string

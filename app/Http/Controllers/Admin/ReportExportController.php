@@ -12,7 +12,10 @@ class ReportExportController extends Controller
 {
     public function download(Request $request, string $report, string $format, ReportExportService $reportExportService)
     {
-        abort_unless(auth()->user()?->can('view_reports') ?? false, 403);
+        $user = auth()->user();
+
+        abort_unless(($user?->can('view_reports') ?? false) && ($user?->can('export_reports') ?? false), 403);
+        abort_unless($user?->can($reportExportService->requiredPermission($report)) ?? false, 403);
 
         $payload = $reportExportService->build($report, $request->query());
 

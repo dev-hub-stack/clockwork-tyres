@@ -78,6 +78,12 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Reports (restricted)
             'view_reports',
+            'view_sales_reports',
+            'view_profit_reports',
+            'view_inventory_reports',
+            'view_dealer_reports',
+            'view_team_reports',
+            'export_reports',
 
             // Financial (restricted)
             'view_expenses',
@@ -167,5 +173,6 @@ class RolesAndPermissionsSeeder extends Seeder
         $this->command->info('super_admin: all permissions including edit_inventory_grid');
         $this->command->info('admin: all permissions EXCEPT edit_inventory_grid');
         $this->command->info('Other roles: accountant, sales, marketing');
+        $this->command->info('Report module permissions: view_sales_reports, view_profit_reports, view_inventory_reports, view_dealer_reports, view_team_reports, export_reports');
     }
 }
