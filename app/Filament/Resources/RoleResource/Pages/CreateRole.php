@@ -13,8 +13,10 @@ class CreateRole extends CreateRecord
     {
         $role = \Spatie\Permission\Models\Role::create(['name' => $data['name'], 'guard_name' => 'web']);
 
-        if (!empty($data['permissions'])) {
-            $perms = \Spatie\Permission\Models\Permission::whereIn('id', $data['permissions'])->get();
+        $permissionIds = RoleResource::extractPermissionIds($data);
+
+        if (! empty($permissionIds)) {
+            $perms = \Spatie\Permission\Models\Permission::whereIn('id', $permissionIds)->get();
             $role->syncPermissions($perms);
         }
 
