@@ -37,6 +37,8 @@ class OrderService
     public function createOrder(array $data): Order
     {
         return DB::transaction(function () use ($data) {
+            $data = $this->normalizeVehicleData($data);
+
             $documentType = $data['document_type'] ?? DocumentType::QUOTE;
 
             if (is_string($documentType)) {
@@ -80,6 +82,46 @@ class OrderService
 
             return $order->fresh(['items', 'customer', 'warehouse']);
         });
+    }
+
+    public function normalizeVehicleData(array $data): array
+    {
+        $data['vehicle_year'] = $this->normalizeVehicleYear($data['vehicle_year'] ?? null);
+        $data['vehicle_make'] = $this->normalizeVehicleText($data['vehicle_make'] ?? null);
+        $data['vehicle_model'] = $this->normalizeVehicleText($data['vehicle_model'] ?? null);
+        $data['vehicle_sub_model'] = $this->normalizeVehicleText($data['vehicle_sub_model'] ?? null);
+
+        return $data;
+    }
+
+    protected function normalizeVehicleYear(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/\b(\d{4})\b/', $value, $matches)) {
+            return $matches[1];
+        }
+
+        return strlen($value) <= 4 ? $value : substr($value, 0, 4);
+    }
+
+    protected function normalizeVehicleText(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

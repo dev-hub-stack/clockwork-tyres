@@ -38,6 +38,8 @@ class OrderSyncService
      */
     public function syncFromExternal(array $orderData, string $source): Order
     {
+        $source = $this->normalizeExternalSource($source);
+
         return DB::transaction(function () use ($orderData, $source) {
             
             Log::info("Syncing external order from {$source}", [
@@ -58,7 +60,7 @@ class OrderSyncService
             $customer = $this->findOrCreateCustomer($orderData['customer'], $source, $orderData['addresses'] ?? []);
             
             // Prepare order data
-            $preparedData = [
+            $preparedData = $this->orderService->normalizeVehicleData([
                 'document_type' => DocumentType::QUOTE,
                 'quote_status' => QuoteStatus::SENT,  // Changed from DRAFT to SENT so approve/reject buttons show
                 'customer_id' => $customer->id,
@@ -97,8 +99,8 @@ class OrderSyncService
                 'internal_notes' => $orderData['internal_notes'] ?? null,
                 
                 // Items
-                'items' => $this->prepareOrderItems($orderData['items'] ?? []),
-            ];
+                'items' => $this->prepareOrderItems($orderData['items'] ?? [], $source),
+            ]);
             
             // Force paid status if amount covers total (robustness check)
             if (($preparedData['paid_amount'] ?? 0) >= ($preparedData['total'] ?? 0) && ($preparedData['total'] ?? 0) > 0) {
@@ -142,6 +144,9 @@ class OrderSyncService
      */
     protected function findOrCreateCustomer(array $customerData, string $source, array $addresses = []): Customer
     {
+        $source = $this->normalizeExternalSource($source);
+        $externalCustomerId = $customerData['external_customer_id'] ?? $customerData['customer_id'] ?? $customerData['id'] ?? null;
+
         // Log customer data for debugging
         Log::info('OrderSyncService: Finding/Creating customer', [
             'first_name' => $customerData['first_name'] ?? null,
@@ -159,6 +164,8 @@ class OrderSyncService
                     'first_name' => $customerData['first_name'] ?? $customer->first_name,
                     'last_name' => $customerData['last_name'] ?? $customer->last_name,
                     'phone' => $customerData['phone'] ?? $customer->phone,
+                    'external_source' => $customer->external_source ?: $source,
+                    'external_customer_id' => $customer->external_customer_id ?: $externalCustomerId,
                 ]);
                 
                 // Force update name if it's empty or "Unknown Customer"
@@ -175,9 +182,10 @@ class OrderSyncService
         }
         
         // Try to find by external customer ID
-        if (isset($customerData['customer_id'])) {
-            $externalIdField = $source === 'retail' ? 'retail_customer_id' : 'wholesale_customer_id';
-            $customer = Customer::where($externalIdField, $customerData['customer_id'])->first();
+        if ($externalCustomerId) {
+            $customer = Customer::where('external_customer_id', $externalCustomerId)
+                ->where('external_source', $source)
+                ->first();
             if ($customer) {
                 // Update customer details if changed
                 $customer->update([
@@ -203,7 +211,7 @@ class OrderSyncService
             'email' => $customerData['email'] ?? null,
             'phone' => $customerData['phone'] ?? null,
             'external_source' => $source,
-            'external_customer_id' => $customerData['id'] ?? null,
+            'external_customer_id' => $externalCustomerId,
             'status' => 'active'
         ]);
         
@@ -284,9 +292,11 @@ class OrderSyncService
      * @param array $externalItems
      * @return array
      */
-    protected function prepareOrderItems(array $externalItems): array
+    protected function prepareOrderItems(array $externalItems, string $source = 'retail'): array
     {
         $items = [];
+
+        $source = $this->normalizeExternalSource($source);
         
         Log::info('OrderSyncService: Preparing items', ['count' => count($externalItems)]);
         
@@ -316,7 +326,13 @@ class OrderSyncService
             if (isset($externalItem['addon_data'])) {
                 try {
                     // Sync the addon (and its category) on the fly
-                    $addon = $this->addonSyncService->syncAddon($externalItem['addon_data']);
+                    $addonPayload = $externalItem['addon_data'];
+                    $addonPayload['external_source'] = $this->normalizeExternalSource($addonPayload['external_source'] ?? $source);
+                    if (isset($addonPayload['category']) && is_array($addonPayload['category'])) {
+                        $addonPayload['category']['external_source'] = $this->normalizeExternalSource($addonPayload['category']['external_source'] ?? $addonPayload['external_source']);
+                    }
+
+                    $addon = $this->addonSyncService->syncAddon($addonPayload);
                     
                     // Set addon foreign key
                     $item['add_on_id'] = $addon->id;
@@ -324,7 +340,10 @@ class OrderSyncService
                     // Create addon snapshot (store current addon state)
                     $item['addon_snapshot'] = [
                         'id' => $addon->id,
+                        'external_addon_id' => $addonPayload['external_addon_id'] ?? null,
+                        'external_source' => $addonPayload['external_source'],
                         'name' => $addon->title,
+                        'title' => $addon->title,
                         'part_number' => $addon->part_number,
                         'description' => $addon->description,
                         'price' => $addon->price,
@@ -346,7 +365,29 @@ class OrderSyncService
                         'sku' => $externalItem['sku'] ?? null,
                         'error' => $e->getMessage()
                     ]);
-                    continue; // Skip this item
+
+                    $fallbackAddonPayload = $externalItem['addon_data'];
+                    $fallbackSource = $this->normalizeExternalSource($fallbackAddonPayload['external_source'] ?? $source);
+
+                    $item['addon_snapshot'] = [
+                        'external_addon_id' => $fallbackAddonPayload['external_addon_id'] ?? null,
+                        'external_source' => $fallbackSource,
+                        'title' => $fallbackAddonPayload['title'] ?? $externalItem['product_name'] ?? 'Unknown Add-On',
+                        'name' => $fallbackAddonPayload['title'] ?? $externalItem['product_name'] ?? 'Unknown Add-On',
+                        'part_number' => $fallbackAddonPayload['part_number'] ?? $externalItem['sku'] ?? null,
+                        'description' => $fallbackAddonPayload['description'] ?? null,
+                        'price' => $fallbackAddonPayload['price'] ?? $item['unit_price'],
+                        'category' => [
+                            'external_id' => data_get($fallbackAddonPayload, 'category.external_id'),
+                            'external_source' => $this->normalizeExternalSource(data_get($fallbackAddonPayload, 'category.external_source', $fallbackSource)),
+                            'name' => data_get($fallbackAddonPayload, 'category.name'),
+                            'slug' => data_get($fallbackAddonPayload, 'category.slug'),
+                            'display_name' => data_get($fallbackAddonPayload, 'category.display_name'),
+                        ],
+                    ];
+
+                    $item['product_name'] = $item['product_name'] ?? data_get($item['addon_snapshot'], 'title');
+                    $item['sku'] = $item['sku'] ?? data_get($item['addon_snapshot'], 'part_number');
                 }
             }
             // CASE 2: Item is a PRODUCT (has product_id, external_product_id, or product_name)
@@ -366,7 +407,7 @@ class OrderSyncService
                         'id' => $product->id,
                         'external_product_id' => $externalItem['product_id'] ?? $externalItem['external_product_id'] ?? null,
                         'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
-                        'external_source' => $externalItem['external_source'] ?? 'tunerstop',
+                        'external_source' => $this->normalizeExternalSource($externalItem['external_source'] ?? $source),
                         'name' => $product->name,
                         'sku' => $product->sku,
                         'brand_id' => $product->brand_id,
@@ -376,6 +417,8 @@ class OrderSyncService
                         'variant_id' => $variant?->id,
                         'variant_title' => $externalItem['variant_title'] ?? null,
                     ];
+
+                    $item['variant_snapshot'] = $this->buildVariantSnapshot($externalItem, $variant, $source);
                     
                     Log::info('OrderSyncService: Product item with FK linked', [
                         'product_id' => $product->id,
@@ -393,13 +436,15 @@ class OrderSyncService
                     $item['product_snapshot'] = [
                         'external_product_id' => $externalItem['product_id'] ?? $externalItem['external_product_id'] ?? null,
                         'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
-                        'external_source' => $externalItem['external_source'] ?? 'tunerstop',
+                        'external_source' => $this->normalizeExternalSource($externalItem['external_source'] ?? $source),
                         'name' => $externalItem['product_name'],
                         'sku' => $externalItem['sku'],
                         'brand_name' => $externalItem['brand_name'] ?? null,
                         'model_name' => $externalItem['model_name'] ?? null,
                         'variant_title' => $externalItem['variant_title'] ?? null,
                     ];
+
+                    $item['variant_snapshot'] = $this->buildVariantSnapshot($externalItem, null, $source);
                 }
             }
             // CASE 3: Unknown item type
@@ -470,7 +515,7 @@ class OrderSyncService
         ]);
         
         // Update order fields
-        $updateData = [
+        $updateData = $this->orderService->normalizeVehicleData([
             // Financial fields
             'sub_total' => $orderData['sub_total'] ?? $order->sub_total,
             'tax' => $orderData['tax'] ?? $order->tax,
@@ -497,7 +542,7 @@ class OrderSyncService
             'vehicle_make' => $orderData['vehicle_make'] ?? $order->vehicle_make,
             'vehicle_model' => $orderData['vehicle_model'] ?? $order->vehicle_model,
             'vehicle_sub_model' => $orderData['vehicle_sub_model'] ?? $order->vehicle_sub_model,
-        ];
+        ]);
 
         Log::info("Order update payload", $updateData);
 
@@ -509,7 +554,7 @@ class OrderSyncService
             $order->items()->delete();
             
             // Add new items
-            $preparedItems = $this->prepareOrderItems($orderData['items']);
+            $preparedItems = $this->prepareOrderItems($orderData['items'], $order->external_source ?? 'retail');
             foreach ($preparedItems as $itemData) {
                 $this->orderService->addItem($order, $itemData);
             }
@@ -609,5 +654,32 @@ class OrderSyncService
         // Warehouse table uses 'warehouse_name' column, not 'name'
         $warehouse = \App\Modules\Inventory\Models\Warehouse::where('warehouse_name', 'Non-Stock')->first();
         return $warehouse?->id;
+    }
+
+    private function normalizeExternalSource(?string $source): string
+    {
+        return match (strtolower((string) $source)) {
+            'tunerstop', 'tunerstop_admin', 'retail' => 'retail',
+            'wholesale' => 'wholesale',
+            default => 'retail',
+        };
+    }
+
+    private function buildVariantSnapshot(array $externalItem, ?\App\Modules\Products\Models\ProductVariant $variant, string $source): array
+    {
+        return [
+            'id' => $variant?->id,
+            'external_variant_id' => $externalItem['variant_id'] ?? $externalItem['external_variant_id'] ?? null,
+            'external_source' => $this->normalizeExternalSource($externalItem['external_source'] ?? $source),
+            'sku' => $variant?->sku ?? $externalItem['sku'] ?? null,
+            'title' => $variant?->title ?? $externalItem['variant_title'] ?? null,
+            'size' => $variant?->size ?? $externalItem['size'] ?? null,
+            'bolt_pattern' => $variant?->bolt_pattern ?? $externalItem['bolt_pattern'] ?? null,
+            'offset' => $variant?->offset ?? $externalItem['offset'] ?? null,
+            'rim_width' => $variant?->rim_width ?? $externalItem['rim_width'] ?? null,
+            'rim_diameter' => $variant?->rim_diameter ?? $externalItem['rim_diameter'] ?? null,
+            'finish' => $variant?->finish ?? $externalItem['finish_name'] ?? $externalItem['finish'] ?? null,
+            'weight' => $variant?->weight ?? $externalItem['weight'] ?? null,
+        ];
     }
 }

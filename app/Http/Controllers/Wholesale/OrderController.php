@@ -49,6 +49,7 @@ class OrderController extends BaseWholesaleController
             'vehicle_year'       => 'nullable|string|max:10',
             'vehicle_make'       => 'nullable|string|max:50',
             'vehicle_model'      => 'nullable|string|max:50',
+            'vehicle_sub_model'  => 'nullable|string|max:100',
             'billing'            => 'nullable|array',
             'shipping'           => 'nullable|array',
             'is_same_shipping'   => 'nullable|boolean',
@@ -88,6 +89,13 @@ class OrderController extends BaseWholesaleController
                 'address'    => $shippingData['address']   ?? '',
             ]
         );
+        $vehicleData = $this->orderService->normalizeVehicleData($request->only([
+            'vehicle_year',
+            'vehicle_make',
+            'vehicle_model',
+            'vehicle_sub_model',
+        ]));
+
         // --- Create the CRM quote ---
         $order = $this->orderService->createOrder([
             'document_type'      => DocumentType::QUOTE->value,
@@ -97,9 +105,10 @@ class OrderController extends BaseWholesaleController
             'customer_id'        => $dealer->id,
             'shipping_address_id'=> $addressBook->id,
             'order_notes'        => $request->notes ?? $request->order_notes,
-            'vehicle_year'       => trim($request->vehicle_year ?? ''),
-            'vehicle_make'       => $request->vehicle_make,
-            'vehicle_model'      => $request->vehicle_model,
+            'vehicle_year'       => $vehicleData['vehicle_year'] ?? null,
+            'vehicle_make'       => $vehicleData['vehicle_make'] ?? null,
+            'vehicle_model'      => $vehicleData['vehicle_model'] ?? null,
+            'vehicle_sub_model'  => $vehicleData['vehicle_sub_model'] ?? null,
             'payment_method'     => $request->payment_method ?? 'pending',
             'delivery_options'   => $request->delivery_options,
             'sub_total'          => $cart->sub_total,
@@ -140,9 +149,10 @@ class OrderController extends BaseWholesaleController
         // so we force-restore the correct cart totals here as the final write.
         $order->update([
             'quote_status'       => 'sent',
-            'vehicle_year'       => trim($request->vehicle_year ?? ''),
-            'vehicle_make'       => $request->vehicle_make,
-            'vehicle_model'      => $request->vehicle_model,
+            'vehicle_year'       => $vehicleData['vehicle_year'] ?? null,
+            'vehicle_make'       => $vehicleData['vehicle_make'] ?? null,
+            'vehicle_model'      => $vehicleData['vehicle_model'] ?? null,
+            'vehicle_sub_model'  => $vehicleData['vehicle_sub_model'] ?? null,
             'payment_method'     => $request->payment_method ?? 'pending',
             'delivery_options'   => $request->delivery_options,
             'shipping_address_id'=> $addressBook->id,
@@ -302,9 +312,12 @@ class OrderController extends BaseWholesaleController
             'vehicle_year',
             'vehicle_make',
             'vehicle_model',
+            'vehicle_sub_model',
             'payment_method',
             'delivery_options',
         ]);
+
+        $payload = array_merge($payload, $this->orderService->normalizeVehicleData($payload));
 
         if ($request->filled('notes') || $request->filled('order_notes')) {
             $payload['order_notes'] = $request->input('order_notes', $request->input('notes'));
