@@ -90,6 +90,95 @@ class ReportSummaryCardsTest extends TestCase
             ],
         ]);
 
+        $productId = DB::table('products')->insertGetId([
+            'name' => 'Inventory Test Product',
+            'sku' => 'TEST-INV-PRODUCT-1',
+            'price' => 150,
+            'status' => 1,
+            'track_inventory' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $excludedProductId = DB::table('products')->insertGetId([
+            'name' => 'Excluded Inventory Product',
+            'sku' => 'TEST-INV-PRODUCT-2',
+            'price' => 500,
+            'status' => 1,
+            'track_inventory' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $warehouseId = DB::table('warehouses')->insertGetId([
+            'warehouse_name' => 'Main Warehouse',
+            'code' => 'TEST-WH-1',
+            'status' => 1,
+            'is_primary' => true,
+            'is_system' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $systemWarehouseId = DB::table('warehouses')->insertGetId([
+            'warehouse_name' => 'System Warehouse',
+            'code' => 'TEST-WH-SYS',
+            'status' => 1,
+            'is_primary' => false,
+            'is_system' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $variantId = DB::table('product_variants')->insertGetId([
+            'sku' => 'TEST-INV-VALUE-1',
+            'product_id' => $productId,
+            'cost' => null,
+            'price' => null,
+            'us_retail_price' => 0,
+            'uae_retail_price' => 150,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $excludedVariantId = DB::table('product_variants')->insertGetId([
+            'sku' => 'TEST-INV-VALUE-EXCLUDED',
+            'product_id' => $excludedProductId,
+            'cost' => null,
+            'price' => null,
+            'us_retail_price' => 0,
+            'uae_retail_price' => 500,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('product_inventories')->insert([
+            [
+                'warehouse_id' => $warehouseId,
+                'product_variant_id' => $variantId,
+                'quantity' => 4,
+                'eta_qty' => 2,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'warehouse_id' => $systemWarehouseId,
+                'product_variant_id' => $variantId,
+                'quantity' => 10,
+                'eta_qty' => 5,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'warehouse_id' => $warehouseId,
+                'product_variant_id' => $excludedVariantId,
+                'quantity' => 8,
+                'eta_qty' => 3,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
         $cards = app(ReportService::class)->summaryCards(
             Carbon::createFromFormat('Y-m', '2026-01')->startOfMonth(),
             Carbon::createFromFormat('Y-m', '2026-03')->endOfMonth(),
@@ -101,6 +190,8 @@ class ReportSummaryCardsTest extends TestCase
         $this->assertSame(1, $cardsByLabel['Wholesale Invoices']['value']);
         $this->assertSame(180.0, $cardsByLabel['Retail Sales']['value']);
         $this->assertSame(250.0, $cardsByLabel['Wholesale Sales']['value']);
+        $this->assertSame(600.0, $cardsByLabel['Inventory Value']['value']);
+        $this->assertSame(300.0, $cardsByLabel['Incoming Inventory Value']['value']);
     }
 
     public function test_sales_by_dimension_uses_legacy_channel_fallback_for_grouping_and_filters(): void

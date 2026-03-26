@@ -723,8 +723,8 @@ The top-level Reports page displays summary stat cards for the selected financia
 | Wholesale Sales | Same but external_source='wholesale' | `AED 337,000` |
 | Open Orders | `COUNT(*)` from orders WHERE order_status NOT IN ('completed','cancelled','delivered') | `16` |
 | Accounts Receivable | `SUM(outstanding_amount)` from invoices WHERE payment_status != 'paid' | `AED 36,000` |
-| Inventory Value | `SUM(pi.quantity * pv.cost)` from product_inventories | `AED 800,000` |
-| Incoming Inventory Value | `SUM(pi.eta_qty * pv.cost)` from product_inventories WHERE eta_qty > 0 | `AED 200,000` |
+| Inventory Value | `SUM(pi.quantity * pv.uae_retail_price)` from inventory-grid scoped stock only: active non-system warehouses, inventory-tracked products, SKU-backed variants | `AED 800,000` |
+| Incoming Inventory Value | `SUM(pi.eta_qty * pv.uae_retail_price)` from inventory-grid scoped incoming stock only: active non-system warehouses, inventory-tracked products, SKU-backed variants | `AED 200,000` |
 | Website Visits | External analytics (placeholder / future integration) | `2,680` |
 
 **Page:** `app/Filament/Pages/Reports/ReportsIndex.php`

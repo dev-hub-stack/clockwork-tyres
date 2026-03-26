@@ -169,13 +169,20 @@ class ReportService
             ->where('payment_status', '!=', 'paid')
             ->sum('outstanding_amount');
 
-        $inventoryValue = DB::table('product_inventories as pi')
-            ->leftJoin('product_variants as pv', 'pv.id', '=', 'pi.product_variant_id')
-            ->sum(DB::raw('COALESCE(pi.quantity, 0) * COALESCE(pv.cost, 0)'));
+        $inventoryGridBaseQuery = DB::table('product_inventories as pi')
+            ->join('warehouses as w', 'w.id', '=', 'pi.warehouse_id')
+            ->join('product_variants as pv', 'pv.id', '=', 'pi.product_variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('w.status', 1)
+            ->where('w.is_system', false)
+            ->where('p.track_inventory', true)
+            ->whereNotNull('pv.sku');
 
-        $incomingInventoryValue = DB::table('product_inventories as pi')
-            ->leftJoin('product_variants as pv', 'pv.id', '=', 'pi.product_variant_id')
-            ->sum(DB::raw('COALESCE(pi.eta_qty, 0) * COALESCE(pv.cost, 0)'));
+        $inventoryValue = (clone $inventoryGridBaseQuery)
+            ->sum(DB::raw('COALESCE(pi.quantity, 0) * COALESCE(pv.uae_retail_price, 0)'));
+
+        $incomingInventoryValue = (clone $inventoryGridBaseQuery)
+            ->sum(DB::raw('COALESCE(pi.eta_qty, 0) * COALESCE(pv.uae_retail_price, 0)'));
 
         return [
             ['label' => 'Retail Invoices', 'value' => (int) $retailOrders, 'type' => 'number'],
