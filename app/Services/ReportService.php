@@ -10,6 +10,34 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    private function invoiceNumberExpression(string $tableAlias = 'o'): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "COALESCE({$tableAlias}.order_number, 'INV-' || {$tableAlias}.id)"
+            : "COALESCE({$tableAlias}.order_number, CONCAT('INV-', {$tableAlias}.id))";
+    }
+
+    private function customerNameExpression(string $tableAlias = 'c'): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "COALESCE(NULLIF({$tableAlias}.business_name, ''), TRIM(COALESCE({$tableAlias}.first_name, '') || ' ' || COALESCE({$tableAlias}.last_name, '')), 'Unknown Customer')"
+            : "COALESCE(NULLIF({$tableAlias}.business_name, ''), CONCAT_WS(' ', NULLIF({$tableAlias}.first_name, ''), NULLIF({$tableAlias}.last_name, '')), 'Unknown Customer')";
+    }
+
+    private function variantCostExpression(string $columnExpression = 'oi.variant_snapshot'): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "CAST(json_extract({$columnExpression}, '$.cost') AS DECIMAL(12,2))"
+            : "CAST(JSON_UNQUOTE(JSON_EXTRACT({$columnExpression}, '$.cost')) AS DECIMAL(12,2))";
+    }
+
+    private function monthKeyExpression(string $columnExpression): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', {$columnExpression})"
+            : "DATE_FORMAT({$columnExpression}, '%Y-%m')";
+    }
+
     public function salesByDimension(
         string $groupExpression,
         Carbon $startDate,
@@ -21,7 +49,7 @@ class ReportService
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
-            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw('SUM(oi.quantity) as qty')
             ->selectRaw('SUM(oi.line_total) as value')
             ->where('o.document_type', DocumentType::INVOICE->value)
@@ -147,14 +175,14 @@ class ReportService
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
-            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw("SUM(
                 CASE
                     WHEN o.gross_profit IS NOT NULL AND o.sub_total > 0
                         THEN o.gross_profit * (oi.line_total / o.sub_total)
                     ELSE oi.line_total - (
                         oi.quantity * COALESCE(
-                            CAST(JSON_UNQUOTE(JSON_EXTRACT(oi.variant_snapshot, '$.cost')) AS DECIMAL(12,2)),
+                            {$this->variantCostExpression('oi.variant_snapshot')},
                             0
                         )
                     )
@@ -215,11 +243,11 @@ class ReportService
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->leftJoin('order_items as oi', 'oi.order_id', '=', 'o.id')
             ->selectRaw('o.id')
-            ->selectRaw('COALESCE(o.order_number, CONCAT("INV-", o.id)) as invoice_number')
+            ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
             ->selectRaw("COALESCE(MAX(NULLIF(oi.brand_name, '')), MAX(NULLIF(oi.product_name, '')), 'Invoice') as description")
             ->selectRaw('MAX(o.total) as value')
             ->selectRaw('MAX(COALESCE(o.gross_profit, 0)) as profit')
-            ->selectRaw("COALESCE(MAX(NULLIF(c.business_name, '')), MAX(CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, ''))), 'Unknown Customer') as customer_name")
+            ->selectRaw('MAX(' . $this->customerNameExpression('c') . ') as customer_name')
             ->selectRaw('MAX(DATE(COALESCE(o.issue_date, o.created_at))) as issued_on')
             ->where('o.document_type', DocumentType::INVOICE->value)
             ->whereNull('o.deleted_at')
@@ -264,7 +292,7 @@ class ReportService
             ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
             ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$inventoryGroupExpression}), ''), 'Unassigned') as dimension_label")
-            ->selectRaw("DATE_FORMAT(il.created_at, '%Y-%m') as month_key")
+            ->selectRaw($this->monthKeyExpression('il.created_at') . ' as month_key')
             ->selectRaw("SUM(CASE WHEN il.quantity_change > 0 AND il.action IN ('adjustment', 'transfer_in', 'import', 'return') THEN il.quantity_change ELSE 0 END) as added")
             ->whereBetween(DB::raw('DATE(il.created_at)'), [
                 $startDate->toDateString(),
@@ -283,7 +311,7 @@ class ReportService
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
-            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw('SUM(oi.quantity) as sold')
             ->where('o.document_type', DocumentType::INVOICE->value)
             ->whereNull('o.deleted_at')
@@ -310,9 +338,9 @@ class ReportService
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
-            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
-            ->selectRaw('COALESCE(o.order_number, CONCAT("INV-", o.id)) as invoice_number')
-            ->selectRaw("COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')), 'Unknown Customer') as customer_name")
+            ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
+            ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
+            ->selectRaw($this->customerNameExpression('c') . ' as customer_name')
             ->selectRaw('DATE(COALESCE(o.issue_date, o.created_at)) as sold_on')
             ->selectRaw('SUM(oi.quantity) as qty_sold')
             ->where('o.document_type', DocumentType::INVOICE->value)
@@ -383,7 +411,7 @@ class ReportService
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw('o.representative_id as user_id')
             ->selectRaw("COALESCE(NULLIF(TRIM(u.name), ''), 'Unassigned') as user_name")
-            ->selectRaw("DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%Y-%m') as month_key")
+            ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw('SUM(oi.quantity) as qty')
             ->selectRaw('SUM(oi.line_total) as value')
             ->where('o.document_type', DocumentType::INVOICE->value)
@@ -444,11 +472,11 @@ class ReportService
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('order_items as oi', 'oi.order_id', '=', 'o.id')
             ->selectRaw('o.id')
-            ->selectRaw('COALESCE(o.order_number, CONCAT("INV-", o.id)) as invoice_number')
+            ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
             ->selectRaw("COALESCE(MAX(NULLIF(oi.brand_name, '')), MAX(NULLIF(oi.product_name, '')), 'Invoice') as description")
             ->selectRaw('MAX(o.total) as value')
             ->selectRaw('MAX(COALESCE(o.gross_profit, 0)) as profit')
-            ->selectRaw("COALESCE(MAX(NULLIF(c.business_name, '')), MAX(CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, ''))), 'Unknown Customer') as customer_name")
+            ->selectRaw('MAX(' . $this->customerNameExpression('c') . ') as customer_name')
             ->selectRaw('MAX(DATE(COALESCE(o.issue_date, o.created_at))) as issued_on')
             ->where('o.document_type', DocumentType::INVOICE->value)
             ->whereNull('o.deleted_at')

@@ -26,6 +26,7 @@ class OrderItemObserver
         $this->populateProductDetails($orderItem);
     }
 
+        $this->normalizeNumericDefaults($orderItem);
     /**
      * Handle the OrderItem "created" event.
      * Create OrderItemQuantity record for warehouse allocation
@@ -56,11 +57,24 @@ class OrderItemObserver
         if ($orderItem->wasChanged(['warehouse_id', 'quantity'])) {
             $this->updateWarehouseAllocation($orderItem);
         }
+        $this->normalizeNumericDefaults($orderItem);
+
     }
 
     /**
      * Populate product details from the associated variant
      */
+
+    private function normalizeNumericDefaults(OrderItem $orderItem): void
+    {
+        $orderItem->quantity = max(1, (int) ($orderItem->quantity ?? 1));
+        $orderItem->unit_price = round((float) ($orderItem->unit_price ?? 0), 2);
+        $orderItem->discount = round((float) ($orderItem->discount ?? 0), 2);
+        $orderItem->tax_amount = round((float) ($orderItem->tax_amount ?? 0), 2);
+        $orderItem->allocated_quantity = (int) ($orderItem->allocated_quantity ?? 0);
+        $orderItem->shipped_quantity = (int) ($orderItem->shipped_quantity ?? 0);
+        $orderItem->tax_inclusive = $orderItem->tax_inclusive ?? true;
+    }
     private function populateProductDetails(OrderItem $orderItem): void
     {
         // Custom one-off items

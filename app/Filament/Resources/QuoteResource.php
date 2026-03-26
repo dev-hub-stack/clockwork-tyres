@@ -415,6 +415,7 @@ class QuoteResource extends Resource
                                                  $set('is_custom', true);
                                                  $set('product_variant_id', null);
                                                  $set('add_on_id', null);
+                                                 $set('discount', 0);
                                                  
                                                  $set('unit_price', 0);
                                                  $set('quantity', 1);
@@ -434,6 +435,7 @@ class QuoteResource extends Resource
                                                      $set('is_custom', false);
                                                      $set('add_on_id', $id);
                                                      $set('product_variant_id', null); // Clear product variant
+                                                     $set('discount', 0);
                                                      $set('unit_price', $addon->resolvePriceForCustomer($customer));
                                                      $set('quantity', 1);
                                                      
@@ -448,6 +450,7 @@ class QuoteResource extends Resource
                                                      $set('is_custom', false);
                                                      $set('product_variant_id', $id); // Ensure clean ID is set
                                                      $set('add_on_id', null); // Clear addon
+                                                     $set('discount', 0);
                                                      
                                                      // Dealer % applies to MSRP; best price wins vs sale_price
                                                      $retail = floatval($variant->uae_retail_price ?? 0);
@@ -658,6 +661,7 @@ class QuoteResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
+                                    ->dehydrateStateUsing(fn ($state) => round((float) ($state ?? 0), 2))
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $qty = floatval($get('quantity') ?? 0);

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages\Reports;
 
+use Illuminate\Support\Facades\DB;
+
 class SalesByDealer extends AbstractSalesReportPage
 {
     protected static ?string $navigationLabel = 'Sales by Dealer';
@@ -14,7 +16,9 @@ class SalesByDealer extends AbstractSalesReportPage
 
     protected function groupExpression(): string
     {
-        return "COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')))";
+        return DB::getDriverName() === 'sqlite'
+            ? "COALESCE(NULLIF(c.business_name, ''), TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')))"
+            : "COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')))";
     }
 
     protected function labelHeader(): string

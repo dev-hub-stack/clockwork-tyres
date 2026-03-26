@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Customers\Models\Customer;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 trait HasReportFilters
 {
@@ -85,9 +86,13 @@ trait HasReportFilters
 
     protected function dealerOptions(): array
     {
+        $sortExpression = DB::getDriverName() === 'sqlite'
+            ? "COALESCE(NULLIF(business_name, ''), TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')))"
+            : 'COALESCE(NULLIF(business_name, ""), CONCAT(first_name, " ", last_name))';
+
         return Customer::query()
             ->whereIn('customer_type', ['dealer', 'wholesale'])
-            ->orderByRaw('COALESCE(NULLIF(business_name, ""), CONCAT(first_name, " ", last_name)) asc')
+            ->orderByRaw($sortExpression . ' asc')
             ->get()
             ->mapWithKeys(fn (Customer $customer) => [$customer->id => $customer->name])
             ->all();

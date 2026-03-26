@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages\Reports;
 
+use Illuminate\Support\Facades\DB;
+
 class SalesBySize extends AbstractSalesReportPage
 {
     protected static ?string $navigationLabel = 'Sales by Size';
@@ -14,7 +16,9 @@ class SalesBySize extends AbstractSalesReportPage
 
     protected function groupExpression(): string
     {
-        return "JSON_UNQUOTE(JSON_EXTRACT(oi.item_attributes, '$.size'))";
+        return DB::getDriverName() === 'sqlite'
+            ? "json_extract(oi.item_attributes, '$.size')"
+            : "JSON_UNQUOTE(JSON_EXTRACT(oi.item_attributes, '$.size'))";
     }
 
     protected function labelHeader(): string

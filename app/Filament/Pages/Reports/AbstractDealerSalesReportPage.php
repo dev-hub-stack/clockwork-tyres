@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Reports;
 
 use App\Modules\Customers\Models\Customer;
+use Illuminate\Support\Facades\DB;
 
 abstract class AbstractDealerSalesReportPage extends AbstractSalesReportPage
 {
@@ -44,9 +45,13 @@ abstract class AbstractDealerSalesReportPage extends AbstractSalesReportPage
 
     protected function dealerOptions(): array
     {
+        $sortExpression = DB::getDriverName() === 'sqlite'
+            ? "COALESCE(NULLIF(business_name, ''), TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')))"
+            : 'COALESCE(NULLIF(business_name, ""), CONCAT(first_name, " ", last_name))';
+
         return Customer::query()
             ->where('customer_type', 'wholesale')
-            ->orderByRaw('COALESCE(NULLIF(business_name, ""), CONCAT(first_name, " ", last_name)) asc')
+            ->orderByRaw($sortExpression . ' asc')
             ->get()
             ->mapWithKeys(fn (Customer $customer) => [$customer->id => $customer->name])
             ->all();

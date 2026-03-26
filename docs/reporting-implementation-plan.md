@@ -20,9 +20,9 @@
 ## Implementation Progress Snapshot
 
 - Completed: Phase 0 Foundation, Phase 1 Sales Reports, Phase 2 Profit Reports, Phase 3 Inventory Reports, Phase 4 Dealer Reports, Phase 5 Team Reports, Phase 6 Reports Dashboard
-- Completed cross-cutting support: CSV/PDF export tooling for the active report pages
-- Remaining implementation: deferred website tracking reports, dealer vehicle searches, UI polish
-- Latest completed slice: Export tooling across shared report pages
+- Completed cross-cutting support: CSV/PDF export tooling, granular report permissions, legacy analytics access hardening, shared reporting UI polish, reusable product-noise reporting command, and focused report regression coverage
+- Remaining implementation: deferred website tracking reports and dealer vehicle searches
+- Latest completed slice: reporting hardening, cleanup reporting automation, and broader regression coverage
 
 ---
 

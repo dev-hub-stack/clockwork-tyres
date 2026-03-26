@@ -405,6 +405,7 @@ class InvoiceResource extends Resource
                                             $set('is_custom', true);
                                             $set('product_variant_id', null);
                                             $set('add_on_id', null);
+                                            $set('discount', 0);
                                             $set('unit_price', 0);
                                             $set('quantity', 1);
                                             $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
@@ -421,6 +422,7 @@ class InvoiceResource extends Resource
                                                 $set('is_custom', false);
                                                 $set('add_on_id', $id);
                                                 $set('product_variant_id', null);
+                                                $set('discount', 0);
                                                 $set('unit_price', $addon->resolvePriceForCustomer($customer));
                                                 $set('quantity', 1);
                                                 $taxSetting = \App\Modules\Settings\Models\TaxSetting::getDefault();
@@ -433,6 +435,7 @@ class InvoiceResource extends Resource
                                                 $set('is_custom', false);
                                                 $set('product_variant_id', $id);
                                                 $set('add_on_id', null);
+                                                $set('discount', 0);
                                                 $retail = floatval($variant->uae_retail_price ?? 0);
                                                 $salePr = $variant->sale_price ? floatval($variant->sale_price) : null;
                                                 // Dealer % applies to sale_price when set, otherwise MSRP
@@ -569,6 +572,7 @@ class InvoiceResource extends Resource
                                     ->numeric()
                                     ->prefix(fn() => CurrencySetting::getBase()?->currency_symbol ?? 'AED')
                                     ->default(0)
+                                    ->dehydrateStateUsing(fn ($state) => round((float) ($state ?? 0), 2))
                                     ->live(onBlur: true),
                                 
                                 \Filament\Forms\Components\Toggle::make('tax_inclusive')

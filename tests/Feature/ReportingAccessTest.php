@@ -12,6 +12,45 @@ class ReportingAccessTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const REPORT_SLUGS_BY_PERMISSION = [
+        'view_sales_reports' => [
+            '/admin/reports/sales-by-brand',
+            '/admin/reports/sales-by-model',
+            '/admin/reports/sales-by-size',
+            '/admin/reports/sales-by-vehicle',
+            '/admin/reports/sales-by-dealer',
+            '/admin/reports/sales-by-sku',
+            '/admin/reports/sales-by-channel',
+            '/admin/reports/sales-by-team',
+            '/admin/reports/sales-by-categories',
+        ],
+        'view_profit_reports' => [
+            '/admin/reports/profit-by-order',
+            '/admin/reports/profit-by-brand',
+            '/admin/reports/profit-by-model',
+            '/admin/reports/profit-by-size',
+            '/admin/reports/profit-by-vehicle',
+            '/admin/reports/profit-by-dealer',
+            '/admin/reports/profit-by-sku',
+            '/admin/reports/profit-by-month',
+            '/admin/reports/profit-by-salesman',
+            '/admin/reports/profit-by-channel',
+            '/admin/reports/profit-by-categories',
+        ],
+        'view_inventory_reports' => [
+            '/admin/reports/inventory-by-sku',
+            '/admin/reports/inventory-by-brand',
+            '/admin/reports/inventory-by-model',
+        ],
+        'view_dealer_reports' => [
+            '/admin/reports/dealer-sales-by-brand',
+            '/admin/reports/dealer-sales-by-model',
+        ],
+        'view_team_reports' => [
+            '/admin/reports/orders-by-user',
+        ],
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -69,6 +108,22 @@ class ReportingAccessTest extends TestCase
         $this->actingAs($teamUser)
             ->get('/admin/sales-dashboard')
             ->assertForbidden();
+    }
+
+    public function test_each_report_page_is_accessible_with_its_matching_permission_family(): void
+    {
+        foreach (self::REPORT_SLUGS_BY_PERMISSION as $permission => $paths) {
+            $user = $this->createUserWithPermissions([
+                'view_reports',
+                $permission,
+            ]);
+
+            foreach ($paths as $path) {
+                $this->actingAs($user)
+                    ->get($path)
+                    ->assertOk();
+            }
+        }
     }
 
     protected function createUserWithPermissions(array $permissions): User

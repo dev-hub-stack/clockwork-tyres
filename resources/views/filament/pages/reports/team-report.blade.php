@@ -34,6 +34,15 @@
         };
         $comparisonQty = $rows->sum('total_qty');
         $comparisonValue = $rows->sum('total_value');
+        $comparisonMonthTotals = [];
+
+        foreach ($months as $month) {
+            $monthKey = $month['key'];
+            $comparisonMonthTotals[$monthKey] = [
+                'qty' => $rows->sum(fn (array $row) => $row['months'][$monthKey]['qty'] ?? 0),
+                'value' => $rows->sum(fn (array $row) => $row['months'][$monthKey]['value'] ?? 0),
+            ];
+        }
     @endphp
 
     <style>
@@ -318,12 +327,8 @@
                             <tr>
                                 <th>TOTAL</th>
                                 @foreach ($months as $month)
-                                    @php
-                                        $monthQty = $rows->sum(fn (array $row) => $row['months'][$month['key']]['qty'] ?? 0);
-                                        $monthValue = $rows->sum(fn (array $row) => $row['months'][$month['key']]['value'] ?? 0);
-                                    @endphp
-                                    <th>{{ number_format($monthQty) }}</th>
-                                    <th>{{ $formatValue((float) $monthValue) }}</th>
+                                    <th>{{ number_format($comparisonMonthTotals[$month['key']]['qty'] ?? 0) }}</th>
+                                    <th>{{ $formatValue((float) ($comparisonMonthTotals[$month['key']]['value'] ?? 0)) }}</th>
                                 @endforeach
                                 <th>{{ number_format($comparisonQty) }}</th>
                                 <th>{{ $formatValue((float) $comparisonValue) }}</th>
