@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages\Reports;
 
+use App\Services\ReportService;
+
 class SalesByChannel extends AbstractSalesReportPage
 {
     protected static ?string $navigationLabel = 'Sales by Channel';
@@ -14,7 +16,7 @@ class SalesByChannel extends AbstractSalesReportPage
 
     protected function groupExpression(): string
     {
-        return 'o.external_source';
+        return app(ReportService::class)->channelDimensionExpression('o', 'c');
     }
 
     protected function labelHeader(): string

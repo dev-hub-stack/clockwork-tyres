@@ -10,6 +10,30 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    public function channelDimensionExpression(string $orderAlias = 'o', string $customerAlias = 'c'): string
+    {
+        return $this->salesChannelExpression($orderAlias, $customerAlias);
+    }
+
+    private function salesChannelExpression(string $orderAlias = 'o', string $customerAlias = 'c'): string
+    {
+        return "CASE
+            WHEN {$orderAlias}.external_source = 'wholesale' THEN 'wholesale'
+            WHEN {$orderAlias}.external_source IN ('retail', 'tunerstop', 'tunerstop_admin', 'tunerstop_historical') THEN 'retail'
+            WHEN {$customerAlias}.customer_type IN ('dealer', 'wholesale', 'corporate') THEN 'wholesale'
+            ELSE 'retail'
+        END";
+    }
+
+    private function applyChannelFilter(object $query, array $filters, string $orderAlias = 'o', string $customerAlias = 'c'): void
+    {
+        if (($filters['channel'] ?? 'all') === 'all') {
+            return;
+        }
+
+        $query->whereRaw($this->salesChannelExpression($orderAlias, $customerAlias) . ' = ?', [$filters['channel']]);
+    }
+
     private function invoiceNumberExpression(string $tableAlias = 'o'): string
     {
         return DB::getDriverName() === 'sqlite'
@@ -59,7 +83,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -105,31 +129,33 @@ class ReportService
 
     public function summaryCards(Carbon $startDate, Carbon $endDate): array
     {
-        $invoiceDateExpression = DB::raw('DATE(COALESCE(issue_date, created_at))');
+        $invoiceDateExpression = DB::raw('DATE(COALESCE(o.issue_date, o.created_at))');
+        $salesChannelExpression = $this->salesChannelExpression('o', 'c');
 
-        $invoiceBaseQuery = DB::table('orders')
-            ->where('document_type', DocumentType::INVOICE->value)
-            ->whereNull('deleted_at')
+        $invoiceBaseQuery = DB::table('orders as o')
+            ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
+            ->where('o.document_type', DocumentType::INVOICE->value)
+            ->whereNull('o.deleted_at')
             ->whereBetween($invoiceDateExpression, [
                 $startDate->toDateString(),
                 $endDate->toDateString(),
             ]);
 
         $retailOrders = (clone $invoiceBaseQuery)
-            ->where('external_source', 'retail')
+            ->whereRaw("{$salesChannelExpression} = ?", ['retail'])
             ->count();
 
         $wholesaleOrders = (clone $invoiceBaseQuery)
-            ->where('external_source', 'wholesale')
+            ->whereRaw("{$salesChannelExpression} = ?", ['wholesale'])
             ->count();
 
         $retailSales = (clone $invoiceBaseQuery)
-            ->where('external_source', 'retail')
-            ->sum('total');
+            ->whereRaw("{$salesChannelExpression} = ?", ['retail'])
+            ->sum('o.total');
 
         $wholesaleSales = (clone $invoiceBaseQuery)
-            ->where('external_source', 'wholesale')
-            ->sum('total');
+            ->whereRaw("{$salesChannelExpression} = ?", ['wholesale'])
+            ->sum('o.total');
 
         $openOrders = DB::table('orders')
             ->where('document_type', DocumentType::INVOICE->value)
@@ -152,8 +178,8 @@ class ReportService
             ->sum(DB::raw('COALESCE(pi.eta_qty, 0) * COALESCE(pv.cost, 0)'));
 
         return [
-            ['label' => 'Retail Orders', 'value' => (int) $retailOrders, 'type' => 'number'],
-            ['label' => 'Wholesale Orders', 'value' => (int) $wholesaleOrders, 'type' => 'number'],
+            ['label' => 'Retail Invoices', 'value' => (int) $retailOrders, 'type' => 'number'],
+            ['label' => 'Wholesale Invoices', 'value' => (int) $wholesaleOrders, 'type' => 'number'],
             ['label' => 'Retail Sales', 'value' => (float) $retailSales, 'type' => 'currency'],
             ['label' => 'Wholesale Sales', 'value' => (float) $wholesaleSales, 'type' => 'currency'],
             ['label' => 'Open Orders', 'value' => (int) $openOrders, 'type' => 'number'],
@@ -195,7 +221,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -256,7 +282,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -320,7 +346,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -350,7 +376,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -421,7 +447,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->groupBy('user_id', 'user_name', 'month_key')
             ->orderBy('user_name')
@@ -486,7 +512,7 @@ class ReportService
                 $endDate->toDateString(),
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
-                $query->where('o.external_source', $filters['channel']);
+                $this->applyChannelFilter($query, $filters);
             })
             ->groupBy('o.id', 'invoice_number')
             ->orderBy('issued_on', 'desc')
