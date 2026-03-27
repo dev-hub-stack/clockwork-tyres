@@ -15,18 +15,11 @@ class OrderItemObserver
      */
     public function creating(OrderItem $orderItem): void
     {
-        // Guard against null numerics — Filament's ConvertEmptyStringsToNull
-        // can set these to null, causing DB constraint violations.
-        $orderItem->discount          ??= 0;
-        $orderItem->tax_amount        ??= 0;
-        $orderItem->line_total        ??= 0;
-        $orderItem->allocated_quantity ??= 0;
-        $orderItem->shipped_quantity  ??= 0;
+        $this->normalizeNumericDefaults($orderItem);
 
         $this->populateProductDetails($orderItem);
     }
 
-        $this->normalizeNumericDefaults($orderItem);
     /**
      * Handle the OrderItem "created" event.
      * Create OrderItemQuantity record for warehouse allocation
@@ -42,6 +35,8 @@ class OrderItemObserver
      */
     public function updating(OrderItem $orderItem): void
     {
+        $this->normalizeNumericDefaults($orderItem);
+
         // Only repopulate if product_name is missing or variant changed
         if (empty($orderItem->product_name) || $orderItem->isDirty('product_variant_id')) {
             $this->populateProductDetails($orderItem);
@@ -57,8 +52,6 @@ class OrderItemObserver
         if ($orderItem->wasChanged(['warehouse_id', 'quantity'])) {
             $this->updateWarehouseAllocation($orderItem);
         }
-        $this->normalizeNumericDefaults($orderItem);
-
     }
 
     /**
