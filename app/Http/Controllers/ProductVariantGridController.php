@@ -89,57 +89,109 @@ class ProductVariantGridController extends Controller
     }
 
     /**
-     * Toggle wholesale flag (available_on_wholesale / track_inventory) on a product
+     * Toggle wholesale flag on a product, or track_inventory on a single variant.
      */
     public function toggleWholesaleFlag(Request $request)
     {
+        $field = $request->input('field');
+
+        // track_inventory is now variant-level
+        if ($field === 'track_inventory') {
+            $request->validate([
+                'variant_id' => 'required|exists:product_variants,id',
+                'field' => 'required|in:track_inventory',
+                'value' => 'required|in:0,1',
+            ]);
+
+            $variant = ProductVariant::findOrFail($request->variant_id);
+            $variant->track_inventory = (bool) $request->value;
+            $variant->save();
+
+            \Log::info("Track inventory toggled: variant {$variant->id} = {$request->value}");
+
+            return response()->json([
+                'success' => true,
+                'variant_id' => $variant->id,
+                'field' => 'track_inventory',
+                'value' => (bool) $request->value,
+            ]);
+        }
+
+        // available_on_wholesale remains product-level
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'field' => 'required|in:available_on_wholesale,track_inventory',
+            'field' => 'required|in:available_on_wholesale',
             'value' => 'required|in:0,1',
         ]);
 
         $product = Product::findOrFail($request->product_id);
-        $product->{$request->field} = (bool) $request->value;
+        $product->{$field} = (bool) $request->value;
         $product->save();
 
-        \Log::info("Wholesale flag toggled: product {$product->id}, {$request->field} = {$request->value}");
+        \Log::info("Wholesale flag toggled: product {$product->id}, {$field} = {$request->value}");
 
         return response()->json([
             'success' => true,
             'product_id' => $product->id,
-            'field' => $request->field,
+            'field' => $field,
             'value' => (bool) $request->value,
         ]);
     }
 
     /**
-     * Bulk toggle wholesale flag for ALL products
+     * Bulk toggle wholesale flag for products, or track_inventory for variants.
      */
     public function bulkToggleWholesaleFlag(Request $request)
     {
+        $field = $request->input('field');
+
+        // track_inventory is variant-level: ids = variant IDs
+        if ($field === 'track_inventory') {
+            $request->validate([
+                'field' => 'required|in:track_inventory',
+                'value' => 'required|in:0,1',
+                'ids' => 'sometimes|array',
+                'ids.*' => 'integer',
+            ]);
+
+            $query = ProductVariant::query();
+            if ($request->has('ids') && !empty($request->ids)) {
+                $query->whereIn('id', $request->ids);
+            }
+
+            $updated = $query->update(['track_inventory' => (bool) $request->value]);
+
+            \Log::info("Bulk track_inventory toggled: {$request->value}, {$updated} variants updated" . ($request->has('ids') ? " (filtered)" : " (all)"));
+
+            return response()->json([
+                'success' => true,
+                'field' => 'track_inventory',
+                'value' => (bool) $request->value,
+                'updated' => $updated,
+                'filtered' => $request->has('ids'),
+            ]);
+        }
+
+        // available_on_wholesale remains product-level: ids = product IDs
         $request->validate([
-            'field' => 'required|in:available_on_wholesale,track_inventory',
+            'field' => 'required|in:available_on_wholesale',
             'value' => 'required|in:0,1',
             'ids' => 'sometimes|array',
             'ids.*' => 'integer',
         ]);
 
         $query = Product::query();
-        
         if ($request->has('ids') && !empty($request->ids)) {
             $query->whereIn('id', $request->ids);
         }
 
-        $updated = $query->update([
-            $request->field => (bool) $request->value,
-        ]);
+        $updated = $query->update([$field => (bool) $request->value]);
 
-        \Log::info("Bulk wholesale flag toggled: {$request->field} = {$request->value}, {$updated} products updated" . ($request->has('ids') ? " (filtered)" : " (all)"));
+        \Log::info("Bulk wholesale flag toggled: {$field} = {$request->value}, {$updated} products updated" . ($request->has('ids') ? " (filtered)" : " (all)"));
 
         return response()->json([
             'success' => true,
-            'field' => $request->field,
+            'field' => $field,
             'value' => (bool) $request->value,
             'updated' => $updated,
             'filtered' => $request->has('ids'),

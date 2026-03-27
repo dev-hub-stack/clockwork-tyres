@@ -46,7 +46,7 @@ class OrderController extends BaseWholesaleController
             'delivery_options'   => 'nullable|string',
             'notes'              => 'nullable|string',
             'order_notes'        => 'nullable|string',
-            'vehicle_year'       => 'nullable|string|max:4',
+            'vehicle_year'       => 'nullable|string|max:10',
             'vehicle_make'       => 'nullable|string|max:50',
             'vehicle_model'      => 'nullable|string|max:50',
             'billing'            => 'nullable|array',
@@ -97,7 +97,7 @@ class OrderController extends BaseWholesaleController
             'customer_id'        => $dealer->id,
             'shipping_address_id'=> $addressBook->id,
             'order_notes'        => $request->notes ?? $request->order_notes,
-            'vehicle_year'       => $request->vehicle_year,
+            'vehicle_year'       => trim($request->vehicle_year ?? ''),
             'vehicle_make'       => $request->vehicle_make,
             'vehicle_model'      => $request->vehicle_model,
             'payment_method'     => $request->payment_method ?? 'pending',
@@ -140,7 +140,7 @@ class OrderController extends BaseWholesaleController
         // so we force-restore the correct cart totals here as the final write.
         $order->update([
             'quote_status'       => 'sent',
-            'vehicle_year'       => $request->vehicle_year,
+            'vehicle_year'       => trim($request->vehicle_year ?? ''),
             'vehicle_make'       => $request->vehicle_make,
             'vehicle_model'      => $request->vehicle_model,
             'payment_method'     => $request->payment_method ?? 'pending',

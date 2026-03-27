@@ -78,7 +78,7 @@ class ProductsGrid extends Page
                 'p.construction',
                 'p.images',
                 'p.available_on_wholesale',
-                'p.track_inventory'
+                'pv.track_inventory'
             )
             ->orderBy('b.name')
             ->orderBy('m.name')

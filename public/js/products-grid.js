@@ -7,6 +7,7 @@
 let grid;
 let interval;
 let _filteredProductIds = null; // null = no filter (update all), array = filtered product IDs
+let _filteredVariantIds = null; // null = no filter, array = filtered variant IDs (for track_inventory)
 let _filteredRowCount = 0;        // filtered variant row count (for display in confirmations)
 let _totalDataCount = 0;         // full unfiltered row count, set after grid init
 
@@ -287,6 +288,10 @@ function getFilteredProductIds(gridInstance) {
     return _filteredProductIds;
 }
 
+function getFilteredVariantIds(gridInstance) {
+    return _filteredVariantIds;
+}
+
 /**
  * Bulk toggle a wholesale flag for products
  * @param {string} field - Field to toggle
@@ -296,6 +301,7 @@ function getFilteredProductIds(gridInstance) {
  */
 function bulkToggleFlag(field, value, gridInstance, ids) {
     var data = { field: field, value: value };
+    // For track_inventory, ids are variant IDs; for others, product IDs
     if (ids && ids.length > 0) {
         data.ids = ids;
     }
@@ -306,7 +312,8 @@ function bulkToggleFlag(field, value, gridInstance, ids) {
         data: data,
         beforeSend: function () {
             if (gridInstance) {
-                var msg = ids ? 'Updating ' + ids.length + ' filtered products...' : 'Updating all products...';
+                var unit = field === 'track_inventory' ? 'variants' : 'products';
+                var msg = ids ? 'Updating ' + ids.length + ' filtered ' + unit + '...' : 'Updating all ' + unit + '...';
                 gridInstance.option('strLoading', msg);
                 gridInstance.showLoading();
             }
@@ -321,7 +328,9 @@ function bulkToggleFlag(field, value, gridInstance, ids) {
             var idMap = ids ? new Set(ids) : null;
 
             for (var i = 0; i < allData.length; i++) {
-                if (!idMap || idMap.has(allData[i].product_id)) {
+                // track_inventory: match by variant id; others: match by product_id
+                var matchKey = field === 'track_inventory' ? allData[i].id : allData[i].product_id;
+                if (!idMap || idMap.has(matchKey)) {
                     allData[i][field] = boolVal;
                 }
             }
@@ -620,9 +629,9 @@ $(document).ready(function () {
                 });
             }
         },
-        // Track inventory toggle
+        // Track inventory toggle (variant-level)
         {
-            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='track-inv-select-all' />&nbsp;Track Inv. (Product)</label>",
+            title: "<label style='cursor:pointer;white-space:nowrap;'><input type='checkbox' class='track-inv-select-all' />&nbsp;Track Inv.</label>",
             width: 120,
             dataType: "bool",
             align: "center",
@@ -634,7 +643,7 @@ $(document).ready(function () {
             render: function (ui) {
                 var checked = ui.cellData ? 'checked' : '';
                 return '<label style="cursor:pointer;margin:0;display:flex;align-items:center;justify-content:center;gap:4px;">' +
-                    '<input type="checkbox" class="track-inv-toggle" data-product-id="' + ui.rowData.product_id + '" ' + checked + ' style="width:18px;height:18px;cursor:pointer;" />' +
+                    '<input type="checkbox" class="track-inv-toggle" data-variant-id="' + ui.rowData.id + '" ' + checked + ' style="width:18px;height:18px;cursor:pointer;" />' +
                     '<span style="font-size:12px;color:' + (ui.cellData ? '#16a34a' : '#6b7280') + ';font-weight:600;">' + (ui.cellData ? 'Yes' : 'No') + '</span>' +
                     '</label>';
             },
@@ -643,20 +652,21 @@ $(document).ready(function () {
                 var $cell = gridRef.getCell(ui);
                 $cell.find('.track-inv-toggle').on('change', function () {
                     var newVal = $(this).is(':checked');
-                    var productId = $(this).data('product-id');
+                    var variantId = $(this).data('variant-id');
                     $.ajax({
                         url: '/admin/products/toggle-wholesale-flag',
                         type: 'POST',
-                        data: { product_id: productId, field: 'track_inventory', value: newVal ? 1 : 0 },
+                        data: { variant_id: variantId, field: 'track_inventory', value: newVal ? 1 : 0 },
                         success: function (resp) {
                             var allData = gridRef.option('dataModel.data');
                             for (var i = 0; i < allData.length; i++) {
-                                if (allData[i].product_id == productId) {
+                                if (allData[i].id == variantId) {
                                     allData[i].track_inventory = newVal;
+                                    break;
                                 }
                             }
                             gridRef.refreshView();
-                            showToast('✅ Track inventory updated for all SKUs under product ' + productId);
+                            showToast('✅ Track inventory updated for SKU ' + variantId);
                         },
                         error: function (err) {
                             showToast('Failed to update track inventory flag', 'error');
@@ -852,10 +862,10 @@ $(document).ready(function () {
                 label: '📦 Enable All Tracking',
                 cls: 'btn btn-sm btn-info',
                 listener: function () {
-                    var ids = getFilteredProductIds(grid);
+                    var ids = getFilteredVariantIds(grid);
                     var confirmMsg = ids
-                        ? 'Enable inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
-                        : 'Enable inventory tracking for ALL products? Cart will enforce stock limits for all products.';
+                        ? 'Enable inventory tracking for ' + ids.length + ' variants in the current filter?'
+                        : 'Enable inventory tracking for ALL variants? Cart will enforce stock limits for all products.';
                     Swal.fire({
                         title: 'Enable Tracking?',
                         text: confirmMsg,
@@ -875,10 +885,10 @@ $(document).ready(function () {
                 label: '🚫 Disable All Tracking',
                 cls: 'btn btn-sm btn-outline-secondary',
                 listener: function () {
-                    var ids = getFilteredProductIds(grid);
+                    var ids = getFilteredVariantIds(grid);
                     var confirmMsg = ids
-                        ? 'Disable inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
-                        : 'Disable inventory tracking for ALL products?';
+                        ? 'Disable inventory tracking for ' + ids.length + ' variants in the current filter?'
+                        : 'Disable inventory tracking for ALL variants?';
                     Swal.fire({
                         title: 'Disable Tracking?',
                         text: confirmMsg,
@@ -1054,19 +1064,25 @@ $(document).ready(function () {
 
             if (filteredCount >= _totalDataCount) {
                 _filteredProductIds = null;
+                _filteredVariantIds = null;
                 _filteredRowCount = 0;
                 console.log('[filter event] no filter — cleared');
                 return;
             }
 
             var ids = [], seen = {};
+            var variantIds = [];
             filteredData.forEach(function (row) {
+                if (row.id) {
+                    variantIds.push(row.id);
+                }
                 if (row.product_id && !seen[row.product_id]) {
                     seen[row.product_id] = true;
                     ids.push(row.product_id);
                 }
             });
             _filteredProductIds = ids.length ? ids : null;
+            _filteredVariantIds = variantIds.length ? variantIds : null;
             _filteredRowCount = filteredCount;
             console.log('[filter event] captured', ids.length, 'unique product IDs across', filteredCount, 'rows');
         });
@@ -1132,10 +1148,10 @@ $(document).ready(function () {
 
             $(document).on('change', '.track-inv-select-all', function () {
                 var newVal = $(this).is(':checked');
-                var ids = getFilteredProductIds(grid);
+                var ids = getFilteredVariantIds(grid);
                 var confirmMsg = ids
-                    ? (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ' + _filteredRowCount + ' variants (' + ids.length + ' unique products) in the current filter?'
-                    : (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ALL products?';
+                    ? (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ' + ids.length + ' variants in the current filter?'
+                    : (newVal ? 'Enable' : 'Disable') + ' inventory tracking for ALL variants?';
                 Swal.fire({
                     title: (newVal ? 'Enable' : 'Disable') + ' Tracking?',
                     text: confirmMsg,

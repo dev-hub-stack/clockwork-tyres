@@ -176,7 +176,7 @@ class WholesaleProductTransformer
                 'eta_qty'   => $s['eta_qty'],
                 'warehouse' => $s['warehouse'],
             ], $stockData),
-            'track_inventory'   => (bool) ($product?->track_inventory ?? true),
+            'track_inventory'   => (bool) ($variant->track_inventory ?? false),
         ];
     }
 

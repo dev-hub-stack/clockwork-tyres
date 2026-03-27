@@ -666,6 +666,12 @@ class ProductController extends BaseWholesaleController
             ->values();
     }
 
+    /**
+     * Split a composite bolt pattern value into individual options.
+     * Handles:
+     *  - Slash/comma/semicolon/pipe-delimited: "5x100/5x114.3" → ["5x100", "5x114.3"]
+     *  - Range patterns: "5x100-5x120" → expanded from DB ("5x100", "5x105", "5x108", …)
+     */
     private function explodeBoltPatternValues(string $value): array
     {
         $normalized = trim(preg_replace('/\s+/', ' ', $value));
@@ -673,6 +679,23 @@ class ProductController extends BaseWholesaleController
             return [];
         }
 
+        // Detect range pattern: "NxA - NxB" or "NxA-NxB" (same lug count, dash-separated)
+        if (preg_match('/^(\d+)\s*x\s*([\d.]+)\s*-\s*(\d+)\s*x\s*([\d.]+)$/i', $normalized, $m)) {
+            $lug = (int) $m[1];
+            $rangeStart = (float) $m[2];
+            $lug2 = (int) $m[3];
+            $rangeEnd = (float) $m[4];
+
+            // Only expand when lug count is the same on both sides
+            if ($lug === $lug2 && $rangeStart < $rangeEnd) {
+                $expanded = $this->expandBoltPatternRange($lug, $rangeStart, $rangeEnd);
+                if (!empty($expanded)) {
+                    return $expanded;
+                }
+            }
+        }
+
+        // Standard delimiter split: / , ; |
         $values = [$normalized];
         $parts = preg_split('/\s*(?:\/|,|;|\|)\s*/', $normalized) ?: [];
 
@@ -686,13 +709,61 @@ class ProductController extends BaseWholesaleController
         return array_values(array_unique($values));
     }
 
+    /**
+     * Expand a bolt pattern range by querying for all individual patterns
+     * in the database that fall within the numeric range.
+     * E.g. (5, 100, 120) → ["5x100", "5x105", "5x108", "5x112", "5x114.3", "5x120"]
+     */
+    private function expandBoltPatternRange(int $lug, float $rangeStart, float $rangeEnd): array
+    {
+        if (\DB::getDriverName() === 'sqlite') {
+            return ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
+                ->where('products.status', 1)
+                ->where('products.available_on_wholesale', true)
+                ->whereRaw("product_variants.bolt_pattern NOT LIKE '%-%'")
+                ->whereRaw("product_variants.bolt_pattern NOT LIKE '%/%'")
+                ->whereRaw("product_variants.bolt_pattern NOT LIKE '%,%'")
+                ->whereRaw(
+                    "CAST(substr(UPPER(product_variants.bolt_pattern), 1, instr(UPPER(product_variants.bolt_pattern), 'X') - 1) AS INTEGER) = ?",
+                    [$lug]
+                )
+                ->whereRaw(
+                    "CAST(substr(UPPER(product_variants.bolt_pattern), instr(UPPER(product_variants.bolt_pattern), 'X') + 1) AS REAL) BETWEEN ? AND ?",
+                    [$rangeStart, $rangeEnd]
+                )
+                ->selectRaw('DISTINCT TRIM(product_variants.bolt_pattern) as bolt_pattern')
+                ->pluck('bolt_pattern')
+                ->toArray();
+        }
+
+        return ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
+            ->where('products.status', 1)
+            ->where('products.available_on_wholesale', true)
+            ->whereRaw("product_variants.bolt_pattern NOT LIKE '%-%'")
+            ->whereRaw("product_variants.bolt_pattern NOT LIKE '%/%'")
+            ->whereRaw("product_variants.bolt_pattern NOT LIKE '%,%'")
+            ->whereRaw(
+                "CAST(SUBSTRING_INDEX(UPPER(product_variants.bolt_pattern), 'X', 1) AS UNSIGNED) = ?",
+                [$lug]
+            )
+            ->whereRaw(
+                "CAST(SUBSTRING_INDEX(UPPER(product_variants.bolt_pattern), 'X', -1) AS DECIMAL(6,1)) BETWEEN ? AND ?",
+                [$rangeStart, $rangeEnd]
+            )
+            ->selectRaw('DISTINCT TRIM(product_variants.bolt_pattern) as bolt_pattern')
+            ->pluck('bolt_pattern')
+            ->toArray();
+    }
+
     private function applyBoltPatternFilter($query, string $value, string $column): void
     {
         $normalizedValue = preg_replace('/\s+/', '', trim($value));
+        $isSqlite = \DB::getDriverName() === 'sqlite';
 
-        $query->where(function ($boltQuery) use ($column, $normalizedValue) {
+        $query->where(function ($boltQuery) use ($column, $normalizedValue, $isSqlite) {
             $normalizedColumn = "REPLACE($column, ' ', '')";
 
+            // Exact match or part of slash/comma/semicolon/pipe list
             $boltQuery->whereRaw("$normalizedColumn = ?", [$normalizedValue])
                 ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . '/%'])
                 ->orWhereRaw("$normalizedColumn LIKE ?", ['%/' . $normalizedValue])
@@ -706,6 +777,36 @@ class ProductController extends BaseWholesaleController
                 ->orWhereRaw("$normalizedColumn LIKE ?", [$normalizedValue . '|%'])
                 ->orWhereRaw("$normalizedColumn LIKE ?", ['%|' . $normalizedValue])
                 ->orWhereRaw("$normalizedColumn LIKE ?", ['%|' . $normalizedValue . '|%']);
+
+            // Range match: if the searched value is e.g. "5x108",
+            // match rows stored as "5x100-5x120" where 108 falls within the range.
+            if (preg_match('/^(\d+)x([\d.]+)$/i', $normalizedValue, $m)) {
+                $lug = (int) $m[1];
+                $pcd = (float) $m[2];
+
+                if ($isSqlite) {
+                    $upperColumn = "UPPER($normalizedColumn)";
+                    $beforeDash = "substr($upperColumn, 1, instr($upperColumn, '-') - 1)";
+                    $afterDash = "substr($upperColumn, instr($upperColumn, '-') + 1)";
+
+                    $boltQuery->orWhereRaw("
+                        instr($upperColumn, '-') > 0
+                        AND instr($upperColumn, 'X') > 0
+                        AND CAST(substr($upperColumn, 1, instr($upperColumn, 'X') - 1) AS INTEGER) = ?
+                        AND CAST(substr($beforeDash, instr($beforeDash, 'X') + 1) AS REAL) <= ?
+                        AND CAST(substr($afterDash, instr($afterDash, 'X') + 1) AS REAL) >= ?
+                    ", [$lug, $pcd, $pcd]);
+
+                    return;
+                }
+
+                $boltQuery->orWhereRaw("
+                    $normalizedColumn REGEXP '^[0-9]+[xX][0-9.]+\\-[0-9]+[xX][0-9.]+$'
+                    AND CAST(SUBSTRING_INDEX(UPPER($normalizedColumn), 'X', 1) AS UNSIGNED) = ?
+                    AND CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(UPPER($normalizedColumn), '-', 1), 'X', -1) AS DECIMAL(6,1)) <= ?
+                    AND CAST(SUBSTRING_INDEX(UPPER($normalizedColumn), 'X', -1) AS DECIMAL(6,1)) >= ?
+                ", [$lug, $pcd, $pcd]);
+            }
         });
     }
 

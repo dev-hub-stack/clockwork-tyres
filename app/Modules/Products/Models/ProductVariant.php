@@ -35,6 +35,7 @@ class ProductVariant extends Model
         'supplier_stock',
         'external_variant_id',
         'external_source',
+        'track_inventory',
     ];
 
     protected $casts = [
@@ -42,6 +43,11 @@ class ProductVariant extends Model
         'uae_retail_price' => 'decimal:2',
         'clearance_corner' => 'boolean',
         'supplier_stock' => 'integer',
+        'track_inventory' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'track_inventory' => false,
     ];
 
     /**

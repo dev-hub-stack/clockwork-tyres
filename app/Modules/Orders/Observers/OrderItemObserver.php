@@ -15,6 +15,14 @@ class OrderItemObserver
      */
     public function creating(OrderItem $orderItem): void
     {
+        // Guard against null numerics — Filament's ConvertEmptyStringsToNull
+        // can set these to null, causing DB constraint violations.
+        $orderItem->discount          ??= 0;
+        $orderItem->tax_amount        ??= 0;
+        $orderItem->line_total        ??= 0;
+        $orderItem->allocated_quantity ??= 0;
+        $orderItem->shipped_quantity  ??= 0;
+
         $this->populateProductDetails($orderItem);
     }
 
