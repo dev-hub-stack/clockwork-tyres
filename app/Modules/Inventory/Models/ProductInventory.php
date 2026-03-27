@@ -2,9 +2,9 @@
 
 namespace App\Modules\Inventory\Models;
 
+use App\Models\Addon;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
-use App\Modules\Addons\Models\Addon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

@@ -49,6 +49,7 @@ class AddOn extends Model
         'external_source',
         // Inventory tracking
         'track_inventory',
+        'notify_restock',
         // Additional fields for compatibility
         'size',
         'unit',

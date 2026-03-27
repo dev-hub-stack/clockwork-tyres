@@ -8,6 +8,7 @@ use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\Brand;
 use App\Modules\Products\Models\Finish;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
+use App\Services\RestockNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -29,7 +30,8 @@ use Illuminate\Support\Facades\Schema;
 class ProductController extends BaseWholesaleController
 {
     public function __construct(
-        protected WholesaleProductTransformer $transformer
+        protected WholesaleProductTransformer $transformer,
+        protected RestockNotificationService $restockNotifications,
     ) {}
 
     /**
@@ -296,6 +298,8 @@ class ProductController extends BaseWholesaleController
 
         $rimDiameter = $request->input('rim_diameter', $request->input('diameter'));
         $rimWidth = $request->input('rim_width', $request->input('width'));
+        $rearDiameter = $request->input('rear_diameter', $request->input('rear_rim_diameter'));
+        $rearWidth = $request->input('rear_width', $request->input('rear_rim_width'));
         $productId = $request->input('product_id');
         $modelId = $request->input('model_id');
         $brandId = $request->input('brand_id');
@@ -312,6 +316,8 @@ class ProductController extends BaseWholesaleController
             'brand_id'      => 'sometimes|nullable|integer',
             'rear_diameter' => 'sometimes|nullable|numeric',
             'rear_width'    => 'sometimes|nullable|numeric',
+            'rear_rim_diameter' => 'sometimes|nullable|numeric',
+            'rear_rim_width'    => 'sometimes|nullable|numeric',
         ]);
 
         if ($productId) {
@@ -354,9 +360,6 @@ class ProductController extends BaseWholesaleController
         $frontFormatted = $this->transformer->formatVariants($variants, $dealer);
 
         // If rear dimensions are provided, query rear variants separately
-        $rearDiameter = $request->input('rear_diameter');
-        $rearWidth = $request->input('rear_width');
-
         if ($rearDiameter && $rearWidth) {
             $rearQuery = ProductVariant::with(['product.brand', 'product.model', 'finishRelation', 'inventories.warehouse'])
                 ->join('products', 'products.id', '=', 'product_variants.product_id')
@@ -462,11 +465,7 @@ class ProductController extends BaseWholesaleController
         $email   = $dealer?->email ?? $request->user()?->email ?? null;
 
         if ($email) {
-            $emails = $variant->notify_restock ?? [];
-            if (! in_array($email, $emails)) {
-                $emails[] = $email;
-                $variant->update(['notify_restock' => $emails]);
-            }
+            $this->restockNotifications->subscribeVariant($variant, $email);
         }
 
         return $this->success(null, 'You will be notified when this item is back in stock.');
@@ -503,6 +502,13 @@ class ProductController extends BaseWholesaleController
 
             $rearPriceResult = $this->transformer->publicDealerPrice($rearVariant, $dealer);
             $rearStock = $rearVariant->inventories->sum('quantity');
+            $rearEtaQty = $rearVariant->inventories->sum('eta_qty');
+            $rearEta = $rearVariant->inventories
+                ->filter(fn ($inventory) => (int) ($inventory->eta_qty ?? 0) > 0 || !empty($inventory->eta))
+                ->sortByDesc(fn ($inventory) => (bool) ($inventory->warehouse?->is_primary ?? false))
+                ->pluck('eta')
+                ->filter()
+                ->first();
 
             $formatted[$i]['rear_sku']               = $rearVariant->sku;
             $formatted[$i]['rear_size']               = $rearVariant->size ?? ($rearVariant->rim_diameter . 'x' . $rearVariant->rim_width);
@@ -521,6 +527,9 @@ class ProductController extends BaseWholesaleController
             $formatted[$i]['rear_variant_id']         = $rearVariant->id;
             $formatted[$i]['rear_varient_id']         = $rearVariant->id; // legacy spelling
             $formatted[$i]['rear_in_stock_quantity']  = $rearStock;
+            $formatted[$i]['rear_eta_quantity']       = $rearEtaQty;
+            $formatted[$i]['rear_eta_qty']            = $rearEtaQty;
+            $formatted[$i]['rear_eta']                = $rearEta;
             $formatted[$i]['rear_total_stock']        = $rearStock;
         }
 

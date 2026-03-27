@@ -33,6 +33,7 @@ class ProductVariant extends Model
         'clearance_corner',
         'image', // Tunerstop uses 'image' (singular) not 'images'
         'supplier_stock',
+        'notify_restock',
         'external_variant_id',
         'external_source',
         'track_inventory',
@@ -43,6 +44,7 @@ class ProductVariant extends Model
         'uae_retail_price' => 'decimal:2',
         'clearance_corner' => 'boolean',
         'supplier_stock' => 'integer',
+        'notify_restock' => 'array',
         'track_inventory' => 'boolean',
     ];
 

@@ -2,19 +2,29 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
+use App\Models\Addon;
 use App\Models\User;
+use App\Mail\RestockAvailableMail;
+use App\Mail\RestockConfirmationMail;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Products\Models\Product;
+use App\Modules\Products\Models\AddOn as WholesaleAddOn;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Wholesale\Cart\Models\Cart;
 use App\Modules\Wholesale\Cart\Models\CartItem;
 use App\Modules\Wholesale\Cart\Services\CartService;
 use App\Modules\Orders\Services\OrderService;
+use App\Services\ActivityLogService;
+use App\Services\TunerstopOrderStatusSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Tests\TestCase;
 
@@ -164,6 +174,253 @@ class WholesaleRegressionFixesTest extends TestCase
         $this->assertCount(1, $data);
         $this->assertSame($variant->id, $data[0]['id']);
         $this->assertSame('5x100-5x120', $data[0]['bolt_pattern']);
+    }
+
+    public function test_search_sizes_exposes_rear_eta_quantity_for_staggered_fitments(): void
+    {
+        $product = Product::create([
+            'name' => 'Staggered Wheel',
+            'sku' => 'STAG-WHEEL',
+            'price' => 100,
+            'status' => true,
+            'available_on_wholesale' => true,
+        ]);
+
+        $frontVariant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'STAG-FRONT',
+            'bolt_pattern' => '5x114.3',
+            'rim_diameter' => 20,
+            'rim_width' => 9.0,
+            'uae_retail_price' => 100,
+        ]);
+
+        $rearVariant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'STAG-REAR',
+            'bolt_pattern' => '5x114.3',
+            'rim_diameter' => 20,
+            'rim_width' => 10.5,
+            'uae_retail_price' => 120,
+        ]);
+
+        $warehouse = Warehouse::create([
+            'warehouse_name' => 'Primary Warehouse',
+            'code' => 'MAIN2',
+            'status' => 1,
+            'is_primary' => 1,
+        ]);
+
+        $frontVariant->inventories()->create([
+            'warehouse_id' => $warehouse->id,
+            'product_id' => $product->id,
+            'quantity' => 4,
+            'eta_qty' => 0,
+        ]);
+
+        $rearVariant->inventories()->create([
+            'warehouse_id' => $warehouse->id,
+            'product_id' => $product->id,
+            'quantity' => 0,
+            'eta_qty' => 8,
+            'eta' => '7-10 days',
+        ]);
+
+        $response = $this->postJson('/api/search-sizes', [
+            'bolt_pattern' => '5x114.3',
+            'rim_diameter' => 20,
+            'rim_width' => 9.0,
+            'rear_rim_diameter' => 20,
+            'rear_rim_width' => 10.5,
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', true);
+
+        $data = $response->json('data');
+
+        $this->assertCount(1, $data['front']);
+        $this->assertCount(1, $data['rear']);
+        $this->assertSame(4, $data['front'][0]['total_quantity']);
+        $this->assertSame(0, $data['rear'][0]['total_quantity']);
+        $this->assertSame(8, $data['rear'][0]['product_inventory'][0]['eta_qty']);
+        $this->assertSame('7-10 days', $data['rear'][0]['product_inventory'][0]['eta']);
+    }
+
+    public function test_notify_restock_saves_authenticated_dealer_email_for_variant(): void
+    {
+        Mail::fake();
+
+        $dealer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => 'Notify Dealer',
+            'email' => 'ahmad.hassan@clustox.com',
+            'password' => 'password',
+            'phone' => '0500000010',
+            'status' => 1,
+        ]);
+
+        $token = $dealer->createToken('wholesale-notify')->plainTextToken;
+
+        $variant = ProductVariant::create([
+            'product_id' => Product::create([
+                'name' => 'Notify Wheel',
+                'sku' => 'NOTIFY-WHEEL',
+                'price' => 100,
+                'status' => true,
+                'available_on_wholesale' => true,
+            ])->id,
+            'sku' => 'NOTIFY-WHEEL-20',
+            'uae_retail_price' => 100,
+            'notify_restock' => [],
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/products/notify-restock/' . $variant->id)
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('message', 'You will be notified when this item is back in stock.');
+
+        $this->assertSame(
+            ['ahmad.hassan@clustox.com'],
+            $variant->fresh()->notify_restock,
+        );
+
+        Mail::assertSent(RestockConfirmationMail::class, function (RestockConfirmationMail $mail) {
+            return $mail->hasTo('ahmad.hassan@clustox.com');
+        });
+    }
+
+    public function test_notify_restock_does_not_duplicate_existing_email(): void
+    {
+        Mail::fake();
+
+        $dealer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => 'Notify Dealer Duplicate',
+            'email' => 'ahmad.hassan@clustox.com',
+            'password' => 'password',
+            'phone' => '0500000011',
+            'status' => 1,
+        ]);
+
+        $token = $dealer->createToken('wholesale-notify-duplicate')->plainTextToken;
+
+        $product = Product::create([
+            'name' => 'Notify Duplicate Wheel',
+            'sku' => 'NOTIFY-DUPLICATE',
+            'price' => 100,
+            'status' => true,
+            'available_on_wholesale' => true,
+        ]);
+
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'NOTIFY-DUPLICATE-20',
+            'uae_retail_price' => 100,
+            'notify_restock' => ['ahmad.hassan@clustox.com'],
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/products/notify-restock/' . $variant->id)
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        $this->assertSame(
+            ['ahmad.hassan@clustox.com'],
+            $variant->fresh()->notify_restock,
+        );
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_variant_waitlist_receives_back_in_stock_email_when_inventory_returns(): void
+    {
+        Mail::fake();
+
+        $product = Product::create([
+            'name' => 'Restock Wheel',
+            'sku' => 'RESTOCK-WHEEL',
+            'price' => 100,
+            'status' => true,
+            'available_on_wholesale' => true,
+        ]);
+
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'RESTOCK-WHEEL-20',
+            'uae_retail_price' => 100,
+            'notify_restock' => ['ahmad.hassan@clustox.com'],
+        ]);
+
+        $warehouse = Warehouse::create([
+            'warehouse_name' => 'Restock Warehouse',
+            'code' => 'RSTK',
+            'status' => 1,
+        ]);
+
+        $inventory = ProductInventory::create([
+            'warehouse_id' => $warehouse->id,
+            'product_id' => $product->id,
+            'product_variant_id' => $variant->id,
+            'quantity' => 0,
+            'eta_qty' => 0,
+        ]);
+
+        Mail::assertNothingSent();
+
+        $inventory->update(['quantity' => 6]);
+
+        Mail::assertSent(RestockAvailableMail::class, function (RestockAvailableMail $mail) {
+            return $mail->hasTo('ahmad.hassan@clustox.com') && $mail->isEta === false;
+        });
+
+        $this->assertSame([], $variant->fresh()->notify_restock ?? []);
+    }
+
+    public function test_addon_notify_restock_persists_and_sends_confirmation_email(): void
+    {
+        Mail::fake();
+
+        $dealer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => 'Addon Notify Dealer',
+            'email' => 'ahmad.hassan@clustox.com',
+            'password' => 'password',
+            'phone' => '0500000012',
+            'status' => 1,
+        ]);
+
+        $token = $dealer->createToken('addon-notify')->plainTextToken;
+
+        $categoryId = DB::table('addon_categories')->insertGetId([
+            'name' => 'Wheel Accessories',
+            'slug' => 'wheel-accessories',
+            'order' => 1,
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $addon = WholesaleAddOn::create([
+            'addon_category_id' => $categoryId,
+            'title' => 'Hub Ring Kit',
+            'part_number' => 'HR-001',
+            'price' => 50,
+            'track_inventory' => true,
+            'notify_restock' => [],
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/dealer/notify/restock-addon/' . $addon->id)
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('message', 'You will be notified when this item is back in stock.');
+
+        $this->assertSame(['ahmad.hassan@clustox.com'], Addon::findOrFail($addon->id)->notify_restock);
+
+        Mail::assertSent(RestockConfirmationMail::class, function (RestockConfirmationMail $mail) {
+            return $mail->hasTo('ahmad.hassan@clustox.com');
+        });
     }
 
     public function test_order_item_creation_defaults_null_discount_to_zero(): void
@@ -333,6 +590,88 @@ class WholesaleRegressionFixesTest extends TestCase
 
         $this->assertNotNull($createdOrder);
         $this->assertSame('2017', $createdOrder->fresh()->vehicle_year);
+    }
+
+    public function test_activity_log_service_ignores_invalid_user_ids_instead_of_throwing(): void
+    {
+        $log = ActivityLogService::log(
+            'quote_created',
+            'Created quote QUO-2026-9999',
+            null,
+            999999,
+        );
+
+        $this->assertNull($log);
+        $this->assertDatabaseCount('activity_logs', 0);
+    }
+
+    public function test_quote_creation_by_authenticated_dealer_logs_customer_actor_not_user_actor(): void
+    {
+        $dealer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => 'Dealer Actor Test',
+            'email' => 'dealer-actor@example.com',
+            'password' => 'password',
+            'phone' => '0500000003',
+            'status' => 1,
+        ]);
+
+        auth()->guard()->setUser($dealer);
+
+        $order = Order::create([
+            'document_type' => DocumentType::QUOTE,
+            'customer_id' => $dealer->id,
+            'channel' => 'wholesale',
+            'issue_date' => now(),
+            'valid_until' => now()->addDays(30),
+            'quote_status' => 'draft',
+            'sub_total' => 400,
+            'tax' => 0,
+            'shipping' => 0,
+            'discount' => 0,
+            'total' => 400,
+        ]);
+
+        $activityLog = ActivityLog::query()
+            ->where('action', 'quote_created')
+            ->where('model_id', $order->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($activityLog);
+        $this->assertNull($activityLog->user_id);
+        $this->assertSame($dealer->id, $activityLog->customer_id);
+    }
+
+    public function test_tunerstop_status_sync_service_is_disabled_by_default_and_does_not_throw(): void
+    {
+        config()->set('services.tunerstop.order_status_sync_enabled', false);
+
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Sync Test Customer',
+            'email' => 'sync-test@example.com',
+            'password' => 'password',
+            'phone' => '0500000004',
+            'status' => 1,
+        ]);
+
+        $order = Order::create([
+            'document_type' => DocumentType::INVOICE,
+            'customer_id' => $customer->id,
+            'channel' => 'admin',
+            'issue_date' => now(),
+            'valid_until' => now()->addDays(30),
+            'sub_total' => 100,
+            'tax' => 0,
+            'shipping' => 0,
+            'discount' => 0,
+            'total' => 100,
+        ]);
+
+        $result = app(TunerstopOrderStatusSyncService::class)->sync($order, 'test_trigger');
+
+        $this->assertFalse($result);
     }
 
     private function createWholesaleVariant(string $sku, string $boltPattern, float $diameter = 18, float $width = 8.5): ProductVariant

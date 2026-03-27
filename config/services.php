@@ -51,4 +51,10 @@ return [
         'sandbox'     => env('POSTPAY_SANDBOX', false),
     ],
 
+    'tunerstop' => [
+        'order_status_sync_enabled' => env('TUNERSTOP_ORDER_STATUS_SYNC_ENABLED', false),
+        'order_status_sync_url' => env('TUNERSTOP_ORDER_STATUS_SYNC_URL'),
+        'token' => env('TUNERSTOP_API_TOKEN'),
+    ],
+
 ];

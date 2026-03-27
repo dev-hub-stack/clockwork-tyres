@@ -6,6 +6,7 @@ use App\Modules\Products\Models\AddOn;
 use App\Modules\Products\Models\AddOnCategory;
 use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Wholesale\Helpers\WholesaleProductTransformer;
+use App\Services\RestockNotificationService;
 use Illuminate\Http\Request;
 
 /**
@@ -29,7 +30,8 @@ use Illuminate\Http\Request;
 class AddOnController extends BaseWholesaleController
 {
     public function __construct(
-        protected WholesaleProductTransformer $transformer
+        protected WholesaleProductTransformer $transformer,
+        protected RestockNotificationService $restockNotifications,
     ) {}
 
     /**
@@ -254,13 +256,10 @@ class AddOnController extends BaseWholesaleController
     {
         $dealer = $this->dealer();
         $addon  = AddOn::findOrFail($id);
-
-        $emails = $addon->notify_restock ?? [];
         $email  = $dealer?->email ?? $request->user()?->email ?? null;
 
-        if ($email && ! in_array($email, $emails)) {
-            $emails[] = $email;
-            $addon->update(['notify_restock' => $emails]);
+        if ($email) {
+            $this->restockNotifications->subscribeAddon($addon, $email);
         }
 
         return $this->success(null, 'You will be notified when this item is back in stock.');

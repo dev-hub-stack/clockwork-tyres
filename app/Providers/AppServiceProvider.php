@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Filament\Navigation\NavigationItem;
 use Filament\Facades\Filament;
+use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Observers\WarehouseObserver;
 use App\Modules\Products\Models\ProductVariant;
@@ -17,6 +18,7 @@ use App\Modules\Orders\Models\Payment;
 use App\Observers\InventoryLogObserver;
 use App\Observers\OrderObserver;
 use App\Observers\PaymentObserver;
+use App\Observers\ProductInventoryObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
 
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         Warehouse::observe(WarehouseObserver::class);
         ProductVariant::observe(ProductVariantInventoryObserver::class);
         Addon::observe(AddonInventoryObserver::class);
+        ProductInventory::observe(ProductInventoryObserver::class);
         InventoryLog::observe(InventoryLogObserver::class);
         Payment::observe(PaymentObserver::class);
         
