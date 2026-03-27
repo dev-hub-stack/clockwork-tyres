@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Auth\Login as FilamentLogin;
 use Illuminate\Support\ServiceProvider;
 use Filament\Navigation\NavigationItem;
 use Filament\Facades\Filament;
@@ -21,6 +22,7 @@ use App\Observers\PaymentObserver;
 use App\Observers\ProductInventoryObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,6 +39,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Keep Livewire requests from older Filament login snapshots working across deploys.
+        Livewire::component('filament.auth.pages.login', FilamentLogin::class);
+
         // super_admin bypasses all permission checks
         Gate::before(function ($user, $ability) {
             if ($user->hasRole('super_admin')) {

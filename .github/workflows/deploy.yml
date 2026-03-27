@@ -44,16 +44,14 @@ jobs:
             cd /var/www/reporting
             # Remove stale migration files that were deleted from git but still exist on server
             rm -f database/migrations/2026_03_08_124607_add_product_full_name_to_products_table.php
+            php artisan optimize:clear
             composer install --no-dev --optimize-autoloader --no-interaction
             php artisan filament:assets --ansi
             php artisan migrate --force
             php artisan db:seed --class=WholesalePagesSeeder --force
-            php artisan cache:clear
-            php artisan config:clear
             php artisan config:cache
-            php artisan route:clear
             php artisan route:cache
-            php artisan view:clear
+            php artisan view:cache
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
             sudo systemctl reload php8.2-fpm
