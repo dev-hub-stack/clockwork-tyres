@@ -423,6 +423,52 @@ class WholesaleRegressionFixesTest extends TestCase
         });
     }
 
+    public function test_addon_category_listing_marks_tracked_zero_quantity_addons_out_of_stock(): void
+    {
+        $categoryId = DB::table('addon_categories')->insertGetId([
+            'name' => 'Wheel Accessories',
+            'slug' => 'wheel-accessories',
+            'order' => 1,
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $warehouse = Warehouse::create([
+            'warehouse_name' => 'Main Warehouse',
+            'code' => 'MAIN-ADDON',
+            'status' => 1,
+        ]);
+
+        $addon = WholesaleAddOn::create([
+            'addon_category_id' => $categoryId,
+            'title' => 'Machined Silver 17inch - True Beadlock Ring for RRW',
+            'part_number' => 'RRW-RING-SILVER-17',
+            'price' => 420,
+            'stock_status' => WholesaleAddOn::STOCK_IN_STOCK,
+            'track_inventory' => true,
+        ]);
+
+        ProductInventory::create([
+            'warehouse_id' => $warehouse->id,
+            'add_on_id' => $addon->id,
+            'quantity' => 0,
+            'eta_qty' => 0,
+        ]);
+
+        $response = $this->getJson('/api/add-ons/wheel-accessories/get');
+
+        $response->assertOk()->assertJsonPath('status', true);
+
+        $listedAddon = collect($response->json('data.data'))->firstWhere('id', $addon->id);
+
+        $this->assertNotNull($listedAddon);
+        $this->assertSame(0, $listedAddon['total_quantity']);
+        $this->assertSame('out_of_stock', $listedAddon['availability_status']);
+        $this->assertSame('Out Of Stock', $listedAddon['availability_label']);
+        $this->assertFalse($listedAddon['is_orderable']);
+    }
+
     public function test_order_item_creation_defaults_null_discount_to_zero(): void
     {
         $customer = Customer::create([

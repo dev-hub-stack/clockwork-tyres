@@ -200,6 +200,9 @@ class WholesaleProductTransformer
                     ? $addon->inventories->sum('quantity')
                     : ProductInventory::where('add_on_id', $addon->id)->sum('quantity');
 
+        // Ensure availability accessors evaluate against the real aggregate stock.
+        $addon->setAttribute('total_quantity', (int) $totalQty);
+
         $imgUrl = $addon->image
             ? (str_starts_with($addon->image, 'http') ? $addon->image : config('wholesale.image_base_url', 'http://d2iosncs8hpu1u.cloudfront.net') . '/' . ltrim($addon->image, '/'))
             : null;
@@ -238,10 +241,14 @@ class WholesaleProductTransformer
             'thread_size'     => $addon->thread_size,
             'thread_length'   => $addon->thread_length,
             'center_bore'     => $addon->center_bore,
+            'ext_center_bore' => $addon->ext_center_bore,
             'color'           => $addon->color,
             'lug_nut_length'  => $addon->lug_nut_length,
+            'lug_nut_diameter' => $addon->lug_nut_diameter,
             'lug_bolt_diameter' => $addon->lug_bolt_diameter,
             'size'            => $addon->size,
+            'unit'            => $addon->unit,
+            'vehicle'         => $addon->vehicle,
 
             // Frontend compatibility aliases
             'discounted_price' => $priceResult['final_price'],
