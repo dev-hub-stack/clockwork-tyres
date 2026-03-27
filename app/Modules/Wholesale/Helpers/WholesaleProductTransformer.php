@@ -215,6 +215,8 @@ class WholesaleProductTransformer
             'description'     => $addon->description,
             'category'        => $addon->category?->name ?? '',
             'category_id'     => $addon->addon_category_id,
+            'category_slug'   => $addon->category?->slug ?? '',
+            'add_on_category_id' => $addon->addon_category_id,
 
             // Pricing
             'price'           => $priceResult['final_price'],
@@ -231,6 +233,7 @@ class WholesaleProductTransformer
             'availability_label' => $availabilityLabel,
             'is_orderable'    => $effectiveInStock,
             'total_quantity'  => (int) $totalQty,
+            'track_inventory' => (bool) ($addon->track_inventory ?? false),
             'bolt_pattern'    => $addon->bolt_pattern,
             'thread_size'     => $addon->thread_size,
             'thread_length'   => $addon->thread_length,

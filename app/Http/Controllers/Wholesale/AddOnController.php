@@ -167,6 +167,24 @@ class AddOnController extends BaseWholesaleController
     }
 
     /**
+     * GET /api/add-ons/{slug}/get/{sku}/{id}/details
+     * Returns a single add-on detail payload for the accessories detail page.
+     */
+    public function detail(Request $request, string $slug, string $sku, int $id)
+    {
+        $dealer = $this->dealer();
+
+        $addon = AddOn::with(['category', 'inventories'])
+            ->whereKey($id)
+            ->where('part_number', $sku)
+            ->whereHas('category', fn ($query) => $query->where('slug', $slug))
+            ->whereNull('addons.deleted_at')
+            ->firstOrFail();
+
+        return $this->success($this->transformer->formatAddon($addon, $dealer));
+    }
+
+    /**
      * GET /api/add-on-filters/{slug}/get
      * Returns distinct filter values for the given category slug.
      * Angular AccessoriesFiltersComponent uses these to populate checkboxes.

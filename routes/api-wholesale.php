@@ -96,6 +96,7 @@ Route::middleware('wholesale.auth')->group(function () {
     // ── Accessories Page (dedicated listing endpoints) ────────────────────────
     Route::get('add-ons/categories',                [AddOnController::class, 'categories']);
     Route::get('add-ons/{slug}/get',                [AddOnController::class, 'byCategory']);
+    Route::get('add-ons/{slug}/get/{sku}/{id}/details', [AddOnController::class, 'detail']);
     Route::get('add-on-filters/{slug}/get',         [AddOnController::class, 'filters']);
     Route::get('add-on/{id}',                       [AddOnController::class, 'inventory']);
     Route::get('dealer/notify/restock-addon/{id}',  [AddOnController::class, 'notifyRestock']);
