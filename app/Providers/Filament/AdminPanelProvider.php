@@ -26,7 +26,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Auth\Login::class)
             ->colors([
                 'primary' => Color::hex('#e91e63'), // Pink/Magenta accent
                 'gray' => Color::Slate,
@@ -69,25 +69,29 @@ class AdminPanelProvider extends PanelProvider
                     ->url('/admin/sales-dashboard')
                     ->icon('heroicon-o-chart-bar')
                     ->group('Reports')
-                    ->sort(10),
+                    ->sort(10)
+                    ->visible(fn () => (auth()->user()?->can('view_reports') ?? false) && (auth()->user()?->can('view_sales_reports') ?? false)),
                 
                 NavigationItem::make('Customer Analytics')
                     ->url('/admin/customer-analytics')
                     ->icon('heroicon-o-users')
                     ->group('Reports')
-                    ->sort(11),
+                    ->sort(11)
+                    ->visible(fn () => (auth()->user()?->can('view_reports') ?? false) && (auth()->user()?->can('view_sales_reports') ?? false)),
                 
                 NavigationItem::make('Product Performance')
                     ->url('/admin/product-performance')
                     ->icon('heroicon-o-cube')
                     ->group('Reports')
-                    ->sort(12),
+                    ->sort(12)
+                    ->visible(fn () => (auth()->user()?->can('view_reports') ?? false) && (auth()->user()?->can('view_sales_reports') ?? false)),
                 
                 NavigationItem::make('Geographic Sales')
                     ->url('/admin/geographic-sales')
                     ->icon('heroicon-o-globe-alt')
                     ->group('Reports')
-                    ->sort(13),
+                    ->sort(13)
+                    ->visible(fn () => (auth()->user()?->can('view_reports') ?? false) && (auth()->user()?->can('view_sales_reports') ?? false)),
             ])
             ->middleware([
                 EncryptCookies::class,

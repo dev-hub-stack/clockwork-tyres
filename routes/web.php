@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ProductVariantGridController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\QuotePdfController;
 use App\Http\Controllers\ConsignmentPdfController;
 use App\Http\Controllers\WarrantyClaimPdfController;
@@ -67,6 +68,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('inventory.template');
     Route::get('inventory/export-csv', [InventoryController::class, 'exportCsv'])
         ->name('inventory.export-csv');
+    Route::get('reports/export/{report}/{format}', [ReportExportController::class, 'download'])
+        ->whereIn('format', ['csv', 'pdf'])
+        ->name('reports.export');
     // Grid data JSON endpoint — loaded via AJAX to avoid Livewire snapshot serialization
     Route::get('api/inventory/grid-data', [\App\Http\Controllers\Api\InventoryApiController::class, 'gridData'])
         ->name('api.inventory.grid-data');

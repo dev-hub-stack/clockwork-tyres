@@ -23,8 +23,10 @@ class EditRole extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        // Pre-populate the checkbox list with current permission IDs
-        $data['permissions'] = $this->record->permissions->pluck('id')->toArray();
+        $data['permissions_by_group'] = RoleResource::mapPermissionIdsToGroups(
+            $this->record->permissions->pluck('id')->map(fn ($id) => (int) $id)->all(),
+        );
+
         return $data;
     }
 
@@ -33,7 +35,7 @@ class EditRole extends EditRecord
         $record->name = $data['name'];
         $record->save();
 
-        $perms = \Spatie\Permission\Models\Permission::whereIn('id', $data['permissions'] ?? [])->get();
+        $perms = \Spatie\Permission\Models\Permission::whereIn('id', RoleResource::extractPermissionIds($data))->get();
         $record->syncPermissions($perms);
 
         return $record;

@@ -2,12 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasLegacySalesReportAccess;
 use Filament\Pages\Page;
 use BackedEnum;
 use UnitEnum;
 
 class CustomerAnalytics extends Page
 {
+    use HasLegacySalesReportAccess;
+
     protected string $view = 'filament.pages.customer-analytics';
     
     protected static ?string $navigationLabel = 'Customer Analytics';
@@ -17,16 +20,6 @@ class CustomerAnalytics extends Page
     protected static string | UnitEnum | null $navigationGroup = 'Reports';
     
     protected static ?int $navigationSort = 2;
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->can('view_reports') ?? false;
-    }
-
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->can('view_reports') ?? false;
-    }
 
     protected function getHeaderWidgets(): array
     {

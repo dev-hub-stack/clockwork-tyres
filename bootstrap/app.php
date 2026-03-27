@@ -1,9 +1,13 @@
 <?php
 
+use Filament\Actions\Exceptions\ActionNotResolvableException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
+use Livewire\Mechanisms\HandleComponents\CorruptComponentPayloadException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -29,5 +33,39 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $staleLivewireState = static function (Request $request) {
+            if (! $request->hasHeader('X-Livewire')) {
+                return null;
+            }
+
+            if (! $request->route()?->named('*livewire.update')) {
+                return null;
+            }
+
+            $request->session()->forget('filament.notifications');
+
+            return response('Livewire state expired.', 419);
+        };
+
+        $exceptions->render(function (CannotUpdateLockedPropertyException $exception, Request $request) use ($staleLivewireState) {
+            return $staleLivewireState($request);
+        });
+
+        $exceptions->render(function (CorruptComponentPayloadException $exception, Request $request) use ($staleLivewireState) {
+            return $staleLivewireState($request);
+        });
+
+        $exceptions->render(function (ActionNotResolvableException $exception, Request $request) use ($staleLivewireState) {
+            return $staleLivewireState($request);
+        });
+
+        $exceptions->render(function (TypeError $exception, Request $request) use ($staleLivewireState) {
+            $message = $exception->getMessage();
+
+            if (! str_contains($message, 'Filament\\Notifications\\Notification::fromArray') && ! str_contains($message, '$isFilamentNotificationsComponent')) {
+                return null;
+            }
+
+            return $staleLivewireState($request);
+        });
     })->create();
