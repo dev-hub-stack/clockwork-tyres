@@ -663,3 +663,39 @@ and create:
 - `clockwork-tyres-storefront` for frontend
 
 That is the cleanest structure for long-term delivery.
+
+## 14. What We Can Start Before George Replies
+
+We do not need to wait for every open question before starting work.
+
+### Safe To Start Now
+
+- repo bootstrap and CI
+- backend module skeleton in `clockwork-tyres`
+- account and tenancy foundation
+- account memberships and capability flags
+- route and API boundary design
+- super-admin account shell
+- billing and entitlement engine shell
+- migration mapping from legacy systems
+- API contract inventory from old frontend
+- new storefront repo structure
+- design system and route structure for storefront
+- QA baseline, test strategy, and automation setup
+
+### Must Wait For George
+
+- final tire import schema
+- final subscription matrix
+- exact account-type rules for supplier, retailer, and both
+- procurement lifecycle state rules
+- supplier stock visibility rules in storefront
+- payment model for checkout
+- final reporting and KPI definitions
+- full migration depth for historical data
+
+### Execution Rule
+
+Start platform structure, contracts, and low-regret foundations immediately.
+
+Do not lock irreversible product schema, subscription behavior, or procurement workflows until the blocked decisions are answered.
