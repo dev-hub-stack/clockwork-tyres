@@ -24,7 +24,10 @@ class ReportExportService
         if ($config = $this->salesConfigs()[$reportKey] ?? null) {
             $filters = $this->normalizeStandardFilters($query, $config);
             $rows = $this->applySalesSort(
-                $this->reportService->salesByDimension($config['group'], $startDate, $endDate, $filters),
+                $this->reportService->salesByDimension($config['group'], $startDate, $endDate, $filters, [
+                    'qty_aggregate' => $config['qty_aggregate'] ?? 'quantity',
+                    'search_expression' => $config['search_expression'] ?? null,
+                ]),
                 (string) ($query['sort'] ?? 'alpha'),
             );
 
@@ -44,7 +47,9 @@ class ReportExportService
         if ($config = $this->profitConfigs()[$reportKey] ?? null) {
             $filters = $this->normalizeStandardFilters($query, $config);
             $rows = $this->applyProfitSort(
-                $this->reportService->profitByDimension($config['group'], $startDate, $endDate, $filters),
+                $this->reportService->profitByDimension($config['group'], $startDate, $endDate, $filters, [
+                    'search_expression' => $config['search_expression'] ?? null,
+                ]),
                 (string) ($query['sort'] ?? 'alpha'),
             );
 
@@ -64,7 +69,10 @@ class ReportExportService
         if ($config = $this->inventoryConfigs()[$reportKey] ?? null) {
             $filters = $this->normalizeStandardFilters($query, $config);
             $rows = $this->applyInventorySort(
-                $this->reportService->inventoryByDimension($config['inventory_group'], $config['sales_group'], $startDate, $endDate, $filters),
+                $this->reportService->inventoryByDimension($config['inventory_group'], $config['sales_group'], $startDate, $endDate, $filters, [
+                    'inventory_search_expression' => $config['inventory_search_expression'] ?? null,
+                    'sales_search_expression' => $config['sales_search_expression'] ?? null,
+                ]),
                 (string) ($query['sort'] ?? 'alpha'),
             );
 
@@ -186,6 +194,9 @@ class ReportExportService
     {
         $filters = [
             'channel' => (string) ($query['channel'] ?? 'all'),
+            'brand' => trim((string) ($query['brand'] ?? '')),
+            'category' => trim((string) ($query['category'] ?? '')),
+            'search' => trim((string) ($query['search'] ?? '')),
             'dealer_id' => filled($query['dealer_id'] ?? null) ? (int) $query['dealer_id'] : null,
             'user_id' => filled($query['user_id'] ?? null) ? (int) $query['user_id'] : null,
         ];
@@ -219,6 +230,9 @@ class ReportExportService
             'startMonth' => $startMonth,
             'endMonth' => $endMonth,
             'channel' => $filters['channel'] ?? 'all',
+            'brand' => $filters['brand'] ?? null,
+            'category' => $filters['category'] ?? null,
+            'search' => $filters['search'] ?? null,
             'dealer' => $dealerName,
             'user' => $userName,
         ];
@@ -262,13 +276,13 @@ class ReportExportService
         return [
             'sales-by-brand' => ['title' => 'Sales by Brand', 'label' => 'Brand', 'group' => 'oi.brand_name', 'description' => 'Monthly quantity and value by brand.'],
             'sales-by-model' => ['title' => 'Sales by Model', 'label' => 'Model', 'group' => 'oi.model_name', 'description' => 'Monthly quantity and value by model.'],
-            'sales-by-size' => ['title' => 'Sales by Size', 'label' => 'Size', 'group' => "JSON_UNQUOTE(JSON_EXTRACT(oi.item_attributes, '$.size'))", 'description' => 'Monthly quantity and value by size.'],
-            'sales-by-vehicle' => ['title' => 'Sales by Vehicle', 'label' => 'Vehicle', 'group' => "CONCAT_WS(' ', NULLIF(o.vehicle_make, ''), NULLIF(o.vehicle_model, ''), NULLIF(o.vehicle_sub_model, ''))", 'description' => 'Monthly quantity and value by vehicle.'],
+            'sales-by-size' => ['title' => 'Sales by Size', 'label' => 'Size', 'group' => $this->reportService->sizeDimensionExpression('oi'), 'description' => 'Monthly quantity and value by size.'],
+            'sales-by-vehicle' => ['title' => 'Sales by Vehicle', 'label' => 'Vehicle', 'group' => "CONCAT_WS(' ', NULLIF(o.vehicle_make, ''), NULLIF(o.vehicle_model, ''), NULLIF(o.vehicle_sub_model, ''))", 'description' => 'Monthly quantity and value by vehicle.', 'qty_aggregate' => 'invoice_count'],
             'sales-by-dealer' => ['title' => 'Sales by Dealer', 'label' => 'Dealer', 'group' => "COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')))", 'description' => 'Monthly quantity and value by dealer.'],
-            'sales-by-sku' => ['title' => 'Sales by SKU', 'label' => 'SKU', 'group' => 'oi.sku', 'description' => 'Monthly quantity and value by SKU.'],
-            'sales-by-channel' => ['title' => 'Sales by Channel', 'label' => 'Channel', 'group' => 'o.external_source', 'description' => 'Monthly quantity and value by sales channel.'],
+            'sales-by-sku' => ['title' => 'Sales by SKU', 'label' => 'SKU', 'group' => 'oi.sku', 'description' => 'Monthly quantity and value by SKU.', 'search_expression' => 'oi.sku'],
+            'sales-by-channel' => ['title' => 'Sales by Channel', 'label' => 'Channel', 'group' => $this->reportService->channelDimensionExpression('o', 'c'), 'description' => 'Monthly quantity and value by sales channel.'],
             'sales-by-team' => ['title' => 'Sales by Team', 'label' => 'User', 'group' => 'u.name', 'description' => 'Monthly quantity and value by representative.'],
-            'sales-by-categories' => ['title' => 'Sales by Categories', 'label' => 'Category', 'group' => "CASE WHEN oi.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END", 'description' => 'Monthly quantity and value by category.'],
+            'sales-by-categories' => ['title' => 'Sales by Categories', 'label' => 'Category', 'group' => $this->reportService->categoryDimensionExpression('oi'), 'description' => 'Monthly quantity and value by category.'],
             'dealer-sales-by-brand' => ['title' => 'Dealer Sales by Brand', 'label' => 'Brand', 'group' => 'oi.brand_name', 'description' => 'Monthly quantity and value for a selected wholesale dealer by brand.', 'force_channel' => 'wholesale', 'default_wholesale_dealer' => true],
             'dealer-sales-by-model' => ['title' => 'Dealer Sales by Model', 'label' => 'Model', 'group' => "COALESCE(NULLIF(oi.model_name, ''), 'Unknown Model')", 'description' => 'Monthly quantity and value for a selected wholesale dealer by model.', 'force_channel' => 'wholesale', 'default_wholesale_dealer' => true],
         ];
@@ -279,21 +293,21 @@ class ReportExportService
         return [
             'profit-by-brand' => ['title' => 'Profit by Brand', 'label' => 'Brand', 'group' => 'oi.brand_name', 'description' => 'Monthly allocated profit by brand.'],
             'profit-by-model' => ['title' => 'Profit by Model', 'label' => 'Model', 'group' => 'oi.model_name', 'description' => 'Monthly allocated profit by model.'],
-            'profit-by-size' => ['title' => 'Profit by Size', 'label' => 'Size', 'group' => "JSON_UNQUOTE(JSON_EXTRACT(oi.item_attributes, '$.size'))", 'description' => 'Monthly allocated profit by size.'],
+            'profit-by-size' => ['title' => 'Profit by Size', 'label' => 'Size', 'group' => $this->reportService->sizeDimensionExpression('oi'), 'description' => 'Monthly allocated profit by size.'],
             'profit-by-vehicle' => ['title' => 'Profit by Vehicle', 'label' => 'Vehicle', 'group' => "CONCAT_WS(' ', NULLIF(o.vehicle_make, ''), NULLIF(o.vehicle_model, ''), NULLIF(o.vehicle_sub_model, ''))", 'description' => 'Monthly allocated profit by vehicle.'],
             'profit-by-dealer' => ['title' => 'Profit by Dealer', 'label' => 'Dealer', 'group' => "COALESCE(NULLIF(c.business_name, ''), CONCAT_WS(' ', NULLIF(c.first_name, ''), NULLIF(c.last_name, '')))", 'description' => 'Monthly allocated profit by dealer.'],
             'profit-by-sku' => ['title' => 'Profit by SKU', 'label' => 'SKU', 'group' => 'oi.sku', 'description' => 'Monthly allocated profit by SKU.'],
             'profit-by-month' => ['title' => 'Profit by Month', 'label' => 'Month', 'group' => "DATE_FORMAT(COALESCE(o.issue_date, o.created_at), '%b %Y')", 'description' => 'Profit summarized by month.'],
             'profit-by-salesman' => ['title' => 'Profit by Salesman', 'label' => 'Salesman', 'group' => 'u.name', 'description' => 'Monthly allocated profit by representative.'],
             'profit-by-channel' => ['title' => 'Profit by Channel', 'label' => 'Channel', 'group' => 'o.external_source', 'description' => 'Monthly allocated profit by channel.'],
-            'profit-by-categories' => ['title' => 'Profit by Categories', 'label' => 'Category', 'group' => "CASE WHEN oi.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END", 'description' => 'Monthly allocated profit by category.'],
+            'profit-by-categories' => ['title' => 'Profit by Categories', 'label' => 'Category', 'group' => $this->reportService->categoryDimensionExpression('oi'), 'description' => 'Monthly allocated profit by category.'],
         ];
     }
 
     private function inventoryConfigs(): array
     {
         return [
-            'inventory-by-sku' => ['title' => 'Inventory by SKU', 'label' => 'SKU', 'inventory_group' => "COALESCE(NULLIF(pv.sku, ''), NULLIF(p.sku, ''))", 'sales_group' => 'oi.sku', 'description' => 'Added versus sold by SKU.'],
+            'inventory-by-sku' => ['title' => 'Inventory by SKU', 'label' => 'SKU', 'inventory_group' => "COALESCE(NULLIF(pv.sku, ''), NULLIF(p.sku, ''))", 'sales_group' => 'oi.sku', 'inventory_search_expression' => "COALESCE(NULLIF(pv.sku, ''), NULLIF(p.sku, ''))", 'sales_search_expression' => 'oi.sku', 'description' => 'Added versus sold by SKU.'],
             'inventory-by-brand' => ['title' => 'Inventory by Brand', 'label' => 'Brand', 'inventory_group' => 'b.name', 'sales_group' => 'oi.brand_name', 'description' => 'Added versus sold by brand.'],
             'inventory-by-model' => ['title' => 'Inventory by Model', 'label' => 'Model', 'inventory_group' => 'm.name', 'sales_group' => 'oi.model_name', 'description' => 'Added versus sold by model.'],
         ];

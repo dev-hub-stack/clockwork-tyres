@@ -62,19 +62,100 @@ class ReportService
             : "DATE_FORMAT({$columnExpression}, '%Y-%m')";
     }
 
+    private function jsonTextExpression(string $columnExpression, string $path): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "json_extract({$columnExpression}, '$.{$path}')"
+            : "JSON_UNQUOTE(JSON_EXTRACT({$columnExpression}, '$.{$path}'))";
+    }
+
+    public function sizeDimensionExpression(string $orderItemAlias = 'oi'): string
+    {
+        $itemSize = $this->jsonTextExpression("{$orderItemAlias}.item_attributes", 'size');
+        $variantSize = $this->jsonTextExpression("{$orderItemAlias}.variant_snapshot", 'size');
+        $productSize = $this->jsonTextExpression("{$orderItemAlias}.product_snapshot", 'size');
+
+        return "COALESCE(NULLIF(TRIM({$itemSize}), ''), NULLIF(TRIM({$variantSize}), ''), NULLIF(TRIM({$productSize}), ''))";
+    }
+
+    public function categoryDimensionExpression(string $orderItemAlias = 'oi'): string
+    {
+        $snapshotCategory = $this->jsonTextExpression("{$orderItemAlias}.addon_snapshot", 'category_name');
+        $itemCategory = $this->jsonTextExpression("{$orderItemAlias}.item_attributes", 'category_name');
+
+        return "COALESCE(NULLIF(TRIM({$snapshotCategory}), ''), NULLIF(TRIM({$itemCategory}), ''), CASE WHEN {$orderItemAlias}.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END)";
+    }
+
+    private function inventoryCategoryDimensionExpression(string $logAlias = 'il', string $categoryAlias = 'ac'): string
+    {
+        return "CASE WHEN {$logAlias}.add_on_id IS NOT NULL THEN COALESCE(NULLIF(TRIM({$categoryAlias}.display_name), ''), NULLIF(TRIM({$categoryAlias}.name), ''), 'Accessories') ELSE 'Wheels' END";
+    }
+
+    private function applyBrandFilterToSalesQuery(object $query, array $filters): void
+    {
+        if (($filters['brand'] ?? '') === '') {
+            return;
+        }
+
+        $query->where('oi.brand_name', $filters['brand']);
+    }
+
+    private function applyBrandFilterToInventoryQuery(object $query, array $filters): void
+    {
+        if (($filters['brand'] ?? '') === '') {
+            return;
+        }
+
+        $query->where('b.name', $filters['brand']);
+    }
+
+    private function applyCategoryFilterToSalesQuery(object $query, array $filters, string $orderItemAlias = 'oi'): void
+    {
+        if (($filters['category'] ?? '') === '') {
+            return;
+        }
+
+        $query->whereRaw($this->categoryDimensionExpression($orderItemAlias) . ' = ?', [$filters['category']]);
+    }
+
+    private function applyCategoryFilterToInventoryQuery(object $query, array $filters, string $logAlias = 'il', string $categoryAlias = 'ac'): void
+    {
+        if (($filters['category'] ?? '') === '') {
+            return;
+        }
+
+        $query->whereRaw($this->inventoryCategoryDimensionExpression($logAlias, $categoryAlias) . ' = ?', [$filters['category']]);
+    }
+
+    private function applySearchFilter(object $query, ?string $expression, array $filters): void
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        if ($search === '' || blank($expression)) {
+            return;
+        }
+
+        $query->whereRaw("COALESCE({$expression}, '') LIKE ?", ['%' . $search . '%']);
+    }
+
     public function salesByDimension(
         string $groupExpression,
         Carbon $startDate,
         Carbon $endDate,
         array $filters = [],
+        array $options = [],
     ): Collection {
+        $qtySelect = ($options['qty_aggregate'] ?? 'quantity') === 'invoice_count'
+            ? 'COUNT(DISTINCT o.id) as qty'
+            : 'SUM(oi.quantity) as qty';
+
         $rows = DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
-            ->selectRaw('SUM(oi.quantity) as qty')
+            ->selectRaw($qtySelect)
             ->selectRaw('SUM(oi.line_total) as value')
             ->where('o.document_type', DocumentType::INVOICE->value)
             ->whereNull('o.deleted_at')
@@ -84,6 +165,15 @@ class ReportService
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
                 $this->applyChannelFilter($query, $filters);
+            })
+            ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyBrandFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyCategoryFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                $this->applySearchFilter($query, $options['search_expression'] ?? null, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -96,17 +186,68 @@ class ReportService
             ->orderBy('month_key')
             ->get();
 
+        $detailMap = [];
+        if (($options['include_details'] ?? false) === true) {
+            $detailRows = DB::table('order_items as oi')
+                ->join('orders as o', 'o.id', '=', 'oi.order_id')
+                ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
+                ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+                ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
+                ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
+                ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
+                ->selectRaw($this->customerNameExpression('c') . ' as customer_name')
+                ->selectRaw('DATE(COALESCE(o.issue_date, o.created_at)) as sold_on')
+                ->selectRaw('SUM(oi.quantity) as qty_sold')
+                ->where('o.document_type', DocumentType::INVOICE->value)
+                ->whereNull('o.deleted_at')
+                ->whereBetween(DB::raw('DATE(COALESCE(o.issue_date, o.created_at))'), [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ])
+                ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
+                    $this->applyChannelFilter($query, $filters);
+                })
+                ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                    $this->applyBrandFilterToSalesQuery($query, $filters);
+                })
+                ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                    $this->applyCategoryFilterToSalesQuery($query, $filters);
+                })
+                ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                    $this->applySearchFilter($query, $options['search_expression'] ?? null, $filters);
+                })
+                ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
+                    $query->where('o.customer_id', (int) $filters['dealer_id']);
+                })
+                ->when(! empty($filters['user_id']), function ($query) use ($filters) {
+                    $query->where('o.representative_id', (int) $filters['user_id']);
+                })
+                ->groupBy('dimension_label', 'month_key', 'invoice_number', 'customer_name', 'sold_on')
+                ->orderBy('sold_on')
+                ->get();
+
+            foreach ($detailRows as $row) {
+                $detailMap[$row->dimension_label][$row->month_key][] = [
+                    'invoice' => $row->invoice_number,
+                    'customer' => $row->customer_name,
+                    'qty_sold' => (int) $row->qty_sold,
+                    'date_sold' => $row->sold_on,
+                ];
+            }
+        }
+
         $months = $this->monthsBetween($startDate, $endDate)->pluck('key')->all();
 
         return $rows
             ->groupBy('dimension_label')
-            ->map(function (Collection $group, string $label) use ($months) {
+            ->map(function (Collection $group, string $label) use ($months, $detailMap) {
                 $monthMap = [];
 
                 foreach ($months as $monthKey) {
                     $monthMap[$monthKey] = [
                         'qty' => 0,
                         'value' => 0.0,
+                        'details' => $detailMap[$label][$monthKey] ?? [],
                     ];
                 }
 
@@ -114,6 +255,7 @@ class ReportService
                     $monthMap[$row->month_key] = [
                         'qty' => (int) $row->qty,
                         'value' => (float) $row->value,
+                        'details' => $detailMap[$label][$row->month_key] ?? [],
                     ];
                 }
 
@@ -202,6 +344,7 @@ class ReportService
         Carbon $startDate,
         Carbon $endDate,
         array $filters = [],
+        array $options = [],
     ): Collection {
         $rows = DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
@@ -229,6 +372,15 @@ class ReportService
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
                 $this->applyChannelFilter($query, $filters);
+            })
+            ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyBrandFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyCategoryFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                $this->applySearchFilter($query, $options['search_expression'] ?? null, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -316,6 +468,7 @@ class ReportService
         Carbon $startDate,
         Carbon $endDate,
         array $filters = [],
+        array $options = [],
     ): Collection {
         $months = $this->monthsBetween($startDate, $endDate)->pluck('key')->all();
 
@@ -324,6 +477,8 @@ class ReportService
             ->leftJoin('products as p', 'p.id', '=', 'pv.product_id')
             ->leftJoin('brands as b', 'b.id', '=', 'p.brand_id')
             ->leftJoin('models as m', 'm.id', '=', 'p.model_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'il.add_on_id')
+            ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$inventoryGroupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('il.created_at') . ' as month_key')
             ->selectRaw("SUM(CASE WHEN il.quantity_change > 0 AND il.action IN ('adjustment', 'transfer_in', 'import', 'return') THEN il.quantity_change ELSE 0 END) as added")
@@ -331,6 +486,15 @@ class ReportService
                 $startDate->toDateString(),
                 $endDate->toDateString(),
             ])
+            ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyBrandFilterToInventoryQuery($query, $filters);
+            })
+            ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyCategoryFilterToInventoryQuery($query, $filters);
+            })
+            ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                $this->applySearchFilter($query, $options['inventory_search_expression'] ?? null, $filters);
+            })
             ->when(! empty($filters['user_id']), function ($query) use ($filters) {
                 $query->where('il.user_id', (int) $filters['user_id']);
             })
@@ -354,6 +518,15 @@ class ReportService
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
                 $this->applyChannelFilter($query, $filters);
+            })
+            ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyBrandFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyCategoryFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                $this->applySearchFilter($query, $options['sales_search_expression'] ?? null, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);
@@ -384,6 +557,15 @@ class ReportService
             ])
             ->when(($filters['channel'] ?? 'all') !== 'all', function ($query) use ($filters) {
                 $this->applyChannelFilter($query, $filters);
+            })
+            ->when(($filters['brand'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyBrandFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['category'] ?? '') !== '', function ($query) use ($filters) {
+                $this->applyCategoryFilterToSalesQuery($query, $filters);
+            })
+            ->when(($filters['search'] ?? '') !== '', function ($query) use ($filters, $options) {
+                $this->applySearchFilter($query, $options['sales_search_expression'] ?? null, $filters);
             })
             ->when(! empty($filters['dealer_id']), function ($query) use ($filters) {
                 $query->where('o.customer_id', (int) $filters['dealer_id']);

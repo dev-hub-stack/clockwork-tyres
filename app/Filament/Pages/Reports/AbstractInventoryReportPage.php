@@ -43,6 +43,10 @@ abstract class AbstractInventoryReportPage extends Page
             $this->reportStartDate(),
             $this->reportEndDate(),
             $this->getFiltersArray(),
+            [
+                'inventory_search_expression' => $this->inventorySearchExpression(),
+                'sales_search_expression' => $this->salesSearchExpression(),
+            ],
         );
 
         return [
@@ -57,10 +61,19 @@ abstract class AbstractInventoryReportPage extends Page
                 'endMonth' => $this->endMonth,
                 'sort' => $this->sort,
                 'channel' => $this->channel,
+                'brand' => $this->brand,
+                'category' => $this->category,
+                'search' => $this->search,
                 'dealerId' => $this->dealerId,
                 'userId' => $this->userId,
+                'brands' => $this->brandOptions(),
+                'categories' => $this->categoryOptions(),
                 'dealers' => $this->dealerOptions(),
                 'users' => $this->userOptions(),
+                'showBrandFilter' => $this->showBrandFilter(),
+                'showCategoryFilter' => $this->showCategoryFilter(),
+                'showSearchFilter' => $this->showSearchFilter(),
+                'searchPlaceholder' => $this->searchPlaceholder(),
                 'showDealerFilter' => true,
                 'showUserFilter' => true,
                 'showChannelFilter' => true,
@@ -91,6 +104,36 @@ abstract class AbstractInventoryReportPage extends Page
     protected function canExportReports(): bool
     {
         return auth()->user()?->can('export_reports') ?? false;
+    }
+
+    protected function showBrandFilter(): bool
+    {
+        return false;
+    }
+
+    protected function showCategoryFilter(): bool
+    {
+        return false;
+    }
+
+    protected function showSearchFilter(): bool
+    {
+        return false;
+    }
+
+    protected function searchPlaceholder(): string
+    {
+        return 'Search';
+    }
+
+    protected function inventorySearchExpression(): ?string
+    {
+        return null;
+    }
+
+    protected function salesSearchExpression(): ?string
+    {
+        return null;
     }
 
     protected function reportKey(): string

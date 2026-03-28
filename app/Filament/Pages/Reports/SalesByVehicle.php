@@ -30,4 +30,19 @@ class SalesByVehicle extends AbstractSalesReportPage
     {
         return 'This report groups invoice activity by vehicle make, model, and sub model so the monthly demand profile can be reviewed at vehicle level.';
     }
+
+    protected function showQtyDrilldown(): bool
+    {
+        return true;
+    }
+
+    protected function quantityAggregation(): string
+    {
+        return 'invoice_count';
+    }
+
+    protected function quantityHeader(): string
+    {
+        return 'Invoices';
+    }
 }

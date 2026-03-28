@@ -13,9 +13,7 @@ class ProfitBySize extends AbstractProfitReportPage
 
     protected function groupExpression(): string
     {
-        return DB::getDriverName() === 'sqlite'
-            ? "json_extract(oi.item_attributes, '$.size')"
-            : "JSON_UNQUOTE(JSON_EXTRACT(oi.item_attributes, '$.size'))";
+        return app(\App\Services\ReportService::class)->sizeDimensionExpression('oi');
     }
     protected function labelHeader(): string { return 'Size'; }
     protected function description(): string { return 'This report groups invoice profit by wheel size across all products.'; }

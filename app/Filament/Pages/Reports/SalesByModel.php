@@ -26,4 +26,14 @@ class SalesByModel extends AbstractSalesReportPage
     {
         return 'This report aggregates invoice line items by model and pivots quantity and value across the selected month range.';
     }
+
+    protected function showBrandFilter(): bool
+    {
+        return true;
+    }
+
+    protected function showQtyDrilldown(): bool
+    {
+        return true;
+    }
 }

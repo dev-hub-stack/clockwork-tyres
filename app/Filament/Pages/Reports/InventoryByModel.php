@@ -13,4 +13,6 @@ class InventoryByModel extends AbstractInventoryReportPage
     protected function salesGroupExpression(): string { return 'oi.model_name'; }
     protected function labelHeader(): string { return 'Model'; }
     protected function description(): string { return 'This report tracks inventory movement by model, combining inbound additions with invoice-based sales.'; }
+
+    protected function showBrandFilter(): bool { return true; }
 }

@@ -3,6 +3,7 @@
     'months' => collect(),
     'rows' => collect(),
     'mode' => 'sales',
+    'quantityHeader' => 'Qty',
 ])
 
 @php
@@ -99,7 +100,7 @@
                             <th>Added</th>
                             <th>Sold</th>
                         @else
-                            <th>Qty</th>
+                            <th>{{ $quantityHeader }}</th>
                             <th>Value</th>
                         @endif
                     @endforeach
@@ -107,7 +108,7 @@
                         <th>Added</th>
                         <th>Sold</th>
                     @else
-                        <th>Qty</th>
+                        <th>{{ $quantityHeader }}</th>
                         <th>Value</th>
                     @endif
                 </tr>
@@ -140,7 +141,19 @@
                                 @endif
                             </td>
                         @else
-                            <td>{{ number_format((int) ($monthData['qty'] ?? 0)) }}</td>
+                            <td>
+                                @if (! empty($monthData['details']))
+                                    <button
+                                        type="button"
+                                        class="sales-qty-trigger"
+                                        data-dimension="{{ e($row['label']) }}"
+                                        data-month="{{ $month['key'] }}"
+                                        style="border: 0; background: transparent; color: #2563eb; font-weight: 700; text-decoration: underline; cursor: pointer;"
+                                    >{{ number_format((int) ($monthData['qty'] ?? 0)) }}</button>
+                                @else
+                                    {{ number_format((int) ($monthData['qty'] ?? 0)) }}
+                                @endif
+                            </td>
                             <td>{{ $formatValue((float) ($monthData['value'] ?? 0)) }}</td>
                         @endif
                     @endforeach

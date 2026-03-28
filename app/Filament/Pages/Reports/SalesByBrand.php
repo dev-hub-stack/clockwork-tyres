@@ -26,4 +26,9 @@ class SalesByBrand extends AbstractSalesReportPage
     {
         return 'This report aggregates invoice line items by brand, then pivots quantity and value across the selected month range. It uses CRM invoices only, matching the meeting requirement.';
     }
+
+    protected function showQtyDrilldown(): bool
+    {
+        return true;
+    }
 }

@@ -3,10 +3,19 @@
     'endMonth',
     'sort' => 'alpha',
     'channel' => 'all',
+    'brand' => '',
+    'category' => '',
+    'search' => '',
     'dealerId' => null,
     'userId' => null,
+    'brands' => [],
+    'categories' => [],
     'dealers' => [],
     'users' => [],
+    'showBrandFilter' => false,
+    'showCategoryFilter' => false,
+    'showSearchFilter' => false,
+    'searchPlaceholder' => 'Search',
     'showDealerFilter' => false,
     'showUserFilter' => false,
     'showChannelFilter' => true,
@@ -132,6 +141,30 @@
             </label>
         @endif
 
+        @if ($showBrandFilter)
+            <label>
+                Brand
+                <select name="brand">
+                    <option value="">All Brands</option>
+                    @foreach ($brands as $name => $label)
+                        <option value="{{ $name }}" @selected($brand === $name)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
+
+        @if ($showCategoryFilter)
+            <label>
+                Category
+                <select name="category">
+                    <option value="">All Categories</option>
+                    @foreach ($categories as $name => $label)
+                        <option value="{{ $name }}" @selected($category === $name)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
+
         @if ($showDealerFilter)
             <label>
                 Dealer
@@ -153,6 +186,13 @@
                         <option value="{{ $id }}" @selected((string) $userId === (string) $id)>{{ $name }}</option>
                     @endforeach
                 </select>
+            </label>
+        @endif
+
+        @if ($showSearchFilter)
+            <label>
+                Search
+                <input type="text" name="search" value="{{ $search }}" placeholder="{{ $searchPlaceholder }}">
             </label>
         @endif
     </div>

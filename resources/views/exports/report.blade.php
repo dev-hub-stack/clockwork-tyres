@@ -56,6 +56,15 @@
     <div class="meta">
         <p>Range: {{ $payload['filters']['startMonth'] }} to {{ $payload['filters']['endMonth'] }}</p>
         <p>Channel: {{ ucfirst((string) $payload['filters']['channel']) }}</p>
+        @if (! empty($payload['filters']['brand']))
+            <p>Brand: {{ $payload['filters']['brand'] }}</p>
+        @endif
+        @if (! empty($payload['filters']['category']))
+            <p>Category: {{ $payload['filters']['category'] }}</p>
+        @endif
+        @if (! empty($payload['filters']['search']))
+            <p>Search: {{ $payload['filters']['search'] }}</p>
+        @endif
         @if (! empty($payload['filters']['dealer']))
             <p>Dealer: {{ $payload['filters']['dealer'] }}</p>
         @endif

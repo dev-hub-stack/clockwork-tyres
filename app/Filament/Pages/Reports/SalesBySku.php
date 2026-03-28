@@ -26,4 +26,29 @@ class SalesBySku extends AbstractSalesReportPage
     {
         return 'This report groups invoice lines by SKU so exact item-level quantity and revenue can be reviewed month over month.';
     }
+
+    protected function showBrandFilter(): bool
+    {
+        return true;
+    }
+
+    protected function showSearchFilter(): bool
+    {
+        return true;
+    }
+
+    protected function searchPlaceholder(): string
+    {
+        return 'Search SKU';
+    }
+
+    protected function searchExpression(): ?string
+    {
+        return 'oi.sku';
+    }
+
+    protected function showQtyDrilldown(): bool
+    {
+        return true;
+    }
 }

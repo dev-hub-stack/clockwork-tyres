@@ -86,10 +86,19 @@
         'endMonth' => now()->format('Y-m'),
         'sort' => 'alpha',
         'channel' => 'all',
+        'brand' => '',
+        'category' => '',
+        'search' => '',
         'dealerId' => null,
         'userId' => null,
+        'brands' => [],
+        'categories' => [],
         'dealers' => [],
         'users' => [],
+        'showBrandFilter' => false,
+        'showCategoryFilter' => false,
+        'showSearchFilter' => false,
+        'searchPlaceholder' => 'Search',
         'showDealerFilter' => false,
         'showUserFilter' => false,
         'showChannelFilter' => true,
@@ -100,6 +109,7 @@
         ],
     ], $toolbar ?? []);
     $labelHeader = $labelHeader ?? 'Label';
+    $quantityHeader = $quantityHeader ?? 'Qty';
     $months = $months ?? collect();
     $rows = $rows ?? collect();
 @endphp
@@ -116,11 +126,20 @@
                     @if (($toolbar['showChannelFilter'] ?? false) && ($toolbar['channel'] ?? 'all') !== 'all')
                         <span class="report-page-chip">Channel: {{ ucfirst($toolbar['channel']) }}</span>
                     @endif
+                    @if (($toolbar['showBrandFilter'] ?? false) && ($toolbar['brand'] ?? '') !== '')
+                        <span class="report-page-chip">Brand: {{ $toolbar['brand'] }}</span>
+                    @endif
+                    @if (($toolbar['showCategoryFilter'] ?? false) && ($toolbar['category'] ?? '') !== '')
+                        <span class="report-page-chip">Category: {{ $toolbar['category'] }}</span>
+                    @endif
                     @if (($toolbar['showDealerFilter'] ?? false) && ! empty($toolbar['dealerId']) && isset($toolbar['dealers'][$toolbar['dealerId']]))
                         <span class="report-page-chip">Dealer: {{ $toolbar['dealers'][$toolbar['dealerId']] }}</span>
                     @endif
                     @if (($toolbar['showUserFilter'] ?? false) && ! empty($toolbar['userId']) && isset($toolbar['users'][$toolbar['userId']]))
                         <span class="report-page-chip">User: {{ $toolbar['users'][$toolbar['userId']] }}</span>
+                    @endif
+                    @if (($toolbar['showSearchFilter'] ?? false) && ($toolbar['search'] ?? '') !== '')
+                        <span class="report-page-chip">Search: {{ $toolbar['search'] }}</span>
                     @endif
                 </div>
             </div>
@@ -146,5 +165,5 @@
         :sort-options="$toolbar['sortOptions'] ?? ['alpha' => 'Alphabetical A-Z', 'qty_desc' => 'Quantity High to Low', 'value_desc' => 'Value High to Low']"
     />
 
-    <x-report-table :label-header="$labelHeader" :months="$months" :rows="$rows" :mode="$mode ?? 'sales'" />
+    <x-report-table :label-header="$labelHeader" :months="$months" :rows="$rows" :mode="$mode ?? 'sales'" :quantity-header="$quantityHeader" />
 </div>

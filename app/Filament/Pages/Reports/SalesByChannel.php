@@ -33,4 +33,9 @@ class SalesByChannel extends AbstractSalesReportPage
     {
         return false;
     }
+
+    protected function showCategoryFilter(): bool
+    {
+        return true;
+    }
 }

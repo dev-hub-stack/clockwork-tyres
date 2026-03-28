@@ -35,6 +35,18 @@ class ReportExportController extends Controller
             fputcsv($handle, ['Range', $payload['filters']['startMonth'] . ' to ' . $payload['filters']['endMonth']]);
             fputcsv($handle, ['Channel', ucfirst((string) $payload['filters']['channel'])]);
 
+            if (! empty($payload['filters']['brand'])) {
+                fputcsv($handle, ['Brand', $payload['filters']['brand']]);
+            }
+
+            if (! empty($payload['filters']['category'])) {
+                fputcsv($handle, ['Category', $payload['filters']['category']]);
+            }
+
+            if (! empty($payload['filters']['search'])) {
+                fputcsv($handle, ['Search', $payload['filters']['search']]);
+            }
+
             if (! empty($payload['filters']['dealer'])) {
                 fputcsv($handle, ['Dealer', $payload['filters']['dealer']]);
             }

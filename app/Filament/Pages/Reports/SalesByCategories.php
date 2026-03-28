@@ -14,7 +14,7 @@ class SalesByCategories extends AbstractSalesReportPage
 
     protected function groupExpression(): string
     {
-        return "CASE WHEN oi.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END";
+        return app(\App\Services\ReportService::class)->categoryDimensionExpression('oi');
     }
 
     protected function labelHeader(): string

@@ -12,4 +12,6 @@ class ProfitBySku extends AbstractProfitReportPage
     protected function groupExpression(): string { return 'oi.sku'; }
     protected function labelHeader(): string { return 'SKU'; }
     protected function description(): string { return 'This report shows month-by-month profit at the SKU level.'; }
+
+    protected function showBrandFilter(): bool { return true; }
 }

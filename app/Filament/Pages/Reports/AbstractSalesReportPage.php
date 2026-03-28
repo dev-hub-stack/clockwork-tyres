@@ -42,6 +42,11 @@ abstract class AbstractSalesReportPage extends Page
             $this->reportStartDate(),
             $this->reportEndDate(),
             $this->getFiltersArray(),
+            [
+                'include_details' => $this->showQtyDrilldown(),
+                'qty_aggregate' => $this->quantityAggregation(),
+                'search_expression' => $this->searchExpression(),
+            ],
         );
 
         return [
@@ -49,6 +54,7 @@ abstract class AbstractSalesReportPage extends Page
             'kicker' => 'Reports / Sales Reports',
             'description' => $this->description(),
             'labelHeader' => $this->labelHeader(),
+            'quantityHeader' => $this->quantityHeader(),
             'rows' => $this->applySort($rows),
             'months' => $reportService->monthsBetween($this->reportStartDate(), $this->reportEndDate()),
             'toolbar' => [
@@ -56,10 +62,19 @@ abstract class AbstractSalesReportPage extends Page
                 'endMonth' => $this->endMonth,
                 'sort' => $this->sort,
                 'channel' => $this->channel,
+                'brand' => $this->brand,
+                'category' => $this->category,
+                'search' => $this->search,
                 'dealerId' => $this->dealerId,
                 'userId' => $this->userId,
+                'brands' => $this->brandOptions(),
+                'categories' => $this->categoryOptions(),
                 'dealers' => $this->dealerOptions(),
                 'users' => $this->userOptions(),
+                'showBrandFilter' => $this->showBrandFilter(),
+                'showCategoryFilter' => $this->showCategoryFilter(),
+                'showSearchFilter' => $this->showSearchFilter(),
+                'searchPlaceholder' => $this->searchPlaceholder(),
                 'showDealerFilter' => $this->showDealerFilter(),
                 'showUserFilter' => $this->showUserFilter(),
                 'showChannelFilter' => $this->showChannelFilter(),
@@ -95,6 +110,46 @@ abstract class AbstractSalesReportPage extends Page
     protected function showDealerFilter(): bool
     {
         return true;
+    }
+
+    protected function showBrandFilter(): bool
+    {
+        return false;
+    }
+
+    protected function showCategoryFilter(): bool
+    {
+        return false;
+    }
+
+    protected function showSearchFilter(): bool
+    {
+        return false;
+    }
+
+    protected function searchPlaceholder(): string
+    {
+        return 'Search';
+    }
+
+    protected function searchExpression(): ?string
+    {
+        return null;
+    }
+
+    protected function showQtyDrilldown(): bool
+    {
+        return false;
+    }
+
+    protected function quantityAggregation(): string
+    {
+        return 'quantity';
+    }
+
+    protected function quantityHeader(): string
+    {
+        return 'Qty';
     }
 
     protected function showUserFilter(): bool
