@@ -169,6 +169,49 @@ class ReportingAccessTest extends TestCase
             ->assertSee('name="search"', false);
     }
 
+    public function test_requested_filter_values_are_reflected_on_each_target_report_page(): void
+    {
+        $user = $this->createUserWithPermissions([
+            'view_reports',
+            'view_sales_reports',
+            'view_profit_reports',
+            'view_inventory_reports',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-model?brand=BBS')
+            ->assertOk()
+            ->assertSee('Brand: BBS');
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-sku?brand=BBS&search=CH-R')
+            ->assertOk()
+            ->assertSee('Brand: BBS')
+            ->assertSee('Search: CH-R');
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-channel?category=Hub%20Rings')
+            ->assertOk()
+            ->assertSee('Category: Hub Rings');
+
+        $this->actingAs($user)
+            ->get('/admin/reports/profit-by-sku?brand=BBS')
+            ->assertOk()
+            ->assertSee('Brand: BBS');
+
+        $this->actingAs($user)
+            ->get('/admin/reports/inventory-by-model?brand=BBS')
+            ->assertOk()
+            ->assertSee('Brand: BBS');
+
+        $this->actingAs($user)
+            ->get('/admin/reports/inventory-by-sku?brand=BBS&category=Hub%20Rings&search=CH-R')
+            ->assertOk()
+            ->assertSee('Brand: BBS')
+            ->assertSee('Category: Hub Rings')
+            ->assertSee('Search: CH-R');
+    }
+
     protected function createUserWithPermissions(array $permissions): User
     {
         $user = User::factory()->create();
