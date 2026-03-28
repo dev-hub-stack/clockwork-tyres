@@ -126,6 +126,49 @@ class ReportingAccessTest extends TestCase
         }
     }
 
+    public function test_report_pages_render_requested_brand_category_and_search_filters(): void
+    {
+        $user = $this->createUserWithPermissions([
+            'view_reports',
+            'view_sales_reports',
+            'view_profit_reports',
+            'view_inventory_reports',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-model')
+            ->assertOk()
+            ->assertSee('name="brand"', false);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-sku')
+            ->assertOk()
+            ->assertSee('name="brand"', false)
+            ->assertSee('name="search"', false);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/sales-by-channel')
+            ->assertOk()
+            ->assertSee('name="category"', false);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/profit-by-sku')
+            ->assertOk()
+            ->assertSee('name="brand"', false);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/inventory-by-model')
+            ->assertOk()
+            ->assertSee('name="brand"', false);
+
+        $this->actingAs($user)
+            ->get('/admin/reports/inventory-by-sku')
+            ->assertOk()
+            ->assertSee('name="brand"', false)
+            ->assertSee('name="category"', false)
+            ->assertSee('name="search"', false);
+    }
+
     protected function createUserWithPermissions(array $permissions): User
     {
         $user = User::factory()->create();

@@ -69,21 +69,21 @@ class ReportService
             : "JSON_UNQUOTE(JSON_EXTRACT({$columnExpression}, '$.{$path}'))";
     }
 
-    public function sizeDimensionExpression(string $orderItemAlias = 'oi'): string
+    public function sizeDimensionExpression(string $orderItemAlias = 'oi', string $variantAlias = 'pv'): string
     {
         $itemSize = $this->jsonTextExpression("{$orderItemAlias}.item_attributes", 'size');
         $variantSize = $this->jsonTextExpression("{$orderItemAlias}.variant_snapshot", 'size');
         $productSize = $this->jsonTextExpression("{$orderItemAlias}.product_snapshot", 'size');
 
-        return "COALESCE(NULLIF(TRIM({$itemSize}), ''), NULLIF(TRIM({$variantSize}), ''), NULLIF(TRIM({$productSize}), ''))";
+        return "COALESCE(NULLIF(TRIM({$itemSize}), ''), NULLIF(TRIM({$variantSize}), ''), NULLIF(TRIM({$productSize}), ''), NULLIF(TRIM({$variantAlias}.size), ''))";
     }
 
-    public function categoryDimensionExpression(string $orderItemAlias = 'oi'): string
+    public function categoryDimensionExpression(string $orderItemAlias = 'oi', string $categoryAlias = 'ac'): string
     {
         $snapshotCategory = $this->jsonTextExpression("{$orderItemAlias}.addon_snapshot", 'category_name');
         $itemCategory = $this->jsonTextExpression("{$orderItemAlias}.item_attributes", 'category_name');
 
-        return "COALESCE(NULLIF(TRIM({$snapshotCategory}), ''), NULLIF(TRIM({$itemCategory}), ''), CASE WHEN {$orderItemAlias}.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END)";
+        return "COALESCE(NULLIF(TRIM({$snapshotCategory}), ''), NULLIF(TRIM({$itemCategory}), ''), NULLIF(TRIM(COALESCE({$categoryAlias}.display_name, {$categoryAlias}.name)), ''), CASE WHEN {$orderItemAlias}.add_on_id IS NOT NULL THEN 'Accessories' ELSE 'Wheels' END)";
     }
 
     private function inventoryCategoryDimensionExpression(string $logAlias = 'il', string $categoryAlias = 'ac'): string
@@ -153,6 +153,9 @@ class ReportService
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'oi.product_variant_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'oi.add_on_id')
+            ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw($qtySelect)
@@ -192,6 +195,9 @@ class ReportService
                 ->join('orders as o', 'o.id', '=', 'oi.order_id')
                 ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
                 ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+                ->leftJoin('product_variants as pv', 'pv.id', '=', 'oi.product_variant_id')
+                ->leftJoin('addons as a', 'a.id', '=', 'oi.add_on_id')
+                ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
                 ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
                 ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
                 ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
@@ -350,6 +356,9 @@ class ReportService
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'oi.product_variant_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'oi.add_on_id')
+            ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$groupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw("SUM(
@@ -507,6 +516,9 @@ class ReportService
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'oi.product_variant_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'oi.add_on_id')
+            ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw('SUM(oi.quantity) as sold')
@@ -543,6 +555,9 @@ class ReportService
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.representative_id')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'oi.product_variant_id')
+            ->leftJoin('addons as a', 'a.id', '=', 'oi.add_on_id')
+            ->leftJoin('addon_categories as ac', 'ac.id', '=', 'a.addon_category_id')
             ->selectRaw("COALESCE(NULLIF(TRIM({$salesGroupExpression}), ''), 'Unassigned') as dimension_label")
             ->selectRaw($this->monthKeyExpression('COALESCE(o.issue_date, o.created_at)') . ' as month_key')
             ->selectRaw($this->invoiceNumberExpression('o') . ' as invoice_number')
