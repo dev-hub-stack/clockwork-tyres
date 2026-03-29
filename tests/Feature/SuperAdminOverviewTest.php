@@ -134,11 +134,13 @@ class SuperAdminOverviewTest extends TestCase
         $this->assertCount(3, $page->accountGovernanceCards);
         $this->assertSame('Create supplier account', $page->accountGovernanceCards[0]['label']);
         $this->assertSame('Direct control', $page->accountGovernanceCards[0]['value']);
+        $this->assertCount(10, $page->accountCreationFields);
+        $this->assertSame('Account name', $page->accountCreationFields[0]['label']);
         $this->assertSame(2, $page->accountBreakdown[0]['value']);
         $this->assertSame(3, $page->subscriptionBreakdown[0]['value']);
         $this->assertSame(1, $page->connectionSummary[0]['value']);
         $this->assertSame(1, $page->connectionSummary[1]['value']);
-        $this->assertContains('Create supplier accounts directly', $page->accountGovernanceActions);
+        $this->assertContains('Create supplier account directly', $page->accountGovernanceActions);
         $this->assertContains('No impersonation', array_column($page->guardrailCards, 'label'));
     }
 

@@ -82,6 +82,17 @@
                             </div>
                         @endforeach
                     </div>
+
+                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Creation fields</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @foreach ($accountCreationFields as $field)
+                                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
+                                    {{ $field['label'] }}
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
 
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

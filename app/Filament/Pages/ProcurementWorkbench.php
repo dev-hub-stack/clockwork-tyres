@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Modules\Procurement\Support\ProcurementWorkflow;
+use App\Modules\Procurement\Support\SupplierGroupedProcurementPlanner;
 use BackedEnum;
 use Filament\Pages\Page;
 use UnitEnum;
@@ -25,15 +26,21 @@ class ProcurementWorkbench extends Page
 
     public array $statusRail = [];
 
-    public array $requestCart = [];
+    public array $supplierGroups = [];
 
-    public array $supplierOptions = [];
+    public array $placeOrderCallout = [];
+
+    public array $requestSummary = [];
+
+    public array $plannedSubmission = [];
 
     public function mount(): void
     {
+        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan($this->buildWorkbenchLineItems());
         $this->statusRail = $this->buildStatusRail();
-        $this->requestCart = $this->buildRequestCart();
-        $this->supplierOptions = $this->buildSupplierOptions();
+        $this->supplierGroups = $this->buildSupplierGroups();
+        $this->placeOrderCallout = $this->buildPlaceOrderCallout();
+        $this->requestSummary = $this->buildRequestSummary();
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -78,42 +85,112 @@ class ProcurementWorkbench extends Page
         );
     }
 
-    protected function buildRequestCart(): array
+    protected function buildRequestSummary(): array
     {
         return [
             [
-                'sku' => 'TYR-REQ-001',
-                'product_name' => 'Request cart placeholder',
-                'size' => 'Pending tyre sheet',
-                'quantity' => 4,
-                'selected_supplier' => 'Select supplier',
-                'status' => 'Draft',
-                'note' => 'Tyre procurement lines will be mapped once the launch sheet is shared.',
+                'label' => 'Supplier groups',
+                'value' => $this->plannedSubmission['supplier_count'] ?? 0,
+                'note' => 'Each supplier gets its own grouped workbench section.',
             ],
             [
-                'sku' => 'TYR-REQ-002',
-                'product_name' => 'Request cart placeholder',
-                'size' => 'Pending tyre sheet',
-                'quantity' => 8,
-                'selected_supplier' => 'Select supplier',
-                'status' => 'Draft',
-                'note' => 'Supplier selection stays manual for this launch.',
+                'label' => 'Line items',
+                'value' => $this->plannedSubmission['line_item_count'] ?? 0,
+                'note' => 'Products can be added from multiple suppliers into one submission.',
+            ],
+            [
+                'label' => 'Submit action',
+                'value' => $this->plannedSubmission['place_order_label'] ?? 'Place Order',
+                'note' => 'The backend fans out to separate supplier orders automatically.',
             ],
         ];
     }
 
-    protected function buildSupplierOptions(): array
+    protected function buildSupplierGroups(): array
+    {
+        return array_map(
+            static function (array $supplierOrder, int $index): array {
+                return [
+                    'supplier_name' => $supplierOrder['supplier_name'],
+                    'supplier_reference' => 'Supplier order #' . ($index + 1),
+                    'status' => 'Draft',
+                    'summary' => 'Separate supplier group that will be submitted in the same unified action.',
+                    'items' => array_map(
+                        static fn (array $lineItem): array => [
+                            'sku' => $lineItem['sku'] ?? '--',
+                            'product_name' => $lineItem['product_name'] ?? 'Procurement line',
+                            'size' => $lineItem['size'] ?? 'Pending tyre size',
+                            'quantity' => $lineItem['quantity'] ?? 0,
+                            'source' => 'Manual supplier selection',
+                            'status' => 'Ready',
+                            'note' => $lineItem['note'] ?? 'Grouped under the selected supplier before submit.',
+                        ],
+                        $supplierOrder['line_items'] ?? []
+                    ),
+                ];
+            },
+            $this->plannedSubmission['supplier_orders'] ?? [],
+            array_keys($this->plannedSubmission['supplier_orders'] ?? [])
+        );
+    }
+
+    protected function buildPlaceOrderCallout(): array
+    {
+        return [
+            'title' => 'One place order, split per supplier behind the scenes',
+            'description' => 'Retailer admins can add products from multiple suppliers into one workbench. Each supplier stays grouped, but the final submit action can place everything together in one click.',
+            'highlights' => [
+                'Supplier groups stay separate in the cart.',
+                'The retailer still completes one unified submit action.',
+                'The backend creates separate supplier orders, quotes, and invoices per supplier.',
+            ],
+            'action_label' => $this->plannedSubmission['place_order_label'] ?? 'Place Order',
+            'supporting_note' => 'This keeps the admin flow fast without collapsing supplier ownership.',
+        ];
+    }
+
+    protected function buildWorkbenchLineItems(): array
     {
         return [
             [
-                'label' => 'Approved supplier placeholder',
-                'value' => null,
-                'help' => 'Supplier selection will be wired after procurement rules are finalized.',
+                'sku' => 'TYR-NT-001',
+                'product_name' => 'Premium touring tyre',
+                'size' => '225/45R17',
+                'quantity' => 4,
+                'supplier_id' => 101,
+                'supplier_name' => 'North Coast Tyres',
+                'unit_price' => 520.00,
+                'note' => 'Own stock first, then supplier-backed fulfilment.',
             ],
             [
-                'label' => 'Secondary supplier placeholder',
-                'value' => null,
-                'help' => 'This shell only reserves the UI slot for later supplier choice logic.',
+                'sku' => 'TYR-NT-002',
+                'product_name' => 'SUV all-season tyre',
+                'size' => '235/55R18',
+                'quantity' => 2,
+                'supplier_id' => 101,
+                'supplier_name' => 'North Coast Tyres',
+                'unit_price' => 610.00,
+                'note' => 'Grouped under the same supplier before submit.',
+            ],
+            [
+                'sku' => 'TYR-DL-011',
+                'product_name' => 'Performance tyre',
+                'size' => '245/40R18',
+                'quantity' => 6,
+                'supplier_id' => 202,
+                'supplier_name' => 'Desert Line Trading',
+                'unit_price' => 480.00,
+                'note' => 'This group is isolated for separate supplier workflow.',
+            ],
+            [
+                'sku' => 'TYR-DL-022',
+                'product_name' => 'Utility tyre',
+                'size' => '215/65R16',
+                'quantity' => 8,
+                'supplier_id' => 202,
+                'supplier_name' => 'Desert Line Trading',
+                'unit_price' => 410.00,
+                'note' => 'The retailer still places one unified workbench order.',
             ],
         ];
     }

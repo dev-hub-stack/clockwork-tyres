@@ -8,6 +8,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Accounts\Models\AccountSubscription;
+use App\Modules\Accounts\Support\SuperAdminAccountCreationBlueprint;
 use BackedEnum;
 use Filament\Pages\Page;
 use Throwable;
@@ -35,6 +36,7 @@ class SuperAdminOverview extends Page
     public array $connectionSummary = [];
     public array $metricCards = [];
     public array $accountGovernanceCards = [];
+    public array $accountCreationFields = [];
     public array $accountDirectoryColumns = [];
     public array $accountRows = [];
     public array $reportAddOnTiers = [];
@@ -42,20 +44,24 @@ class SuperAdminOverview extends Page
     public array $guardrailCards = [];
     public array $governanceActions = [];
     public array $opsPanels = [];
+    public array $accountCreationBlueprint = [];
 
     public function mount(): void
     {
+        $blueprint = new SuperAdminAccountCreationBlueprint();
+        $this->accountCreationBlueprint = $blueprint->toArray();
         $this->governanceCards = $this->buildGovernanceCards();
         $this->accountBreakdown = $this->buildAccountBreakdown();
         $this->subscriptionBreakdown = $this->buildSubscriptionBreakdown();
         $this->connectionSummary = $this->buildConnectionSummary();
         $this->metricCards = $this->governanceCards;
         $this->accountGovernanceCards = $this->buildAccountGovernanceCards();
+        $this->accountCreationFields = $blueprint->creationFields();
         $this->accountDirectoryColumns = $this->buildAccountDirectoryColumns();
         $this->accountRows = $this->buildAccountRows();
         $this->reportAddOnTiers = $this->buildReportAddOnTiers();
-        $this->accountGovernanceActions = $this->buildAccountGovernanceActions();
-        $this->guardrailCards = $this->buildGuardrailCards();
+        $this->accountGovernanceActions = $blueprint->accountCreationFlow();
+        $this->guardrailCards = $this->buildGuardrailCards($blueprint);
         $this->governanceActions = $this->buildGovernanceActions();
         $this->opsPanels = $this->buildOpsPanels();
     }
@@ -253,28 +259,17 @@ class SuperAdminOverview extends Page
         ];
     }
 
-    protected function buildAccountGovernanceActions(): array
-    {
-        return [
-            'Create supplier accounts directly',
-            'Create retailer accounts directly',
-            'Assign the base subscription plan',
-            'Configure the reports add-on tier',
-            'Change account status or capability flags',
-        ];
-    }
-
-    protected function buildGuardrailCards(): array
+    protected function buildGuardrailCards(SuperAdminAccountCreationBlueprint $blueprint): array
     {
         return [
             [
                 'label' => 'No impersonation',
-                'value' => 'Disabled by design',
+                'value' => $blueprint->canImpersonateAccounts() ? 'Enabled' : 'Disabled by design',
                 'note' => 'Super admin should never log in as an account for support.',
             ],
             [
                 'label' => 'No supplier approval queue',
-                'value' => 'Direct management',
+                'value' => $blueprint->usesManualApprovalQueue() ? 'Approval queue' : 'Direct management',
                 'note' => 'Supplier accounts are created and managed directly instead of being approved.',
             ],
             [
