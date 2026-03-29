@@ -1,0 +1,162 @@
+<?php
+
+namespace App\Modules\Accounts\Actions;
+
+use App\Models\User;
+use App\Modules\Accounts\Enums\AccountRole;
+use App\Modules\Accounts\Enums\AccountStatus;
+use App\Modules\Accounts\Enums\AccountType;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Models\AccountOnboarding;
+use App\Modules\Accounts\Models\AccountSubscription;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
+
+class CreateBusinessAccountRegistrationAction
+{
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function execute(array $payload): array
+    {
+        return DB::transaction(function () use ($payload): array {
+            $accountType = $this->resolveAccountType((string) $payload['account_mode']);
+            $subscriptionPlan = $this->resolveSubscriptionPlan((string) $payload['plan_preference']);
+
+            $owner = User::query()->create([
+                'name' => (string) $payload['business_name'],
+                'email' => Str::lower(trim((string) $payload['email'])),
+                'password' => (string) $payload['password'],
+            ]);
+
+            $account = Account::query()->create([
+                'name' => (string) $payload['business_name'],
+                'slug' => $this->uniqueSlugFor((string) $payload['business_name']),
+                'account_type' => $accountType,
+                'retail_enabled' => in_array($accountType, [AccountType::RETAILER, AccountType::BOTH], true),
+                'wholesale_enabled' => in_array($accountType, [AccountType::SUPPLIER, AccountType::BOTH], true),
+                'status' => AccountStatus::ACTIVE,
+                'base_subscription_plan' => $subscriptionPlan,
+                'reports_subscription_enabled' => false,
+                'reports_customer_limit' => null,
+                'created_by_user_id' => $owner->id,
+            ]);
+
+            $account->users()->attach($owner->id, [
+                'role' => AccountRole::OWNER->value,
+                'is_default' => true,
+            ]);
+
+            $this->assignOwnerRole($owner);
+
+            $subscription = AccountSubscription::query()->create([
+                'account_id' => $account->id,
+                'plan_code' => $subscriptionPlan,
+                'status' => 'active',
+                'reports_enabled' => false,
+                'reports_customer_limit' => null,
+                'starts_at' => now(),
+                'created_by_user_id' => $owner->id,
+                'meta' => [
+                    'created_via' => 'public_business_registration',
+                ],
+            ]);
+
+            $document = $payload['supporting_document'] ?? null;
+            $documentPath = $document instanceof UploadedFile
+                ? $document->store('account-onboardings', 'public')
+                : null;
+
+            $onboarding = AccountOnboarding::query()->create([
+                'account_id' => $account->id,
+                'owner_user_id' => $owner->id,
+                'account_mode' => $accountType->value,
+                'plan_preference' => $subscriptionPlan->value,
+                'country' => $payload['country'] ? (string) $payload['country'] : null,
+                'supporting_document_path' => $documentPath,
+                'supporting_document_name' => $document instanceof UploadedFile ? $document->getClientOriginalName() : null,
+                'registration_source' => $payload['registration_source'] ? (string) $payload['registration_source'] : null,
+                'status' => 'completed',
+                'accepts_terms' => (bool) $payload['accepts_terms'],
+                'accepts_privacy' => (bool) $payload['accepts_privacy'],
+                'meta' => [
+                    'country' => $payload['country'] ? (string) $payload['country'] : null,
+                ],
+            ]);
+
+            return [
+                'owner' => [
+                    'id' => $owner->id,
+                    'name' => $owner->name,
+                    'email' => $owner->email,
+                ],
+                'account' => [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'slug' => $account->slug,
+                    'account_type' => $account->account_type?->value,
+                    'account_type_label' => $account->account_type?->label(),
+                    'retail_enabled' => (bool) $account->retail_enabled,
+                    'wholesale_enabled' => (bool) $account->wholesale_enabled,
+                ],
+                'subscription' => [
+                    'id' => $subscription->id,
+                    'plan_code' => $subscription->plan_code?->value,
+                    'plan_label' => $subscription->plan_code?->label(),
+                    'reports_enabled' => (bool) $subscription->reports_enabled,
+                    'status' => $subscription->status,
+                ],
+                'onboarding' => [
+                    'id' => $onboarding->id,
+                    'country' => $onboarding->country,
+                    'document_uploaded' => $onboarding->supporting_document_path !== null,
+                    'registration_source' => $onboarding->registration_source,
+                    'status' => $onboarding->status,
+                ],
+            ];
+        });
+    }
+
+    private function resolveAccountType(string $mode): AccountType
+    {
+        return match ($mode) {
+            AccountType::SUPPLIER->value => AccountType::SUPPLIER,
+            AccountType::BOTH->value => AccountType::BOTH,
+            default => AccountType::RETAILER,
+        };
+    }
+
+    private function resolveSubscriptionPlan(string $plan): SubscriptionPlan
+    {
+        return $plan === SubscriptionPlan::PREMIUM->value
+            ? SubscriptionPlan::PREMIUM
+            : SubscriptionPlan::BASIC;
+    }
+
+    private function uniqueSlugFor(string $businessName): string
+    {
+        $baseSlug = Str::slug($businessName);
+        $slug = $baseSlug !== '' ? $baseSlug : 'clockwork-account';
+        $suffix = 1;
+
+        while (Account::query()->where('slug', $slug)->exists()) {
+            $suffix++;
+            $slug = sprintf('%s-%d', $baseSlug !== '' ? $baseSlug : 'clockwork-account', $suffix);
+        }
+
+        return $slug;
+    }
+
+    private function assignOwnerRole(User $owner): void
+    {
+        $adminRole = Role::query()->where('name', 'admin')->where('guard_name', 'web')->first();
+
+        if ($adminRole !== null && ! $owner->hasRole($adminRole->name)) {
+            $owner->assignRole($adminRole);
+        }
+    }
+}

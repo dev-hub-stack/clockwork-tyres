@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Wholesale\AuthController;
+use App\Http\Controllers\Wholesale\BusinessRegistrationController;
 use App\Http\Controllers\Wholesale\DealerController;
 use App\Http\Controllers\Wholesale\ProductController;
 use App\Http\Controllers\Wholesale\ProductVariantController;
@@ -55,6 +56,7 @@ Route::post('auth/login',           [AuthController::class,  'postLogin']);
 Route::post('auth/forgot',          [AuthController::class,  'forgot']);
 Route::post('auth/reset-password',  [AuthController::class,  'reset']);
 Route::post('auth/set-password',    [AuthController::class,  'setPassword']); // Invited dealer sets password
+Route::post('auth/business-register', [BusinessRegistrationController::class, 'store']);
 Route::post('dealer',               [DealerController::class,'store']); // Wholesale inquiry (no account created)
 Route::post('vendor',               [DealerController::class,'store']); // Brand inquiry
 
