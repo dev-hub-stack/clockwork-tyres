@@ -18,6 +18,7 @@ use App\Http\Controllers\Wholesale\WishlistController;
 use App\Http\Controllers\Wholesale\ReviewController;
 use App\Http\Controllers\Wholesale\SearchController;
 use App\Http\Controllers\Wholesale\HomepageController;
+use App\Http\Controllers\Wholesale\StorefrontBootstrapController;
 use App\Http\Controllers\Wholesale\WheelSizeProxyController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
 
@@ -47,6 +48,7 @@ Route::get('gallery',               [HomepageController::class, 'gallery']);
 Route::get('homepage',              [HomepageController::class, 'home']);
 Route::get('states/us',             [SearchController::class, 'usStates']);
 Route::get('countries',             [SearchController::class, 'countries']);
+Route::get('storefront/bootstrap',  [StorefrontBootstrapController::class, 'show']);
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 Route::post('auth/login',           [AuthController::class,  'postLogin']);

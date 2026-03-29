@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ProductSyncController;
 use App\Http\Controllers\Api\AddonCategorySyncController;
 use App\Http\Controllers\Api\AddonSyncController;
+use App\Http\Controllers\Api\AccountContextController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -13,6 +14,11 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/webhooks/products/sync', [ProductSyncController::class, 'sync']);
 Route::post('/webhooks/addon-categories/sync', [AddonCategorySyncController::class, 'sync']);
 Route::post('/webhooks/addons/sync', [AddonSyncController::class, 'sync']);
+
+Route::middleware(['auth:sanctum', 'current.account'])->group(function () {
+    Route::get('/account-context', [AccountContextController::class, 'index']);
+    Route::post('/account-context/select', [AccountContextController::class, 'select']);
+});
 
 // Order Sync Routes
 use App\Http\Controllers\Api\OrderSyncController;
