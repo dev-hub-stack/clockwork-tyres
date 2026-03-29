@@ -4,7 +4,7 @@
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">Governance shell</p>
             <h1 class="mt-1 text-2xl font-semibold">Super Admin Overview</h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-violet-900">
-                This is the platform control tower George described. It is intentionally focused on accounts, subscriptions, reports add-ons, analytics, and operational visibility. It does not manage supplier product or inventory editing.
+                This is the platform control tower George described. It is intentionally focused on live accounts, subscriptions, reports add-ons, analytics, and operational visibility. It does not manage supplier product or inventory editing.
             </p>
             <p class="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200">
                 Read-only surface for governance, subscriptions, and platform visibility.
@@ -39,7 +39,7 @@
                         <h2 class="text-lg font-semibold text-gray-900">Governance-first account view</h2>
                     </div>
                     <div class="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
-                        No product or inventory editing here
+                        No impersonation, no approval queue, no product editing
                     </div>
                 </div>
 
@@ -53,7 +53,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
-                            @foreach ($accountRows as $row)
+                            @forelse ($accountRows as $row)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $row['account'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['type'] }}</td>
@@ -62,9 +62,15 @@
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['reports_addon'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['wholesale'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['retail'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $row['connected_retailers'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $row['approved_connections'] }}</td>
                                 </tr>
-                            @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="px-4 py-10 text-center text-sm text-gray-500">
+                                        No live accounts are available yet.
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
@@ -97,16 +103,21 @@
 
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Reports add-on</p>
-                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Tier management</h3>
+                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Live tier summary</h3>
 
                     <div class="mt-4 space-y-3">
-                        @foreach ($reportAddOnTiers as $tier)
+                        @forelse ($reportAddOnTiers as $tier)
                             <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
                                 <p class="text-sm font-semibold text-gray-900">{{ $tier['label'] }}</p>
-                                <p class="mt-1 text-sm text-violet-700">{{ $tier['price'] }}</p>
+                                <p class="mt-1 text-sm text-violet-700">{{ $tier['summary'] }}</p>
                                 <p class="mt-2 text-xs leading-5 text-gray-600">{{ $tier['note'] }}</p>
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+                                <p class="text-sm font-semibold text-gray-900">No live report tiers yet</p>
+                                <p class="mt-1 text-sm text-violet-700">Active report subscriptions will appear here once they exist.</p>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
 

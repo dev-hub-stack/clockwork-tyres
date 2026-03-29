@@ -45,7 +45,7 @@ class SuperAdminOverviewTest extends TestCase
             ->assertSee('Read-only surface')
             ->assertSee('Create and manage accounts')
             ->assertSee('No impersonation')
-            ->assertSee('No supplier approval queue');
+            ->assertSee('No impersonation, no approval queue, no product editing');
 
         $activeRetailerId = $this->createAccount([
             'name' => 'Retail One',
@@ -140,6 +140,26 @@ class SuperAdminOverviewTest extends TestCase
         $this->assertSame(3, $page->subscriptionBreakdown[0]['value']);
         $this->assertSame(1, $page->connectionSummary[0]['value']);
         $this->assertSame(1, $page->connectionSummary[1]['value']);
+        $this->assertCount(3, $page->accountRows);
+        $this->assertSame(['Both Modes', 'Retail One', 'Supplier One'], array_column($page->accountRows, 'account'));
+        $this->assertSame('Retailer & Supplier', $page->accountRows[0]['type']);
+        $this->assertSame('Active', $page->accountRows[0]['status']);
+        $this->assertSame('Premium', $page->accountRows[0]['base_plan']);
+        $this->assertSame('500 customers', $page->accountRows[0]['reports_addon']);
+        $this->assertSame('Yes', $page->accountRows[0]['wholesale']);
+        $this->assertSame('Yes', $page->accountRows[0]['retail']);
+        $this->assertSame('0', $page->accountRows[0]['approved_connections']);
+        $this->assertSame('Disabled', $page->accountRows[1]['reports_addon']);
+        $this->assertSame('250 customers', $page->accountRows[2]['reports_addon']);
+        $this->assertSame('1', $page->accountRows[1]['approved_connections']);
+        $this->assertSame('1', $page->accountRows[2]['approved_connections']);
+        $this->assertCount(2, $page->reportAddOnTiers);
+        $this->assertSame('250 customer limit', $page->reportAddOnTiers[0]['label']);
+        $this->assertSame('Premium plan, 1 active subscription', $page->reportAddOnTiers[0]['summary']);
+        $this->assertStringContainsString('Supplier One', $page->reportAddOnTiers[0]['note']);
+        $this->assertSame('500 customer limit', $page->reportAddOnTiers[1]['label']);
+        $this->assertSame('Premium plan, 1 active subscription', $page->reportAddOnTiers[1]['summary']);
+        $this->assertStringContainsString('Both Modes', $page->reportAddOnTiers[1]['note']);
         $this->assertContains('Create supplier account directly', $page->accountGovernanceActions);
         $this->assertContains('No impersonation', array_column($page->guardrailCards, 'label'));
     }

@@ -2,14 +2,20 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasSupplierNetworkAccess;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Procurement\Support\ProcurementWorkbenchData;
 use App\Modules\Procurement\Support\ProcurementWorkflow;
 use App\Modules\Procurement\Support\SupplierGroupedProcurementPlanner;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class ProcurementWorkbench extends Page
 {
+    use HasSupplierNetworkAccess;
+
     protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-clipboard-document-check';
 
     protected static ?string $navigationLabel = 'Procurement Workbench';
@@ -24,6 +30,8 @@ class ProcurementWorkbench extends Page
 
     protected string $view = 'filament.pages.procurement-workbench';
 
+    public array $currentAccountSummary = [];
+
     public array $statusRail = [];
 
     public array $supplierGroups = [];
@@ -34,9 +42,18 @@ class ProcurementWorkbench extends Page
 
     public array $plannedSubmission = [];
 
+    public array $recentProcurementSignals = [];
+
     public function mount(): void
     {
-        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan($this->buildWorkbenchLineItems());
+        $currentAccount = $this->resolveCurrentRetailAccount();
+        $snapshot = ProcurementWorkbenchData::forAccount($currentAccount)->toArray();
+
+        $this->currentAccountSummary = $snapshot['current_account_summary'];
+        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan(
+            $this->buildWorkbenchLineItems($snapshot['supplier_groups'] ?? [])
+        );
+        $this->recentProcurementSignals = $snapshot['recent_procurement_signals'] ?? [];
         $this->statusRail = $this->buildStatusRail();
         $this->supplierGroups = $this->buildSupplierGroups();
         $this->placeOrderCallout = $this->buildPlaceOrderCallout();
@@ -89,19 +106,19 @@ class ProcurementWorkbench extends Page
     {
         return [
             [
-                'label' => 'Supplier groups',
-                'value' => $this->plannedSubmission['supplier_count'] ?? 0,
-                'note' => 'Each supplier gets its own grouped workbench section.',
+                'label' => 'Current retailer account',
+                'value' => $this->currentAccountName(),
+                'note' => 'George\'s grouped-by-supplier admin checkout rule stays scoped to the active retailer account.',
             ],
             [
-                'label' => 'Line items',
-                'value' => $this->plannedSubmission['line_item_count'] ?? 0,
-                'note' => 'Products can be added from multiple suppliers into one submission.',
+                'label' => 'Approved supplier groups',
+                'value' => $this->currentAccountSummary['supplier_connections']['approved'] ?? 0,
+                'note' => 'Each approved supplier connection becomes its own grouped workbench section while pending links stay out of checkout.',
             ],
             [
-                'label' => 'Submit action',
-                'value' => $this->plannedSubmission['place_order_label'] ?? 'Place Order',
-                'note' => 'The backend fans out to separate supplier orders automatically.',
+                'label' => 'Live procurement documents',
+                'value' => $this->currentAccountSummary['document_counts']['total'] ?? 0,
+                'note' => 'Existing quotes, orders, and invoices already tied to the active retailer account.',
             ],
         ];
     }
@@ -109,21 +126,24 @@ class ProcurementWorkbench extends Page
     protected function buildSupplierGroups(): array
     {
         return array_map(
-            static function (array $supplierOrder, int $index): array {
+            function (array $supplierOrder, int $index): array {
                 return [
                     'supplier_name' => $supplierOrder['supplier_name'],
                     'supplier_reference' => 'Supplier order #' . ($index + 1),
-                    'status' => 'Draft',
-                    'summary' => 'Separate supplier group that will be submitted in the same unified action.',
+                    'status' => 'Ready to submit',
+                    'summary' => sprintf(
+                        '%s keeps this supplier grouped until the unified submit action runs.',
+                        $this->currentAccountName()
+                    ),
                     'items' => array_map(
                         static fn (array $lineItem): array => [
                             'sku' => $lineItem['sku'] ?? '--',
                             'product_name' => $lineItem['product_name'] ?? 'Procurement line',
                             'size' => $lineItem['size'] ?? 'Pending tyre size',
                             'quantity' => $lineItem['quantity'] ?? 0,
-                            'source' => 'Manual supplier selection',
-                            'status' => 'Ready',
-                            'note' => $lineItem['note'] ?? 'Grouped under the selected supplier before submit.',
+                            'source' => $lineItem['source'] ?? 'Approved supplier connection',
+                            'status' => $lineItem['status'] ?? 'Ready',
+                            'note' => $lineItem['note'] ?? 'Grouped under the active retailer account before submit.',
                         ],
                         $supplierOrder['line_items'] ?? []
                     ),
@@ -137,61 +157,65 @@ class ProcurementWorkbench extends Page
     protected function buildPlaceOrderCallout(): array
     {
         return [
-            'title' => 'One place order, split per supplier behind the scenes',
-            'description' => 'Retailer admins can add products from multiple suppliers into one workbench. Each supplier stays grouped, but the final submit action can place everything together in one click.',
+            'title' => 'George\'s grouped-by-supplier admin checkout rule',
+            'description' => 'Retailer admins work inside the active account, add requests from approved suppliers, and keep each supplier section separate until the shared submit action runs.',
             'highlights' => [
-                'Supplier groups stay separate in the cart.',
-                'The retailer still completes one unified submit action.',
+                'The current retail account stays in scope for the whole checkout flow.',
+                'Each approved supplier keeps its own grouped workbench section.',
                 'The backend creates separate supplier orders, quotes, and invoices per supplier.',
             ],
             'action_label' => $this->plannedSubmission['place_order_label'] ?? 'Place Order',
-            'supporting_note' => 'This keeps the admin flow fast without collapsing supplier ownership.',
+            'supporting_note' => $this->currentAccountSlug()
+                ? 'Working in ' . $this->currentAccountName() . ' keeps the grouped checkout rule tied to the active retailer account.'
+                : 'Select a retail account to load supplier groups.',
         ];
     }
 
-    protected function buildWorkbenchLineItems(): array
+    /**
+     * @param  array<int, array<string, mixed>>  $supplierGroups
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildWorkbenchLineItems(array $supplierGroups): array
     {
-        return [
-            [
-                'sku' => 'TYR-NT-001',
-                'product_name' => 'Premium touring tyre',
-                'size' => '225/45R17',
-                'quantity' => 4,
-                'supplier_id' => 101,
-                'supplier_name' => 'North Coast Tyres',
-                'unit_price' => 520.00,
-                'note' => 'Own stock first, then supplier-backed fulfilment.',
-            ],
-            [
-                'sku' => 'TYR-NT-002',
-                'product_name' => 'SUV all-season tyre',
-                'size' => '235/55R18',
-                'quantity' => 2,
-                'supplier_id' => 101,
-                'supplier_name' => 'North Coast Tyres',
-                'unit_price' => 610.00,
-                'note' => 'Grouped under the same supplier before submit.',
-            ],
-            [
-                'sku' => 'TYR-DL-011',
-                'product_name' => 'Performance tyre',
-                'size' => '245/40R18',
-                'quantity' => 6,
-                'supplier_id' => 202,
-                'supplier_name' => 'Desert Line Trading',
-                'unit_price' => 480.00,
-                'note' => 'This group is isolated for separate supplier workflow.',
-            ],
-            [
-                'sku' => 'TYR-DL-022',
-                'product_name' => 'Utility tyre',
-                'size' => '215/65R16',
-                'quantity' => 8,
-                'supplier_id' => 202,
-                'supplier_name' => 'Desert Line Trading',
-                'unit_price' => 410.00,
-                'note' => 'The retailer still places one unified workbench order.',
-            ],
-        ];
+        return collect($supplierGroups)
+            ->filter(fn (array $group): bool => ($group['connection_status'] ?? null) === 'approved')
+            ->map(function (array $group): array {
+                $supplierName = $group['supplier_name'] ?? 'Supplier';
+                $supplierSlug = $group['supplier_slug'] ?? $supplierName;
+
+                return [
+                    'sku' => sprintf(
+                        'PROC-%s-%s',
+                        Str::upper(Str::slug($this->currentAccountSlug() ?? $this->currentAccountName())),
+                        Str::upper(Str::slug($supplierSlug))
+                    ),
+                    'product_name' => $this->currentAccountName() . ' procurement request',
+                    'size' => 'Grouped for ' . $supplierName,
+                    'quantity' => 1,
+                    'supplier_id' => $group['supplier_id'] ?? null,
+                    'supplier_name' => $supplierName,
+                    'unit_price' => 0,
+                    'source' => 'Approved supplier connection',
+                    'status' => 'Ready to submit',
+                    'note' => $group['summary'] ?? ('Approved supplier connection for ' . $this->currentAccountName() . '.'),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    protected function currentAccountName(): string
+    {
+        return $this->currentAccountSummary['account']['name']
+            ?? $this->currentAccountSummary['current_account']['name']
+            ?? 'No active retail account';
+    }
+
+    protected function currentAccountSlug(): ?string
+    {
+        return $this->currentAccountSummary['account']['slug']
+            ?? $this->currentAccountSummary['current_account']['slug']
+            ?? null;
     }
 }

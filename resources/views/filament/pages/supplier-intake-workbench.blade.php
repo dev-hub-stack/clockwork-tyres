@@ -6,7 +6,41 @@
             <p class="mt-2 text-sm leading-6 text-emerald-900">
                 George described this as the supplier-side intake flow for procurement requests. Incoming orders land under Quotes &amp; Proformas, the supplier reviews them, and approved quotes convert to invoices using the same reporting CRM behavior.
             </p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-xl border border-emerald-100 bg-white/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Current account</p>
+                    <p class="mt-1 text-sm font-semibold text-emerald-950">{{ $currentAccountSummary['name'] ?? 'No supplier account selected' }}</p>
+                    <p class="text-xs text-emerald-700">{{ $currentAccountSummary['type'] ?? 'Supplier' }}</p>
+                </div>
+                <div class="rounded-xl border border-emerald-100 bg-white/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Retailer links</p>
+                    <p class="mt-1 text-2xl font-semibold text-emerald-950">{{ $currentAccountSummary['retailer_connections'] ?? 0 }}</p>
+                    <p class="text-xs text-emerald-700">Approved accounts feeding this inbox.</p>
+                </div>
+                <div class="rounded-xl border border-emerald-100 bg-white/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Quotes in inbox</p>
+                    <p class="mt-1 text-2xl font-semibold text-emerald-950">{{ $currentAccountSummary['open_quotes'] ?? 0 }}</p>
+                    <p class="text-xs text-emerald-700">Live quote requests from connected retailers.</p>
+                </div>
+                <div class="rounded-xl border border-emerald-100 bg-white/70 p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Latest signal</p>
+                    <p class="mt-1 text-sm font-semibold text-emerald-950">{{ $currentAccountSummary['latest_signal'] ?? 'No live requests' }}</p>
+                    <p class="text-xs text-emerald-700">Quote approval converts to invoice.</p>
+                </div>
+            </div>
         </div>
+
+        @if (! empty($signalCards))
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                @foreach ($signalCards as $card)
+                    <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $card['label'] ?? 'Signal' }}</p>
+                        <p class="mt-2 text-3xl font-semibold text-gray-950">{{ $card['value'] ?? 0 }}</p>
+                        <p class="mt-2 text-sm leading-6 text-gray-600">{{ $card['note'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
         <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -22,8 +56,13 @@
                     @foreach ($statusRail as $stage)
                         <div class="flex gap-3 rounded-xl border border-gray-100 p-3 {{ $stage['state'] === 'active' ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-gray-50' }}">
                             <div class="mt-1 h-3 w-3 rounded-full {{ $stage['state'] === 'active' ? 'bg-emerald-600' : 'bg-gray-300' }}"></div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-900">{{ $stage['label'] }}</p>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-sm font-semibold text-gray-900">{{ $stage['label'] }}</p>
+                                    @if(($stage['count'] ?? 0) > 0)
+                                        <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-700 shadow-sm">{{ $stage['count'] }}</span>
+                                    @endif
+                                </div>
                                 <p class="mt-1 text-xs leading-5 text-gray-600">{{ $stage['description'] }}</p>
                             </div>
                         </div>
@@ -39,7 +78,7 @@
                             <h2 class="text-lg font-semibold text-gray-900">Supplier procurement inbox</h2>
                         </div>
                         <div class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                            Quote approval converts to invoice
+                            Quotes &amp; Proformas inbox
                         </div>
                     </div>
 
@@ -48,12 +87,13 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Request #</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Type</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Retailer</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Account</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">SKU</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Size</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Qty</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Ship To</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">PO #</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Reference</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Note</th>
                                 </tr>
@@ -62,18 +102,19 @@
                                 @forelse ($incomingRequests as $row)
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $row['request_number'] ?? '-' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $row['document_type'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['retailer'] ?? '-' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $row['account'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['sku'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['size'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['quantity'] ?? 0 }}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $row['ship_to'] ?? '-' }}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $row['po_number'] ?? '-' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $row['reference'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['status'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-600">{{ $row['note'] ?? '-' }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="px-4 py-10 text-center text-sm text-gray-500">
+                                        <td colspan="10" class="px-4 py-10 text-center text-sm text-gray-500">
                                             No procurement requests are loaded yet.
                                         </td>
                                     </tr>

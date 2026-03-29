@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Modules\Accounts\Enums\AccountConnectionStatus;
 use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
@@ -9,6 +10,7 @@ use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Accounts\Models\AccountSubscription;
 use App\Modules\Accounts\Support\SuperAdminAccountCreationBlueprint;
+use App\Modules\Accounts\Support\SuperAdminOverviewData;
 use BackedEnum;
 use Filament\Pages\Page;
 use Throwable;
@@ -168,95 +170,24 @@ class SuperAdminOverview extends Page
         ];
     }
 
-    protected function buildConnectionSummary(): array
-    {
-        $totals = $this->counts();
-
-        return [
-            [
-                'label' => 'Approved connections',
-                'value' => $totals['approved_connections'],
-                'note' => 'Live retailer-to-supplier relationships.',
-            ],
-            [
-                'label' => 'Pending connections',
-                'value' => $totals['pending_connections'],
-                'note' => 'Supplier links still awaiting review or approval.',
-            ],
-        ];
-    }
-
     protected function buildAccountDirectoryColumns(): array
     {
-        return [
-            'Account',
-            'Type',
-            'Status',
-            'Base plan',
-            'Reports add-on',
-            'Wholesale',
-            'Retail',
-            'Connected retailers',
-        ];
+        return $this->overviewData()->buildAccountDirectoryColumns();
     }
 
     protected function buildAccountRows(): array
     {
-        $totals = $this->counts();
-
-        return [
-            [
-                'account' => 'Retail placeholder',
-                'type' => AccountType::RETAILER->label(),
-                'status' => AccountStatus::ACTIVE->label(),
-                'base_plan' => SubscriptionPlan::BASIC->label(),
-                'reports_addon' => 'Disabled',
-                'wholesale' => 'No',
-                'retail' => 'Yes',
-                'connected_retailers' => (string) $totals['approved_connections'],
-            ],
-            [
-                'account' => 'Supplier placeholder',
-                'type' => AccountType::SUPPLIER->label(),
-                'status' => AccountStatus::ACTIVE->label(),
-                'base_plan' => SubscriptionPlan::BASIC->label(),
-                'reports_addon' => '250 customers',
-                'wholesale' => 'Yes',
-                'retail' => 'No',
-                'connected_retailers' => (string) $totals['approved_connections'],
-            ],
-            [
-                'account' => 'Mixed account placeholder',
-                'type' => AccountType::BOTH->label(),
-                'status' => AccountStatus::SUSPENDED->label(),
-                'base_plan' => SubscriptionPlan::PREMIUM->label(),
-                'reports_addon' => '500 customers',
-                'wholesale' => 'Yes',
-                'retail' => 'Yes',
-                'connected_retailers' => (string) $totals['pending_connections'],
-            ],
-        ];
+        return $this->overviewData()->buildAccountRows();
     }
 
     protected function buildReportAddOnTiers(): array
     {
-        return [
-            [
-                'label' => '250 connected retailers',
-                'price' => 'AED 50 / month',
-                'note' => 'Example tier shared by George.',
-            ],
-            [
-                'label' => '500 connected retailers',
-                'price' => 'AED 100 / month',
-                'note' => 'Example tier shared by George.',
-            ],
-            [
-                'label' => 'Custom tier',
-                'price' => 'Set in super admin',
-                'note' => 'Adjust customer limit and pricing case by case.',
-            ],
-        ];
+        return $this->overviewData()->buildReportAddOnTiers();
+    }
+
+    protected function buildConnectionSummary(): array
+    {
+        return $this->overviewData()->buildConnectionSummary();
     }
 
     protected function buildGuardrailCards(SuperAdminAccountCreationBlueprint $blueprint): array
@@ -322,8 +253,8 @@ class SuperAdminOverview extends Page
                 'both_accounts' => Account::query()->where('account_type', AccountType::BOTH->value)->count(),
                 'subscriptions' => AccountSubscription::query()->count(),
                 'reports_addons' => AccountSubscription::query()->where('reports_enabled', true)->count(),
-                'approved_connections' => AccountConnection::query()->where('status', 'approved')->count(),
-                'pending_connections' => AccountConnection::query()->where('status', 'pending')->count(),
+                'approved_connections' => AccountConnection::query()->where('status', AccountConnectionStatus::APPROVED->value)->count(),
+                'pending_connections' => AccountConnection::query()->where('status', AccountConnectionStatus::PENDING->value)->count(),
             ];
         } catch (Throwable) {
             return [
@@ -337,5 +268,10 @@ class SuperAdminOverview extends Page
                 'pending_connections' => 'Pending live data',
             ];
         }
+    }
+
+    protected function overviewData(): SuperAdminOverviewData
+    {
+        return new SuperAdminOverviewData();
     }
 }

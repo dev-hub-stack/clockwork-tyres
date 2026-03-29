@@ -4,6 +4,15 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\ProcurementWorkbench;
 use App\Models\User;
+use App\Modules\Accounts\Enums\AccountConnectionStatus;
+use App\Modules\Accounts\Enums\AccountRole;
+use App\Modules\Accounts\Enums\AccountStatus;
+use App\Modules\Accounts\Enums\AccountType;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Customers\Models\Customer;
+use App\Modules\Orders\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -26,14 +35,91 @@ class ProcurementWorkbenchTest extends TestCase
         $user = User::factory()->create();
         $user->givePermissionTo('view_quotes');
 
+        $currentAccount = $this->createAccount($user, [
+            'name' => 'Retail Admin',
+            'slug' => 'retail-admin',
+            'account_type' => AccountType::BOTH,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ], true);
+
+        $firstSupplier = Account::create([
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        $secondSupplier = Account::create([
+            'name' => 'Desert Line Trading',
+            'slug' => 'desert-line-trading',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $firstSupplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+            'notes' => 'Grouped from the active retailer account.',
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $secondSupplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Retail Walk-in',
+            'email' => 'walkin@example.test',
+            'account_id' => $currentAccount->id,
+            'status' => 'active',
+        ]);
+
+        Order::create([
+            'document_type' => 'quote',
+            'customer_id' => $customer->id,
+            'quote_number' => 'QUO-5001',
+            'quote_status' => 'approved',
+            'order_number' => 'QUO-5001',
+            'payment_status' => 'pending',
+            'sub_total' => 400,
+            'tax' => 0,
+            'vat' => 0,
+            'shipping' => 0,
+            'discount' => 0,
+            'total' => 400,
+            'currency' => 'AED',
+            'tax_inclusive' => true,
+            'issue_date' => now(),
+            'channel' => 'wholesale',
+        ]);
+
         $this->actingAs($user)
             ->get('/admin/procurement-workbench')
             ->assertOk()
+            ->assertSee('Retail Admin')
             ->assertSee('Grouped supplier cart')
-            ->assertSee('One workbench, supplier-separated sections')
+            ->assertSee('Recent procurement signals')
+            ->assertSee("George's grouped-by-supplier admin checkout rule")
             ->assertSee('North Coast Tyres')
             ->assertSee('Desert Line Trading')
-            ->assertSee('One place order, split per supplier behind the scenes')
+            ->assertSee('QUO-5001')
+            ->assertSee('Approved supplier connection ready for procurement.')
             ->assertSee('Supplier order #1')
             ->assertSee('Supplier order #2');
 
@@ -41,8 +127,29 @@ class ProcurementWorkbenchTest extends TestCase
         $page->mount();
 
         $this->assertCount(2, $page->supplierGroups);
-        $this->assertSame('One place order, split per supplier behind the scenes', $page->placeOrderCallout['title']);
-        $this->assertSame(2, $page->requestSummary[0]['value']);
-        $this->assertSame(4, $page->requestSummary[1]['value']);
+        $this->assertSame('Retail Admin', $page->currentAccountSummary['account']['name']);
+        $this->assertSame(2, $page->currentAccountSummary['supplier_connections']['approved']);
+        $this->assertSame("George's grouped-by-supplier admin checkout rule", $page->placeOrderCallout['title']);
+        $this->assertSame('Retail Admin', $page->requestSummary[0]['value']);
+        $this->assertSame(2, $page->requestSummary[1]['value']);
+        $this->assertSame(1, $page->requestSummary[2]['value']);
+        $this->assertSame('QUO-5001', $page->recentProcurementSignals[0]['document_number']);
+    }
+
+    private function createAccount(User $user, array $attributes, bool $isDefault = false): Account
+    {
+        $account = Account::create(array_merge([
+            'status' => AccountStatus::ACTIVE,
+            'reports_subscription_enabled' => false,
+            'reports_customer_limit' => null,
+            'created_by_user_id' => $user->id,
+        ], $attributes));
+
+        $account->users()->attach($user->id, [
+            'role' => AccountRole::OWNER->value,
+            'is_default' => $isDefault,
+        ]);
+
+        return $account;
     }
 }

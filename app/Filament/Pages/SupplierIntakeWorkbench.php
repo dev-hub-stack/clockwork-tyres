@@ -2,9 +2,15 @@
 
 namespace App\Filament\Pages;
 
-use App\Modules\Procurement\Support\ProcurementWorkflow;
+use App\Models\User;
+use App\Modules\Accounts\Enums\AccountStatus;
+use App\Modules\Accounts\Enums\AccountType;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Procurement\Support\SupplierIntakeWorkbenchSignals;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class SupplierIntakeWorkbench extends Page
@@ -27,13 +33,45 @@ class SupplierIntakeWorkbench extends Page
     public array $incomingRequests = [];
     public array $workflowNotes = [];
     public array $actionChecklist = [];
+    public array $currentAccountSummary = [];
+    public array $signalCards = [];
 
     public function mount(): void
     {
-        $this->statusRail = $this->buildStatusRail();
-        $this->incomingRequests = $this->buildIncomingRequests();
-        $this->workflowNotes = $this->buildWorkflowNotes();
-        $this->actionChecklist = $this->buildActionChecklist();
+        $supplierAccount = $this->resolveSupplierAccount();
+        $snapshot = $supplierAccount
+            ? SupplierIntakeWorkbenchSignals::forAccount($supplierAccount)
+            : [
+                'current_account_summary' => [
+                    'name' => 'No supplier account selected',
+                    'type' => 'Supplier',
+                    'retailer_connections' => 0,
+                    'open_quotes' => 0,
+                    'approved_quotes' => 0,
+                    'invoices_issued' => 0,
+                    'incoming_requests' => 0,
+                    'latest_signal' => 'No live requests',
+                ],
+                'signal_cards' => [],
+                'status_rail' => [],
+                'incoming_requests' => [],
+                'workflow_notes' => [
+                    [
+                        'title' => 'Quotes & Proformas inbox',
+                        'copy' => 'No supplier account is currently selected for this user.',
+                    ],
+                ],
+                'action_checklist' => [
+                    'Attach the user to an active supplier account to load live intake signals.',
+                ],
+            ];
+
+        $this->currentAccountSummary = $snapshot['current_account_summary'];
+        $this->signalCards = $snapshot['signal_cards'];
+        $this->statusRail = $snapshot['status_rail'];
+        $this->incomingRequests = $snapshot['incoming_requests'];
+        $this->workflowNotes = $snapshot['workflow_notes'];
+        $this->actionChecklist = $snapshot['action_checklist'];
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -46,96 +84,32 @@ class SupplierIntakeWorkbench extends Page
         return auth()->user()?->can('view_quotes') ?? false;
     }
 
-    protected function buildStatusRail(): array
+    protected function resolveSupplierAccount(): ?Account
     {
-        $descriptions = [
-            'submitted' => 'Incoming procurement request arrives in the supplier portal.',
-            'supplier_review' => 'Review stock, warehouse fit, and offered price level.',
-            'quoted' => 'Send or confirm the supplier quote / proforma response.',
-            'approved' => 'Retailer approves the quote from their admin side.',
-            'invoiced' => 'Approved quote converts to invoice in the supplier workflow.',
-            'stock_reserved' => 'Reserved stock is held against the selected warehouse.',
-            'stock_deducted' => 'Stock deduction follows the current CRM behavior.',
-            'fulfilled' => 'Supplier order is packed, shipped, or completed.',
-            'cancelled' => 'Cancelled requests release inventory back to the selected warehouse.',
-        ];
+        /** @var User|null $user */
+        $user = auth()->user();
 
-        $stageMap = array_values(array_filter(
-            ProcurementWorkflow::stages(),
-            static fn (array $stage): bool => $stage['value'] !== 'draft'
-        ));
+        if (! $user instanceof User) {
+            return null;
+        }
 
-        return array_map(
-            static function (array $stage, int $index) use ($descriptions): array {
-                $value = $stage['value'];
+        $context = app(CurrentAccountResolver::class)->resolve(request(), $user);
+        $currentAccount = $context->currentAccount;
 
-                return [
-                    'key' => $value,
-                    'label' => $stage['label'],
-                    'description' => $descriptions[$value] ?? 'Supplier intake stage placeholder.',
-                    'state' => $index === 0 ? 'active' : 'pending',
-                    'terminal' => $stage['terminal'],
-                ];
-            },
-            $stageMap,
-            array_keys($stageMap)
-        );
-    }
+        if ($currentAccount instanceof Account && $currentAccount->supportsWholesalePortal()) {
+            return $currentAccount;
+        }
 
-    protected function buildIncomingRequests(): array
-    {
-        return [
-            [
-                'request_number' => 'PROC-1001',
-                'retailer' => 'Retailer placeholder',
-                'sku' => 'TYR-SUP-001',
-                'size' => 'Pending tyre sheet',
-                'quantity' => 4,
-                'ship_to' => 'Warehouse / ship-to placeholder',
-                'po_number' => 'PO-PENDING-01',
-                'status' => 'Submitted',
-                'note' => 'Request arrives under Quotes & Proformas and is awaiting supplier review.',
-            ],
-            [
-                'request_number' => 'PROC-1002',
-                'retailer' => 'Retailer placeholder',
-                'sku' => 'TYR-SUP-002',
-                'size' => 'Pending tyre sheet',
-                'quantity' => 8,
-                'ship_to' => 'Warehouse / ship-to placeholder',
-                'po_number' => 'PO-PENDING-02',
-                'status' => 'Supplier Review',
-                'note' => 'Supplier can review stock, choose the warehouse source, and prepare the quote.',
-            ],
-        ];
-    }
-
-    protected function buildWorkflowNotes(): array
-    {
-        return [
-            [
-                'title' => 'Quotes & Proformas inbox',
-                'copy' => 'George described supplier intake as an inbox under Quotes & Proformas. New procurement requests should appear here first, not in the retail storefront flow.',
-            ],
-            [
-                'title' => 'Invoice conversion',
-                'copy' => 'Once the retailer approves the quote, the supplier-side flow converts it to an invoice using the same reporting CRM pattern we already have.',
-            ],
-            [
-                'title' => 'View Store preview',
-                'copy' => 'Supplier accounts also keep the read-only storefront preview mode so they can inspect how their products surface in the retail store without cart or checkout actions.',
-            ],
-        ];
-    }
-
-    protected function buildActionChecklist(): array
-    {
-        return [
-            'Review the incoming procurement request in Quotes & Proformas.',
-            'Confirm warehouse availability and selected price level.',
-            'Respond with supplier quote or proforma.',
-            'Convert approved quote to invoice.',
-            'Reserve or deduct stock using the current CRM method.',
-        ];
+        return $user->accounts()
+            ->select('accounts.*')
+            ->where('accounts.status', AccountStatus::ACTIVE->value)
+            ->where(function (Builder $query): void {
+                $query->where('accounts.wholesale_enabled', true)
+                    ->orWhere('accounts.account_type', AccountType::SUPPLIER->value)
+                    ->orWhere('accounts.account_type', AccountType::BOTH->value);
+            })
+            ->orderByRaw('CASE WHEN account_user.is_default = 1 THEN 0 ELSE 1 END')
+            ->orderBy('accounts.name')
+            ->first();
     }
 }

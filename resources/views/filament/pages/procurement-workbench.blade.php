@@ -4,8 +4,19 @@
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">Retailer admin</p>
             <h1 class="mt-1 text-2xl font-semibold">Procurement Workbench</h1>
             <p class="mt-2 text-sm leading-6 text-sky-900">
-                This is a backend workbench for building procurement requests. It stays separate from storefront checkout and now reflects George's grouped supplier flow: one retailer workbench, multiple supplier sections, one submit action.
+                This is a backend workbench for building procurement requests. It stays separate from storefront checkout and follows George's grouped-by-supplier admin checkout rule: one active retail account, multiple supplier sections, one submit action.
             </p>
+            <div class="mt-4 flex flex-wrap gap-2 text-xs font-medium">
+                <span class="rounded-full bg-white px-3 py-1 text-sky-700">
+                    Current account: {{ $currentAccountSummary['account']['name'] ?? 'No active retail account' }}
+                </span>
+                <span class="rounded-full bg-white px-3 py-1 text-sky-700">
+                    Approved supplier groups: {{ $plannedSubmission['supplier_count'] ?? 0 }}
+                </span>
+                <span class="rounded-full bg-white px-3 py-1 text-sky-700">
+                    Submit action: {{ $placeOrderCallout['action_label'] ?? 'Place Order' }}
+                </span>
+            </div>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
@@ -54,7 +65,7 @@
                     </div>
 
                     <div class="mt-4 space-y-4">
-                        @foreach ($supplierGroups as $group)
+                        @forelse ($supplierGroups as $group)
                             <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                                 <div class="flex flex-col gap-3 border-b border-gray-200 pb-4 md:flex-row md:items-center md:justify-between">
                                     <div>
@@ -94,7 +105,47 @@
                                     </table>
                                 </div>
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm leading-6 text-gray-600">
+                                No approved suppliers are linked to {{ $currentAccountSummary['account']['name'] ?? 'the active retailer account' }} yet. George's grouped-by-supplier checkout only opens once the account has approved supplier connections.
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div class="flex flex-col gap-2 border-b border-gray-100 pb-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Recent procurement signals</p>
+                            <h2 class="text-lg font-semibold text-gray-900">Live quote, order, and invoice activity</h2>
+                        </div>
+                        <div class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+                            Account-aware CRM history
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        @forelse ($recentProcurementSignals as $signal)
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">{{ $signal['document_number'] }}</p>
+                                        <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                                            {{ $signal['document_type_label'] }} · {{ $signal['status_label'] }}
+                                        </p>
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        {{ $signal['occurred_at'] ?? 'Pending date' }}
+                                    </div>
+                                </div>
+                                <p class="mt-3 text-sm text-gray-700">{{ $signal['signal_summary'] }}</p>
+                                <p class="mt-1 text-xs leading-5 text-gray-600">{{ $signal['customer_name'] }} · {{ $signal['channel'] ?? 'Account activity' }}</p>
+                            </div>
+                        @empty
+                            <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
+                                No quote, order, or invoice activity is tied to {{ $currentAccountSummary['account']['name'] ?? 'the active retailer account' }} yet.
+                            </div>
+                        @endforelse
                     </div>
                 </div>
 
@@ -125,9 +176,9 @@
 
                     <div class="rounded-2xl border border-gray-200 bg-amber-50 p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Workbench note</p>
-                        <h3 class="mt-1 text-lg font-semibold text-gray-900">Separate supplier orders, unified retailer action</h3>
+                        <h3 class="mt-1 text-lg font-semibold text-gray-900">Grouped supplier sections, one retailer action</h3>
                         <p class="mt-2 text-sm leading-6 text-gray-700">
-                            Retailers can add tyres from multiple suppliers into the same workbench. The UI keeps each supplier grouped and the backend splits the final submission into separate supplier-side orders, quotes, invoices, and stock movements.
+                            Retailers can work inside the active account and add requests from multiple approved suppliers into the same workbench. The UI keeps each supplier grouped and the backend splits the final submission into separate supplier-side orders, quotes, invoices, and stock movements.
                         </p>
                     </div>
                 </div>
