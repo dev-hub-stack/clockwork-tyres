@@ -4,9 +4,9 @@ namespace App\Modules\Accounts\Models;
 
 use App\Models\User;
 use App\Modules\Accounts\Enums\AccountConnectionStatus;
-use App\Modules\Accounts\Enums\AccountMembershipRole;
+use App\Modules\Accounts\Enums\AccountRole;
 use App\Modules\Accounts\Enums\AccountStatus;
-use App\Modules\Accounts\Enums\AccountSubscriptionPlan;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Customers\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -38,7 +38,7 @@ class Account extends Model
         'retail_enabled' => 'boolean',
         'wholesale_enabled' => 'boolean',
         'status' => AccountStatus::class,
-        'base_subscription_plan' => AccountSubscriptionPlan::class,
+        'base_subscription_plan' => SubscriptionPlan::class,
         'reports_subscription_enabled' => 'boolean',
         'reports_customer_limit' => 'integer',
         'created_by_user_id' => 'integer',
@@ -90,13 +90,13 @@ class Account extends Model
     public function approvedSupplierConnections(): HasMany
     {
         return $this->connectionsAsRetailer()
-            ->where('status', AccountConnectionStatus::Approved->value);
+            ->where('status', AccountConnectionStatus::APPROVED->value);
     }
 
     public function approvedRetailerConnections(): HasMany
     {
         return $this->connectionsAsSupplier()
-            ->where('status', AccountConnectionStatus::Approved->value);
+            ->where('status', AccountConnectionStatus::APPROVED->value);
     }
 
     public function scopeActive($query)
@@ -114,7 +114,7 @@ class Account extends Model
         return $query->where('wholesale_enabled', true);
     }
 
-    public function hasRole(User $user, AccountMembershipRole $role): bool
+    public function hasRole(User $user, AccountRole $role): bool
     {
         return $this->users()
             ->where('users.id', $user->id)
@@ -124,22 +124,22 @@ class Account extends Model
 
     public function isWholesalerEnabled(): bool
     {
-        return $this->wholesale_enabled || $this->account_type === AccountType::Both;
+        return $this->wholesale_enabled || $this->account_type === AccountType::BOTH;
     }
 
     public function isRetailEnabled(): bool
     {
-        return $this->retail_enabled || $this->account_type === AccountType::Both;
+        return $this->retail_enabled || $this->account_type === AccountType::BOTH;
     }
 
     public function isRetailer(): bool
     {
-        return in_array($this->account_type, [AccountType::Retailer, AccountType::Both], true);
+        return in_array($this->account_type, [AccountType::RETAILER, AccountType::BOTH], true);
     }
 
     public function isSupplier(): bool
     {
-        return in_array($this->account_type, [AccountType::Supplier, AccountType::Both], true);
+        return in_array($this->account_type, [AccountType::SUPPLIER, AccountType::BOTH], true);
     }
 
     public function supportsRetailStorefront(): bool
@@ -154,7 +154,7 @@ class Account extends Model
 
     public function hasPremiumSubscription(): bool
     {
-        return $this->base_subscription_plan === AccountSubscriptionPlan::Premium;
+        return $this->base_subscription_plan === SubscriptionPlan::PREMIUM;
     }
 
     public function hasReportsSubscription(): bool

@@ -3,7 +3,7 @@
 namespace App\Modules\Accounts\Models;
 
 use App\Models\User;
-use App\Modules\Accounts\Enums\AccountMembershipRole;
+use App\Modules\Accounts\Enums\AccountRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
@@ -21,7 +21,7 @@ class AccountMembership extends Pivot
     ];
 
     protected $casts = [
-        'role' => AccountMembershipRole::class,
+        'role' => AccountRole::class,
         'is_default' => 'boolean',
     ];
 

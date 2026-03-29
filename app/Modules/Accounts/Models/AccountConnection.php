@@ -37,13 +37,13 @@ class AccountConnection extends Model
 
     public function scopeApproved($query)
     {
-        return $query->where('status', AccountConnectionStatus::Approved);
+        return $query->where('status', AccountConnectionStatus::APPROVED->value);
     }
 
     public function approve(?string $notes = null): void
     {
         $this->forceFill([
-            'status' => AccountConnectionStatus::Approved,
+            'status' => AccountConnectionStatus::APPROVED->value,
             'approved_at' => now(),
             'notes' => $notes ?? $this->notes,
         ])->save();
@@ -51,6 +51,6 @@ class AccountConnection extends Model
 
     public function isApproved(): bool
     {
-        return $this->status === AccountConnectionStatus::Approved;
+        return $this->status === AccountConnectionStatus::APPROVED;
     }
 }

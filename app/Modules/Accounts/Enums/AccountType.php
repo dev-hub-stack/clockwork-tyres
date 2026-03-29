@@ -4,16 +4,16 @@ namespace App\Modules\Accounts\Enums;
 
 enum AccountType: string
 {
-    case Retailer = 'retailer';
-    case Supplier = 'supplier';
-    case Both = 'both';
+    case RETAILER = 'retailer';
+    case SUPPLIER = 'supplier';
+    case BOTH = 'both';
 
     public function label(): string
     {
         return match ($this) {
-            self::Retailer => 'Retailer',
-            self::Supplier => 'Supplier',
-            self::Both => 'Retailer & Supplier',
+            self::RETAILER => 'Retailer',
+            self::SUPPLIER => 'Supplier',
+            self::BOTH => 'Retailer & Supplier',
         };
     }
 

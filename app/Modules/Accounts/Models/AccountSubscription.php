@@ -3,7 +3,7 @@
 namespace App\Modules\Accounts\Models;
 
 use App\Models\User;
-use App\Modules\Accounts\Enums\AccountSubscriptionPlan;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +26,7 @@ class AccountSubscription extends Model
     ];
 
     protected $casts = [
-        'plan_code' => AccountSubscriptionPlan::class,
+        'plan_code' => SubscriptionPlan::class,
         'reports_enabled' => 'boolean',
         'reports_customer_limit' => 'integer',
         'starts_at' => 'datetime',

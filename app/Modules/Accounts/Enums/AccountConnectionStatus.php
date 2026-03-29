@@ -4,18 +4,18 @@ namespace App\Modules\Accounts\Enums;
 
 enum AccountConnectionStatus: string
 {
-    case Pending = 'pending';
-    case Approved = 'approved';
-    case Rejected = 'rejected';
-    case Inactive = 'inactive';
+    case PENDING = 'pending';
+    case APPROVED = 'approved';
+    case REJECTED = 'rejected';
+    case INACTIVE = 'inactive';
 
     public function label(): string
     {
         return match ($this) {
-            self::Pending => 'Pending',
-            self::Approved => 'Approved',
-            self::Rejected => 'Rejected',
-            self::Inactive => 'Inactive',
+            self::PENDING => 'Pending',
+            self::APPROVED => 'Approved',
+            self::REJECTED => 'Rejected',
+            self::INACTIVE => 'Inactive',
         };
     }
 
