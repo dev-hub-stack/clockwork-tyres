@@ -13,6 +13,9 @@ use App\Modules\Customers\Models\Customer;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Models\ProcurementSubmission;
 use App\Modules\Procurement\Support\SupplierIntakeWorkbenchSignals;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -175,5 +178,98 @@ class SupplierIntakeWorkbenchSignalsTest extends TestCase
         }
 
         return $account;
+    }
+
+    #[Test]
+    public function it_surfaces_submitted_procurement_requests_ahead_of_quote_conversion(): void
+    {
+        $user = User::factory()->create();
+
+        $supplierAccount = $this->createAccount($user, [
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+        ]);
+
+        $retailerAccount = $this->createAccount($user, [
+            'name' => 'Alpha Retail',
+            'slug' => 'alpha-retail',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+        ], attachToUser: false);
+
+        $supplierCustomer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => 'Alpha Retail',
+            'email' => null,
+            'account_id' => $supplierAccount->id,
+            'status' => 'active',
+        ]);
+
+        $connection = AccountConnection::create([
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'supplier_customer_id' => $supplierCustomer->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $submission = ProcurementSubmission::create([
+            'submission_number' => 'PRB-20260329-0101',
+            'retailer_account_id' => $retailerAccount->id,
+            'submitted_by_user_id' => $user->id,
+            'status' => ProcurementWorkflowStage::SUBMITTED,
+            'supplier_count' => 1,
+            'request_count' => 1,
+            'line_item_count' => 1,
+            'quantity_total' => 4,
+            'subtotal' => 520,
+            'currency' => 'AED',
+            'source' => 'admin_workbench',
+            'submitted_at' => now(),
+        ]);
+
+        $request = ProcurementRequest::create([
+            'request_number' => 'PRQ-20260329-0101',
+            'procurement_submission_id' => $submission->id,
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'account_connection_id' => $connection->id,
+            'customer_id' => $supplierCustomer->id,
+            'submitted_by_user_id' => $user->id,
+            'current_stage' => ProcurementWorkflowStage::SUBMITTED,
+            'line_item_count' => 1,
+            'currency' => 'AED',
+            'quantity_total' => 4,
+            'subtotal' => 520,
+            'submitted_at' => now(),
+        ]);
+
+        $request->items()->create([
+            'sku' => 'TYR-INTAKE-001',
+            'product_name' => 'Touring tyre',
+            'size' => '225/45R17',
+            'quantity' => 4,
+            'unit_price' => 130,
+            'line_total' => 520,
+            'payload' => [
+                'size' => '225/45R17',
+            ],
+        ]);
+
+        $snapshot = SupplierIntakeWorkbenchSignals::forAccount($supplierAccount);
+        $signalCards = collect($snapshot['signal_cards'])->keyBy('label');
+
+        $this->assertSame(1, $snapshot['current_account_summary']['procurement_requests']);
+        $this->assertSame(1, $signalCards['Quotes & Proformas inbox']['value']);
+        $this->assertSame('PRQ-20260329-0101', $snapshot['incoming_requests'][0]['request_number']);
+        $this->assertSame('Procurement Request', $snapshot['incoming_requests'][0]['document_type']);
+        $this->assertSame('Submitted', $snapshot['incoming_requests'][0]['status']);
+        $this->assertSame('225/45R17', $snapshot['incoming_requests'][0]['size']);
+        $statusRail = collect($snapshot['status_rail'])->keyBy('key');
+        $this->assertSame(1, $statusRail['submitted']['count']);
     }
 }

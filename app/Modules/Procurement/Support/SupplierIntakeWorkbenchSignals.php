@@ -4,10 +4,11 @@ namespace App\Modules\Procurement\Support;
 
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
-use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use Illuminate\Support\Collection;
 
 final class SupplierIntakeWorkbenchSignals
@@ -32,6 +33,12 @@ final class SupplierIntakeWorkbenchSignals
             ->filter(fn ($retailerAccount) => $retailerAccount instanceof Account)
             ->values();
 
+        $procurementRequests = self::procurementRequestsForSupplier($account);
+
+        if ($procurementRequests->isNotEmpty()) {
+            return self::buildProcurementRequestSnapshot($account, $retailerAccounts->count(), $procurementRequests);
+        }
+
         $scopeAccountIds = $retailerAccounts->pluck('id');
 
         if ($scopeAccountIds->isEmpty()) {
@@ -40,26 +47,13 @@ final class SupplierIntakeWorkbenchSignals
 
         $quoteRequests = self::quoteRequestsForAccounts($scopeAccountIds);
         $invoiceRequests = self::invoiceRequestsForAccounts($scopeAccountIds);
-        $incomingRequests = self::buildIncomingRequests($quoteRequests, $invoiceRequests);
 
-        return [
-            'current_account_summary' => self::buildCurrentAccountSummary(
-                $account,
-                $retailerAccounts->count(),
-                $quoteRequests,
-                $invoiceRequests,
-                $incomingRequests
-            ),
-            'signal_cards' => self::buildSignalCards(
-                $retailerAccounts->count(),
-                $quoteRequests,
-                $invoiceRequests
-            ),
-            'status_rail' => self::buildStatusRail($quoteRequests, $invoiceRequests),
-            'incoming_requests' => $incomingRequests,
-            'workflow_notes' => self::buildWorkflowNotes(),
-            'action_checklist' => self::buildActionChecklist(),
-        ];
+        return self::buildOrderSnapshot(
+            $account,
+            $retailerAccounts->count(),
+            $quoteRequests,
+            $invoiceRequests
+        );
     }
 
     /**
@@ -72,6 +66,19 @@ final class SupplierIntakeWorkbenchSignals
             ->approved()
             ->where('supplier_account_id', $account->id)
             ->orderBy('retailer_account_id')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, ProcurementRequest>
+     */
+    private static function procurementRequestsForSupplier(Account $account): Collection
+    {
+        return ProcurementRequest::query()
+            ->with(['retailerAccount', 'customer', 'items'])
+            ->forSupplier($account)
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id')
             ->get();
     }
 
@@ -114,6 +121,181 @@ final class SupplierIntakeWorkbenchSignals
     }
 
     /**
+     * @param  Collection<int, ProcurementRequest>  $procurementRequests
+     * @return array<string, mixed>
+     */
+    private static function buildProcurementRequestSnapshot(
+        Account $account,
+        int $retailerConnectionCount,
+        Collection $procurementRequests
+    ): array {
+        $incomingRequests = self::buildIncomingRequestsFromProcurementRequests($procurementRequests);
+        $statusRail = self::buildStatusRailFromProcurementRequests($procurementRequests);
+
+        return [
+            'current_account_summary' => [
+                'name' => $account->name,
+                'type' => $account->account_type?->label() ?? 'Account',
+                'retailer_connections' => $retailerConnectionCount,
+                'procurement_requests' => $procurementRequests->count(),
+                'open_quotes' => $procurementRequests->filter(
+                    static fn (ProcurementRequest $request): bool => in_array($request->current_stage, [
+                        ProcurementWorkflowStage::SUBMITTED,
+                        ProcurementWorkflowStage::SUPPLIER_REVIEW,
+                        ProcurementWorkflowStage::QUOTED,
+                    ], true)
+                )->count(),
+                'approved_quotes' => $procurementRequests->filter(
+                    static fn (ProcurementRequest $request): bool => $request->current_stage === ProcurementWorkflowStage::APPROVED
+                )->count(),
+                'invoices_issued' => $procurementRequests->filter(
+                    static fn (ProcurementRequest $request): bool => in_array($request->current_stage, [
+                        ProcurementWorkflowStage::INVOICED,
+                        ProcurementWorkflowStage::STOCK_RESERVED,
+                        ProcurementWorkflowStage::STOCK_DEDUCTED,
+                        ProcurementWorkflowStage::FULFILLED,
+                    ], true)
+                )->count(),
+                'incoming_requests' => count($incomingRequests),
+                'latest_signal' => $incomingRequests[0]['status'] ?? 'No live requests',
+            ],
+            'signal_cards' => [
+                [
+                    'label' => 'Quotes & Proformas inbox',
+                    'value' => $procurementRequests->count(),
+                    'note' => 'Persisted supplier intake requests from retailer procurement submissions.',
+                ],
+                [
+                    'label' => 'Submitted requests',
+                    'value' => $procurementRequests->filter(
+                        static fn (ProcurementRequest $request): bool => $request->current_stage === ProcurementWorkflowStage::SUBMITTED
+                    )->count(),
+                    'note' => 'Retailer procurement requests waiting for supplier review.',
+                ],
+                [
+                    'label' => 'Approved quotes',
+                    'value' => $procurementRequests->filter(
+                        static fn (ProcurementRequest $request): bool => $request->current_stage === ProcurementWorkflowStage::APPROVED
+                    )->count(),
+                    'note' => 'Approved requests are ready for invoice conversion.',
+                ],
+                [
+                    'label' => 'Invoices issued',
+                    'value' => $procurementRequests->filter(
+                        static fn (ProcurementRequest $request): bool => in_array($request->current_stage, [
+                            ProcurementWorkflowStage::INVOICED,
+                            ProcurementWorkflowStage::STOCK_RESERVED,
+                            ProcurementWorkflowStage::STOCK_DEDUCTED,
+                            ProcurementWorkflowStage::FULFILLED,
+                        ], true)
+                    )->count(),
+                    'note' => 'Requests already moved into the invoice and stock path.',
+                ],
+                [
+                    'label' => 'Retailer connections',
+                    'value' => $retailerConnectionCount,
+                    'note' => 'Approved supplier links feeding this intake view.',
+                ],
+            ],
+            'status_rail' => $statusRail,
+            'incoming_requests' => $incomingRequests,
+            'workflow_notes' => self::buildWorkflowNotes(),
+            'action_checklist' => self::buildActionChecklist(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Order>  $quoteRequests
+     * @param  Collection<int, Order>  $invoiceRequests
+     * @return array<string, mixed>
+     */
+    private static function buildOrderSnapshot(
+        Account $account,
+        int $retailerConnectionCount,
+        Collection $quoteRequests,
+        Collection $invoiceRequests
+    ): array {
+        $incomingRequests = self::buildIncomingRequests($quoteRequests, $invoiceRequests);
+        $statusRail = self::buildStatusRail($quoteRequests, $invoiceRequests);
+
+        return [
+            'current_account_summary' => [
+                'name' => $account->name,
+                'type' => $account->account_type?->label() ?? 'Account',
+                'retailer_connections' => $retailerConnectionCount,
+                'procurement_requests' => 0,
+                'open_quotes' => $quoteRequests->filter(
+                    static fn (Order $order): bool => $order->quote_status === QuoteStatus::SENT
+                )->count(),
+                'approved_quotes' => $quoteRequests->filter(
+                    static fn (Order $order): bool => $order->quote_status === QuoteStatus::APPROVED
+                )->count(),
+                'invoices_issued' => $invoiceRequests->count(),
+                'incoming_requests' => count($incomingRequests),
+                'latest_signal' => $incomingRequests[0]['status'] ?? 'No live requests',
+            ],
+            'signal_cards' => [
+                [
+                    'label' => 'Quotes & Proformas inbox',
+                    'value' => $quoteRequests->count(),
+                    'note' => 'Real quote records from connected retailer accounts.',
+                ],
+                [
+                    'label' => 'Approved quotes',
+                    'value' => $quoteRequests->filter(
+                        static fn (Order $order): bool => $order->quote_status === QuoteStatus::APPROVED
+                    )->count(),
+                    'note' => 'Approved requests are ready for invoice conversion.',
+                ],
+                [
+                    'label' => 'Invoices issued',
+                    'value' => $invoiceRequests->count(),
+                    'note' => 'Converted invoice records from the same account network.',
+                ],
+                [
+                    'label' => 'Retailer connections',
+                    'value' => $retailerConnectionCount,
+                    'note' => 'Approved supplier links feeding this intake view.',
+                ],
+            ],
+            'status_rail' => $statusRail,
+            'incoming_requests' => $incomingRequests,
+            'workflow_notes' => self::buildWorkflowNotes(),
+            'action_checklist' => self::buildActionChecklist(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, ProcurementRequest>  $procurementRequests
+     * @return array<int, array<string, mixed>>
+     */
+    private static function buildIncomingRequestsFromProcurementRequests(Collection $procurementRequests): array
+    {
+        return $procurementRequests
+            ->map(function (ProcurementRequest $request): array {
+                $primaryItem = $request->items->first();
+
+                return [
+                    'record_id' => $request->id,
+                    'issued_at' => $request->submitted_at?->toDateString() ?? $request->created_at?->toDateString(),
+                    'request_number' => $request->request_number ?? ('PRQ-'.$request->id),
+                    'document_type' => 'Procurement Request',
+                    'retailer' => $request->customer?->business_name ?? $request->customer?->name ?? $request->retailerAccount?->name ?? 'Unknown retailer',
+                    'account' => $request->retailerAccount?->name ?? 'Unlinked account',
+                    'sku' => $primaryItem?->sku ?? '—',
+                    'size' => $primaryItem?->size ?? '—',
+                    'quantity' => $request->quantity_total,
+                    'reference' => $request->request_number ?? ('PRQ-'.$request->id),
+                    'status' => $request->current_stage?->label() ?? 'Submitted',
+                    'stage' => $request->current_stage?->value ?? ProcurementWorkflowStage::SUBMITTED->value,
+                    'note' => self::describeProcurementRequestNote($request),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  Collection<int, Order>  $quoteRequests
      * @param  Collection<int, Order>  $invoiceRequests
      * @return array<int, array<string, mixed>>
@@ -128,7 +310,7 @@ final class SupplierIntakeWorkbenchSignals
                 $primaryItem = $order->items->first();
                 $documentType = $order->document_type;
 
-                $row = [
+                return [
                     'record_id' => $order->id,
                     'issued_at' => $order->issue_date?->toDateString() ?? $order->created_at?->toDateString(),
                     'request_number' => $order->isQuote()
@@ -138,18 +320,16 @@ final class SupplierIntakeWorkbenchSignals
                     'retailer' => $customer?->business_name ?? $customer?->name ?? 'Unknown customer',
                     'account' => $account?->name ?? 'Unlinked account',
                     'sku' => $primaryItem?->display_sku ?? $primaryItem?->sku ?? '—',
-                    'size' => self::extractSize($primaryItem),
+                    'size' => self::extractLegacySize($primaryItem),
                     'quantity' => (int) $order->items->sum('quantity'),
                     'reference' => $order->external_order_id
                         ?? $order->quote_number
                         ?? $order->order_number
                         ?? '—',
-                    'status' => self::describeStatus($order),
-                    'stage' => self::describeStage($order),
-                    'note' => self::describeNote($order),
+                    'status' => self::describeOrderStatus($order),
+                    'stage' => self::describeOrderStage($order),
+                    'note' => self::describeOrderNote($order),
                 ];
-
-                return $row;
             })
             ->sort(function (array $left, array $right): int {
                 $leftIssuedAt = $left['issued_at'] ?? '';
@@ -167,67 +347,35 @@ final class SupplierIntakeWorkbenchSignals
     }
 
     /**
-     * @param  Collection<int, Order>  $quoteRequests
-     * @param  Collection<int, Order>  $invoiceRequests
-     * @return array<string, mixed>
-     */
-    private static function buildCurrentAccountSummary(
-        Account $account,
-        int $retailerConnectionCount,
-        Collection $quoteRequests,
-        Collection $invoiceRequests,
-        array $incomingRequests
-    ): array {
-        return [
-            'name' => $account->name,
-            'type' => $account->account_type?->label() ?? 'Account',
-            'retailer_connections' => $retailerConnectionCount,
-            'open_quotes' => $quoteRequests->filter(
-                static fn (Order $order): bool => $order->quote_status === QuoteStatus::SENT
-            )->count(),
-            'approved_quotes' => $quoteRequests->filter(
-                static fn (Order $order): bool => $order->quote_status === QuoteStatus::APPROVED
-            )->count(),
-            'invoices_issued' => $invoiceRequests->count(),
-            'incoming_requests' => count($incomingRequests),
-            'latest_signal' => $incomingRequests[0]['status'] ?? 'No live requests',
-        ];
-    }
-
-    /**
-     * @param  Collection<int, Order>  $quoteRequests
-     * @param  Collection<int, Order>  $invoiceRequests
+     * @param  Collection<int, ProcurementRequest>  $procurementRequests
      * @return array<int, array<string, mixed>>
      */
-    private static function buildSignalCards(
-        int $retailerConnectionCount,
-        Collection $quoteRequests,
-        Collection $invoiceRequests
-    ): array {
-        return [
-            [
-                'label' => 'Quotes & Proformas inbox',
-                'value' => $quoteRequests->count(),
-                'note' => 'Real quote records from connected retailer accounts.',
-            ],
-            [
-                'label' => 'Approved quotes',
-                'value' => $quoteRequests->filter(
-                    static fn (Order $order): bool => $order->quote_status === QuoteStatus::APPROVED
-                )->count(),
-                'note' => 'Approved requests are ready for invoice conversion.',
-            ],
-            [
-                'label' => 'Invoices issued',
-                'value' => $invoiceRequests->count(),
-                'note' => 'Converted invoice records from the same account network.',
-            ],
-            [
-                'label' => 'Retailer connections',
-                'value' => $retailerConnectionCount,
-                'note' => 'Approved supplier links feeding this intake view.',
-            ],
-        ];
+    private static function buildStatusRailFromProcurementRequests(Collection $procurementRequests): array
+    {
+        $descriptions = self::statusDescriptions();
+        $stageMap = array_values(array_filter(
+            ProcurementWorkflow::stages(),
+            static fn (array $stage): bool => $stage['value'] !== ProcurementWorkflowStage::DRAFT->value
+        ));
+
+        return array_map(
+            static function (array $stage) use ($procurementRequests, $descriptions): array {
+                $value = $stage['value'];
+                $count = $procurementRequests->filter(
+                    static fn (ProcurementRequest $request): bool => $request->current_stage?->value === $value
+                )->count();
+
+                return [
+                    'key' => $value,
+                    'label' => $stage['label'],
+                    'description' => $descriptions[$value] ?? 'Supplier intake stage.',
+                    'state' => $count > 0 ? 'active' : 'pending',
+                    'terminal' => $stage['terminal'],
+                    'count' => $count,
+                ];
+            },
+            $stageMap
+        );
     }
 
     /**
@@ -278,21 +426,10 @@ final class SupplierIntakeWorkbenchSignals
                 )->count(),
         ];
 
-        $descriptions = [
-            'submitted' => 'Incoming procurement request arrives in the supplier inbox.',
-            'supplier_review' => 'Supplier reviews the request under Quotes & Proformas.',
-            'quoted' => 'The supplier response is captured as a quote or proforma.',
-            'approved' => 'Retailer approval moves the quote toward invoice conversion.',
-            'invoiced' => 'Approved quotes become invoices in the supplier workflow.',
-            'stock_reserved' => 'Stock is reserved before the CRM deducts inventory.',
-            'stock_deducted' => 'Stock deduction follows the current CRM method.',
-            'fulfilled' => 'Fulfilment is complete and ready for reporting.',
-            'cancelled' => 'Cancelled requests release inventory back to stock.',
-        ];
-
+        $descriptions = self::statusDescriptions();
         $stageMap = array_values(array_filter(
             ProcurementWorkflow::stages(),
-            static fn (array $stage): bool => $stage['value'] !== 'draft'
+            static fn (array $stage): bool => $stage['value'] !== ProcurementWorkflowStage::DRAFT->value
         ));
 
         return array_map(
@@ -348,7 +485,25 @@ final class SupplierIntakeWorkbenchSignals
         ];
     }
 
-    private static function describeStatus(Order $order): string
+    /**
+     * @return array<string, string>
+     */
+    private static function statusDescriptions(): array
+    {
+        return [
+            'submitted' => 'Incoming procurement request arrives in the supplier inbox.',
+            'supplier_review' => 'Supplier reviews the request under Quotes & Proformas.',
+            'quoted' => 'The supplier response is captured as a quote or proforma.',
+            'approved' => 'Retailer approval moves the quote toward invoice conversion.',
+            'invoiced' => 'Approved quotes become invoices in the supplier workflow.',
+            'stock_reserved' => 'Stock is reserved before the CRM deducts inventory.',
+            'stock_deducted' => 'Stock deduction follows the current CRM method.',
+            'fulfilled' => 'Fulfilment is complete and ready for reporting.',
+            'cancelled' => 'Cancelled requests release inventory back to stock.',
+        ];
+    }
+
+    private static function describeOrderStatus(Order $order): string
     {
         if ($order->isQuote()) {
             return $order->quote_status?->label() ?? 'Quote';
@@ -357,27 +512,27 @@ final class SupplierIntakeWorkbenchSignals
         return $order->order_status?->label() ?? 'Invoice';
     }
 
-    private static function describeStage(Order $order): string
+    private static function describeOrderStage(Order $order): string
     {
         if ($order->isQuote()) {
             return match ($order->quote_status) {
-                QuoteStatus::SENT => 'submitted',
-                QuoteStatus::APPROVED => 'approved',
-                QuoteStatus::CONVERTED => 'invoiced',
-                default => 'quoted',
+                QuoteStatus::SENT => ProcurementWorkflowStage::SUBMITTED->value,
+                QuoteStatus::APPROVED => ProcurementWorkflowStage::APPROVED->value,
+                QuoteStatus::CONVERTED => ProcurementWorkflowStage::INVOICED->value,
+                default => ProcurementWorkflowStage::QUOTED->value,
             };
         }
 
         return match ($order->order_status) {
-            OrderStatus::PENDING, OrderStatus::PROCESSING => 'stock_reserved',
-            OrderStatus::SHIPPED, OrderStatus::DELIVERED => 'stock_deducted',
-            OrderStatus::COMPLETED => 'fulfilled',
-            OrderStatus::CANCELLED => 'cancelled',
-            default => 'invoiced',
+            OrderStatus::PENDING, OrderStatus::PROCESSING => ProcurementWorkflowStage::STOCK_RESERVED->value,
+            OrderStatus::SHIPPED, OrderStatus::DELIVERED => ProcurementWorkflowStage::STOCK_DEDUCTED->value,
+            OrderStatus::COMPLETED => ProcurementWorkflowStage::FULFILLED->value,
+            OrderStatus::CANCELLED => ProcurementWorkflowStage::CANCELLED->value,
+            default => ProcurementWorkflowStage::INVOICED->value,
         };
     }
 
-    private static function describeNote(Order $order): string
+    private static function describeOrderNote(Order $order): string
     {
         if ($order->isQuote()) {
             return match ($order->quote_status) {
@@ -397,7 +552,23 @@ final class SupplierIntakeWorkbenchSignals
         };
     }
 
-    private static function extractSize(mixed $primaryItem): string
+    private static function describeProcurementRequestNote(ProcurementRequest $request): string
+    {
+        return match ($request->current_stage) {
+            ProcurementWorkflowStage::SUBMITTED => 'Retailer grouped checkout submitted and waiting for supplier review.',
+            ProcurementWorkflowStage::SUPPLIER_REVIEW => 'Supplier is reviewing availability and fulfilment fit.',
+            ProcurementWorkflowStage::QUOTED => 'Supplier quote or proforma is ready for retailer review.',
+            ProcurementWorkflowStage::APPROVED => 'Approved quote is ready to convert to invoice.',
+            ProcurementWorkflowStage::INVOICED => 'Invoice has been created from the approved request.',
+            ProcurementWorkflowStage::STOCK_RESERVED => 'Inventory has been reserved against the selected warehouse.',
+            ProcurementWorkflowStage::STOCK_DEDUCTED => 'Stock deduction follows the current CRM method.',
+            ProcurementWorkflowStage::FULFILLED => 'Procurement fulfilment is complete.',
+            ProcurementWorkflowStage::CANCELLED => 'Cancelled request releases inventory back to stock.',
+            default => 'Procurement request is in the supplier intake queue.',
+        };
+    }
+
+    private static function extractLegacySize(mixed $primaryItem): string
     {
         if (! $primaryItem) {
             return '—';

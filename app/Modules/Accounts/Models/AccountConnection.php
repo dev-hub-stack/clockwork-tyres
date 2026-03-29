@@ -3,6 +3,7 @@
 namespace App\Modules\Accounts\Models;
 
 use App\Modules\Accounts\Enums\AccountConnectionStatus;
+use App\Modules\Customers\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ class AccountConnection extends Model
     protected $fillable = [
         'retailer_account_id',
         'supplier_account_id',
+        'supplier_customer_id',
         'status',
         'approved_at',
         'notes',
@@ -33,6 +35,11 @@ class AccountConnection extends Model
     public function supplierAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'supplier_account_id');
+    }
+
+    public function supplierCustomer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'supplier_customer_id');
     }
 
     public function scopeApproved($query)

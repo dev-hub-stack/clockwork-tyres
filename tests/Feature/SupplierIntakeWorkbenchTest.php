@@ -11,6 +11,7 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
@@ -138,6 +139,81 @@ class SupplierIntakeWorkbenchTest extends TestCase
         $this->assertSame('Quotes & Proformas inbox', $page->signalCards[0]['label']);
         $this->assertSame(1, $page->signalCards[0]['value']);
         $this->assertCount(9, $page->statusRail);
+    }
+
+    public function test_supplier_intake_workbench_reads_persisted_procurement_requests_when_present(): void
+    {
+        $supplierUser = User::factory()->create();
+        $supplierUser->givePermissionTo('view_quotes');
+
+        $supplierAccount = $this->createAccount($supplierUser, [
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+        ]);
+
+        $retailerOwner = User::factory()->create();
+        $retailerAccount = $this->createAccount($retailerOwner, [
+            'name' => 'Retail Alpha',
+            'slug' => 'retail-alpha',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+            'notes' => 'Primary procurement connection',
+        ]);
+
+        $customer = Customer::create([
+            'business_name' => 'Alpha Fleet Services',
+            'email' => 'fleet@example.test',
+            'account_id' => $retailerAccount->id,
+        ]);
+
+        app(SubmitGroupedProcurementAction::class)->execute(
+            retailerAccount: $retailerAccount,
+            actor: $retailerOwner,
+            customer: $customer,
+            lineItems: [
+                [
+                    'supplier_id' => $supplierAccount->id,
+                    'supplier_name' => 'North Coast Tyres',
+                    'sku' => 'TYR-ALPHA-001',
+                    'product_name' => 'Touring tyre',
+                    'size' => '225/45R17',
+                    'quantity' => 4,
+                    'unit_price' => 125,
+                    'source' => 'Approved supplier connection',
+                ],
+            ],
+        );
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/supplier-intake-workbench')
+            ->assertOk()
+            ->assertSee('Supplier Intake Workbench')
+            ->assertSee('North Coast Tyres')
+            ->assertSee('Retail Alpha')
+            ->assertSee('Retail Alpha')
+            ->assertSee('Quotes & Proformas inbox')
+            ->assertSee('Procurement Request');
+
+        $page = app(SupplierIntakeWorkbench::class);
+        $page->mount();
+
+        $this->assertSame('North Coast Tyres', $page->currentAccountSummary['name']);
+        $this->assertSame(1, $page->currentAccountSummary['retailer_connections']);
+        $this->assertSame(1, $page->currentAccountSummary['incoming_requests']);
+        $this->assertSame(1, $page->signalCards[0]['value']);
+        $this->assertSame('Retail Alpha', $page->incomingRequests[0]['retailer']);
+        $this->assertSame('submitted', $page->incomingRequests[0]['stage']);
     }
 
     /**

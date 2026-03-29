@@ -12,6 +12,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Orders\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -134,6 +135,84 @@ class ProcurementWorkbenchTest extends TestCase
         $this->assertSame(2, $page->requestSummary[1]['value']);
         $this->assertSame(1, $page->requestSummary[2]['value']);
         $this->assertSame('QUO-5001', $page->recentProcurementSignals[0]['document_number']);
+    }
+
+    public function test_procurement_workbench_surfaces_persisted_grouped_procurement_requests(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('view_quotes');
+
+        $currentAccount = $this->createAccount($user, [
+            'name' => 'Retail Admin',
+            'slug' => 'retail-admin',
+            'account_type' => AccountType::BOTH,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ], true);
+
+        $supplier = Account::create([
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $supplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Retail Walk-in',
+            'email' => 'walkin@example.test',
+            'account_id' => $currentAccount->id,
+            'status' => 'active',
+        ]);
+
+        $submission = app(SubmitGroupedProcurementAction::class)->execute(
+            retailerAccount: $currentAccount,
+            actor: $user,
+            customer: $customer,
+            lineItems: [
+                [
+                    'supplier_id' => $supplier->id,
+                    'supplier_name' => 'North Coast Tyres',
+                    'sku' => 'TYR-225-45-17',
+                    'product_name' => 'Touring tyre',
+                    'size' => '225/45R17',
+                    'quantity' => 4,
+                    'unit_price' => 120,
+                    'source' => 'Approved supplier connection',
+                ],
+            ],
+        );
+
+        $requestNumber = $submission->requests->first()?->request_number;
+
+        $this->assertNotNull($requestNumber);
+
+        $this->actingAs($user)
+            ->get('/admin/procurement-workbench')
+            ->assertOk()
+            ->assertSee('Retail Admin')
+            ->assertSee('Live procurement requests')
+            ->assertSee($requestNumber);
+
+        $page = app(ProcurementWorkbench::class);
+        $page->mount();
+
+        $this->assertSame(1, $page->requestSummary[2]['value']);
+        $this->assertSame($requestNumber, $page->recentProcurementSignals[0]['document_number']);
+        $this->assertSame('Procurement Request', $page->recentProcurementSignals[0]['document_type_label']);
     }
 
     private function createAccount(User $user, array $attributes, bool $isDefault = false): Account

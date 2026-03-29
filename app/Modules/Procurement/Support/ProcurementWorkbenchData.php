@@ -10,6 +10,7 @@ use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ProcurementWorkbenchData
@@ -50,6 +51,21 @@ final class ProcurementWorkbenchData
                     'invoices' => 0,
                     'total' => 0,
                 ],
+                'request_counts' => [
+                    'total' => 0,
+                    'submitted' => 0,
+                    'supplier_review' => 0,
+                    'quoted' => 0,
+                    'approved' => 0,
+                    'invoiced' => 0,
+                    'stock_reserved' => 0,
+                    'stock_deducted' => 0,
+                    'fulfilled' => 0,
+                    'cancelled' => 0,
+                ],
+                'procurement_request_counts' => [
+                    'total' => 0,
+                ],
                 'document_total' => 0.0,
                 'last_activity_at' => null,
                 'last_activity_label' => null,
@@ -58,7 +74,16 @@ final class ProcurementWorkbenchData
 
         $connections = $this->accountConnectionsQuery()->get();
         $documents = $this->accountDocumentsQuery();
+        $procurementRequests = $this->accountProcurementRequestsQuery()->get();
         $latestDocument = (clone $documents)->latest('created_at')->first();
+        $latestProcurementRequest = $procurementRequests
+            ->sortByDesc(fn (ProcurementRequest $request): string => $request->submitted_at?->toDateTimeString() ?? $request->created_at?->toDateTimeString() ?? '')
+            ->first();
+        $latestActivity = collect([$latestDocument, $latestProcurementRequest])
+            ->filter()
+            ->sortByDesc(fn (mixed $record): string => $this->recordOccurredAt($record) ?? '')
+            ->first();
+        $requestCounts = $this->requestCounts($procurementRequests);
 
         return [
             'has_current_account' => true,
@@ -78,9 +103,13 @@ final class ProcurementWorkbenchData
                 'invoices' => $this->countDocuments(DocumentType::INVOICE),
                 'total' => $documents->count(),
             ],
+            'request_counts' => $requestCounts,
+            'procurement_request_counts' => [
+                'total' => $requestCounts['total'],
+            ],
             'document_total' => round((float) $documents->sum('total'), 2),
-            'last_activity_at' => $latestDocument?->created_at?->toDateTimeString(),
-            'last_activity_label' => $latestDocument ? $this->signalLabelFor($latestDocument) : null,
+            'last_activity_at' => $this->recordOccurredAt($latestActivity),
+            'last_activity_label' => $this->signalLabelForRecord($latestActivity),
         ];
     }
 
@@ -131,29 +160,26 @@ final class ProcurementWorkbenchData
             return [];
         }
 
-        return $this->accountDocumentsQuery()
+        $requestSignals = $this->accountProcurementRequestsQuery()
+            ->with(['supplierAccount', 'customer', 'items'])
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (ProcurementRequest $request): array => $this->procurementRequestSignal($request));
+
+        $documentSignals = $this->accountDocumentsQuery()
             ->with('customer')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
-            ->map(function (Order $order): array {
-                return [
-                    'id' => $order->id,
-                    'document_type' => $this->documentTypeValue($order),
-                    'document_type_label' => $order->document_type?->label() ?? ucfirst($this->documentTypeValue($order)),
-                    'document_number' => $this->documentNumber($order),
-                    'status' => $this->documentStatusValue($order),
-                    'status_label' => $this->documentStatusLabel($order),
-                    'customer_id' => $order->customer_id,
-                    'customer_name' => $order->customer?->name ?? 'Unknown customer',
-                    'channel' => $order->channel,
-                    'total' => round((float) $order->total, 2),
-                    'occurred_at' => $order->created_at?->toDateTimeString(),
-                    'signal_label' => $this->signalLabelFor($order),
-                    'signal_summary' => $this->signalSummaryFor($order),
-                ];
-            })
+            ->map(fn (Order $order): array => $this->orderSignal($order));
+
+        return $requestSignals
+            ->concat($documentSignals)
+            ->sortByDesc(fn (array $signal): string => (string) ($signal['occurred_at'] ?? ''))
+            ->take($limit)
             ->values()
             ->all();
     }
@@ -202,6 +228,12 @@ final class ProcurementWorkbenchData
                 DocumentType::ORDER->value,
                 DocumentType::INVOICE->value,
             ]);
+    }
+
+    private function accountProcurementRequestsQuery(): Builder
+    {
+        return ProcurementRequest::query()
+            ->where('retailer_account_id', $this->currentAccount?->id);
     }
 
     private function countConnectionStatus(iterable $connections, AccountConnectionStatus $status): int
@@ -295,5 +327,107 @@ final class ProcurementWorkbenchData
             AccountConnectionStatus::INACTIVE => 'Supplier connection is inactive.',
             default => 'Supplier connection status is not available.',
         };
+    }
+
+    private function orderSignal(Order $order): array
+    {
+        return [
+            'id' => $order->id,
+            'document_type' => $this->documentTypeValue($order),
+            'document_type_label' => $order->document_type?->label() ?? ucfirst($this->documentTypeValue($order)),
+            'document_number' => $this->documentNumber($order),
+            'status' => $this->documentStatusValue($order),
+            'status_label' => $this->documentStatusLabel($order),
+            'customer_id' => $order->customer_id,
+            'customer_name' => $order->customer?->name ?? 'Unknown customer',
+            'channel' => $order->channel,
+            'total' => round((float) $order->total, 2),
+            'occurred_at' => $order->created_at?->toDateTimeString(),
+            'signal_label' => $this->signalLabelFor($order),
+            'signal_summary' => $this->signalSummaryFor($order),
+        ];
+    }
+
+    private function procurementRequestSignal(ProcurementRequest $request): array
+    {
+        return [
+            'id' => $request->id,
+            'signal_type' => 'procurement_request',
+            'document_type' => 'procurement_request',
+            'document_type_label' => 'Procurement Request',
+            'document_number' => $request->request_number ?? ('PRQ-'.$request->id),
+            'status' => $request->current_stage?->value,
+            'status_label' => $request->current_stage?->label(),
+            'customer_id' => $request->customer_id,
+            'customer_name' => $request->customer?->name ?? $request->retailerAccount?->name ?? 'Unknown retailer',
+            'channel' => 'admin_procurement',
+            'total' => round((float) $request->subtotal, 2),
+            'occurred_at' => $request->submitted_at?->toDateTimeString() ?? $request->created_at?->toDateTimeString(),
+            'signal_label' => 'Procurement '.$request->current_stage?->label(),
+            'signal_summary' => sprintf(
+                '%s grouped for %s in %s',
+                $request->request_number ?? ('PRQ-'.$request->id),
+                $request->supplierAccount?->name ?? 'Supplier',
+                $request->currency ?? 'AED',
+            ),
+        ];
+    }
+
+    private function signalLabelForRecord(mixed $record): ?string
+    {
+        if ($record instanceof ProcurementRequest) {
+            return 'Procurement '.$record->current_stage?->label();
+        }
+
+        if ($record instanceof Order) {
+            return $this->signalLabelFor($record);
+        }
+
+        return null;
+    }
+
+    private function recordOccurredAt(mixed $record): ?string
+    {
+        if ($record instanceof ProcurementRequest) {
+            return $record->submitted_at?->toDateTimeString() ?? $record->created_at?->toDateTimeString();
+        }
+
+        if ($record instanceof Order) {
+            return $record->created_at?->toDateTimeString();
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ProcurementRequest>  $requests
+     * @return array<string, int>
+     */
+    private function requestCounts($requests): array
+    {
+        $counts = [
+            'total' => $requests->count(),
+            'submitted' => 0,
+            'supplier_review' => 0,
+            'quoted' => 0,
+            'approved' => 0,
+            'invoiced' => 0,
+            'stock_reserved' => 0,
+            'stock_deducted' => 0,
+            'fulfilled' => 0,
+            'cancelled' => 0,
+        ];
+
+        foreach ($requests as $request) {
+            $stage = $request instanceof ProcurementRequest
+                ? $request->current_stage?->value
+                : null;
+
+            if ($stage !== null && array_key_exists($stage, $counts)) {
+                $counts[$stage]++;
+            }
+        }
+
+        return $counts;
     }
 }

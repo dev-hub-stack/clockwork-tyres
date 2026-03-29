@@ -12,6 +12,9 @@ use App\Modules\Customers\Models\Customer;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Models\ProcurementSubmission;
 use App\Modules\Procurement\Support\ProcurementWorkbenchData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -233,5 +236,80 @@ class ProcurementWorkbenchDataTest extends TestCase
         $this->assertSame(0, $summary['document_counts']['total']);
         $this->assertSame([], $data->supplierGroups());
         $this->assertSame([], $data->recentProcurementSignals());
+    }
+
+    #[Test]
+    public function it_includes_submitted_procurement_requests_in_summary_and_recent_signals(): void
+    {
+        $now = now();
+
+        $currentAccount = Account::create([
+            'name' => 'Retail Hub',
+            'slug' => 'retail-hub',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        $supplierAccount = Account::create([
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        $connection = AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => $now,
+        ]);
+
+        $submission = ProcurementSubmission::create([
+            'submission_number' => 'PRB-20260329-0001',
+            'retailer_account_id' => $currentAccount->id,
+            'submitted_by_user_id' => null,
+            'status' => ProcurementWorkflowStage::SUBMITTED,
+            'supplier_count' => 1,
+            'request_count' => 1,
+            'line_item_count' => 1,
+            'quantity_total' => 6,
+            'subtotal' => 930,
+            'currency' => 'AED',
+            'source' => 'admin_workbench',
+            'submitted_at' => $now,
+        ]);
+
+        ProcurementRequest::create([
+            'request_number' => 'PRQ-20260329-0001',
+            'procurement_submission_id' => $submission->id,
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'account_connection_id' => $connection->id,
+            'current_stage' => ProcurementWorkflowStage::SUBMITTED,
+            'line_item_count' => 1,
+            'currency' => 'AED',
+            'quantity_total' => 6,
+            'subtotal' => 930,
+            'submitted_at' => $now,
+        ]);
+
+        $data = ProcurementWorkbenchData::forAccount($currentAccount);
+        $summary = $data->currentAccountSummary();
+        $signals = $data->recentProcurementSignals();
+
+        $this->assertSame(1, $summary['procurement_request_counts']['total']);
+        $this->assertSame($now->toDateTimeString(), $summary['last_activity_at']);
+        $this->assertSame('Procurement Submitted', $summary['last_activity_label']);
+        $this->assertSame('PRQ-20260329-0001', $signals[0]['document_number']);
+        $this->assertSame('procurement_request', $signals[0]['document_type']);
+        $this->assertSame('Submitted', $signals[0]['status_label']);
     }
 }

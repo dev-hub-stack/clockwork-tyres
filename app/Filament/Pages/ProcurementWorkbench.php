@@ -116,9 +116,11 @@ class ProcurementWorkbench extends Page
                 'note' => 'Each approved supplier connection becomes its own grouped workbench section while pending links stay out of checkout.',
             ],
             [
-                'label' => 'Live procurement documents',
-                'value' => $this->currentAccountSummary['document_counts']['total'] ?? 0,
-                'note' => 'Existing quotes, orders, and invoices already tied to the active retailer account.',
+                'label' => 'Live procurement requests',
+                'value' => ($this->currentAccountSummary['procurement_request_counts']['total'] ?? 0) > 0
+                    ? ($this->currentAccountSummary['procurement_request_counts']['total'] ?? 0)
+                    : ($this->currentAccountSummary['document_counts']['total'] ?? 0),
+                'note' => 'Persisted grouped supplier requests sit alongside the existing quote, order, and invoice history.',
             ],
         ];
     }
