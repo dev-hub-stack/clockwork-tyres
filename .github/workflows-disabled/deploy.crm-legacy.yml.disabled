@@ -1,0 +1,17 @@
+name: Legacy CRM Deploy Reference
+
+# Disabled for Clockwork Tyres.
+# This workflow deployed the old CRM to /var/www/reporting.
+# Keep it only as reference until a dedicated tyres deployment pipeline is created.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  legacy_reference_only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow disabled
+        run: |
+          echo "This legacy CRM deployment workflow is disabled for Clockwork Tyres."
+          echo "Create a dedicated tyres deployment workflow before enabling GitHub Actions again."
