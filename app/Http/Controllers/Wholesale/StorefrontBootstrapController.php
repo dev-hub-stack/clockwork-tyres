@@ -18,6 +18,15 @@ class StorefrontBootstrapController extends BaseWholesaleController
             'version' => 1,
             'storefront_mode' => $mode,
             'account' => $account ? $this->accountPayload($account) : null,
+            'endpoints' => [
+                'bootstrap' => '/api/storefront/bootstrap',
+                'account_context' => '/api/account-context',
+                'account_context_select' => '/api/account-context/select',
+                'catalog' => '/api/products',
+                'product_detail' => '/api/product/{slug}/{sku}',
+                'search_sizes' => '/api/search-sizes',
+                'search_vehicles' => '/api/search-vehicles',
+            ],
             'capabilities' => [
                 'cart_enabled' => $mode === 'retail-store',
                 'checkout_enabled' => $mode === 'retail-store',
