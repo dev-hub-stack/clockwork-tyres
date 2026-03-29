@@ -61,6 +61,12 @@ Recommended product split:
 - [ROADMAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/ROADMAP.md)
 - [FRONTEND_REBUILD_ANALYSIS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/FRONTEND_REBUILD_ANALYSIS.md)
 - [ARCHITECTURE_DECISIONS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/ARCHITECTURE_DECISIONS.md)
+- [CATEGORY_FOUNDATION_STRATEGY.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CATEGORY_FOUNDATION_STRATEGY.md)
+- [LEGACY_WHEEL_FOUNDATION_RESEARCH.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_WHEEL_FOUNDATION_RESEARCH.md)
+- [LEGACY_FEATURE_COMPATIBILITY_MATRIX.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_FEATURE_COMPATIBILITY_MATRIX.md)
+- [LEGACY_ROUTE_QUERY_CONTRACT_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_ROUTE_QUERY_CONTRACT_MAP.md)
+- [CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md)
+- [BACKEND_CATEGORY_SEARCH_CONTRACT.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/BACKEND_CATEGORY_SEARCH_CONTRACT.md)
 - [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
 - [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
 - [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/MESSAGE_FOR_GEORGE.md)
@@ -81,10 +87,9 @@ Low-regret work that can start immediately:
 ## What Must Wait For Product Answers
 
 - final tire import schema
-- mixed retailer-supplier stock and pricing behavior
-- hidden supplier allocation rule
-- reserved stock release rule
-- reports tier customer counting rule
+- final tyre data sheet and import mapping details
+- exact report add-on tier serialization in admin
+- any optional wheel-later requirements George wants locked before launch
 
 ## Immediate Next Steps
 
