@@ -6,6 +6,9 @@
             <p class="mt-2 max-w-3xl text-sm leading-6 text-violet-900">
                 This is the platform control tower George described. It is intentionally focused on accounts, subscriptions, reports add-ons, analytics, and operational visibility. It does not manage supplier product or inventory editing.
             </p>
+            <p class="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200">
+                Read-only surface for governance, subscriptions, and platform visibility.
+            </p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

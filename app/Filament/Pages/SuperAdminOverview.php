@@ -5,8 +5,12 @@ namespace App\Filament\Pages;
 use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Accounts\Models\AccountSubscription;
 use BackedEnum;
 use Filament\Pages\Page;
+use Throwable;
 use UnitEnum;
 
 class SuperAdminOverview extends Page
@@ -25,6 +29,10 @@ class SuperAdminOverview extends Page
 
     protected string $view = 'filament.pages.super-admin-overview';
 
+    public array $governanceCards = [];
+    public array $accountBreakdown = [];
+    public array $subscriptionBreakdown = [];
+    public array $connectionSummary = [];
     public array $metricCards = [];
     public array $accountDirectoryColumns = [];
     public array $accountRows = [];
@@ -34,7 +42,11 @@ class SuperAdminOverview extends Page
 
     public function mount(): void
     {
-        $this->metricCards = $this->buildMetricCards();
+        $this->governanceCards = $this->buildGovernanceCards();
+        $this->accountBreakdown = $this->buildAccountBreakdown();
+        $this->subscriptionBreakdown = $this->buildSubscriptionBreakdown();
+        $this->connectionSummary = $this->buildConnectionSummary();
+        $this->metricCards = $this->governanceCards;
         $this->accountDirectoryColumns = $this->buildAccountDirectoryColumns();
         $this->accountRows = $this->buildAccountRows();
         $this->reportAddOnTiers = $this->buildReportAddOnTiers();
@@ -52,28 +64,89 @@ class SuperAdminOverview extends Page
         return auth()->user()?->hasRole('super_admin') ?? false;
     }
 
-    protected function buildMetricCards(): array
+    protected function buildGovernanceCards(): array
     {
+        $totals = $this->counts();
+
         return [
             [
                 'label' => 'Managed accounts',
-                'value' => 'Pending live data',
+                'value' => $totals['accounts'],
                 'note' => 'Platform-level count of retailer, supplier, and mixed accounts.',
             ],
             [
                 'label' => 'Active subscriptions',
-                'value' => 'Pending live data',
+                'value' => $totals['subscriptions'],
                 'note' => 'Main plan coverage across the platform.',
             ],
             [
                 'label' => 'Reports add-ons',
-                'value' => 'Pending live data',
+                'value' => $totals['reports_addons'],
                 'note' => 'Super-admin configurable reporting entitlements.',
             ],
             [
                 'label' => 'Platform alerts',
                 'value' => 'Pending live data',
                 'note' => 'Import failures, sync issues, and operational exceptions.',
+            ],
+        ];
+    }
+
+    protected function buildAccountBreakdown(): array
+    {
+        $totals = $this->counts();
+
+        return [
+            [
+                'label' => 'Retail enabled',
+                'value' => $totals['retail_enabled'],
+                'note' => 'Accounts that can operate the retail storefront or retailer admin.',
+            ],
+            [
+                'label' => 'Wholesale enabled',
+                'value' => $totals['wholesale_enabled'],
+                'note' => 'Accounts that can operate supplier workflows and supplier preview mode.',
+            ],
+            [
+                'label' => 'Mixed accounts',
+                'value' => $totals['both_accounts'],
+                'note' => 'Businesses with both retailer and supplier capabilities.',
+            ],
+        ];
+    }
+
+    protected function buildSubscriptionBreakdown(): array
+    {
+        $totals = $this->counts();
+
+        return [
+            [
+                'label' => 'Subscription records',
+                'value' => $totals['subscriptions'],
+                'note' => 'Platform subscription records across all accounts.',
+            ],
+            [
+                'label' => 'Reports add-ons',
+                'value' => $totals['reports_addons'],
+                'note' => 'Accounts with reporting add-ons enabled.',
+            ],
+        ];
+    }
+
+    protected function buildConnectionSummary(): array
+    {
+        $totals = $this->counts();
+
+        return [
+            [
+                'label' => 'Approved connections',
+                'value' => $totals['approved_connections'],
+                'note' => 'Live retailer-to-supplier relationships.',
+            ],
+            [
+                'label' => 'Pending connections',
+                'value' => $totals['pending_connections'],
+                'note' => 'Supplier links still awaiting review or approval.',
             ],
         ];
     }
@@ -94,6 +167,8 @@ class SuperAdminOverview extends Page
 
     protected function buildAccountRows(): array
     {
+        $totals = $this->counts();
+
         return [
             [
                 'account' => 'Retail placeholder',
@@ -103,7 +178,7 @@ class SuperAdminOverview extends Page
                 'reports_addon' => 'Disabled',
                 'wholesale' => 'No',
                 'retail' => 'Yes',
-                'connected_retailers' => '-',
+                'connected_retailers' => (string) $totals['approved_connections'],
             ],
             [
                 'account' => 'Supplier placeholder',
@@ -113,7 +188,7 @@ class SuperAdminOverview extends Page
                 'reports_addon' => '250 customers',
                 'wholesale' => 'Yes',
                 'retail' => 'No',
-                'connected_retailers' => 'Pending live data',
+                'connected_retailers' => (string) $totals['approved_connections'],
             ],
             [
                 'account' => 'Mixed account placeholder',
@@ -123,7 +198,7 @@ class SuperAdminOverview extends Page
                 'reports_addon' => '500 customers',
                 'wholesale' => 'Yes',
                 'retail' => 'Yes',
-                'connected_retailers' => 'Pending live data',
+                'connected_retailers' => (string) $totals['pending_connections'],
             ],
         ];
     }
@@ -176,5 +251,35 @@ class SuperAdminOverview extends Page
                 'description' => 'Context-switch into the retail storefront without turning super admin into a product-edit surface.',
             ],
         ];
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    protected function counts(): array
+    {
+        try {
+            return [
+                'accounts' => Account::query()->count(),
+                'retail_enabled' => Account::query()->where('retail_enabled', true)->count(),
+                'wholesale_enabled' => Account::query()->where('wholesale_enabled', true)->count(),
+                'both_accounts' => Account::query()->where('account_type', AccountType::BOTH->value)->count(),
+                'subscriptions' => AccountSubscription::query()->count(),
+                'reports_addons' => AccountSubscription::query()->where('reports_enabled', true)->count(),
+                'approved_connections' => AccountConnection::query()->where('status', 'approved')->count(),
+                'pending_connections' => AccountConnection::query()->where('status', 'pending')->count(),
+            ];
+        } catch (Throwable) {
+            return [
+                'accounts' => 'Pending live data',
+                'retail_enabled' => 'Pending live data',
+                'wholesale_enabled' => 'Pending live data',
+                'both_accounts' => 'Pending live data',
+                'subscriptions' => 'Pending live data',
+                'reports_addons' => 'Pending live data',
+                'approved_connections' => 'Pending live data',
+                'pending_connections' => 'Pending live data',
+            ];
+        }
     }
 }
