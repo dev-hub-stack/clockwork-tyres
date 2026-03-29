@@ -63,6 +63,7 @@ Recommended product split:
 - [ARCHITECTURE_DECISIONS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/ARCHITECTURE_DECISIONS.md)
 - [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
 - [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
+- [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/MESSAGE_FOR_GEORGE.md)
 
 ## What Can Start Now
 
