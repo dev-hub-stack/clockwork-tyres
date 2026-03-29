@@ -183,6 +183,7 @@ Retailers gain a proper back-office experience, separate from the storefront, wh
 - retailer dashboard
 - supplier connection workflow
 - retailer operational screens
+- procurement checkout mapping for admin flow
 
 ## Phase 5: Retail Storefront
 
@@ -244,6 +245,7 @@ Retailers can source stock from connected suppliers using a controlled admin wor
 - procurement search flow
 - supplier order intake flow
 - approval and invoice conversion flow
+- admin procurement checkout mapping
 
 ## Phase 7: Migration and Pilot Rollout
 
