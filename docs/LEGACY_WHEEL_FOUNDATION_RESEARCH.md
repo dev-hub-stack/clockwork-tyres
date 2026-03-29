@@ -37,7 +37,7 @@ The legacy Angular app has wheel-first routes:
 - `/wheels`
 - `/search-by-size`
 - `/serchvehicle`
-- `/product/:id/:variant_id`
+- `/:id/:variant_id`
 
 Key route references:
 
@@ -293,8 +293,8 @@ Additional wheel assumptions exist in:
 
 Wheel-specific behaviors:
 
-- PDP “more sizes” tabs are based on distinct `rim_diameter`
-- brand product variants and “more sizes” are also grouped by `rim_diameter`
+- PDP "more sizes" tabs are based on distinct `rim_diameter`
+- brand product variants and "more sizes" are also grouped by `rim_diameter`
 - size strings are constructed as `rim_diameter x rim_width`
 
 ### Transformer Contract
