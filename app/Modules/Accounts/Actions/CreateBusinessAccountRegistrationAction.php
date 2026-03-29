@@ -13,7 +13,6 @@ use App\Modules\Accounts\Models\AccountSubscription;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
 
 class CreateBusinessAccountRegistrationAction
 {
@@ -50,8 +49,6 @@ class CreateBusinessAccountRegistrationAction
                 'role' => AccountRole::OWNER->value,
                 'is_default' => true,
             ]);
-
-            $this->assignOwnerRole($owner);
 
             $subscription = AccountSubscription::query()->create([
                 'account_id' => $account->id,
@@ -149,14 +146,5 @@ class CreateBusinessAccountRegistrationAction
         }
 
         return $slug;
-    }
-
-    private function assignOwnerRole(User $owner): void
-    {
-        $adminRole = Role::query()->where('name', 'admin')->where('guard_name', 'web')->first();
-
-        if ($adminRole !== null && ! $owner->hasRole($adminRole->name)) {
-            $owner->assignRole($adminRole);
-        }
     }
 }

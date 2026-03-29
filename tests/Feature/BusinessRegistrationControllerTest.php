@@ -10,7 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class BusinessRegistrationControllerTest extends TestCase
@@ -20,7 +19,6 @@ class BusinessRegistrationControllerTest extends TestCase
     public function test_it_creates_a_business_owner_account_subscription_and_onboarding_record(): void
     {
         Storage::fake('public');
-        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
 
         $response = $this->post('/api/auth/business-register', [
             'business_name' => 'Alpha Tyres Trading',
@@ -60,7 +58,7 @@ class BusinessRegistrationControllerTest extends TestCase
         $this->assertSame('United Arab Emirates', $onboarding->country);
         $this->assertNotNull($onboarding->supporting_document_path);
         $this->assertSame('trade-license.png', $onboarding->supporting_document_name);
-        $this->assertTrue($owner->hasRole('admin'));
+        $this->assertCount(0, $owner->roles);
 
         $membership = DB::table('account_user')
             ->where('account_id', $account->id)

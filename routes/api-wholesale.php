@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Wholesale\AuthController;
+use App\Http\Controllers\Wholesale\BusinessAuthController;
 use App\Http\Controllers\Wholesale\BusinessRegistrationController;
 use App\Http\Controllers\Wholesale\DealerController;
 use App\Http\Controllers\Wholesale\ProductController;
@@ -53,6 +54,7 @@ Route::get('storefront/bootstrap',  [StorefrontBootstrapController::class, 'show
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 Route::post('auth/login',           [AuthController::class,  'postLogin']);
+Route::post('auth/business-login',  [BusinessAuthController::class, 'login']);
 Route::post('auth/forgot',          [AuthController::class,  'forgot']);
 Route::post('auth/reset-password',  [AuthController::class,  'reset']);
 Route::post('auth/set-password',    [AuthController::class,  'setPassword']); // Invited dealer sets password
