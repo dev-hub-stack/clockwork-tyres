@@ -10,9 +10,15 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\ProductInventory;
+use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Products\Models\Product;
+use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
+use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
 use App\Modules\Procurement\Models\ProcurementSubmission;
@@ -271,5 +277,100 @@ class SupplierIntakeWorkbenchSignalsTest extends TestCase
         $this->assertSame('225/45R17', $snapshot['incoming_requests'][0]['size']);
         $statusRail = collect($snapshot['status_rail'])->keyBy('key');
         $this->assertSame(1, $statusRail['submitted']['count']);
+    }
+
+    #[Test]
+    public function it_surfaces_procurement_requests_as_stock_reserved_after_invoice_conversion(): void
+    {
+        $supplierUser = User::factory()->create();
+        $retailerUser = User::factory()->create();
+
+        $supplierAccount = $this->createAccount($supplierUser, [
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+        ]);
+
+        $retailerAccount = $this->createAccount($retailerUser, [
+            'name' => 'Alpha Retail',
+            'slug' => 'alpha-retail',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+        ], attachToUser: false);
+
+        AccountConnection::create([
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $retailCustomer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Retail Walk-in',
+            'email' => 'walk-in@example.test',
+            'account_id' => $retailerAccount->id,
+            'status' => 'active',
+        ]);
+
+        $warehouse = Warehouse::create([
+            'warehouse_name' => 'Main Warehouse',
+            'code' => 'MAIN',
+        ]);
+
+        $product = Product::create([
+            'name' => 'Touring Tyre',
+            'slug' => 'touring-tyre-signal',
+            'sku' => 'TYR-SIGNAL-001',
+            'price' => 130,
+        ]);
+
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'TYR-SIGNAL-001-A',
+            'price' => 130,
+            'uae_retail_price' => 130,
+        ]);
+
+        ProductInventory::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'quantity' => 10,
+        ]);
+
+        $submission = app(SubmitGroupedProcurementAction::class)->execute(
+            retailerAccount: $retailerAccount,
+            actor: $retailerUser,
+            customer: $retailCustomer,
+            lineItems: [
+                [
+                    'supplier_id' => $supplierAccount->id,
+                    'supplier_name' => 'North Coast Tyres',
+                    'product_variant_id' => $variant->id,
+                    'warehouse_id' => $warehouse->id,
+                    'sku' => 'TYR-SIGNAL-001-A',
+                    'product_name' => 'Touring Tyre',
+                    'size' => '225/45R17',
+                    'quantity' => 4,
+                    'unit_price' => 130,
+                    'source' => 'Approved supplier connection',
+                ],
+            ],
+        );
+
+        $request = $submission->requests()->firstOrFail();
+
+        app(ApproveProcurementRequestAction::class)->execute($request);
+
+        $snapshot = SupplierIntakeWorkbenchSignals::forAccount($supplierAccount);
+        $statusRail = collect($snapshot['status_rail'])->keyBy('key');
+
+        $this->assertSame(1, $snapshot['current_account_summary']['invoices_issued']);
+        $this->assertSame(1, $statusRail['stock_reserved']['count']);
+        $this->assertSame('Stock Reserved', $snapshot['incoming_requests'][0]['status']);
+        $this->assertSame('stock_reserved', $snapshot['incoming_requests'][0]['stage']);
     }
 }

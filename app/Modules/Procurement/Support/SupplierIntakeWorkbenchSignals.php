@@ -75,7 +75,7 @@ final class SupplierIntakeWorkbenchSignals
     private static function procurementRequestsForSupplier(Account $account): Collection
     {
         return ProcurementRequest::query()
-            ->with(['retailerAccount', 'customer', 'items'])
+            ->with(['retailerAccount', 'customer', 'items', 'quoteOrder', 'invoiceOrder'])
             ->forSupplier($account)
             ->orderByDesc('submitted_at')
             ->orderByDesc('id')
@@ -285,7 +285,10 @@ final class SupplierIntakeWorkbenchSignals
                     'sku' => $primaryItem?->sku ?? '—',
                     'size' => $primaryItem?->size ?? '—',
                     'quantity' => $request->quantity_total,
-                    'reference' => $request->request_number ?? ('PRQ-'.$request->id),
+                    'reference' => $request->invoiceOrder?->order_number
+                        ?? $request->quoteOrder?->quote_number
+                        ?? $request->request_number
+                        ?? ('PRQ-'.$request->id),
                     'status' => $request->current_stage?->label() ?? 'Submitted',
                     'stage' => $request->current_stage?->value ?? ProcurementWorkflowStage::SUBMITTED->value,
                     'note' => self::describeProcurementRequestNote($request),
@@ -462,7 +465,7 @@ final class SupplierIntakeWorkbenchSignals
             ],
             [
                 'title' => 'Invoice conversion',
-                'copy' => 'Once the retailer approves the quote, the supplier-side flow converts it to an invoice and keeps the record inside the same account-aware workspace.',
+                'copy' => 'Once the procurement quote is approved, the supplier-side flow converts it to an invoice and keeps the record inside the same account-aware workspace.',
             ],
             [
                 'title' => 'Stock handling',

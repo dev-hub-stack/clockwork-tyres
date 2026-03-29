@@ -19,9 +19,8 @@ use InvalidArgumentException;
 class SubmitGroupedProcurementAction
 {
     public function __construct(
-        private readonly OrderService $orderService,
-    ) {
-    }
+        protected OrderService $orderService,
+    ) {}
 
     /**
      * @param  array<int, array<string, mixed>>  $lineItems
@@ -71,6 +70,7 @@ class SubmitGroupedProcurementAction
                     'source_customer_id' => $customer?->id,
                     'source_customer_name' => $customer?->name,
                     'source_order_id' => $sourceOrder?->id,
+                    'notes' => $notes,
                 ]),
                 'submitted_at' => now(),
             ]);
@@ -97,24 +97,14 @@ class SubmitGroupedProcurementAction
                 }
 
                 $supplierCustomer = $this->resolveSupplierCustomer($connection, $retailerAccount);
-                $supplierQuote = $this->createSupplierQuote(
-                    supplierCustomer: $supplierCustomer,
-                    supplierOrder: $supplierOrder,
-                    sourceOrder: $sourceOrder,
-                    sourceCustomer: $customer,
-                    notes: $notes,
-                    currency: $currency,
-                );
 
                 $request = ProcurementRequest::create([
                     'procurement_submission_id' => $submission->id,
                     'retailer_account_id' => $retailerAccount->id,
                     'supplier_account_id' => (int) $supplierId,
                     'account_connection_id' => $connection->id,
-                    'customer_id' => $customer?->id,
+                    'customer_id' => $supplierCustomer->id,
                     'submitted_by_user_id' => $actor->id,
-                    'source_order_id' => $sourceOrder?->id,
-                    'quote_order_id' => $supplierQuote->id,
                     'current_stage' => ProcurementWorkflowStage::SUBMITTED,
                     'line_item_count' => count($supplierOrder['line_items'] ?? []),
                     'quantity_total' => (int) ($supplierOrder['quantity_total'] ?? 0),
@@ -127,10 +117,7 @@ class SubmitGroupedProcurementAction
                         'action' => $supplierOrder['action'] ?? null,
                         'source_customer_id' => $customer?->id,
                         'source_customer_name' => $customer?->name,
-                        'supplier_customer_id' => $supplierCustomer->id,
                         'source_order_id' => $sourceOrder?->id,
-                        'quote_order_id' => $supplierQuote->id,
-                        'quote_number' => $supplierQuote->quote_number,
                     ],
                 ]);
 
@@ -140,8 +127,6 @@ class SubmitGroupedProcurementAction
 
                 foreach ($supplierOrder['line_items'] ?? [] as $lineItem) {
                     $request->items()->create([
-                        'product_variant_id' => $this->nullableInteger($lineItem['product_variant_id'] ?? null),
-                        'warehouse_id' => $this->nullableInteger($lineItem['warehouse_id'] ?? null),
                         'sku' => $lineItem['sku'] ?? null,
                         'product_name' => $lineItem['product_name'] ?? 'Procurement item',
                         'size' => $lineItem['size'] ?? null,
@@ -154,6 +139,24 @@ class SubmitGroupedProcurementAction
                         'payload' => $lineItem,
                     ]);
                 }
+
+                $quote = $this->createSupplierQuote(
+                    customer: $supplierCustomer,
+                    request: $request,
+                    supplierOrder: $supplierOrder,
+                    sourceOrder: $sourceOrder,
+                    notes: $notes,
+                    currency: $currency,
+                );
+
+                $request->forceFill([
+                    'quote_order_id' => $quote->id,
+                    'meta' => array_merge($request->meta ?? [], [
+                        'linked_quote_id' => $quote->id,
+                        'linked_quote_number' => $quote->quote_number,
+                        'linked_quote_order_number' => $quote->order_number,
+                    ]),
+                ])->save();
             }
 
             return $submission->fresh(['requests.items', 'retailerAccount', 'submittedBy']);
@@ -189,78 +192,60 @@ class SubmitGroupedProcurementAction
      * @param  array<string, mixed>  $supplierOrder
      */
     private function createSupplierQuote(
-        Customer $supplierCustomer,
+        Customer $customer,
+        ProcurementRequest $request,
         array $supplierOrder,
         ?Order $sourceOrder,
-        ?Customer $sourceCustomer,
         ?string $notes,
         string $currency,
     ): Order {
+        $items = array_map(function (array $lineItem): array {
+            $item = [
+                'quantity' => max(1, (int) ($lineItem['quantity'] ?? 1)),
+                'unit_price' => round((float) ($lineItem['unit_price'] ?? 0), 2),
+                'tax_inclusive' => (bool) ($lineItem['tax_inclusive'] ?? true),
+                'discount' => round((float) ($lineItem['discount'] ?? 0), 2),
+                'sku' => $lineItem['sku'] ?? null,
+                'product_name' => $lineItem['product_name'] ?? 'Procurement item',
+                'product_description' => $lineItem['product_description'] ?? null,
+                'warehouse_id' => isset($lineItem['warehouse_id']) && is_numeric($lineItem['warehouse_id'])
+                    ? (int) $lineItem['warehouse_id']
+                    : null,
+                'item_attributes' => array_filter([
+                    'size' => $lineItem['size'] ?? null,
+                    'source' => $lineItem['source'] ?? null,
+                    'status' => $lineItem['status'] ?? null,
+                    'note' => $lineItem['note'] ?? null,
+                ], static fn (mixed $value): bool => $value !== null && $value !== ''),
+            ];
+
+            if (isset($lineItem['product_variant_id']) && is_numeric($lineItem['product_variant_id'])) {
+                $item['product_variant_id'] = (int) $lineItem['product_variant_id'];
+            } elseif (isset($lineItem['product_id']) && is_numeric($lineItem['product_id'])) {
+                $item['product_id'] = (int) $lineItem['product_id'];
+            }
+
+            return $item;
+        }, $supplierOrder['line_items'] ?? []);
+
         $quote = $this->orderService->createOrder([
             'document_type' => DocumentType::QUOTE,
-            'customer_id' => $supplierCustomer->id,
-            'external_source' => 'clockwork_procurement',
-            'external_order_id' => $sourceOrder?->order_number ?? $sourceOrder?->quote_number,
-            'currency' => $currency,
+            'customer_id' => $customer->id,
             'channel' => 'wholesale',
-            'order_notes' => $notes ?: $this->buildSupplierQuoteNotes($sourceCustomer, $sourceOrder),
-            'items' => array_map(
-                fn (array $lineItem): array => $this->quoteLineItemPayload($lineItem),
-                $supplierOrder['line_items'] ?? []
-            ),
+            'external_source' => 'clockwork_procurement',
+            'external_order_id' => $request->request_number,
+            'currency' => $currency,
+            'tax_inclusive' => $sourceOrder?->tax_inclusive ?? true,
+            'vehicle_year' => $sourceOrder?->vehicle_year,
+            'vehicle_make' => $sourceOrder?->vehicle_make,
+            'vehicle_model' => $sourceOrder?->vehicle_model,
+            'vehicle_sub_model' => $sourceOrder?->vehicle_sub_model,
+            'order_notes' => $notes,
+            'items' => $items,
         ]);
 
         $this->orderService->sendQuote($quote);
 
-        return $quote->fresh(['items']);
-    }
-
-    private function buildSupplierQuoteNotes(?Customer $sourceCustomer, ?Order $sourceOrder): ?string
-    {
-        $parts = array_filter([
-            $sourceCustomer?->name ? 'Retail customer: '.$sourceCustomer->name : null,
-            $sourceOrder?->order_number ? 'Source order: '.$sourceOrder->order_number : null,
-            $sourceOrder?->quote_number ? 'Source quote: '.$sourceOrder->quote_number : null,
-        ]);
-
-        if ($parts === []) {
-            return null;
-        }
-
-        return implode(' | ', $parts);
-    }
-
-    /**
-     * @param  array<string, mixed>  $lineItem
-     * @return array<string, mixed>
-     */
-    private function quoteLineItemPayload(array $lineItem): array
-    {
-        $quantity = (int) ($lineItem['quantity'] ?? 0);
-        $unitPrice = (float) ($lineItem['unit_price'] ?? $lineItem['price'] ?? $lineItem['cost'] ?? 0);
-
-        return [
-            'product_variant_id' => $this->nullableInteger($lineItem['product_variant_id'] ?? null),
-            'warehouse_id' => $this->nullableInteger($lineItem['warehouse_id'] ?? null),
-            'sku' => $lineItem['sku'] ?? null,
-            'product_name' => $lineItem['product_name'] ?? 'Procurement item',
-            'product_description' => $lineItem['note'] ?? null,
-            'quantity' => $quantity,
-            'unit_price' => $unitPrice,
-            'line_total' => array_key_exists('line_total', $lineItem)
-                ? (float) $lineItem['line_total']
-                : round($quantity * $unitPrice, 2),
-            'item_attributes' => array_filter([
-                'size' => $lineItem['size'] ?? null,
-                'source' => $lineItem['source'] ?? null,
-                'status' => $lineItem['status'] ?? null,
-                'note' => $lineItem['note'] ?? null,
-            ], static fn (mixed $value): bool => $value !== null && $value !== ''),
-        ];
-    }
-
-    private function nullableInteger(mixed $value): ?int
-    {
-        return is_numeric($value) ? (int) $value : null;
+        return $quote->fresh(['items', 'customer']);
     }
 }

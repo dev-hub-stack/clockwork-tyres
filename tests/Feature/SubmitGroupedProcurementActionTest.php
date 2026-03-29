@@ -10,6 +10,8 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Orders\Enums\DocumentType;
+use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -141,9 +143,19 @@ class SubmitGroupedProcurementActionTest extends TestCase
         $this->assertSame($northCoastConnection->supplier_customer_id, $requests[0]->customer_id);
         $this->assertSame('Retail Hub', $requests[0]->customer?->business_name);
         $this->assertSame($northCoast->id, $requests[0]->customer?->account_id);
+        $this->assertNotNull($requests[0]->quote_order_id);
+        $this->assertNotNull($requests[0]->quoteOrder);
+        $this->assertSame(DocumentType::QUOTE, $requests[0]->quoteOrder?->document_type);
+        $this->assertSame(QuoteStatus::SENT, $requests[0]->quoteOrder?->quote_status);
+        $this->assertSame($northCoastConnection->supplier_customer_id, $requests[0]->quoteOrder?->customer_id);
         $this->assertCount(2, $requests[0]->items);
         $this->assertSame($desertLineConnection->supplier_customer_id, $requests[1]->customer_id);
         $this->assertSame($desertLine->id, $requests[1]->customer?->account_id);
+        $this->assertNotNull($requests[1]->quote_order_id);
+        $this->assertNotNull($requests[1]->quoteOrder);
+        $this->assertSame(DocumentType::QUOTE, $requests[1]->quoteOrder?->document_type);
+        $this->assertSame(QuoteStatus::SENT, $requests[1]->quoteOrder?->quote_status);
+        $this->assertSame($desertLineConnection->supplier_customer_id, $requests[1]->quoteOrder?->customer_id);
         $this->assertCount(1, $requests[1]->items);
     }
 
