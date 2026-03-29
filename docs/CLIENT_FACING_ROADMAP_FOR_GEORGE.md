@@ -14,55 +14,87 @@ The goal is to build one unified Clockwork Tyres platform with three connected e
 
 The new platform will bring the current Clockwork frontend vision together with the strengths of the new CRM, while keeping the old TunerStop vendor system only as a reference for legacy rules and migration.
 
-## 2. Recommended Product Direction
+## 2. Confirmed Product Direction
 
-### What Stays
+The latest business direction is now much clearer.
 
-- the Clockwork retail/storefront experience
-- supplier and retailer workflows
-- inventory, quotes, invoices, and warehouse management
-- supplier network and procurement model
+The platform will support:
 
-### What Changes
+- one business account that can be retailer, supplier, or both
+- a retail storefront that shows:
+  - the business's own stock first
+  - then stock from approved suppliers
+- hidden supplier identity on the storefront
+- a supplier `View Store` mode using the same frontend, but with no cart or checkout
+- offline retail payments for launch
+- a tire-first launch, with wheels possible later as an added category
 
-- the new CRM becomes the core operational platform
-- supplier discovery and procurement move into admin instead of the public storefront
-- the storefront becomes retail-facing
-- super admin gets one clear platform-wide view of all accounts, subscriptions, and analytics
+In simple terms:
 
-## 3. Delivery Approach
+- the new CRM becomes the platform core
+- the Clockwork storefront experience remains the visual model
+- supplier discovery and procurement live in admin
+- the public-facing or counter-facing store stays simple and retail-focused
+
+## 3. Subscription Direction
+
+### Retailer
+
+- basic retailer plan:
+  - up to 3 suppliers
+  - no own products
+  - no own inventory
+- premium retailer plan:
+  - more than 3 suppliers
+  - own products
+  - own inventory
+
+### Supplier
+
+- basic wholesaler plan:
+  - can manage own products
+  - can manage own inventory
+  - no reports access
+
+### Reports
+
+- reports are subscription-based and tiered
+- example tiers shared so far:
+  - 250 customers = AED 50 per month
+  - 500 customers = AED 100 per month
+
+## 4. Delivery Approach
 
 We recommend building this in phases so that each stage produces something visible, testable, and reviewable.
 
 This approach reduces risk, keeps the architecture clean, and allows important business decisions to be confirmed before deep implementation locks them in.
 
-## 4. Phase-by-Phase Roadmap
+## 5. Phase-by-Phase Roadmap
 
 ## Phase 1: Business Alignment and Final Definition
 
 ### Purpose
 
-Confirm the business rules and finalize the operating model before development moves too far.
+Confirm the last few implementation details and lock the final operating model before deep build work.
 
 ### Focus
 
-- confirm account types
-- confirm subscription model
-- confirm tyre product structure and import format
-- confirm procurement workflow
-- confirm what belongs in storefront versus admin
+- confirm the final tire import sheet
+- confirm remaining subscription details for mixed retailer-supplier accounts
+- confirm product merging and hidden supplier allocation behavior
+- confirm stock reservation release rules
+- confirm reports tier counting rules
 
 ### Outcome
 
-At the end of this phase, the team and George are aligned on exactly what is being built and how the main user journeys should work.
+At the end of this phase, the team has no major product uncertainty left and can build with confidence.
 
 ### What George Will Review
 
-- final business flow summary
-- account types and access model
-- subscription and plan assumptions
-- tyre data structure
+- final business rules summary
+- tire import structure
 - procurement lifecycle summary
+- remaining subscription clarifications
 
 ## Phase 2: Core Platform Foundation
 
@@ -75,7 +107,7 @@ Set up the platform foundation inside the new CRM so the system can support mult
 - account structure
 - user access and permissions
 - subscription framework
-- supplier and retailer separation
+- supplier and retailer capability model
 - super-admin control layer
 
 ### Outcome
@@ -104,7 +136,7 @@ Build the supplier experience using the new CRM as the main operating portal.
 - invoices
 - customer management
 - analytics
-- storefront preview of supplier-owned catalog
+- storefront preview using the same frontend in read-only mode
 
 ### Outcome
 
@@ -131,6 +163,7 @@ Build the retailer-facing admin portal, powered by the same platform foundation 
 - supplier exploration inside admin
 - supplier connection requests and approvals
 - analytics and reporting
+- procurement creation from manual workflows and operational workflows
 
 ### Outcome
 
@@ -159,10 +192,13 @@ Build the new retail-facing Clockwork storefront on modern frontend architecture
 - cart
 - checkout
 - order confirmation and retail order flow
+- hidden supplier-backed catalog logic
+- stock display rules
+- supplier preview mode
 
 ### Outcome
 
-Retailers can use the new storefront to sell to end customers in a clean and modern way, while the operational/admin work remains inside the platform.
+Retailers can use the new storefront to sell in-store or customer-facing, while operational work remains inside the admin platform.
 
 ### What George Will Review
 
@@ -171,6 +207,7 @@ Retailers can use the new storefront to sell to end customers in a clean and mod
 - product pages
 - cart and checkout flow
 - visual alignment with the Clockwork mockups
+- own stock versus supplier-backed stock behavior
 
 ## Phase 6: Supplier Network and Procurement
 
@@ -187,6 +224,7 @@ Add the B2B supplier relationship and procurement model into the admin side of t
 - procurement cart
 - supplier-side receipt of procurement requests
 - quote/proforma to invoice flow
+- stock reservation after approval
 
 ### Outcome
 
@@ -248,7 +286,7 @@ Clockwork Tyres launches with a stable foundation and can continue to expand wit
 - early adoption metrics
 - post-launch improvement list
 
-## 5. What George Can Expect to See During Delivery
+## 6. What George Can Expect to See During Delivery
 
 The project will not stay hidden until the end. Each phase is designed to produce visible progress.
 
@@ -261,21 +299,33 @@ George should expect to review:
 - storefront screens
 - supplier and retailer journeys
 - pilot readiness
+- subscription-gated behavior working correctly
 
-## 6. Key Decisions Needed From George
+## 7. Decisions Already Confirmed
 
-To keep momentum strong, a small number of decisions should be confirmed early.
+The following major decisions are now confirmed:
 
-### Highest Priority
+- one account can be retailer, supplier, or both
+- supplier identity is hidden on the storefront
+- own stock appears before supplier-backed stock
+- supplier `View Store` reuses the same frontend with cart and checkout disabled
+- retailers can place manual procurement orders
+- approved quotes create invoices and reserve stock
+- launch payments are offline and in-store
+- super admin manages accounts and subscriptions, not supplier products
+- tires replace wheels for launch
 
-- final account types: retailer, supplier, or both
-- subscription and feature access rules
-- final tyre import structure
-- procurement workflow behavior
-- payment expectations at checkout
-- whether supplier stock is visible directly in storefront or only through admin procurement
+## 8. Remaining Clarifications
 
-## 7. Recommended Delivery Style
+Only a small number of details remain open:
+
+- final tire import sheet
+- how mixed retailer-supplier accounts handle stock and pricing
+- how multiple hidden suppliers for the same product should be allocated
+- what releases reserved stock if a quote or invoice is cancelled
+- how report customer tiers are counted
+
+## 9. Recommended Delivery Style
 
 We recommend:
 
@@ -287,7 +337,7 @@ We recommend:
 
 This gives the best balance between speed, quality, and long-term scalability.
 
-## 8. Summary
+## 10. Summary
 
 Clockwork Tyres can be delivered successfully using the new CRM as the core platform and a new retail storefront built around George's latest vision.
 
@@ -297,6 +347,6 @@ The key to success is:
 - clear separation of storefront and admin responsibilities
 - strong supplier and retailer workflows
 - phased implementation
-- early alignment on the few decisions that affect the platform structure
+- early confirmation of the few remaining implementation details
 
 With this approach, the platform can launch cleanly and scale properly over time.

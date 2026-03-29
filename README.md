@@ -60,6 +60,9 @@ Recommended product split:
 
 - [ROADMAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/ROADMAP.md)
 - [FRONTEND_REBUILD_ANALYSIS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/FRONTEND_REBUILD_ANALYSIS.md)
+- [ARCHITECTURE_DECISIONS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/ARCHITECTURE_DECISIONS.md)
+- [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
+- [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
 
 ## What Can Start Now
 
@@ -77,10 +80,10 @@ Low-regret work that can start immediately:
 ## What Must Wait For Product Answers
 
 - final tire import schema
-- final subscription matrix
-- final procurement lifecycle states
-- supplier stock visibility rules
-- payment behavior at checkout
+- mixed retailer-supplier stock and pricing behavior
+- hidden supplier allocation rule
+- reserved stock release rule
+- reports tier customer counting rule
 
 ## Immediate Next Steps
 
