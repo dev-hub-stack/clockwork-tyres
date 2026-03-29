@@ -67,6 +67,7 @@ Recommended product split:
 - [LEGACY_ROUTE_QUERY_CONTRACT_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_ROUTE_QUERY_CONTRACT_MAP.md)
 - [CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md)
 - [BACKEND_CATEGORY_SEARCH_CONTRACT.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/BACKEND_CATEGORY_SEARCH_CONTRACT.md)
+- [NEXT_CATALOG_INTEGRATION_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/NEXT_CATALOG_INTEGRATION_MAPPING.md)
 - [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
 - [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
 - [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/MESSAGE_FOR_GEORGE.md)
