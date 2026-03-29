@@ -27,6 +27,7 @@ Success at the end of Phase 1 means:
 - platform staff identity is separated from business account identity
 - catalog, import, and API hotspots are isolated for later tire-first refactor
 - low-regret migration and compatibility work is already underway
+- shared stock, merged catalogue aggregation, and multi-level pricing rules are reflected in the backend design
 
 ## 2. Source System Insertion Points
 
@@ -106,6 +107,11 @@ Recommended first-pass account fields:
 - `created_by`
 - timestamps
 
+Implementation note:
+
+- for `both` accounts, keep one shared stock pool
+- do not split inventory ownership by retail and wholesale channel in Phase 1
+
 Recommended first-pass membership fields:
 
 - `account_id`
@@ -148,6 +154,7 @@ Implementation rule:
 - [ ] Create `plan_features`
 - [ ] Create `account_plan_subscriptions`
 - [ ] Create `usage_counters` if needed for limits such as supplier count and reports tiers
+- [ ] Create customer-tier tracking for total wholesale customers connected to each supplier
 
 ### 4.4 Do Not Do Yet
 
@@ -186,6 +193,8 @@ Checklist:
 - [ ] Add account resolution service
 - [ ] Add capability and entitlement service
 - [ ] Add supplier-link lifecycle service
+- [ ] Add customer pricing tier assignment service
+- [ ] Add merged product aggregation service
 - [ ] Add account-scoped query helpers
 - [ ] Add backfill scripts or jobs for ownership assignment
 
@@ -270,6 +279,9 @@ Checklist:
 - [ ] transformer dependency inventory
 - [ ] grid column inventory
 - [ ] import column inventory
+- [ ] price-level model draft for `retail`, `wholesale_level_1`, `wholesale_level_2`, `wholesale_level_3`
+- [ ] merged listing rules for own stock plus supplier-backed stock
+- [ ] source-option persistence model so admin can choose supplier manually
 
 ## 8. Import Refactor Order
 
@@ -286,9 +298,10 @@ Checklist:
 1. [ ] document current import entry points
 2. [ ] add staging schema or service contracts
 3. [ ] add validation rules for tire fields
-4. [ ] add ownership assignment rules by account
-5. [ ] add image handling and media mapping rules
-6. [ ] only then replace or extend persistence layer
+4. [ ] add validation rules for four pricing levels
+5. [ ] add ownership assignment rules by account
+6. [ ] add image handling and media mapping rules
+7. [ ] only then replace or extend persistence layer
 
 ### 8.3 Do Not Do Yet
 
@@ -318,8 +331,10 @@ Suggested API groups:
 1. [ ] map current storefront dependencies
 2. [ ] freeze compatibility endpoints that the old frontend currently assumes
 3. [ ] define new account-aware contracts
-4. [ ] add new routes beside old routes where possible
-5. [ ] migrate consumers after contract tests exist
+4. [ ] define merged product response contract for own stock plus supplier-backed stock
+5. [ ] preserve hidden supplier source options for admin-side selection only
+6. [ ] add new routes beside old routes where possible
+7. [ ] migrate consumers after contract tests exist
 
 ## 10. Admin Resource Refactor Order
 
@@ -351,6 +366,8 @@ Suggested API groups:
 - [ ] produce API compatibility inventory from old frontend calls
 - [ ] define base test fixtures for multi-account scenarios
 - [ ] define backfill strategy for account ownership
+- [ ] define pricing-level and customer-tier assignment rules
+- [ ] define merged product aggregation and manual supplier-allocation design
 
 ## 12. Risks To Avoid In Phase 1
 

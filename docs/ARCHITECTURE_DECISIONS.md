@@ -18,6 +18,7 @@ These decisions supersede earlier assumptions where they conflict.
 - one business account can be `supplier`
 - one business account can be `both`
 - `both` means wholesale is enabled for the same business account
+- `both` accounts use one shared stock pool
 
 ### 2. Storefront Catalog Visibility
 
@@ -25,6 +26,7 @@ These decisions supersede earlier assumptions where they conflict.
   - the retailer's own products
   - products from the retailer's approved suppliers
 - supplier identity is hidden on the storefront
+- if the same tyre exists from own stock and multiple suppliers, storefront shows one merged product entry
 - listing priority is:
   - own stock first
   - supplier stock after
@@ -33,6 +35,8 @@ These decisions supersede earlier assumptions where they conflict.
   - `available` for supplier-backed products
 - quantity should only be shown when stock is `4 pcs or less`
 - there may be `5 to 10 suppliers` for the same product
+- supplier allocation is not automatic on the storefront
+- supplier selection is manual in retailer admin
 
 ### 3. Supplier View Store Mode
 
@@ -65,9 +69,16 @@ These decisions supersede earlier assumptions where they conflict.
 
 - reports are subscription-gated separately
 - reports pricing is tier based
+- reports add-on is configured by super admin
+- reports tiering is based on total wholesale customers registered and connected to the supplier
 - examples provided:
   - `250 customers = AED 50/month`
   - `500 customers = AED 100/month`
+
+#### Combined Subscription Model
+
+- an account that is both retailer and supplier uses one combined subscription
+- reports remain a separate add-on on top of the main subscription
 
 ### 5. Catalog Direction
 
@@ -75,19 +86,34 @@ These decisions supersede earlier assumptions where they conflict.
 - wheel schema may return later as a future category
 - tire data sheet is expected on March 30, 2026
 
-### 6. Procurement Entry Points
+### 6. Pricing Model
+
+- tire data will include four supplier pricing levels:
+  - `retail`
+  - `wholesale_level_1`
+  - `wholesale_level_2`
+  - `wholesale_level_3`
+- supplier-side accounts choose which wholesale price level to offer to each customer
+- retailer-side storefront pricing is not the supplier wholesale level shown directly to end customers
+- retailer sells using:
+  - cost plus percentage
+  - or cost plus fixed amount
+
+### 7. Procurement Entry Points
 
 - procurement can start from a retail invoice
 - procurement can also be created manually
 - retailers can place standalone procurement orders
 
-### 7. Procurement Approval Outcome
+### 8. Procurement Approval Outcome
 
 - supplier approves quote
 - quote is converted to invoice
-- stock is reserved or deducted after approval
+- stock is deducted after quote approval and invoice creation
+- cancellation adds stock back to the selected warehouse
+- this should follow the same stock method already used in the reporting CRM
 
-### 8. Payments
+### 9. Payments
 
 - no online transaction capture for launch
 - no retail payment capture
@@ -95,12 +121,13 @@ These decisions supersede earlier assumptions where they conflict.
 - retail payments are in-store for now
 - platform facilitates trade and subscriptions, not transaction settlement
 
-### 9. Super Admin Scope
+### 10. Super Admin Scope
 
 - super admin manages:
   - accounts
   - subscriptions
   - platform-wide overview and analytics
+- reports add-on setup and customization
 - super admin does not:
   - create supplier products
   - edit supplier products
@@ -126,6 +153,8 @@ Recommended capability flags:
 - `can_add_own_inventory`
 - `can_view_reports`
 - `max_suppliers`
+- `pricing_level_access`
+- `reports_customer_limit`
 
 This is better than hard-coding role logic into user permissions.
 
@@ -150,12 +179,29 @@ Future category:
 
 - `wheels`
 
+### Inventory and Pricing Model
+
+Recommended direction for `both` accounts:
+
+- one shared stock pool
+- one inventory ownership model
+- multi-price support per tyre variant
+
+Recommended launch pricing structure:
+
+- supplier cost and offer structure stored on the supplier side
+- customer-level wholesale tier assignment for supplier relationships
+- retailer-side sell price derived from landed cost plus:
+  - markup percentage
+  - or fixed amount
+
 ### Retail Storefront Search and Listing
 
 The storefront query layer must support:
 
 - merging the retailer's own stock with approved-supplier stock
 - hidden supplier identity
+- one merged entry when the same tyre is available from multiple sources
 - own-stock priority
 - low-stock quantity display logic
 - multiple supplier sources for the same tyre
@@ -163,6 +209,8 @@ The storefront query layer must support:
 This means the storefront should not read directly from raw supplier inventory tables.
 
 It should read from a catalog aggregation layer or search view.
+
+That aggregation layer should preserve source options behind the scenes so retailer admin can later choose the supplier manually.
 
 ### Storefront Modes
 
@@ -187,11 +235,13 @@ Recommended workflow state model:
 - `quoted`
 - `approved`
 - `invoiced`
-- `stock_reserved`
+- `stock_deducted`
 - `fulfilled`
 - `cancelled`
 
-Because approval creates invoice and reserves stock, quote approval is a major transition point and should be auditable.
+Because approval creates invoice and deducts stock, quote approval is a major transition point and should be auditable.
+
+Cancellation should restore stock to the selected warehouse using the current reporting CRM method.
 
 ### Subscription and Entitlements
 
@@ -213,6 +263,10 @@ Examples:
   - `can_view_reports = false`
 
 Reports should be treated as a metered or tiered add-on.
+
+Recommended add-on measurement:
+
+- count total wholesale customers registered and connected to the supplier
 
 ### Payments and Checkout
 
@@ -260,22 +314,19 @@ These answers are enough to start:
 - super admin scope
 - offline checkout and invoice-first retail flow
 - tire-first schema planning
+- shared stock design for mixed retailer-supplier accounts
+- multi-level pricing design
+- merged catalogue aggregation design
+- manual supplier allocation design
 
 ## Remaining Open Questions
 
-The remaining questions are now narrower and mostly implementation-detail questions:
+The only material product input still pending is:
 
-1. For `both` accounts, is inventory one shared pool or separated by retail vs wholesale channel?
-2. For `both` accounts, do they need separate retail price and wholesale supply price?
-3. When multiple suppliers have the same tyre, should storefront show one merged entry or multiple entries?
-4. If storefront hides supplier identity, how should supplier allocation happen behind the scenes?
-5. What releases reserved stock if an approved quote or invoice is later cancelled or expires?
-6. For reports billing, what exactly counts as a `customer` in the tier?
-7. For `both` accounts, is there one combined subscription or separate retailer and supplier subscriptions?
-8. Final tire import sheet and field mapping still pending.
+1. Final tire import sheet and field mapping.
 
 ## Recommended Next Move
 
-Treat the account model, subscription engine, procurement workflow, storefront mode logic, and tire schema preparation as active design work now.
+Treat the account model, subscription engine, procurement workflow, storefront mode logic, pricing engine, and tire schema preparation as active design work now.
 
-Wait only for the final tire import sheet and the smaller follow-up clarifications before locking final product aggregation and inventory behavior.
+Wait only for the final tire import sheet before locking final schema and import mappings.

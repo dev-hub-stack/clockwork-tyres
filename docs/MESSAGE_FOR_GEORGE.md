@@ -2,6 +2,10 @@
 
 Date: March 29, 2026
 
+Historical note: this message was prepared before George replied later the same day.
+
+Use [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md) for the current remaining dependency list.
+
 This is a cleaner send-ready version of the remaining questions.
 
 ## WhatsApp Version

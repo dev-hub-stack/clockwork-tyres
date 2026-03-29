@@ -21,13 +21,16 @@ The latest business direction is now much clearer.
 The platform will support:
 
 - one business account that can be retailer, supplier, or both
+- one shared stock pool for mixed retailer-supplier accounts
 - a retail storefront that shows:
   - the business's own stock first
   - then stock from approved suppliers
 - hidden supplier identity on the storefront
+- one merged storefront product entry when the same tyre exists from multiple sources
 - a supplier `View Store` mode using the same frontend, but with no cart or checkout
 - offline retail payments for launch
 - a tire-first launch, with wheels possible later as an added category
+- multi-level tyre pricing with retailer markup logic
 
 In simple terms:
 
@@ -59,9 +62,18 @@ In simple terms:
 ### Reports
 
 - reports are subscription-based and tiered
+- reports are configured as an add-on
+- report tiers are based on total wholesale customers connected to the supplier
 - example tiers shared so far:
   - 250 customers = AED 50 per month
   - 500 customers = AED 100 per month
+
+### Mixed Retailer-Supplier Accounts
+
+- one combined main subscription
+- one shared stock pool
+- supplier-side pricing levels controlled by customer assignment
+- retailer-side sell price based on cost plus markup or fixed amount
 
 ## 4. Delivery Approach
 
@@ -80,21 +92,17 @@ Confirm the last few implementation details and lock the final operating model b
 ### Focus
 
 - confirm the final tire import sheet
-- confirm remaining subscription details for mixed retailer-supplier accounts
-- confirm product merging and hidden supplier allocation behavior
-- confirm stock reservation release rules
-- confirm reports tier counting rules
 
 ### Outcome
 
-At the end of this phase, the team has no major product uncertainty left and can build with confidence.
+At the end of this phase, the team has the final product import structure and can lock the launch catalog schema cleanly.
 
 ### What George Will Review
 
 - final business rules summary
 - tire import structure
 - procurement lifecycle summary
-- remaining subscription clarifications
+- pricing field structure inside the tire sheet
 
 ## Phase 2: Core Platform Foundation
 
@@ -306,24 +314,27 @@ George should expect to review:
 The following major decisions are now confirmed:
 
 - one account can be retailer, supplier, or both
+- mixed retailer-supplier accounts use one shared stock pool
 - supplier identity is hidden on the storefront
 - own stock appears before supplier-backed stock
+- same-tyre multi-source stock appears as one merged storefront entry
 - supplier `View Store` reuses the same frontend with cart and checkout disabled
 - retailers can place manual procurement orders
-- approved quotes create invoices and reserve stock
+- approved quotes create invoices and deduct stock
+- cancelled invoice flow returns stock back to the selected warehouse using current CRM behavior
 - launch payments are offline and in-store
 - super admin manages accounts and subscriptions, not supplier products
+- one combined subscription applies to mixed retailer-supplier accounts
+- reports are a separate super-admin-controlled add-on
+- supplier allocation is manual in retailer admin
+- pricing will support retail plus wholesale level 1, 2, and 3
 - tires replace wheels for launch
 
 ## 8. Remaining Clarifications
 
-Only a small number of details remain open:
+Only one material dependency remains open:
 
 - final tire import sheet
-- how mixed retailer-supplier accounts handle stock and pricing
-- how multiple hidden suppliers for the same product should be allocated
-- what releases reserved stock if a quote or invoice is cancelled
-- how report customer tiers are counted
 
 ## 9. Recommended Delivery Style
 

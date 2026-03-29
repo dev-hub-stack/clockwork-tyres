@@ -2,11 +2,11 @@
 
 Date: March 29, 2026
 
-Purpose: convert the agreed product direction into a practical near-term implementation backlog that can move forward before the final remaining answers arrive.
+Purpose: convert the agreed product direction into a practical near-term implementation backlog that can move forward before the final tire sheet arrives.
 
 ## Objective
 
-Build the low-regret platform and storefront foundations that do not depend on the final tire sheet or the remaining pricing/allocation clarifications.
+Build the low-regret platform and storefront foundations that do not depend on the final tire sheet.
 
 ## Workstream 1: Platform Account Foundation
 
@@ -35,6 +35,8 @@ Build the low-regret platform and storefront foundations that do not depend on t
 - define `can_add_own_products`
 - define `can_add_own_inventory`
 - define `can_view_reports`
+- define combined subscription rules for `both` accounts
+- define reports add-on based on connected wholesale customer totals
 
 ## Workstream 2: Supplier-Retailer Network
 
@@ -50,10 +52,12 @@ Build the low-regret platform and storefront foundations that do not depend on t
 - define aggregated catalog rule:
   - own stock first
   - approved supplier stock after
+- define one merged product entry rule for same-tyre multi-source stock
 - define stock badge mapping:
   - `in stock`
   - `available`
 - define low-stock quantity display rule
+- define admin-only manual supplier allocation from hidden source options
 
 ## Workstream 3: Tire-First Catalog Foundation
 
@@ -66,8 +70,15 @@ Build the low-regret platform and storefront foundations that do not depend on t
 ### Epic 3.2 Inventory Foundation
 
 - define warehouse inventory ownership model
-- define reserved stock status concept
-- define approval-to-reservation transition point
+- define shared stock pool behavior for `both` accounts
+- define stock deduction and restoration rules
+- define approval-to-invoice-to-deduction transition point
+
+### Epic 3.3 Pricing Foundation
+
+- define four price levels in launch tire schema
+- define customer-level wholesale tier assignment
+- define retailer retail price as cost plus percentage or fixed amount
 
 ## Workstream 4: Procurement Workflow Foundation
 
@@ -86,14 +97,15 @@ Build the low-regret platform and storefront foundations that do not depend on t
   - `quoted`
   - `approved`
   - `invoiced`
-  - `stock_reserved`
+  - `stock_deducted`
   - `fulfilled`
   - `cancelled`
 
 ### Epic 4.3 Approval Transition
 
 - quote approval creates invoice
-- quote approval reserves or deducts stock
+- quote approval deducts stock
+- cancellation returns stock to the selected warehouse using current reporting CRM behavior
 - log this transition as an auditable event
 
 ## Workstream 5: Storefront Foundation
@@ -135,13 +147,6 @@ Build the low-regret platform and storefront foundations that do not depend on t
 These items should not block foundation work, but they are still pending:
 
 - final tire import sheet
-- stock sharing rules for `both` accounts
-- pricing rules for `both` accounts
-- multi-supplier aggregation versus split listing rule
-- hidden supplier allocation rule
-- reserved stock release rule
-- reports customer tier counting rule
-- subscription structure for `both` accounts
 
 ## Immediate Deliverables We Can Complete Now
 
@@ -152,6 +157,7 @@ These items should not block foundation work, but they are still pending:
 5. storefront shared data contracts
 6. tire-schema hotspot audit
 7. CRM tenancy insertion-point audit
+8. pricing-tier and merged-catalog design
 
 ## Definition Of Progress This Week
 
@@ -161,4 +167,4 @@ This week counts as productive if we leave with:
 - storefront shared data layer in progress
 - storefront mode system in progress
 - tire schema hotspot audit completed
-- remaining George questions reduced to implementation details only
+- only the tire import sheet remaining as a hard dependency
