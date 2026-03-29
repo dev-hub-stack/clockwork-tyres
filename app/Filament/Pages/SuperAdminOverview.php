@@ -34,9 +34,12 @@ class SuperAdminOverview extends Page
     public array $subscriptionBreakdown = [];
     public array $connectionSummary = [];
     public array $metricCards = [];
+    public array $accountGovernanceCards = [];
     public array $accountDirectoryColumns = [];
     public array $accountRows = [];
     public array $reportAddOnTiers = [];
+    public array $accountGovernanceActions = [];
+    public array $guardrailCards = [];
     public array $governanceActions = [];
     public array $opsPanels = [];
 
@@ -47,9 +50,12 @@ class SuperAdminOverview extends Page
         $this->subscriptionBreakdown = $this->buildSubscriptionBreakdown();
         $this->connectionSummary = $this->buildConnectionSummary();
         $this->metricCards = $this->governanceCards;
+        $this->accountGovernanceCards = $this->buildAccountGovernanceCards();
         $this->accountDirectoryColumns = $this->buildAccountDirectoryColumns();
         $this->accountRows = $this->buildAccountRows();
         $this->reportAddOnTiers = $this->buildReportAddOnTiers();
+        $this->accountGovernanceActions = $this->buildAccountGovernanceActions();
+        $this->guardrailCards = $this->buildGuardrailCards();
         $this->governanceActions = $this->buildGovernanceActions();
         $this->opsPanels = $this->buildOpsPanels();
     }
@@ -129,6 +135,29 @@ class SuperAdminOverview extends Page
                 'label' => 'Reports add-ons',
                 'value' => $totals['reports_addons'],
                 'note' => 'Accounts with reporting add-ons enabled.',
+            ],
+        ];
+    }
+
+    protected function buildAccountGovernanceCards(): array
+    {
+        $totals = $this->counts();
+
+        return [
+            [
+                'label' => 'Create supplier account',
+                'value' => 'Direct control',
+                'note' => 'Super admin creates and manages supplier accounts without an approval queue.',
+            ],
+            [
+                'label' => 'Manage retailer accounts',
+                'value' => $totals['retail_enabled'],
+                'note' => 'Retail accounts can be activated, suspended, or assigned plans.',
+            ],
+            [
+                'label' => 'Manage mixed accounts',
+                'value' => $totals['both_accounts'],
+                'note' => 'A single business can be retailer, supplier, or both.',
             ],
         ];
     }
@@ -220,6 +249,38 @@ class SuperAdminOverview extends Page
                 'label' => 'Custom tier',
                 'price' => 'Set in super admin',
                 'note' => 'Adjust customer limit and pricing case by case.',
+            ],
+        ];
+    }
+
+    protected function buildAccountGovernanceActions(): array
+    {
+        return [
+            'Create supplier accounts directly',
+            'Create retailer accounts directly',
+            'Assign the base subscription plan',
+            'Configure the reports add-on tier',
+            'Change account status or capability flags',
+        ];
+    }
+
+    protected function buildGuardrailCards(): array
+    {
+        return [
+            [
+                'label' => 'No impersonation',
+                'value' => 'Disabled by design',
+                'note' => 'Super admin should never log in as an account for support.',
+            ],
+            [
+                'label' => 'No supplier approval queue',
+                'value' => 'Direct management',
+                'note' => 'Supplier accounts are created and managed directly instead of being approved.',
+            ],
+            [
+                'label' => 'No product editing',
+                'value' => 'Platform boundary',
+                'note' => 'Products and inventory stay in supplier or retailer admin, not super admin.',
             ],
         ];
     }

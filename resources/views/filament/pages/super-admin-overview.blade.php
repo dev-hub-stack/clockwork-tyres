@@ -21,6 +21,16 @@
             @endforeach
         </div>
 
+        <div class="grid gap-4 md:grid-cols-3">
+            @foreach ($accountGovernanceCards as $card)
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $card['label'] }}</p>
+                    <p class="mt-3 text-2xl font-semibold text-gray-900">{{ $card['value'] }}</p>
+                    <p class="mt-2 text-sm leading-6 text-gray-600">{{ $card['note'] }}</p>
+                </div>
+            @endforeach
+        </div>
+
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div class="flex flex-col gap-2 border-b border-gray-100 pb-4 md:flex-row md:items-center md:justify-between">
@@ -62,6 +72,19 @@
 
             <aside class="space-y-6">
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account creation</p>
+                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Create and manage accounts</h3>
+
+                    <div class="mt-4 space-y-3">
+                        @foreach ($accountGovernanceActions as $action)
+                            <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+                                <p class="text-sm font-semibold text-gray-900">{{ $action }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Reports add-on</p>
                     <h3 class="mt-1 text-lg font-semibold text-gray-900">Tier management</h3>
 
@@ -71,6 +94,21 @@
                                 <p class="text-sm font-semibold text-gray-900">{{ $tier['label'] }}</p>
                                 <p class="mt-1 text-sm text-violet-700">{{ $tier['price'] }}</p>
                                 <p class="mt-2 text-xs leading-5 text-gray-600">{{ $tier['note'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Guardrails</p>
+                    <h3 class="mt-1 text-lg font-semibold text-gray-900">What super admin cannot do</h3>
+
+                    <div class="mt-4 space-y-3">
+                        @foreach ($guardrailCards as $card)
+                            <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+                                <p class="text-sm font-semibold text-gray-900">{{ $card['label'] }}</p>
+                                <p class="mt-1 text-sm text-violet-700">{{ $card['value'] }}</p>
+                                <p class="mt-2 text-xs leading-5 text-gray-600">{{ $card['note'] }}</p>
                             </div>
                         @endforeach
                     </div>

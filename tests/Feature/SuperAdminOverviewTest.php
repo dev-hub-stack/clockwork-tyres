@@ -42,7 +42,10 @@ class SuperAdminOverviewTest extends TestCase
             ->get('/admin/super-admin-overview')
             ->assertOk()
             ->assertSee('Super Admin Overview')
-            ->assertSee('Read-only surface');
+            ->assertSee('Read-only surface')
+            ->assertSee('Create and manage accounts')
+            ->assertSee('No impersonation')
+            ->assertSee('No supplier approval queue');
 
         $activeRetailerId = $this->createAccount([
             'name' => 'Retail One',
@@ -128,10 +131,15 @@ class SuperAdminOverviewTest extends TestCase
         $this->assertTrue(SuperAdminOverview::canAccess());
         $this->assertCount(4, $page->governanceCards);
         $this->assertSame(3, $page->governanceCards[0]['value']);
+        $this->assertCount(3, $page->accountGovernanceCards);
+        $this->assertSame('Create supplier account', $page->accountGovernanceCards[0]['label']);
+        $this->assertSame('Direct control', $page->accountGovernanceCards[0]['value']);
         $this->assertSame(2, $page->accountBreakdown[0]['value']);
         $this->assertSame(3, $page->subscriptionBreakdown[0]['value']);
         $this->assertSame(1, $page->connectionSummary[0]['value']);
         $this->assertSame(1, $page->connectionSummary[1]['value']);
+        $this->assertContains('Create supplier accounts directly', $page->accountGovernanceActions);
+        $this->assertContains('No impersonation', array_column($page->guardrailCards, 'label'));
     }
 
     protected function createAccount(array $attributes): int
