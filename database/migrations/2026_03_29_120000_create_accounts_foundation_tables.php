@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -24,7 +25,7 @@ return new class extends Migration
                 $table->timestamps();
                 $table->softDeletes();
 
-                $table->index(['account_type', 'status']);
+                $table->index(['account_type', 'status'], 'accounts_type_status_idx');
             });
         }
 
@@ -37,8 +38,8 @@ return new class extends Migration
                 $table->boolean('is_default')->default(false);
                 $table->timestamps();
 
-                $table->unique(['account_id', 'user_id']);
-                $table->index(['user_id', 'role']);
+                $table->unique(['account_id', 'user_id'], 'account_user_account_user_uq');
+                $table->index(['user_id', 'role'], 'account_user_user_role_idx');
             });
         }
 
@@ -53,8 +54,20 @@ return new class extends Migration
                 $table->timestamps();
                 $table->softDeletes();
 
-                $table->unique(['retailer_account_id', 'supplier_account_id']);
-                $table->index(['status', 'approved_at']);
+                $table->unique(['retailer_account_id', 'supplier_account_id'], 'acct_conn_retailer_supplier_uq');
+                $table->index(['status', 'approved_at'], 'acct_conn_status_approved_idx');
+            });
+        }
+
+        if (Schema::hasTable('account_connections')) {
+            Schema::table('account_connections', function (Blueprint $table) {
+                if (! $this->hasIndex('account_connections', 'acct_conn_retailer_supplier_uq')) {
+                    $table->unique(['retailer_account_id', 'supplier_account_id'], 'acct_conn_retailer_supplier_uq');
+                }
+
+                if (! $this->hasIndex('account_connections', 'acct_conn_status_approved_idx')) {
+                    $table->index(['status', 'approved_at'], 'acct_conn_status_approved_idx');
+                }
             });
         }
 
@@ -73,8 +86,8 @@ return new class extends Migration
                 $table->timestamps();
                 $table->softDeletes();
 
-                $table->index(['account_id', 'status']);
-                $table->index(['plan_code', 'reports_enabled'], 'account_subscriptions_plan_reports_index');
+                $table->index(['account_id', 'status'], 'acct_sub_account_status_idx');
+                $table->index(['plan_code', 'reports_enabled'], 'acct_sub_plan_reports_idx');
             });
         }
 
@@ -86,7 +99,7 @@ return new class extends Migration
                     ->constrained('accounts')
                     ->nullOnDelete();
 
-                $table->index(['account_id', 'customer_type']);
+                $table->index(['account_id', 'customer_type'], 'customers_account_type_idx');
             });
         }
     }
@@ -103,5 +116,36 @@ return new class extends Migration
         Schema::dropIfExists('account_connections');
         Schema::dropIfExists('account_user');
         Schema::dropIfExists('accounts');
+    }
+
+    private function hasIndex(string $table, string $indexName): bool
+    {
+        $driver = DB::getDriverName();
+
+        if ($driver === 'sqlite') {
+            $indexes = DB::select(sprintf("PRAGMA index_list('%s')", str_replace("'", "''", $table)));
+
+            foreach ($indexes as $index) {
+                if (($index->name ?? null) === $indexName) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $database = DB::getDatabaseName();
+
+        $result = DB::selectOne(
+            'SELECT 1 AS present
+             FROM information_schema.statistics
+             WHERE table_schema = ?
+               AND table_name = ?
+               AND index_name = ?
+             LIMIT 1',
+            [$database, $table, $indexName]
+        );
+
+        return $result !== null;
     }
 };
