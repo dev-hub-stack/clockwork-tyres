@@ -47,6 +47,10 @@ George's answers lock these rules in:
 - supplier selection is manual in retailer admin
 - procurement can start from a retail invoice or manually
 - retailers can place standalone procurement orders
+- procurement cart can include products from multiple suppliers at once
+- products remain grouped under each supplier
+- retailer can click one final `place order` action to submit all supplier groups together
+- the system still splits those submissions into separate supplier orders
 - when a quote is approved and invoiced, stock is deducted
 - if cancelled, stock is added back to the selected warehouse using the current reporting CRM method
 - no online payment capture for launch
@@ -107,14 +111,17 @@ What the platform should represent:
 - line items for selected tyres
 - quantity
 - supplier choice
+- supplier-grouped sections inside one workbench
 - warehouse destination context
 - price tier selection where applicable
+- one unified submit action that fans out into separate supplier requests
 
 Important:
 
 - this is not a payment cart
 - this is a business request builder
 - the retailer is preparing a quote / order request, not paying at checkout
+- internally, the workbench behaves like a grouped multi-supplier cart, not a single supplier order
 
 What George should review:
 
@@ -136,6 +143,7 @@ What the platform should represent:
 - quote approval
 - invoice creation
 - stock deduction after invoice creation
+- supplier workflow remains separate for each supplier group created from the retailer admin workbench
 
 Important:
 
@@ -207,6 +215,7 @@ What George should review:
 | Supplier selection | Manual in admin | Hidden from storefront |
 | Stock visibility | Source-aware behind the scenes | Merged own stock + approved supplier stock |
 | Cart meaning | Procurement request builder | Customer purchase cart |
+| Multi-supplier behavior | One workbench, grouped by supplier, submitted together, split into separate supplier orders | Single customer-facing cart |
 | Payment capture | None for launch | None for launch, but still a storefront order journey |
 | Final action | Quote approval -> invoice -> stock deduction | Order placement / checkout completion |
 | Warehouse behavior | Stock returned to selected warehouse on cancellation | Standard retail order/fulfillment flow |
@@ -234,6 +243,10 @@ Avoid using retail payment language in admin procurement screens.
 4. Reuse reporting CRM stock reversal behavior.
 5. Layer reporting and subscription awareness after the core flow is stable.
 
+Implementation note:
+
+`place order` in admin should feel unified for the retailer, but the backend must persist separate supplier-side orders, quotes, invoices, and stock movements per supplier.
+
 ## 8. Bottom Line
 
 Retail storefront checkout and retailer admin procurement are related, but they are not the same workflow.
@@ -242,4 +255,3 @@ Retail storefront checkout and retailer admin procurement are related, but they 
 - admin procurement is a supplier sourcing and approval journey
 
 George's platform should represent them as separate flows that share the same platform foundation but different business actions.
-

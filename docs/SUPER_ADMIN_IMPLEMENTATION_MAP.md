@@ -34,6 +34,7 @@ Super admin should own:
 - reports add-on setup
 - platform-wide analytics
 - system visibility and audit oversight
+- create and manage supplier accounts
 
 Super admin should not own:
 
@@ -42,6 +43,8 @@ Super admin should not own:
 - supplier inventory editing
 - warehouse-level stock maintenance
 - customer-facing checkout behavior
+- impersonation or login-as-account support
+- a separate manual supplier approval queue
 
 ## Mockup To Architecture Mapping
 
@@ -165,6 +168,7 @@ Recommended actions:
 - create account
 - activate account
 - suspend account
+- create supplier account
 - enable wholesale
 - assign subscription
 - configure reports tier
@@ -180,6 +184,8 @@ The super-admin surface should not contain:
 - procurement execution
 - checkout fulfillment
 - storefront merchandising controls
+- impersonation controls
+- approve / reject supplier intake workflows
 
 Those belong in supplier admin, retailer admin, or storefront flows.
 
@@ -200,3 +206,9 @@ If we keep super admin focused on accounts, subscriptions, analytics, and suppor
 The super-admin implementation should be a governance console over the Clockwork Tyres platform.
 
 It should manage accounts, subscriptions, reports add-ons, and analytics, while deliberately staying out of supplier product and inventory editing.
+
+It should also:
+
+- create and manage supplier accounts directly
+- avoid impersonation features
+- avoid a manual supplier approval layer that would duplicate normal account management

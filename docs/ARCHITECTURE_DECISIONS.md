@@ -104,6 +104,10 @@ These decisions supersede earlier assumptions where they conflict.
 - procurement can start from a retail invoice
 - procurement can also be created manually
 - retailers can place standalone procurement orders
+- admin procurement cart can contain products from multiple suppliers at the same time
+- products must remain grouped per supplier inside the procurement cart
+- one `place order` action can submit all grouped supplier orders together
+- operationally, procurement still splits into separate supplier orders behind the scenes
 
 ### 8. Procurement Approval Outcome
 
@@ -132,6 +136,9 @@ These decisions supersede earlier assumptions where they conflict.
   - create supplier products
   - edit supplier products
   - manage supplier inventory directly
+- super admin does not impersonate or log in as business accounts
+- super admin creates and manages supplier accounts
+- super admin does not manually approve supplier accounts as a separate approval workflow
 
 ## Architecture Implications
 
@@ -242,6 +249,14 @@ Recommended workflow state model:
 Because approval creates invoice and deducts stock, quote approval is a major transition point and should be auditable.
 
 Cancellation should restore stock to the selected warehouse using the current reporting CRM method.
+
+Recommended cart / order behavior:
+
+- retailer admin can add items from multiple suppliers into one procurement workbench
+- the workbench must keep line items grouped by supplier
+- the final submit action should fan out into separate supplier procurement orders
+- supplier intake, quote, approval, and invoice conversion should continue per supplier order
+- this is a unified submission experience for the retailer admin, not a single merged supplier order
 
 ### Subscription and Entitlements
 
