@@ -108,13 +108,127 @@ class StorefrontBootstrapController extends BaseWholesaleController
                 'label' => 'Tyres',
                 'enabled' => true,
                 'launch_status' => 'live',
+                'launch_category' => true,
+                'features' => $this->launchCategoryFeatures(),
+                'search_by_size_fields' => $this->tyreSizeFields(),
+                'search_by_vehicle_fields' => $this->tyreVehicleFields(),
+                'spec_fields' => [
+                    'size',
+                    'width',
+                    'aspect_ratio',
+                    'rim_size',
+                    'load_index',
+                    'speed_rating',
+                    'season',
+                ],
             ],
             [
                 'id' => 'wheels',
                 'label' => 'Wheels',
                 'enabled' => false,
                 'launch_status' => 'future',
+                'launch_category' => false,
+                'features' => $this->disabledCategoryFeatures(),
+                'search_by_size_fields' => $this->wheelSizeFields(),
+                'search_by_vehicle_fields' => $this->wheelVehicleFields(),
+                'spec_fields' => [
+                    'rim_diameter',
+                    'rim_width',
+                    'bolt_pattern',
+                    'hub_bore',
+                    'offset',
+                ],
             ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{key: string, label: string, type: string, required?: bool, placeholder?: string}>
+     */
+    private function tyreSizeFields(): array
+    {
+        return [
+            ['key' => 'width', 'label' => 'Width', 'type' => 'number', 'required' => true],
+            ['key' => 'aspectRatio', 'label' => 'Aspect Ratio', 'type' => 'number', 'required' => true],
+            ['key' => 'rimSize', 'label' => 'Rim Size', 'type' => 'number', 'required' => true],
+            ['key' => 'loadIndex', 'label' => 'Load Index', 'type' => 'text'],
+            ['key' => 'speedRating', 'label' => 'Speed Rating', 'type' => 'text'],
+            ['key' => 'season', 'label' => 'Season', 'type' => 'select'],
+        ];
+    }
+
+    /**
+     * @return array<int, array{key: string, label: string, type: string, required?: bool, placeholder?: string}>
+     */
+    private function tyreVehicleFields(): array
+    {
+        return [
+            ['key' => 'make', 'label' => 'Make', 'type' => 'select', 'required' => true],
+            ['key' => 'model', 'label' => 'Model', 'type' => 'select', 'required' => true],
+            ['key' => 'year', 'label' => 'Year', 'type' => 'select', 'required' => true],
+            ['key' => 'variant', 'label' => 'Variant', 'type' => 'select'],
+        ];
+    }
+
+    /**
+     * @return array<int, array{key: string, label: string, type: string, required?: bool, placeholder?: string}>
+     */
+    private function wheelSizeFields(): array
+    {
+        return [
+            ['key' => 'rimDiameter', 'label' => 'Rim Diameter', 'type' => 'number', 'required' => true],
+            ['key' => 'rimWidth', 'label' => 'Rim Width', 'type' => 'number', 'required' => true],
+            ['key' => 'boltPattern', 'label' => 'Bolt Pattern', 'type' => 'text', 'required' => true],
+            ['key' => 'offset', 'label' => 'Offset', 'type' => 'text'],
+            ['key' => 'hubBore', 'label' => 'Hub Bore', 'type' => 'text'],
+        ];
+    }
+
+    /**
+     * @return array<int, array{key: string, label: string, type: string, required?: bool, placeholder?: string}>
+     */
+    private function wheelVehicleFields(): array
+    {
+        return [
+            ['key' => 'make', 'label' => 'Make', 'type' => 'select', 'required' => true],
+            ['key' => 'model', 'label' => 'Model', 'type' => 'select', 'required' => true],
+            ['key' => 'year', 'label' => 'Year', 'type' => 'select', 'required' => true],
+            ['key' => 'fitment', 'label' => 'Fitment', 'type' => 'toggle'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{key: string, mode: string, enabled: bool}>
+     */
+    private function launchCategoryFeatures(): array
+    {
+        return $this->categoryFeatures(true);
+    }
+
+    /**
+     * @return array<string, array{key: string, mode: string, enabled: bool}>
+     */
+    private function disabledCategoryFeatures(): array
+    {
+        return $this->categoryFeatures(false);
+    }
+
+    /**
+     * @return array<string, array{key: string, mode: string, enabled: bool}>
+     */
+    private function categoryFeatures(bool $enabled): array
+    {
+        $mode = $enabled ? 'enabled' : 'disabled';
+
+        return [
+            'catalog' => ['key' => 'catalog', 'mode' => $mode, 'enabled' => $enabled],
+            'product-detail' => ['key' => 'product-detail', 'mode' => $mode, 'enabled' => $enabled],
+            'search-by-size' => ['key' => 'search-by-size', 'mode' => $mode, 'enabled' => $enabled],
+            'search-by-vehicle' => ['key' => 'search-by-vehicle', 'mode' => $mode, 'enabled' => $enabled],
+            'filters' => ['key' => 'filters', 'mode' => $mode, 'enabled' => $enabled],
+            'cart' => ['key' => 'cart', 'mode' => $mode, 'enabled' => $enabled],
+            'checkout' => ['key' => 'checkout', 'mode' => $mode, 'enabled' => $enabled],
+            'import' => ['key' => 'import', 'mode' => $mode, 'enabled' => $enabled],
         ];
     }
 

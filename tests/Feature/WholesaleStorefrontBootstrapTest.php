@@ -33,8 +33,12 @@ class WholesaleStorefrontBootstrapTest extends TestCase
             ->assertJsonPath('data.storefront.cart_enabled', true)
             ->assertJsonPath('data.storefront.checkout_enabled', true)
             ->assertJsonPath('data.categories.0.id', 'tyres')
+            ->assertJsonPath('data.categories.0.launch_category', true)
+            ->assertJsonPath('data.categories.0.features.catalog.enabled', true)
+            ->assertJsonPath('data.categories.0.search_by_size_fields.0.key', 'width')
             ->assertJsonPath('data.categories.1.id', 'wheels')
-            ->assertJsonPath('data.categories.1.enabled', false);
+            ->assertJsonPath('data.categories.1.enabled', false)
+            ->assertJsonPath('data.categories.1.features.cart.enabled', false);
     }
 
     public function test_storefront_bootstrap_includes_account_context_for_authenticated_wholesale_customer(): void
