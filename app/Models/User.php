@@ -5,6 +5,10 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Models\AccountMembership;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -57,6 +61,33 @@ class User extends Authenticatable implements FilamentUser
     public function loginHistory(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(UserLoginHistory::class)->orderBy('logged_in_at', 'desc');
+    }
+
+    /**
+     * Accounts the user belongs to.
+     */
+    public function accounts(): BelongsToMany
+    {
+        return $this->belongsToMany(Account::class, 'account_user')
+            ->using(AccountMembership::class)
+            ->withPivot(['role', 'is_default'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Default account for the user, if one has been marked.
+     */
+    public function defaultAccount(): ?Account
+    {
+        return $this->accounts()->wherePivot('is_default', true)->first();
+    }
+
+    /**
+     * Accounts created by the user.
+     */
+    public function createdAccounts(): HasMany
+    {
+        return $this->hasMany(Account::class, 'created_by_user_id');
     }
 
     /**

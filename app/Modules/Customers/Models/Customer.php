@@ -2,6 +2,7 @@
 
 namespace App\Modules\Customers\Models;
 
+use App\Modules\Accounts\Models\Account;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -34,6 +35,7 @@ class Customer extends Authenticatable
         'city',
         'state',
         'country_id',
+        'account_id',
         'website',
         'trade_license_number',
         'expiry',
@@ -228,6 +230,14 @@ class Customer extends Authenticatable
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    /**
+     * Relationship: Business Account
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     /**
