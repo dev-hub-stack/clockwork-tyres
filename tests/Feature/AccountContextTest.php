@@ -43,7 +43,7 @@ class AccountContextTest extends TestCase
 
         $response = $this->resolveContextResponse($user, Request::create('/api/account-context', 'GET'));
 
-        $response->assertOk();
+        $this->assertSame(200, $response->getStatusCode());
         $responseData = $response->getData(true);
 
         $this->assertSame('fallback', $responseData['selection_source']);
@@ -74,7 +74,7 @@ class AccountContextTest extends TestCase
             ]),
         );
 
-        $selectedResponse->assertOk();
+        $this->assertSame(200, $selectedResponse->getStatusCode());
         $selectedData = $selectedResponse->getData(true);
 
         $this->assertSame('explicit', $selectedData['selection_source']);
@@ -83,7 +83,7 @@ class AccountContextTest extends TestCase
 
         $storedResponse = $this->resolveContextResponse($user, Request::create('/api/account-context', 'GET'));
 
-        $storedResponse->assertOk();
+        $this->assertSame(200, $storedResponse->getStatusCode());
         $storedData = $storedResponse->getData(true);
 
         $this->assertSame('stored', $storedData['selection_source']);
