@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Modules\Products\Support\CatalogCategoryRegistry;
 use App\Modules\Products\Support\TyreCatalogContract;
+use App\Modules\Products\Support\TyreGridLayout;
 use BackedEnum;
 use Filament\Pages\Page;
 use UnitEnum;
@@ -26,6 +27,8 @@ class TyresGrid extends Page
     public array $category_definition = [];
     public array $pricing_levels = [];
     public array $launch_notes = [];
+    public array $grid_columns = [];
+    public array $toolbar_actions = [];
 
     public function mount(): void
     {
@@ -34,6 +37,8 @@ class TyresGrid extends Page
         $blueprint = TyreCatalogContract::blueprint();
         $this->pricing_levels = $blueprint['pricing_levels'] ?? [];
         $this->launch_notes = $blueprint['launch_notes'] ?? [];
+        $this->grid_columns = TyreGridLayout::columns();
+        $this->toolbar_actions = TyreGridLayout::toolbarActions();
 
         $this->loadTyresData();
     }
