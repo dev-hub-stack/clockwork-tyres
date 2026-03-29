@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'business.owner.auth' => \App\Http\Middleware\BusinessOwnerAuth::class,
             'wholesale.auth' => \App\Http\Middleware\WholesaleAuth::class,
             'current.account' => \App\Http\Middleware\ResolveCurrentAccount::class,
         ]);
