@@ -14,6 +14,7 @@ class TyreImportBatch extends Model
     protected $fillable = [
         'account_id',
         'uploaded_by_user_id',
+        'applied_by_user_id',
         'category',
         'source_format',
         'source_file_name',
@@ -23,6 +24,7 @@ class TyreImportBatch extends Model
         'contract_version',
         'mapping_version',
         'status',
+        'applied_at',
         'total_rows',
         'staged_rows',
         'valid_rows',
@@ -31,11 +33,13 @@ class TyreImportBatch extends Model
         'source_headers',
         'normalized_headers',
         'validation_summary',
+        'apply_summary',
         'meta',
     ];
 
     protected $casts = [
         'status' => TyreImportBatchStatus::class,
+        'applied_at' => 'datetime',
         'source_file_size_bytes' => 'integer',
         'contract_version' => 'integer',
         'total_rows' => 'integer',
@@ -46,6 +50,7 @@ class TyreImportBatch extends Model
         'source_headers' => 'array',
         'normalized_headers' => 'array',
         'validation_summary' => 'array',
+        'apply_summary' => 'array',
         'meta' => 'array',
     ];
 
@@ -57,6 +62,11 @@ class TyreImportBatch extends Model
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by_user_id');
+    }
+
+    public function appliedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'applied_by_user_id');
     }
 
     public function rows(): HasMany

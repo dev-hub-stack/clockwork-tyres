@@ -141,10 +141,24 @@
             </div>
         @endif
 
+        @if (session('tyre_import_apply_status'))
+            <div class="alert alert-success mb-0" role="alert">
+                <strong><i class="bi bi-check-circle"></i> Import applied:</strong>
+                {{ session('tyre_import_apply_status') }}
+            </div>
+        @endif
+
         @if ($errors->has('import_file'))
             <div class="alert alert-danger mb-0" role="alert">
                 <strong><i class="bi bi-exclamation-triangle"></i> Import error:</strong>
                 {{ $errors->first('import_file') }}
+            </div>
+        @endif
+
+        @if ($errors->has('apply_batch'))
+            <div class="alert alert-danger mb-0" role="alert">
+                <strong><i class="bi bi-exclamation-triangle"></i> Apply error:</strong>
+                {{ $errors->first('apply_batch') }}
             </div>
         @endif
 
@@ -174,6 +188,11 @@
                                 <p class="text-xs text-slate-500">
                                     {{ $latest_import_batch['source_format'] }} / {{ $latest_import_batch['status'] }} / {{ $latest_import_batch['uploaded_at'] }}
                                 </p>
+                                @if (!empty($latest_import_batch['applied_at']))
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        Applied by {{ $latest_import_batch['applied_by'] ?? 'system' }} on {{ $latest_import_batch['applied_at'] }}
+                                    </p>
+                                @endif
                             @else
                                 <p class="mt-1 text-sm font-semibold text-slate-900">No staged tyre file yet</p>
                                 <p class="text-xs text-slate-500">Until the first supplier file is staged, the grid stays on the launch-contract placeholder row.</p>
@@ -199,6 +218,23 @@
                             <i class="bi bi-upload"></i> Stage Import
                         </button>
                     </form>
+
+                    @if (!empty($latest_import_batch))
+                        <form method="POST" action="{{ route('admin.tyre-grid.apply') }}" class="flex flex-wrap items-center gap-3">
+                            @csrf
+                            <input type="hidden" name="batch_id" value="{{ $latest_import_batch['id'] }}">
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check2-square"></i> Apply Latest Batch
+                            </button>
+
+                            @if (!empty($latest_import_batch['apply_summary']))
+                                <span class="text-xs text-slate-500">
+                                    Last apply: {{ $latest_import_batch['apply_summary']['groups_created'] + $latest_import_batch['apply_summary']['groups_updated'] }} groups / {{ $latest_import_batch['apply_summary']['offers_created'] + $latest_import_batch['apply_summary']['offers_updated'] }} offers
+                                </span>
+                            @endif
+                        </form>
+                    @endif
                 </div>
             </div>
 

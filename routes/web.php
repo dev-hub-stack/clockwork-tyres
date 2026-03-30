@@ -54,6 +54,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('products.bulk.images');
     Route::post('tyre-grid/import', [TyreImportController::class, 'store'])
         ->name('tyre-grid.import');
+    Route::post('tyre-grid/apply', [TyreImportController::class, 'apply'])
+        ->name('tyre-grid.apply');
 
     // Inventory Grid Routes (pqGrid matching old Reporting system)
     Route::post('inventory/save-batch', [InventoryController::class, 'saveBatch'])

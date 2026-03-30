@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Products\Actions\ApplyTyreImportBatchAction;
 use App\Modules\Products\Actions\StageTyreImportAction;
+use App\Modules\Products\Models\TyreImportBatch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +16,56 @@ use Throwable;
 
 class TyreImportController extends Controller
 {
+    public function apply(
+        Request $request,
+        CurrentAccountResolver $currentAccountResolver,
+        ApplyTyreImportBatchAction $applyTyreImportBatchAction,
+    ): RedirectResponse {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        abort_unless($user?->can('view_products') ?? false, 403);
+
+        $validated = $request->validate([
+            'batch_id' => ['required', 'integer'],
+        ]);
+
+        $context = $currentAccountResolver->resolve($request, $user);
+        $account = $context->currentAccount;
+
+        if ($account === null) {
+            return back()->withErrors([
+                'apply_batch' => 'Select an active business account before applying a tyre import.',
+            ]);
+        }
+
+        $batch = TyreImportBatch::query()
+            ->where('id', $validated['batch_id'])
+            ->where('account_id', $account->id)
+            ->first();
+
+        if (! $batch instanceof TyreImportBatch) {
+            return back()->withErrors([
+                'apply_batch' => 'The selected tyre batch is not available for the active account.',
+            ]);
+        }
+
+        try {
+            $counts = $applyTyreImportBatchAction->execute($batch, $user);
+        } catch (Throwable $exception) {
+            return back()->withErrors([
+                'apply_batch' => 'The tyre import could not be applied. '.$exception->getMessage(),
+            ]);
+        }
+
+        return redirect()->back()->with('tyre_import_apply_status', sprintf(
+            'Applied %d groups and %d offers for %s.',
+            $counts['groups_created'] + $counts['groups_updated'],
+            $counts['offers_created'] + $counts['offers_updated'],
+            $account->name,
+        ));
+    }
+
     public function store(
         Request $request,
         CurrentAccountResolver $currentAccountResolver,

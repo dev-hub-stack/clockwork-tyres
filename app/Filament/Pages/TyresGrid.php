@@ -175,7 +175,11 @@ class TyresGrid extends Page
         return TyreImportBatch::query()
             ->where('account_id', $account->id)
             ->latest('id')
-            ->with(['rows' => fn ($query) => $query->orderBy('source_row_number')->limit(50)])
+            ->with([
+                'rows' => fn ($query) => $query->orderBy('source_row_number')->limit(50),
+                'uploadedBy',
+                'appliedBy',
+            ])
             ->first();
     }
 
@@ -210,6 +214,9 @@ class TyresGrid extends Page
             'sheet_name' => $batch->sheet_name,
             'uploaded_by' => $batch->uploadedBy?->name,
             'uploaded_at' => $batch->created_at?->format('d M Y, h:i A'),
+            'applied_by' => $batch->appliedBy?->name,
+            'applied_at' => $batch->applied_at?->format('d M Y, h:i A'),
+            'apply_summary' => $batch->apply_summary ?? [],
             'row_window_count' => $batch->rows->count(),
         ];
     }

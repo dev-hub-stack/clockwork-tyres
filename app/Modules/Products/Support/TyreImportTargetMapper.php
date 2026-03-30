@@ -43,7 +43,9 @@ final class TyreImportTargetMapper
                     'catalog_group_target' => [
                         'target_table' => 'tyre_catalog_groups',
                         'storefront_merge_key' => $group['merge_key'],
+                        'brand_id' => $brandResolution['id'],
                         'brand_name' => $payload['brand'] ?? $group['brand'],
+                        'model_id' => $modelResolution['id'],
                         'model_name' => $payload['model'] ?? $group['model'],
                         'width' => $payload['width'] ?? null,
                         'height' => $payload['height'] ?? null,

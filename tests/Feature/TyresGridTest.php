@@ -76,6 +76,7 @@ class TyresGridTest extends TestCase
             ->assertSee('Tyre import staging')
             ->assertSee('Commit planner preview')
             ->assertSee('Target mapping preview')
+            ->assertSee('Apply Latest Batch')
             ->assertSee('North Coast Tyres')
             ->assertSee('active-supplier.csv')
             ->assertSee('Create new tyre group')
