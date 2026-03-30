@@ -22,7 +22,11 @@ class StorefrontTyreCatalogController extends BaseWholesaleController
         }
 
         return $this->success(
-            $this->catalog->catalog($account, $request->query('mode'))
+            $this->catalog->catalog(
+                $account,
+                $request->query('mode'),
+                $this->catalogFilters($request)
+            )
         );
     }
 
@@ -50,5 +54,23 @@ class StorefrontTyreCatalogController extends BaseWholesaleController
         $account = $request->attributes->get('currentAccount');
 
         return $account instanceof Account ? $account : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function catalogFilters(Request $request): array
+    {
+        return collect($request->query())
+            ->except([
+                'mode',
+                'category',
+                'fitmentMode',
+                'searchBySize',
+                'search_by_size',
+                'searchByVehicle',
+                'search_by_vehicle',
+            ])
+            ->all();
     }
 }

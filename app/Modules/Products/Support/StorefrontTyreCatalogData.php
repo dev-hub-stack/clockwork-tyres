@@ -20,12 +20,13 @@ class StorefrontTyreCatalogData
     /**
      * @return array{items: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
-    public function catalog(Account $account, ?string $requestedMode = null): array
+    public function catalog(Account $account, ?string $requestedMode = null, array $filters = []): array
     {
         $mode = $this->resolveMode($account, $requestedMode);
         $context = $this->visibilityContext($account, $mode);
+        $catalogFilters = $this->normalizeCatalogFilters($filters);
 
-        $items = $this->catalogQuery($account, $context)
+        $items = $this->catalogQuery($account, $context, $catalogFilters)
             ->get()
             ->map(fn (TyreCatalogGroup $group) => $this->mapCatalogItem($group, $account, $context))
             ->filter()
@@ -50,6 +51,7 @@ class StorefrontTyreCatalogData
                 'category' => 'tyres',
                 'item_count' => count($items),
                 'account_slug' => $account->slug,
+                'filters' => $catalogFilters,
             ],
         ];
     }
@@ -135,9 +137,9 @@ class StorefrontTyreCatalogData
     /**
      * @param  array{mode: string, visible_account_ids: array<int, int>}  $context
      */
-    private function catalogQuery(Account $account, array $context): Builder
+    private function catalogQuery(Account $account, array $context, array $filters = []): Builder
     {
-        return TyreCatalogGroup::query()
+        $query = TyreCatalogGroup::query()
             ->whereHas('offers', fn (Builder $query) => $query->whereIn('account_id', $context['visible_account_ids']))
             ->with([
                 'offers' => fn ($query) => $query
@@ -151,6 +153,8 @@ class StorefrontTyreCatalogData
             ->orderByRaw('LOWER(model_name)')
             ->orderBy('full_size')
             ->orderBy('dot_year');
+
+        return $this->applyCatalogFilters($query, $filters);
     }
 
     /**
@@ -215,6 +219,118 @@ class StorefrontTyreCatalogData
             'mode' => $mode,
             'visible_account_ids' => array_values(array_unique([$account->id, ...$supplierAccountIds])),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function normalizeCatalogFilters(array $filters): array
+    {
+        $normalized = [];
+
+        $stringMappings = [
+            'loadIndex' => 'load_index',
+            'load_index' => 'load_index',
+            'speedRating' => 'speed_rating',
+            'speed_rating' => 'speed_rating',
+            'season' => 'season',
+            'brand' => 'brand',
+            'model' => 'model',
+            'query' => 'query',
+            'search' => 'query',
+            'q' => 'query',
+        ];
+
+        $integerMappings = [
+            'width' => 'width',
+            'aspectRatio' => 'height',
+            'height' => 'height',
+            'rimSize' => 'rim_size',
+            'rim_size' => 'rim_size',
+        ];
+
+        foreach ($integerMappings as $inputKey => $normalizedKey) {
+            $value = $filters[$inputKey] ?? null;
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_numeric($value)) {
+                $normalized[$normalizedKey] = (int) $value;
+            }
+        }
+
+        foreach ($stringMappings as $inputKey => $normalizedKey) {
+            $value = $filters[$inputKey] ?? null;
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $value = trim($value);
+
+            if ($value === '') {
+                continue;
+            }
+
+            $normalized[$normalizedKey] = $value;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyCatalogFilters(Builder $query, array $filters): Builder
+    {
+        if (isset($filters['width'])) {
+            $query->where('width', $filters['width']);
+        }
+
+        if (isset($filters['height'])) {
+            $query->where('height', $filters['height']);
+        }
+
+        if (isset($filters['rim_size'])) {
+            $query->where('rim_size', $filters['rim_size']);
+        }
+
+        if (isset($filters['load_index'])) {
+            $query->whereRaw('LOWER(load_index) = ?', [strtolower((string) $filters['load_index'])]);
+        }
+
+        if (isset($filters['speed_rating'])) {
+            $query->whereRaw('LOWER(speed_rating) = ?', [strtolower((string) $filters['speed_rating'])]);
+        }
+
+        if (isset($filters['season'])) {
+            $query->whereRaw('LOWER(tyre_type) = ?', [strtolower((string) $filters['season'])]);
+        }
+
+        if (isset($filters['brand'])) {
+            $query->whereRaw('LOWER(brand_name) like ?', ['%'.strtolower((string) $filters['brand']).'%']);
+        }
+
+        if (isset($filters['model'])) {
+            $query->whereRaw('LOWER(model_name) like ?', ['%'.strtolower((string) $filters['model']).'%']);
+        }
+
+        if (isset($filters['query'])) {
+            $search = '%'.strtolower((string) $filters['query']).'%';
+
+            $query->where(function (Builder $query) use ($search): void {
+                $query
+                    ->whereRaw('LOWER(brand_name) like ?', [$search])
+                    ->orWhereRaw('LOWER(model_name) like ?', [$search])
+                    ->orWhereRaw('LOWER(full_size) like ?', [$search])
+                    ->orWhereHas('offers', fn (Builder $offerQuery) => $offerQuery->whereRaw('LOWER(source_sku) like ?', [$search]));
+            });
+        }
+
+        return $query;
     }
 
     /**

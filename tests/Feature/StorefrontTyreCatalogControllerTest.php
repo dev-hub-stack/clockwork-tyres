@@ -277,6 +277,76 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             ->assertJsonPath('data.product.related_slugs.0', 'michelin-pilot-sport-4s-255-35r20-2026');
     }
 
+    public function test_retail_store_catalog_applies_live_tyre_size_filters(): void
+    {
+        [$owner, $account] = $this->createOwnerAccount('Alpha Retail', 'alpha-retail', AccountType::BOTH, true, true);
+
+        $matchingGroup = TyreCatalogGroup::create([
+            'storefront_merge_key' => 'michelin|pilot-sport-4s|245/35R20|2026',
+            'brand_name' => 'Michelin',
+            'model_name' => 'Pilot Sport 4S',
+            'width' => 245,
+            'height' => 35,
+            'rim_size' => 20,
+            'full_size' => '245/35R20',
+            'load_index' => '95',
+            'speed_rating' => 'Y',
+            'dot_year' => '2026',
+            'tyre_type' => 'Summer',
+        ]);
+
+        $nonMatchingGroup = TyreCatalogGroup::create([
+            'storefront_merge_key' => 'continental|sportcontact-7|255/40R20|2026',
+            'brand_name' => 'Continental',
+            'model_name' => 'SportContact 7',
+            'width' => 255,
+            'height' => 40,
+            'rim_size' => 20,
+            'full_size' => '255/40R20',
+            'load_index' => '99',
+            'speed_rating' => 'Y',
+            'dot_year' => '2026',
+            'tyre_type' => 'Summer',
+        ]);
+
+        $matchingOffer = TyreAccountOffer::create([
+            'tyre_catalog_group_id' => $matchingGroup->id,
+            'account_id' => $account->id,
+            'source_sku' => 'ALPHA-245',
+            'retail_price' => 390,
+        ]);
+
+        $nonMatchingOffer = TyreAccountOffer::create([
+            'tyre_catalog_group_id' => $nonMatchingGroup->id,
+            'account_id' => $account->id,
+            'source_sku' => 'ALPHA-255',
+            'retail_price' => 410,
+        ]);
+
+        $warehouse = $this->createWarehouse('Filter Warehouse', 'FILTER');
+        $this->seedOfferInventory($matchingOffer, $warehouse, 4);
+        $this->seedOfferInventory($nonMatchingOffer, $warehouse, 7);
+
+        $token = $owner->createToken('storefront-catalog')->plainTextToken;
+
+        $response = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/storefront/catalog/tyres?mode=retail-store&search_by_size=true&width=245&aspectRatio=35&rimSize=20&loadIndex=95&speedRating=Y&season=Summer');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.brand', 'Michelin')
+            ->assertJsonPath('data.items.0.size', '245/35R20')
+            ->assertJsonPath('data.meta.filters.width', 245)
+            ->assertJsonPath('data.meta.filters.height', 35)
+            ->assertJsonPath('data.meta.filters.rim_size', 20)
+            ->assertJsonPath('data.meta.filters.load_index', '95')
+            ->assertJsonPath('data.meta.filters.speed_rating', 'Y')
+            ->assertJsonPath('data.meta.filters.season', 'Summer');
+    }
+
     private function createOwnerAccount(
         string $name,
         string $slug,
