@@ -10,6 +10,8 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Inventory\Models\TyreOfferInventory;
+use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Products\Models\TyreCatalogGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,7 +72,7 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'dot_year' => '2026',
         ]);
 
-        TyreAccountOffer::create([
+        $ownOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $ownFirstGroup->id,
             'account_id' => $account->id,
             'source_sku' => 'ALPHA-001',
@@ -78,7 +80,7 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'product_image_1' => 'alpha-own.png',
         ]);
 
-        TyreAccountOffer::create([
+        $supplierOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $ownFirstGroup->id,
             'account_id' => $supplier->id,
             'source_sku' => 'BRAVO-001',
@@ -86,7 +88,7 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'product_image_1' => 'bravo-supplier.png',
         ]);
 
-        TyreAccountOffer::create([
+        $supplierOnlyOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $supplierOnlyGroup->id,
             'account_id' => $supplier->id,
             'source_sku' => 'BRAVO-002',
@@ -94,12 +96,20 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'product_image_1' => 'bravo-only.png',
         ]);
 
-        TyreAccountOffer::create([
+        $hiddenOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $hiddenGroup->id,
             'account_id' => $hiddenSupplier->id,
             'source_sku' => 'HIDDEN-001',
             'retail_price' => 310,
         ]);
+
+        $mainWarehouse = $this->createWarehouse('Main Warehouse', 'MAIN');
+        $secondaryWarehouse = $this->createWarehouse('Secondary Warehouse', 'SECONDARY');
+
+        $this->seedOfferInventory($ownOffer, $mainWarehouse, 4);
+        $this->seedOfferInventory($supplierOffer, $secondaryWarehouse, 9);
+        $this->seedOfferInventory($supplierOnlyOffer, $secondaryWarehouse, 3);
+        $this->seedOfferInventory($hiddenOffer, $secondaryWarehouse, 5);
 
         $token = $owner->createToken('storefront-catalog')->plainTextToken;
 
@@ -116,11 +126,15 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             ->assertJsonPath('data.items.0.brand', 'Michelin')
             ->assertJsonPath('data.items.0.availability.origin', 'own')
             ->assertJsonPath('data.items.0.availability.label', 'in stock')
+            ->assertJsonPath('data.items.0.availability.quantity', 4)
+            ->assertJsonPath('data.items.0.availability.show_quantity', true)
             ->assertJsonPath('data.items.0.availability.supplier_count', 1)
             ->assertJsonPath('data.items.0.price', 390)
             ->assertJsonPath('data.items.1.brand', 'Continental')
             ->assertJsonPath('data.items.1.availability.origin', 'supplier')
             ->assertJsonPath('data.items.1.availability.label', 'available')
+            ->assertJsonPath('data.items.1.availability.quantity', 3)
+            ->assertJsonPath('data.items.1.availability.show_quantity', true)
             ->assertJsonPath('data.items.1.availability.supplier_count', 1);
     }
 
@@ -145,19 +159,23 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'dot_year' => '2026',
         ]);
 
-        TyreAccountOffer::create([
+        $ownOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $ownGroup->id,
             'account_id' => $account->id,
             'source_sku' => 'SUP-001',
             'retail_price' => 500,
         ]);
 
-        TyreAccountOffer::create([
+        $supplierOnlyOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $supplierOnlyGroup->id,
             'account_id' => $supplier->id,
             'source_sku' => 'OTHER-001',
             'retail_price' => 480,
         ]);
+
+        $previewWarehouse = $this->createWarehouse('Preview Warehouse', 'PREVIEW');
+        $this->seedOfferInventory($ownOffer, $previewWarehouse, 2);
+        $this->seedOfferInventory($supplierOnlyOffer, $previewWarehouse, 6);
 
         $token = $owner->createToken('storefront-catalog')->plainTextToken;
 
@@ -171,6 +189,9 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             ->assertJsonPath('data.meta.mode', 'supplier-preview')
             ->assertJsonCount(1, 'data.items')
             ->assertJsonPath('data.items.0.brand', 'Pirelli')
+            ->assertJsonPath('data.items.0.availability.origin', 'own')
+            ->assertJsonPath('data.items.0.availability.quantity', 2)
+            ->assertJsonPath('data.items.0.availability.show_quantity', true)
             ->assertJsonPath('data.items.0.mode_availability.retail_store', false)
             ->assertJsonPath('data.items.0.mode_availability.supplier_preview', true);
     }
@@ -213,7 +234,7 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'country' => 'France',
         ]);
 
-        TyreAccountOffer::create([
+        $firstOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $first->id,
             'account_id' => $account->id,
             'source_sku' => 'ALPHA-001',
@@ -221,13 +242,17 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'product_image_1' => 'alpha-own.png',
         ]);
 
-        TyreAccountOffer::create([
+        $secondOffer = TyreAccountOffer::create([
             'tyre_catalog_group_id' => $second->id,
             'account_id' => $supplier->id,
             'source_sku' => 'BRAVO-002',
             'retail_price' => 360,
             'product_image_1' => 'bravo-option.png',
         ]);
+
+        $primaryWarehouse = $this->createWarehouse('Detail Warehouse', 'DETAIL');
+        $this->seedOfferInventory($firstOffer, $primaryWarehouse, 5);
+        $this->seedOfferInventory($secondOffer, $primaryWarehouse, 2);
 
         $token = $owner->createToken('storefront-catalog')->plainTextToken;
 
@@ -240,9 +265,15 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             ->assertJsonPath('status', true)
             ->assertJsonPath('data.product.slug', 'michelin-pilot-sport-4s-245-35r20-2026')
             ->assertJsonPath('data.product.brand', 'Michelin')
+            ->assertJsonPath('data.product.availability.origin', 'own')
+            ->assertJsonPath('data.product.availability.quantity', 5)
+            ->assertJsonPath('data.product.availability.show_quantity', false)
             ->assertJsonPath('data.product.specifications.0.label', 'Size')
             ->assertJsonPath('data.product.options.0.size', '245/35R20')
             ->assertJsonPath('data.product.options.1.size', '255/35R20')
+            ->assertJsonPath('data.product.options.1.availability.origin', 'supplier')
+            ->assertJsonPath('data.product.options.1.availability.quantity', 2)
+            ->assertJsonPath('data.product.options.1.availability.show_quantity', true)
             ->assertJsonPath('data.product.related_slugs.0', 'michelin-pilot-sport-4s-255-35r20-2026');
     }
 
@@ -289,5 +320,29 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             'status' => AccountStatus::ACTIVE,
             'base_subscription_plan' => SubscriptionPlan::PREMIUM,
         ]);
+    }
+
+    private function createWarehouse(string $name, string $code): Warehouse
+    {
+        return Warehouse::create([
+            'warehouse_name' => $name,
+            'code' => $code,
+            'is_primary' => true,
+        ]);
+    }
+
+    private function seedOfferInventory(TyreAccountOffer $offer, Warehouse $warehouse, int $quantity): void
+    {
+        TyreOfferInventory::create([
+            'tyre_account_offer_id' => $offer->id,
+            'account_id' => $offer->account_id,
+            'warehouse_id' => $warehouse->id,
+            'quantity' => $quantity,
+            'eta_qty' => 0,
+        ]);
+
+        $offer->forceFill([
+            'inventory_status' => $quantity > 0 ? 'configured_in_stock' : 'configured_out_of_stock',
+        ])->save();
     }
 }

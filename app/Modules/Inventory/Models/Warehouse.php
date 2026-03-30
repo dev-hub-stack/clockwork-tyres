@@ -51,6 +51,11 @@ class Warehouse extends Model
         return $this->hasMany(InventoryLog::class);
     }
 
+    public function tyreOfferInventories(): HasMany
+    {
+        return $this->hasMany(TyreOfferInventory::class);
+    }
+
     /**
      * Scope to get only active warehouses
      */

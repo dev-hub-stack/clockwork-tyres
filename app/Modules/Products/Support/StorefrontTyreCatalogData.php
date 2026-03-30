@@ -3,6 +3,7 @@
 namespace App\Modules\Products\Support;
 
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Support\TyreOfferAvailabilityResolver;
 use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Products\Models\TyreCatalogGroup;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,6 +12,11 @@ use Illuminate\Support\Str;
 
 class StorefrontTyreCatalogData
 {
+    public function __construct(
+        private readonly TyreOfferAvailabilityResolver $availabilityResolver,
+    ) {
+    }
+
     /**
      * @return array{items: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
@@ -79,7 +85,14 @@ class StorefrontTyreCatalogData
             return null;
         }
 
-        $primaryOffer = $this->primaryOffer($group->offers, $account->id);
+        [$ownOffers, $supplierOffers] = $this->splitOffers($group->offers, $account->id);
+
+        if ($context['mode'] === 'supplier-preview') {
+            $supplierOffers = collect();
+        }
+
+        $visibleOffers = $ownOffers->concat($supplierOffers)->values();
+        $primaryOffer = $this->primaryOffer($visibleOffers, $account->id, $catalogItem['availability']);
 
         return array_merge($catalogItem, [
             'description' => $this->descriptionFor($group),
@@ -129,6 +142,7 @@ class StorefrontTyreCatalogData
             ->with([
                 'offers' => fn ($query) => $query
                     ->whereIn('account_id', $context['visible_account_ids'])
+                    ->with(['inventories.warehouse'])
                     ->orderByRaw('CASE WHEN account_id = ? THEN 0 ELSE 1 END', [$account->id])
                     ->orderBy('retail_price')
                     ->orderBy('source_sku'),
@@ -151,6 +165,7 @@ class StorefrontTyreCatalogData
             ->with([
                 'offers' => fn ($query) => $query
                     ->whereIn('account_id', $context['visible_account_ids'])
+                    ->with(['inventories.warehouse'])
                     ->orderByRaw('CASE WHEN account_id = ? THEN 0 ELSE 1 END', [$account->id])
                     ->orderBy('retail_price')
                     ->orderBy('source_sku'),
@@ -218,9 +233,10 @@ class StorefrontTyreCatalogData
             return null;
         }
 
-        $availability = $this->availabilityPayload($ownOffers, $supplierOffers);
-        $primaryOffer = $this->primaryOffer($group->offers, $account->id);
-        $price = $this->priceForOffers($ownOffers, $supplierOffers);
+        $visibleOffers = $ownOffers->concat($supplierOffers)->values();
+        $availability = $this->availabilityResolver->resolve($visibleOffers, $account->id);
+        $primaryOffer = $this->primaryOffer($visibleOffers, $account->id, $availability);
+        $price = $this->priceForOffers($ownOffers, $supplierOffers, $availability);
 
         return [
             'group_id' => $group->id,
@@ -258,41 +274,16 @@ class StorefrontTyreCatalogData
     /**
      * @param  Collection<int, TyreAccountOffer>  $ownOffers
      * @param  Collection<int, TyreAccountOffer>  $supplierOffers
-     * @return array{origin: string, label: string, quantity: int, show_quantity: bool, supplier_count: int}
      */
-    private function availabilityPayload(Collection $ownOffers, Collection $supplierOffers): array
+    private function priceForOffers(Collection $ownOffers, Collection $supplierOffers, array $availability): float
     {
-        if ($ownOffers->isNotEmpty()) {
-            return [
-                'origin' => 'own',
-                'label' => 'in stock',
-                'quantity' => 0,
-                'show_quantity' => false,
-                'supplier_count' => $supplierOffers->pluck('account_id')->unique()->count(),
-            ];
-        }
+        $preferredOffers = $availability['origin'] === 'own' ? $ownOffers : $supplierOffers;
+        $fallbackOffers = $availability['origin'] === 'own' ? $supplierOffers : $ownOffers;
 
-        return [
-            'origin' => 'supplier',
-            'label' => 'available',
-            'quantity' => 0,
-            'show_quantity' => false,
-            'supplier_count' => $supplierOffers->pluck('account_id')->unique()->count(),
-        ];
-    }
-
-    /**
-     * @param  Collection<int, TyreAccountOffer>  $ownOffers
-     * @param  Collection<int, TyreAccountOffer>  $supplierOffers
-     */
-    private function priceForOffers(Collection $ownOffers, Collection $supplierOffers): float
-    {
-        $offer = $ownOffers->first()
-            ?? $supplierOffers
-                ->filter(fn (TyreAccountOffer $candidate) => $candidate->retail_price !== null)
-                ->sortBy('retail_price')
-                ->first()
-            ?? $supplierOffers->first();
+        $offer = $this->pricedOfferWithStock($preferredOffers)
+            ?? $this->pricedOfferWithStock($fallbackOffers)
+            ?? $this->pricedOffer($preferredOffers)
+            ?? $this->pricedOffer($fallbackOffers);
 
         return (float) ($offer?->retail_price ?? 0);
     }
@@ -300,10 +291,24 @@ class StorefrontTyreCatalogData
     /**
      * @param  Collection<int, TyreAccountOffer>  $offers
      */
-    private function primaryOffer(Collection $offers, int $ownAccountId): ?TyreAccountOffer
+    private function primaryOffer(Collection $offers, int $ownAccountId, array $availability): ?TyreAccountOffer
     {
+        $preferredOriginIsOwn = $availability['origin'] === 'own';
+
         return $offers
-            ->sortBy(fn (TyreAccountOffer $offer) => $offer->account_id === $ownAccountId ? 0 : 1)
+            ->sortBy(function (TyreAccountOffer $offer) use ($ownAccountId, $preferredOriginIsOwn): array {
+                $isOwn = $offer->account_id === $ownAccountId;
+                $hasStock = $this->availabilityResolver->offerCurrentQuantity($offer) > 0;
+
+                return [
+                    $preferredOriginIsOwn
+                        ? ($isOwn ? 0 : 1)
+                        : ($isOwn ? 1 : 0),
+                    $hasStock ? 0 : 1,
+                    (float) ($offer->retail_price ?? 0),
+                    $offer->source_sku,
+                ];
+            })
             ->first();
     }
 
@@ -432,5 +437,28 @@ class StorefrontTyreCatalogData
     private function stringOrEmpty(?string $value): string
     {
         return $value !== null && trim($value) !== '' ? trim($value) : '';
+    }
+
+    /**
+     * @param  Collection<int, TyreAccountOffer>  $offers
+     */
+    private function pricedOfferWithStock(Collection $offers): ?TyreAccountOffer
+    {
+        return $offers
+            ->filter(fn (TyreAccountOffer $offer) => $this->availabilityResolver->offerCurrentQuantity($offer) > 0)
+            ->filter(fn (TyreAccountOffer $offer) => $offer->retail_price !== null)
+            ->sortBy('retail_price')
+            ->first();
+    }
+
+    /**
+     * @param  Collection<int, TyreAccountOffer>  $offers
+     */
+    private function pricedOffer(Collection $offers): ?TyreAccountOffer
+    {
+        return $offers
+            ->filter(fn (TyreAccountOffer $offer) => $offer->retail_price !== null)
+            ->sortBy('retail_price')
+            ->first();
     }
 }

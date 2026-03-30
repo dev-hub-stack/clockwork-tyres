@@ -3,8 +3,10 @@
 namespace App\Modules\Products\Models;
 
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Models\TyreOfferInventory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TyreAccountOffer extends Model
 {
@@ -53,5 +55,10 @@ class TyreAccountOffer extends Model
     public function sourceRow(): BelongsTo
     {
         return $this->belongsTo(TyreImportRow::class, 'source_row_id');
+    }
+
+    public function inventories(): HasMany
+    {
+        return $this->hasMany(TyreOfferInventory::class, 'tyre_account_offer_id');
     }
 }
