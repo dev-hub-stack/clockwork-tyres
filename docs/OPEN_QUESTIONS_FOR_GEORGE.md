@@ -24,6 +24,7 @@ The tyre sample sheet has now been shared, so the main dependency is no longer t
 The following items are no longer open questions:
 
 - the tyre sample sheet has been shared
+- storefront grouping should ignore supplier SKU and use brand, model, size, and year
 - one shared stock pool for `both` accounts
 - four pricing levels in the tire sheet
 - one merged storefront product entry for same-tyre multi-source stock

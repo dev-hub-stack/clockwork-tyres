@@ -27,6 +27,13 @@ These decisions supersede earlier assumptions where they conflict.
   - products from the retailer's approved suppliers
 - supplier identity is hidden on the storefront
 - if the same tyre exists from own stock and multiple suppliers, storefront shows one merged product entry
+- merged product identity must not depend on supplier SKU
+- George confirmed suppliers may use different SKUs for the same tyre
+- grouping should be based on:
+  - `brand`
+  - `model`
+  - `size`
+  - `year`
 - listing priority is:
   - own stock first
   - supplier stock after
@@ -244,6 +251,7 @@ The storefront query layer must support:
 - merging the retailer's own stock with approved-supplier stock
 - hidden supplier identity
 - one merged entry when the same tyre is available from multiple sources
+- grouping by `brand + model + size + year`, not `sku`
 - own-stock priority
 - low-stock quantity display logic
 - multiple supplier sources for the same tyre
@@ -381,6 +389,6 @@ Only small launch clarifications remain:
 
 ## Recommended Next Move
 
-Treat the account model, subscription engine, procurement workflow, storefront mode logic, pricing engine, and tire schema preparation as active design work now.
+Treat the account model, subscription engine, procurement workflow, storefront mode logic, pricing engine, tyre importer, and merged-catalogue grouping logic as active build work now.
 
-Wait only for the final tire import sheet before locking final schema and import mappings.
+Do not wait for more major product input before starting tyre import staging and aggregation design.

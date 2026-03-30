@@ -112,6 +112,30 @@ Recommended normalized field names in the platform:
 - `product_image_2`
 - `product_image_3`
 
+## Grouping Rule Confirmed By George
+
+For merged catalogue / storefront grouping:
+
+- do **not** group by `sku`
+- different suppliers may use different SKUs for the same tyre
+- grouping should be done by:
+  - `brand`
+  - `model`
+  - `size`
+  - `year`
+
+Recommended current mapping:
+
+- `size` -> `full_size`
+- `year` -> currently most likely `DOT`, pending final confirmation
+
+This affects:
+
+- merged storefront product identity
+- supplier stock aggregation
+- procurement source-option grouping
+- importer dedupe and normalization rules
+
 ## Required Launch Fields
 
 Recommended required fields for Phase 1 import:
