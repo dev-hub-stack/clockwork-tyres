@@ -75,10 +75,12 @@ class TyresGridTest extends TestCase
             ->assertOk()
             ->assertSee('Tyre import staging')
             ->assertSee('Commit planner preview')
+            ->assertSee('Target mapping preview')
             ->assertSee('North Coast Tyres')
             ->assertSee('active-supplier.csv')
             ->assertSee('Create new tyre group')
             ->assertSee('Merge into existing staged group')
+            ->assertSee('tyre_catalog_groups')
             ->assertDontSee('secondary-supplier.csv');
 
         $page = app(TyresGrid::class);
@@ -92,6 +94,8 @@ class TyresGridTest extends TestCase
         $this->assertSame(2, $page->import_summary_cards[1]['value']);
         $this->assertSame(1, $page->commit_plan_summary_cards[0]['value']);
         $this->assertSame(1, $page->commit_plan_summary_cards[1]['value']);
+        $this->assertSame(2, $page->target_mapping_summary_cards[0]['value']);
+        $this->assertSame('Target mapping is read-only. It prepares dedicated tyre target entities without applying imported rows live.', $page->target_mapping_scope_note);
     }
 
     public function test_tyre_grid_import_route_stages_a_csv_batch_for_the_active_account(): void

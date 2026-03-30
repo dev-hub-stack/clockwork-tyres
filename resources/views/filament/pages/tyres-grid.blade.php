@@ -294,6 +294,78 @@
             @endif
         </div>
 
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-4 flex flex-col gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">Target mapping preview</h2>
+                <p class="text-sm text-slate-600">
+                    This maps the staged tyre groups onto the dedicated tyre target tables we will use for live import apply. It also highlights unresolved reference, media, and inventory targets.
+                </p>
+                @if ($target_mapping_scope_note !== '')
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ $target_mapping_scope_note }}</p>
+                @endif
+            </div>
+
+            @if (!empty($target_mapping_summary_cards))
+                <div class="mb-4 grid gap-3 md:grid-cols-4">
+                    @foreach ($target_mapping_summary_cards as $card)
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                            <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                            <p class="mt-1 text-xs text-slate-500">{{ $card['note'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Group</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Brand Ref</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Model Ref</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Offer Targets</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Blocked Surfaces</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @foreach ($target_mapping_groups as $group)
+                                @php($catalogTarget = $group['catalog_group_target'])
+                                <tr>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div class="font-semibold text-slate-900">{{ $catalogTarget['brand_name'] }} {{ $catalogTarget['model_name'] }}</div>
+                                        <div class="text-xs text-slate-500">{{ $catalogTarget['full_size'] }} / {{ $catalogTarget['dot_year'] ?? '--' }}</div>
+                                        <div class="mt-1 text-xs text-slate-500">{{ $catalogTarget['target_table'] }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div class="font-semibold">{{ $catalogTarget['reference_resolution']['brand']['status'] }}</div>
+                                        <div class="text-xs text-slate-500">{{ $catalogTarget['reference_resolution']['brand']['note'] }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div class="font-semibold">{{ $catalogTarget['reference_resolution']['model']['status'] }}</div>
+                                        <div class="text-xs text-slate-500">{{ $catalogTarget['reference_resolution']['model']['note'] }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div>{{ count($group['offer_targets']) }}</div>
+                                        <div class="text-xs text-slate-500">
+                                            {{ implode(', ', array_map(fn ($offer) => $offer['source_sku'], $group['offer_targets'])) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div>Media: {{ $group['blocked_surfaces']['media'] }}</div>
+                                        <div class="text-xs text-slate-500">Inventory: {{ $group['blocked_surfaces']['inventory'] }}</div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                    Stage a tyre file first, then the target mapping preview will show how those groups land in the dedicated tyre tables.
+                </div>
+            @endif
+        </div>
+
         <div class="action-buttons">
             @foreach ($toolbar_actions as $action)
                 <button

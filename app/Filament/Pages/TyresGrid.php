@@ -11,6 +11,7 @@ use App\Modules\Products\Support\CatalogCategoryRegistry;
 use App\Modules\Products\Support\TyreCatalogContract;
 use App\Modules\Products\Support\TyreGridLayout;
 use App\Modules\Products\Support\TyreImportCommitPlanner;
+use App\Modules\Products\Support\TyreImportTargetMapper;
 use BackedEnum;
 use Filament\Pages\Page;
 use Throwable;
@@ -56,6 +57,12 @@ class TyresGrid extends Page
 
     public string $commit_plan_scope_note = '';
 
+    public array $target_mapping_summary_cards = [];
+
+    public array $target_mapping_groups = [];
+
+    public string $target_mapping_scope_note = '';
+
     public function mount(): void
     {
         $this->category_definition = CatalogCategoryRegistry::definition(CatalogCategoryRegistry::TYRES) ?? [];
@@ -99,6 +106,7 @@ class TyresGrid extends Page
         }
 
         $commitPlan = app(TyreImportCommitPlanner::class)->plan($latestBatch);
+        $targetMapping = app(TyreImportTargetMapper::class)->map($latestBatch);
 
         $this->latest_import_batch = $this->buildLatestImportBatchPayload($latestBatch);
         $this->import_summary_cards = $this->buildImportSummaryCards($latestBatch);
@@ -106,6 +114,9 @@ class TyresGrid extends Page
         $this->commit_plan_summary_cards = $commitPlan['summary_cards'];
         $this->commit_plan_groups = $commitPlan['group_rows'];
         $this->commit_plan_scope_note = $commitPlan['scope_note'];
+        $this->target_mapping_summary_cards = $targetMapping['summary_cards'];
+        $this->target_mapping_groups = $targetMapping['group_targets'];
+        $this->target_mapping_scope_note = $targetMapping['scope_note'];
         $this->tyres_data = $latestBatch->rows
             ->map(fn (TyreImportRow $row): array => $this->formatGridRow($row))
             ->all();
@@ -310,6 +321,9 @@ class TyresGrid extends Page
         $this->commit_plan_summary_cards = [];
         $this->commit_plan_groups = [];
         $this->commit_plan_scope_note = '';
+        $this->target_mapping_summary_cards = [];
+        $this->target_mapping_groups = [];
+        $this->target_mapping_scope_note = '';
         $this->tyres_data = $this->buildPlaceholderRows();
     }
 }
