@@ -2,11 +2,17 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Products\Models\TyreImportBatch;
+use App\Modules\Products\Models\TyreImportRow;
 use App\Modules\Products\Support\CatalogCategoryRegistry;
 use App\Modules\Products\Support\TyreCatalogContract;
 use App\Modules\Products\Support\TyreGridLayout;
 use BackedEnum;
 use Filament\Pages\Page;
+use Throwable;
 use UnitEnum;
 
 class TyresGrid extends Page
@@ -24,11 +30,24 @@ class TyresGrid extends Page
     protected string $view = 'filament.pages.tyres-grid';
 
     public array $tyres_data = [];
+
     public array $category_definition = [];
+
     public array $pricing_levels = [];
+
     public array $launch_notes = [];
+
     public array $grid_columns = [];
+
     public array $toolbar_actions = [];
+
+    public array $current_account_summary = [];
+
+    public array $latest_import_batch = [];
+
+    public array $import_summary_cards = [];
+
+    public array $import_issue_rows = [];
 
     public function mount(): void
     {
@@ -55,8 +74,35 @@ class TyresGrid extends Page
 
     protected function loadTyresData(): void
     {
-        // Seed the grid with George's sample row so the scaffold matches the launch tyre contract.
-        $this->tyres_data = $this->buildPlaceholderRows();
+        $currentAccount = $this->resolveCurrentAccount();
+        $this->current_account_summary = $this->buildCurrentAccountSummary($currentAccount);
+
+        if (! $currentAccount instanceof Account) {
+            $this->latest_import_batch = [];
+            $this->import_summary_cards = [];
+            $this->import_issue_rows = [];
+            $this->tyres_data = $this->buildPlaceholderRows();
+
+            return;
+        }
+
+        $latestBatch = $this->latestBatchFor($currentAccount);
+
+        if (! $latestBatch instanceof TyreImportBatch) {
+            $this->latest_import_batch = [];
+            $this->import_summary_cards = [];
+            $this->import_issue_rows = [];
+            $this->tyres_data = $this->buildPlaceholderRows();
+
+            return;
+        }
+
+        $this->latest_import_batch = $this->buildLatestImportBatchPayload($latestBatch);
+        $this->import_summary_cards = $this->buildImportSummaryCards($latestBatch);
+        $this->import_issue_rows = $this->buildImportIssueRows($latestBatch);
+        $this->tyres_data = $latestBatch->rows
+            ->map(fn (TyreImportRow $row): array => $this->formatGridRow($row))
+            ->all();
     }
 
     protected function buildPlaceholderRows(): array
@@ -89,5 +135,164 @@ class TyresGrid extends Page
                 'product_image_3' => 'product_image_3.png',
             ],
         ];
+    }
+
+    private function resolveCurrentAccount(): ?Account
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        try {
+            return app(CurrentAccountResolver::class)->resolve(request(), $user)->currentAccount;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function latestBatchFor(Account $account): ?TyreImportBatch
+    {
+        return TyreImportBatch::query()
+            ->where('account_id', $account->id)
+            ->latest('id')
+            ->with(['rows' => fn ($query) => $query->orderBy('source_row_number')->limit(50)])
+            ->first();
+    }
+
+    private function buildCurrentAccountSummary(?Account $account): array
+    {
+        if (! $account instanceof Account) {
+            return [
+                'name' => 'No active account',
+                'slug' => null,
+                'supports_wholesale' => false,
+                'supports_retail' => false,
+                'status' => null,
+            ];
+        }
+
+        return [
+            'name' => $account->name,
+            'slug' => $account->slug,
+            'supports_wholesale' => $account->isWholesalerEnabled(),
+            'supports_retail' => $account->isRetailEnabled(),
+            'status' => $account->status?->value,
+        ];
+    }
+
+    private function buildLatestImportBatchPayload(TyreImportBatch $batch): array
+    {
+        return [
+            'id' => $batch->id,
+            'file_name' => $batch->source_file_name,
+            'source_format' => strtoupper($batch->source_format),
+            'status' => $batch->status->value,
+            'sheet_name' => $batch->sheet_name,
+            'uploaded_by' => $batch->uploadedBy?->name,
+            'uploaded_at' => $batch->created_at?->format('d M Y, h:i A'),
+            'row_window_count' => $batch->rows->count(),
+        ];
+    }
+
+    private function buildImportSummaryCards(TyreImportBatch $batch): array
+    {
+        return [
+            [
+                'label' => 'Total rows',
+                'value' => $batch->total_rows,
+                'note' => 'Source rows detected in the uploaded file.',
+            ],
+            [
+                'label' => 'Valid rows',
+                'value' => $batch->valid_rows,
+                'note' => 'Rows ready for the next persistence step.',
+            ],
+            [
+                'label' => 'Duplicate rows',
+                'value' => $batch->duplicate_rows,
+                'note' => 'Rows merged by George’s grouping rule and flagged inside the same supplier file.',
+            ],
+            [
+                'label' => 'Invalid rows',
+                'value' => $batch->invalid_rows,
+                'note' => 'Rows with missing fields or validation problems.',
+            ],
+        ];
+    }
+
+    private function buildImportIssueRows(TyreImportBatch $batch): array
+    {
+        return $batch->rows
+            ->filter(function (TyreImportRow $row): bool {
+                return $row->status->value !== 'valid'
+                    || ! empty($row->validation_errors)
+                    || ! empty($row->validation_warnings);
+            })
+            ->map(function (TyreImportRow $row): array {
+                return [
+                    'source_row_number' => $row->source_row_number,
+                    'status' => $row->status->value,
+                    'sku' => $row->source_sku ?? '--',
+                    'summary' => $row->validation_errors[0]
+                        ?? $row->validation_warnings[0]
+                        ?? 'Grouped import issue',
+                    'errors' => $row->validation_errors ?? [],
+                    'warnings' => $row->validation_warnings ?? [],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatGridRow(TyreImportRow $row): array
+    {
+        $payload = $row->normalized_payload ?? [];
+
+        return [
+            'sku' => $payload['sku'] ?? $row->source_sku ?? '--',
+            'brand' => $payload['brand'] ?? null,
+            'model' => $payload['model'] ?? null,
+            'width' => $payload['width'] ?? null,
+            'height' => $payload['height'] ?? null,
+            'rim_size' => $payload['rim_size'] ?? null,
+            'full_size' => $payload['full_size'] ?? ($payload['canonical_size'] ?? null),
+            'load_index' => $payload['load_index'] ?? null,
+            'speed_rating' => $payload['speed_rating'] ?? null,
+            'dot' => $payload['dot'] ?? null,
+            'country' => $payload['country'] ?? null,
+            'type' => $payload['type'] ?? null,
+            'runflat' => $this->formatBooleanLikeValue($payload['runflat'] ?? null),
+            'rfid' => $this->formatBooleanLikeValue($payload['rfid'] ?? null),
+            'sidewall' => $payload['sidewall'] ?? null,
+            'warranty' => $payload['warranty'] ?? null,
+            'retail_price' => $payload['retail_price'] ?? null,
+            'wholesale_price_lvl1' => $payload['wholesale_price_lvl1'] ?? null,
+            'wholesale_price_lvl2' => $payload['wholesale_price_lvl2'] ?? null,
+            'wholesale_price_lvl3' => $payload['wholesale_price_lvl3'] ?? null,
+            'brand_image' => $payload['brand_image'] ?? null,
+            'product_image_1' => $payload['product_image_1'] ?? null,
+            'product_image_2' => $payload['product_image_2'] ?? null,
+            'product_image_3' => $payload['product_image_3'] ?? null,
+        ];
+    }
+
+    private function formatBooleanLikeValue(mixed $value): string
+    {
+        if ($value === true) {
+            return 'YES';
+        }
+
+        if ($value === false) {
+            return 'NO';
+        }
+
+        if ($value === null) {
+            return '--';
+        }
+
+        return strtoupper((string) $value);
     }
 }

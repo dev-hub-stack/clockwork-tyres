@@ -36,9 +36,7 @@
         const refreshButton = document.getElementById('refresh-grid');
         if (refreshButton) {
             refreshButton.addEventListener('click', function () {
-                if (tyresGrid) {
-                    tyresGrid.refreshDataAndView();
-                }
+                window.location.reload();
             });
         }
     }

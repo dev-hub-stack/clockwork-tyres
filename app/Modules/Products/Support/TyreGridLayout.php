@@ -54,20 +54,12 @@ final class TyreGridLayout
     {
         return [
             [
-                'id' => 'import-tyres',
-                'label' => 'Import Tyres',
-                'variant' => 'success',
-                'icon' => 'bi bi-upload',
-                'disabled' => true,
-                'hint' => 'Sheet mapped. Enable after the importer and validation pipeline are ready.',
-            ],
-            [
                 'id' => 'refresh-grid',
-                'label' => 'Refresh',
+                'label' => 'Reload Preview',
                 'variant' => 'secondary',
                 'icon' => 'bi bi-arrow-clockwise',
                 'disabled' => false,
-                'hint' => 'Reload sample-sheet scaffold rows.',
+                'hint' => 'Reload the latest staged tyre preview for the active account.',
             ],
         ];
     }
