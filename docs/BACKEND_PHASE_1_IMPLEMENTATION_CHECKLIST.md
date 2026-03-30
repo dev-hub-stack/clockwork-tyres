@@ -250,7 +250,7 @@ Phase 1 should isolate the catalog so the tire refactor can happen safely next.
 
 - [ ] Introduce a category-aware catalog boundary in docs and service layer
 - [ ] Identify wheel-specific assumptions in product, variant, grid, transformer, and search code
-- [ ] Freeze a tire-first target field list from George's import sheet before destructive schema changes
+- [ ] Freeze the tyre-first target field list from George's March 30 sample sheet before destructive schema changes
 - [ ] Define a future-compatible path for multiple categories even if only tires launch first
 
 ### 7.2 Wheel-to-Tire Hotspot Checklist
@@ -289,7 +289,7 @@ Checklist:
 
 - [ ] decouple import flow from raw grid controllers
 - [ ] define import staging records or validation DTOs
-- [ ] define a tire import mapping document
+- [x] define a tyre import mapping document
 - [ ] separate validation from persistence
 - [ ] define backfill and reconciliation strategy
 

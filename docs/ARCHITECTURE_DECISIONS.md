@@ -84,15 +84,50 @@ These decisions supersede earlier assumptions where they conflict.
 
 - tire schema replaces wheel schema for launch
 - wheel schema may return later as a future category
-- tire data sheet is expected on March 30, 2026
+- tyre sample sheet was received on March 30, 2026
+- launch sheet currently contains these columns:
+  - `SKU`
+  - `Brand`
+  - `Model`
+  - `width`
+  - `height`
+  - `rim_size`
+  - `full_size`
+  - `load_index`
+  - `speed_rating`
+  - `DOT`
+  - `Country`
+  - `Type`
+  - `Runflat`
+  - `RFID`
+  - `sidewall`
+  - `warranty`
+  - `Retail_price`
+  - `wholesale_price_lvl1`
+  - `wholesale_price_lvl2`
+  - `wholesale_price_lvl3`
+  - `brand_image`
+  - `product_image_1`
+  - `product_image_2`
+  - `product_image_3`
+- internal field names should normalize these headers into snake_case
+- sample row also exposes validation follow-ups around:
+  - `height` vs `full_size`
+  - `DOT` meaning
+  - image reference format
 
 ### 6. Pricing Model
 
 - tire data will include four supplier pricing levels:
   - `retail`
-  - `wholesale_level_1`
-  - `wholesale_level_2`
-  - `wholesale_level_3`
+  - `wholesale_lvl1`
+  - `wholesale_lvl2`
+  - `wholesale_lvl3`
+- source sheet pricing headers are:
+  - `Retail_price`
+  - `wholesale_price_lvl1`
+  - `wholesale_price_lvl2`
+  - `wholesale_price_lvl3`
 - supplier-side accounts choose which wholesale price level to offer to each customer
 - retailer-side storefront pricing is not the supplier wholesale level shown directly to end customers
 - retailer sells using:
@@ -336,9 +371,13 @@ These answers are enough to start:
 
 ## Remaining Open Questions
 
-The only material product input still pending is:
+The tyre sheet is now shared.
 
-1. Final tire import sheet and field mapping.
+Only small launch clarifications remain:
+
+1. Which field wins if `height` and `full_size` conflict?
+2. Does `DOT` store year only or full DOT code?
+3. Are image fields file names, server paths, or full URLs?
 
 ## Recommended Next Move
 

@@ -68,6 +68,7 @@ Recommended product split:
 - [CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md)
 - [BACKEND_CATEGORY_SEARCH_CONTRACT.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/BACKEND_CATEGORY_SEARCH_CONTRACT.md)
 - [NEXT_CATALOG_INTEGRATION_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/NEXT_CATALOG_INTEGRATION_MAPPING.md)
+- [TYRE_SAMPLE_SHEET_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/TYRE_SAMPLE_SHEET_MAPPING.md)
 - [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
 - [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
 - [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/MESSAGE_FOR_GEORGE.md)
@@ -87,10 +88,12 @@ Low-regret work that can start immediately:
 
 ## What Must Wait For Product Answers
 
-- final tire import schema
-- final tyre data sheet and import mapping details
 - exact report add-on tier serialization in admin
 - any optional wheel-later requirements George wants locked before launch
+- small tyre-sheet clarifications:
+  - `height` vs `full_size` conflict handling
+  - `DOT` field meaning
+  - image reference storage format
 
 ## Immediate Next Steps
 
