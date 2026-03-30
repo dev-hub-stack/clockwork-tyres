@@ -10,6 +10,7 @@ use App\Modules\Products\Models\TyreImportRow;
 use App\Modules\Products\Support\CatalogCategoryRegistry;
 use App\Modules\Products\Support\TyreCatalogContract;
 use App\Modules\Products\Support\TyreGridLayout;
+use App\Modules\Products\Support\TyreImportCommitPlanner;
 use BackedEnum;
 use Filament\Pages\Page;
 use Throwable;
@@ -49,6 +50,12 @@ class TyresGrid extends Page
 
     public array $import_issue_rows = [];
 
+    public array $commit_plan_summary_cards = [];
+
+    public array $commit_plan_groups = [];
+
+    public string $commit_plan_scope_note = '';
+
     public function mount(): void
     {
         $this->category_definition = CatalogCategoryRegistry::definition(CatalogCategoryRegistry::TYRES) ?? [];
@@ -78,10 +85,7 @@ class TyresGrid extends Page
         $this->current_account_summary = $this->buildCurrentAccountSummary($currentAccount);
 
         if (! $currentAccount instanceof Account) {
-            $this->latest_import_batch = [];
-            $this->import_summary_cards = [];
-            $this->import_issue_rows = [];
-            $this->tyres_data = $this->buildPlaceholderRows();
+            $this->resetImportPreview();
 
             return;
         }
@@ -89,17 +93,19 @@ class TyresGrid extends Page
         $latestBatch = $this->latestBatchFor($currentAccount);
 
         if (! $latestBatch instanceof TyreImportBatch) {
-            $this->latest_import_batch = [];
-            $this->import_summary_cards = [];
-            $this->import_issue_rows = [];
-            $this->tyres_data = $this->buildPlaceholderRows();
+            $this->resetImportPreview();
 
             return;
         }
 
+        $commitPlan = app(TyreImportCommitPlanner::class)->plan($latestBatch);
+
         $this->latest_import_batch = $this->buildLatestImportBatchPayload($latestBatch);
         $this->import_summary_cards = $this->buildImportSummaryCards($latestBatch);
         $this->import_issue_rows = $this->buildImportIssueRows($latestBatch);
+        $this->commit_plan_summary_cards = $commitPlan['summary_cards'];
+        $this->commit_plan_groups = $commitPlan['group_rows'];
+        $this->commit_plan_scope_note = $commitPlan['scope_note'];
         $this->tyres_data = $latestBatch->rows
             ->map(fn (TyreImportRow $row): array => $this->formatGridRow($row))
             ->all();
@@ -213,7 +219,7 @@ class TyresGrid extends Page
             [
                 'label' => 'Duplicate rows',
                 'value' => $batch->duplicate_rows,
-                'note' => 'Rows merged by George’s grouping rule and flagged inside the same supplier file.',
+                'note' => "Rows merged by George's grouping rule and flagged inside the same supplier file.",
             ],
             [
                 'label' => 'Invalid rows',
@@ -294,5 +300,16 @@ class TyresGrid extends Page
         }
 
         return strtoupper((string) $value);
+    }
+
+    private function resetImportPreview(): void
+    {
+        $this->latest_import_batch = [];
+        $this->import_summary_cards = [];
+        $this->import_issue_rows = [];
+        $this->commit_plan_summary_cards = [];
+        $this->commit_plan_groups = [];
+        $this->commit_plan_scope_note = '';
+        $this->tyres_data = $this->buildPlaceholderRows();
     }
 }

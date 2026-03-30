@@ -115,7 +115,7 @@
                 <div>
                     <h1 class="text-xl font-semibold">Tyres Grid</h1>
                     <p class="text-sm text-amber-900">
-                        This tyre admin page now follows the same CRM grid layout language as the existing product and inventory grids. The importer now stages XLSX and CSV supplier files, then previews the latest account-scoped rows here before we write them into the live tyre catalogue.
+                        This tyre admin page now follows the same CRM grid layout language as the existing product and inventory grids. The importer stages XLSX and CSV supplier files, previews the latest account-scoped rows here, and now shows a read-only commit plan before any live catalogue write happens.
                     </p>
                 </div>
 
@@ -154,7 +154,7 @@
                     <div>
                         <h2 class="text-lg font-semibold text-slate-900">Tyre import staging</h2>
                         <p class="text-sm text-slate-600">
-                            Upload an XLSX or CSV file for the active account. The file is validated, grouped by George’s merge rule, and staged here before any live catalogue write happens.
+                            Upload an XLSX or CSV file for the active account. The file is validated, grouped by George's merge rule, and staged here before any live catalogue write happens.
                         </p>
                     </div>
 
@@ -172,7 +172,7 @@
                             @if (!empty($latest_import_batch))
                                 <p class="mt-1 text-sm font-semibold text-slate-900">{{ $latest_import_batch['file_name'] }}</p>
                                 <p class="text-xs text-slate-500">
-                                    {{ $latest_import_batch['source_format'] }} · {{ $latest_import_batch['status'] }} · {{ $latest_import_batch['uploaded_at'] }}
+                                    {{ $latest_import_batch['source_format'] }} / {{ $latest_import_batch['status'] }} / {{ $latest_import_batch['uploaded_at'] }}
                                 </p>
                             @else
                                 <p class="mt-1 text-sm font-semibold text-slate-900">No staged tyre file yet</p>
@@ -228,6 +228,70 @@
                     @endif
                 </div>
             </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-4 flex flex-col gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">Commit planner preview</h2>
+                <p class="text-sm text-slate-600">
+                    This is a read-only plan from the latest staged batch. It shows which tyre groups would be created, which would merge into earlier staged groups for the same account, and which rows stay blocked.
+                </p>
+                @if ($commit_plan_scope_note !== '')
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ $commit_plan_scope_note }}</p>
+                @endif
+            </div>
+
+            @if (!empty($commit_plan_summary_cards))
+                <div class="mb-4 grid gap-3 md:grid-cols-4">
+                    @foreach ($commit_plan_summary_cards as $card)
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                            <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                            <p class="mt-1 text-xs text-slate-500">{{ $card['note'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Tyre Group</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Rows</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Existing Matches</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">SKUs</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @foreach ($commit_plan_groups as $group)
+                                <tr>
+                                    <td class="px-3 py-2">
+                                        <span class="rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide {{ $group['action_key'] === 'merge_group' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800' }}">
+                                            {{ $group['action_label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div class="font-semibold text-slate-900">{{ $group['brand'] }} {{ $group['model'] }}</div>
+                                        <div class="text-xs text-slate-500">{{ $group['full_size'] }} / {{ $group['dot_year'] }}</div>
+                                        <div class="mt-1 text-xs text-slate-500">{{ $group['note'] }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        <div>{{ $group['source_row_count'] }}</div>
+                                        <div class="text-xs text-slate-500">Rows: {{ implode(', ', $group['source_rows']) }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">{{ $group['previous_match_count'] }}</td>
+                                    <td class="px-3 py-2 text-slate-700">{{ implode(', ', $group['supplier_skus']) ?: '--' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                    Stage a tyre file first, then the read-only commit planner will show create and merge candidates here.
+                </div>
+            @endif
         </div>
 
         <div class="action-buttons">
