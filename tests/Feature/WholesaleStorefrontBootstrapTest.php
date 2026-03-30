@@ -25,7 +25,7 @@ class WholesaleStorefrontBootstrapTest extends TestCase
             ->assertJsonPath('data.storefront_mode', 'retail-store')
             ->assertJsonPath('data.endpoints.bootstrap', '/api/storefront/bootstrap')
             ->assertJsonPath('data.endpoints.account_context', '/api/account-context')
-            ->assertJsonPath('data.endpoints.catalog', '/api/products')
+            ->assertJsonPath('data.endpoints.catalog', '/api/storefront/catalog/tyres')
             ->assertJsonPath('data.capabilities.cart_enabled', true)
             ->assertJsonPath('data.capabilities.checkout_enabled', true)
             ->assertJsonPath('data.capabilities.search.by_vehicle', true)

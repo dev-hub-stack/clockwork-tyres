@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ProductSyncController;
 use App\Http\Controllers\Api\AddonCategorySyncController;
 use App\Http\Controllers\Api\AddonSyncController;
 use App\Http\Controllers\Api\AccountContextController;
+use App\Http\Controllers\Wholesale\StorefrontTyreCatalogController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -18,6 +19,8 @@ Route::post('/webhooks/addons/sync', [AddonSyncController::class, 'sync']);
 Route::middleware(['business.owner.auth', 'current.account'])->group(function () {
     Route::get('/account-context', [AccountContextController::class, 'index']);
     Route::post('/account-context/select', [AccountContextController::class, 'select']);
+    Route::get('/storefront/catalog/tyres', [StorefrontTyreCatalogController::class, 'index']);
+    Route::get('/storefront/catalog/tyres/{slug}', [StorefrontTyreCatalogController::class, 'show']);
 });
 
 // Order Sync Routes
