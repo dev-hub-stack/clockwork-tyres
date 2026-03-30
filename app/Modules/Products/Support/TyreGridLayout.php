@@ -5,10 +5,8 @@ namespace App\Modules\Products\Support;
 final class TyreGridLayout
 {
     /**
-     * Build the pqGrid column shape for the launch tyre scaffold.
-     *
-     * We intentionally keep this generic until the sample sheet arrives,
-     * while still matching the existing CRM grid experience.
+     * Build the pqGrid column shape from George's tyre sample sheet while
+     * preserving the existing CRM grid behaviour.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -17,21 +15,34 @@ final class TyreGridLayout
         $columns = [
             self::textColumn('sku', 'SKU', 170, true),
             self::textColumn('brand', 'Brand', 140),
-            self::textColumn('pattern', 'Pattern', 180),
-            self::textColumn('size', 'Size', 140),
+            self::textColumn('model', 'Model', 180),
+            self::textColumn('full_size', 'Full Size', 140),
+            self::numberColumn('width', 'Width', 95),
+            self::numberColumn('height', 'Height', 95),
+            self::numberColumn('rim_size', 'Rim Size', 95),
             self::textColumn('load_index', 'Load Index', 110),
             self::textColumn('speed_rating', 'Speed Rating', 120),
+            self::textColumn('dot', 'DOT', 95),
+            self::textColumn('country', 'Country', 120),
+            self::textColumn('type', 'Type', 130),
+            self::booleanColumn('runflat', 'Runflat', 95),
+            self::booleanColumn('rfid', 'RFID', 90),
+            self::textColumn('sidewall', 'Sidewall', 120),
+            self::textColumn('warranty', 'Warranty', 120),
         ];
 
-        foreach (TyreCatalogContract::blueprint()['pricing_levels'] ?? [] as $pricingLevel) {
+        foreach (TyreCatalogContract::blueprint()['pricing_columns'] ?? [] as $field => $definition) {
             $columns[] = self::numberColumn(
-                $pricingLevel . '_price',
-                self::pricingLevelLabel($pricingLevel),
+                $field,
+                (string) ($definition['label'] ?? ucfirst(str_replace('_', ' ', $field))),
                 130
             );
         }
 
-        $columns[] = self::textColumn('availability_note', 'Note', 220);
+        $columns[] = self::textColumn('brand_image', 'Brand Image', 180);
+        $columns[] = self::textColumn('product_image_1', 'Product Image 1', 180);
+        $columns[] = self::textColumn('product_image_2', 'Product Image 2', 180);
+        $columns[] = self::textColumn('product_image_3', 'Product Image 3', 180);
 
         return $columns;
     }
@@ -48,7 +59,7 @@ final class TyreGridLayout
                 'variant' => 'success',
                 'icon' => 'bi bi-upload',
                 'disabled' => true,
-                'hint' => 'Enabled after George shares the final tyre sheet.',
+                'hint' => 'Sheet mapped. Enable after the importer and validation pipeline are ready.',
             ],
             [
                 'id' => 'refresh-grid',
@@ -56,7 +67,7 @@ final class TyreGridLayout
                 'variant' => 'secondary',
                 'icon' => 'bi bi-arrow-clockwise',
                 'disabled' => false,
-                'hint' => 'Reload placeholder scaffold rows.',
+                'hint' => 'Reload sample-sheet scaffold rows.',
             ],
         ];
     }
@@ -101,13 +112,22 @@ final class TyreGridLayout
         ];
     }
 
-    private static function pricingLevelLabel(string $pricingLevel): string
+    /**
+     * @return array<string, mixed>
+     */
+    private static function booleanColumn(string $dataIndx, string $title, int $width): array
     {
-        return match ($pricingLevel) {
-            'wholesale_lvl1' => 'Wholesale L1',
-            'wholesale_lvl2' => 'Wholesale L2',
-            'wholesale_lvl3' => 'Wholesale L3',
-            default => ucfirst(str_replace('_', ' ', $pricingLevel)),
-        };
+        return [
+            'title' => $title,
+            'dataIndx' => $dataIndx,
+            'dataType' => 'string',
+            'width' => $width,
+            'editable' => false,
+            'filter' => [
+                'type' => 'textbox',
+                'condition' => 'contain',
+                'listeners' => ['timeout' => 250],
+            ],
+        ];
     }
 }

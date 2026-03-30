@@ -55,8 +55,7 @@ class TyresGrid extends Page
 
     protected function loadTyresData(): void
     {
-        // George's sample tyre sheet is still pending, so keep the launch scaffold generic.
-        // Do not map wheel-specific fields into this page; this is a separate tyres-only surface.
+        // Seed the grid with George's sample row so the scaffold matches the launch tyre contract.
         $this->tyres_data = $this->buildPlaceholderRows();
     }
 
@@ -64,57 +63,31 @@ class TyresGrid extends Page
     {
         return [
             [
-                'sku' => 'TYR-PENDING-001',
-                'product_name' => 'Tyre scaffold placeholder',
-                'brand' => 'Pending',
-                'pattern' => 'Pending sample sheet',
-                'size' => 'Pending',
-                'load_index' => 'Pending',
-                'speed_rating' => 'Pending',
-                'retail_price' => null,
-                'wholesale_lvl1_price' => null,
-                'wholesale_lvl2_price' => null,
-                'wholesale_lvl3_price' => null,
-                'availability_note' => 'Sample sheet fields pending',
-            ],
-            [
-                'sku' => 'TYR-PENDING-002',
-                'product_name' => 'Tyre scaffold placeholder',
-                'brand' => 'Pending',
-                'pattern' => 'Pending sample sheet',
-                'size' => 'Pending',
-                'load_index' => 'Pending',
-                'speed_rating' => 'Pending',
-                'retail_price' => null,
-                'wholesale_lvl1_price' => null,
-                'wholesale_lvl2_price' => null,
-                'wholesale_lvl3_price' => null,
-                'availability_note' => 'Sample sheet fields pending',
-            ],
-            [
-                'sku' => 'TYR-PENDING-003',
-                'product_name' => 'Tyre scaffold placeholder',
-                'brand' => 'Pending',
-                'pattern' => 'Pending sample sheet',
-                'size' => 'Pending',
-                'load_index' => 'Pending',
-                'speed_rating' => 'Pending',
-                'retail_price' => null,
-                'wholesale_lvl1_price' => null,
-                'wholesale_lvl2_price' => null,
-                'wholesale_lvl3_price' => null,
-                'availability_note' => 'Sample sheet fields pending',
+                'sku' => '1234',
+                'brand' => 'michelin',
+                'model' => 'Pilot Sport 4S',
+                'width' => 245,
+                'height' => 30,
+                'rim_size' => 20,
+                'full_size' => '245/35R20',
+                'load_index' => 118,
+                'speed_rating' => 'S',
+                'dot' => '2026',
+                'country' => 'Japan',
+                'type' => 'Performance',
+                'runflat' => 'NO',
+                'rfid' => 'YES',
+                'sidewall' => 'Black',
+                'warranty' => '5 Years',
+                'retail_price' => 1000,
+                'wholesale_price_lvl1' => 900,
+                'wholesale_price_lvl2' => 850,
+                'wholesale_price_lvl3' => 700,
+                'brand_image' => 'brand_image.png',
+                'product_image_1' => 'product_image_1.png',
+                'product_image_2' => 'product_image_2.png',
+                'product_image_3' => 'product_image_3.png',
             ],
         ];
-    }
-
-    public function pricingLevelLabel(string $pricingLevel): string
-    {
-        return match ($pricingLevel) {
-            'wholesale_lvl1' => 'Wholesale L1',
-            'wholesale_lvl2' => 'Wholesale L2',
-            'wholesale_lvl3' => 'Wholesale L3',
-            default => ucfirst(str_replace('_', ' ', $pricingLevel)),
-        };
     }
 }

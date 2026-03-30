@@ -15,10 +15,12 @@ class TyreGridLayoutTest extends TestCase
 
         $this->assertSame('sku', $columns[0]['dataIndx']);
         $this->assertSame('Brand', $columns[1]['title']);
-        $this->assertSame('retail_price', $columns[6]['dataIndx']);
-        $this->assertSame('wholesale_lvl3_price', $columns[9]['dataIndx']);
-        $this->assertSame('availability_note', $columns[10]['dataIndx']);
-        $this->assertFalse($columns[6]['editable']);
+        $this->assertSame('model', $columns[2]['dataIndx']);
+        $this->assertSame('full_size', $columns[3]['dataIndx']);
+        $this->assertSame('retail_price', $columns[16]['dataIndx']);
+        $this->assertSame('wholesale_price_lvl3', $columns[19]['dataIndx']);
+        $this->assertSame('product_image_3', $columns[23]['dataIndx']);
+        $this->assertFalse($columns[16]['editable']);
     }
 
     #[Test]
