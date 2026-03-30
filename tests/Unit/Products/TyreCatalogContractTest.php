@@ -33,8 +33,18 @@ class TyreCatalogContractTest extends TestCase
         $this->assertContains('full_size', $blueprint['required_fields']);
         $this->assertContains('runflat', $blueprint['boolean_like_fields']);
         $this->assertContains('product_image_3', $blueprint['image_fields']);
+        $this->assertSame(
+            ['brand', 'model', 'full_size', 'year'],
+            $blueprint['grouping_rules']['storefront_merge_key']['fields']
+        );
+        $this->assertSame('dot', $blueprint['grouping_rules']['storefront_merge_key']['field_sources']['year']);
+        $this->assertContains('sku', $blueprint['grouping_rules']['storefront_merge_key']['ignores']);
         $this->assertContains('tyres are the launch category', $blueprint['launch_notes']);
         $this->assertContains('wheels remain a future category', $blueprint['launch_notes']);
+        $this->assertContains(
+            'storefront grouping must ignore supplier SKU and merge by brand, model, size, and year',
+            $blueprint['launch_notes']
+        );
         $this->assertContains(
             'sample row full_size 245/35R20 does not match height value 30 and should be validated with George',
             $blueprint['validation_notes']

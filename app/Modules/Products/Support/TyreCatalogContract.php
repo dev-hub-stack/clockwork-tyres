@@ -121,11 +121,29 @@ final class TyreCatalogContract
                 'product_image_2',
                 'product_image_3',
             ],
+            'grouping_rules' => [
+                'storefront_merge_key' => [
+                    'fields' => [
+                        'brand',
+                        'model',
+                        'full_size',
+                        'year',
+                    ],
+                    'field_sources' => [
+                        'size' => 'full_size',
+                        'year' => 'dot',
+                    ],
+                    'ignores' => [
+                        'sku',
+                    ],
+                ],
+            ],
             'launch_notes' => [
                 'tyres are the launch category',
                 'wheels remain a future category',
                 'sample sheet received from George on March 30 2026',
                 'import should normalize source headers into internal snake_case field names',
+                'storefront grouping must ignore supplier SKU and merge by brand, model, size, and year',
             ],
             'validation_notes' => [
                 'sample row full_size 245/35R20 does not match height value 30 and should be validated with George',
