@@ -68,3 +68,24 @@ This lets us preserve the mockup intent while avoiding a bad data-model merge.
 ## Bottom Line
 
 George's mockups support a clean separation: tyres launch with their own admin path, while the old wheel grid remains a legacy reference and future wheels can be reintroduced on top of the shared platform foundation.
+
+## March 31 Alignment Checkpoint
+
+The current implementation direction still matches the mockups reviewed from:
+
+- [clockwork dealerretailer admin (2)_00008.jpg](C:/Users/Dell/Documents/Gerorge/clockwork%20dealerretailer%20admin%20(2)_00001/clockwork%20dealerretailer%20admin%20(2)_00008.jpg)
+- [clockwork dealerretailer admin (2)_00023.jpg](C:/Users/Dell/Documents/Gerorge/clockwork%20dealerretailer%20admin%20(2)_00001/clockwork%20dealerretailer%20admin%20(2)_00023.jpg)
+- [clockwork super admin_00001.jpg](C:/Users/Dell/Documents/Gerorge/clockwork%20super%20admin_00001/clockwork%20super%20admin_00001.jpg)
+
+What is aligned now:
+
+- tyres are using a separate admin path instead of being forced into the wheel grid contract
+- the admin direction still follows the same CRM grid/table language George showed
+- retailer procurement, supplier intake, and super-admin remain separate surfaces, matching the three-role structure in the mockups
+- the top-level "Go to Retail Store" bridge remains part of the admin story, not a separate product
+
+What still needs UI parity work later:
+
+- exact pqGrid-style density, toolbar spacing, and inline editing rhythm on the tyre/inventory pages
+- exact super-admin dashboard card density and reporting layout
+- the final tyre inventory grid still needs to inherit the visual feel of the current CRM inventory grid once warehouse-backed tyre inventory editing is wired
