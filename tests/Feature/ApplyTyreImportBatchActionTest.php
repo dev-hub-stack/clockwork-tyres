@@ -8,6 +8,8 @@ use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Models\TyreOfferInventory;
+use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Products\Actions\ApplyTyreImportBatchAction;
 use App\Modules\Products\Actions\StageTyreImportAction;
 use App\Modules\Products\Enums\TyreImportBatchStatus;
@@ -67,20 +69,30 @@ class ApplyTyreImportBatchActionTest extends TestCase
             'groups_updated' => 0,
             'offers_created' => 1,
             'offers_updated' => 0,
+            'inventory_rows_created' => 1,
+            'inventory_rows_updated' => 0,
         ], $firstCounts);
         $this->assertSame(TyreImportBatchStatus::APPLIED, $batch->status);
         $this->assertNotNull($batch->applied_at);
         $this->assertSame($owner->id, $batch->applied_by_user_id);
         $this->assertDatabaseCount('tyre_catalog_groups', 1);
         $this->assertDatabaseCount('tyre_account_offers', 1);
+        $this->assertDatabaseCount('tyre_offer_inventories', 1);
+        $this->assertDatabaseCount('warehouses', 2);
 
         $group = TyreCatalogGroup::query()->firstOrFail();
         $offer = TyreAccountOffer::query()->firstOrFail();
+        $inventory = TyreOfferInventory::query()->firstOrFail();
+        $warehouse = Warehouse::query()->where('code', 'TYRE-ACC-'.$account->id)->first();
 
         $this->assertSame('245/35R20', $group->full_size);
         $this->assertSame($group->id, $offer->tyre_catalog_group_id);
         $this->assertSame('blocked_storage_resolution', $offer->media_status);
-        $this->assertSame('blocked_warehouse_mapping', $offer->inventory_status);
+        $this->assertSame('configured_out_of_stock', $offer->inventory_status);
+        $this->assertNotNull($warehouse);
+        $this->assertSame($warehouse?->id, $inventory->warehouse_id);
+        $this->assertSame($offer->id, $inventory->tyre_account_offer_id);
+        $this->assertSame(0, $inventory->quantity);
 
         $secondCounts = app(ApplyTyreImportBatchAction::class)->execute($batch->fresh(), $owner);
 
@@ -89,9 +101,13 @@ class ApplyTyreImportBatchActionTest extends TestCase
             'groups_updated' => 1,
             'offers_created' => 0,
             'offers_updated' => 1,
+            'inventory_rows_created' => 0,
+            'inventory_rows_updated' => 1,
         ], $secondCounts);
         $this->assertDatabaseCount('tyre_catalog_groups', 1);
         $this->assertDatabaseCount('tyre_account_offers', 1);
+        $this->assertDatabaseCount('tyre_offer_inventories', 1);
+        $this->assertDatabaseCount('warehouses', 2);
     }
 
     public function test_apply_route_is_scoped_to_the_active_account(): void

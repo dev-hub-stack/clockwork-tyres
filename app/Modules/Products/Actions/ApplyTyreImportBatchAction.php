@@ -3,6 +3,9 @@
 namespace App\Modules\Products\Actions;
 
 use App\Models\User;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Actions\UpsertTyreOfferInventoryAction;
+use App\Modules\Inventory\Support\TyreImportWarehouseResolver;
 use App\Modules\Products\Enums\TyreImportBatchStatus;
 use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Products\Models\TyreCatalogGroup;
@@ -15,10 +18,12 @@ final class ApplyTyreImportBatchAction
 {
     public function __construct(
         private readonly TyreImportTargetMapper $targetMapper,
+        private readonly TyreImportWarehouseResolver $warehouseResolver,
+        private readonly UpsertTyreOfferInventoryAction $inventoryAction,
     ) {}
 
     /**
-     * @return array{groups_created: int, groups_updated: int, offers_created: int, offers_updated: int}
+     * @return array{groups_created: int, groups_updated: int, offers_created: int, offers_updated: int, inventory_rows_created: int, inventory_rows_updated: int}
      */
     public function execute(TyreImportBatch $batch, User $actor): array
     {
@@ -39,7 +44,13 @@ final class ApplyTyreImportBatchAction
                 'groups_updated' => 0,
                 'offers_created' => 0,
                 'offers_updated' => 0,
+                'inventory_rows_created' => 0,
+                'inventory_rows_updated' => 0,
             ];
+
+            /** @var Account $account */
+            $account = $batch->account()->firstOrFail();
+            $warehouse = $this->warehouseResolver->resolve($account);
 
             foreach ($groupTargets as $groupTarget) {
                 $catalogGroupTarget = $groupTarget['catalog_group_target'];
@@ -87,7 +98,7 @@ final class ApplyTyreImportBatchAction
                         ->where('source_sku', $offerTarget['source_sku'])
                         ->first();
 
-                    TyreAccountOffer::query()->updateOrCreate(
+                    $offer = TyreAccountOffer::query()->updateOrCreate(
                         [
                             'account_id' => $offerTarget['account_id'],
                             'source_sku' => $offerTarget['source_sku'],
@@ -115,6 +126,28 @@ final class ApplyTyreImportBatchAction
                     } else {
                         $counts['offers_created']++;
                     }
+
+                    $existingInventory = $offer->inventories()
+                        ->where('warehouse_id', $warehouse->id)
+                        ->first();
+
+                    $this->inventoryAction->execute(
+                        offer: $offer,
+                        warehouse: $warehouse,
+                        quantity: $this->inventoryQuantity($offerTarget),
+                        eta: $this->inventoryEta($offerTarget),
+                        etaQty: $this->inventoryEtaQuantity($offerTarget),
+                        actor: $actor,
+                        referenceType: 'tyre_import_batch',
+                        referenceId: $batch->id,
+                        notes: 'Seeded from tyre import apply.',
+                    );
+
+                    if ($existingInventory === null) {
+                        $counts['inventory_rows_created']++;
+                    } else {
+                        $counts['inventory_rows_updated']++;
+                    }
                 }
             }
 
@@ -130,5 +163,53 @@ final class ApplyTyreImportBatchAction
 
             return $counts;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $offerTarget
+     */
+    private function inventoryQuantity(array $offerTarget): int
+    {
+        foreach (['quantity', 'stock_quantity', 'qty'] as $field) {
+            $value = data_get($offerTarget, "offer_payload.{$field}");
+
+            if (is_numeric($value)) {
+                return max(0, (int) $value);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $offerTarget
+     */
+    private function inventoryEtaQuantity(array $offerTarget): int
+    {
+        foreach (['eta_qty', 'incoming_quantity'] as $field) {
+            $value = data_get($offerTarget, "offer_payload.{$field}");
+
+            if (is_numeric($value)) {
+                return max(0, (int) $value);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $offerTarget
+     */
+    private function inventoryEta(array $offerTarget): ?string
+    {
+        foreach (['eta', 'eta_date'] as $field) {
+            $value = data_get($offerTarget, "offer_payload.{$field}");
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 }
