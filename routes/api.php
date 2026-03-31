@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ProductSyncController;
 use App\Http\Controllers\Api\AddonCategorySyncController;
 use App\Http\Controllers\Api\AddonSyncController;
 use App\Http\Controllers\Api\AccountContextController;
+use App\Http\Controllers\Wholesale\StorefrontOrderController;
 use App\Http\Controllers\Wholesale\StorefrontTyreCatalogController;
 use App\Http\Controllers\Wholesale\StorefrontWorkspaceController;
 
@@ -23,6 +24,7 @@ Route::middleware(['business.owner.auth', 'current.account'])->group(function ()
     Route::get('/storefront/workspace', [StorefrontWorkspaceController::class, 'show']);
     Route::get('/storefront/catalog/tyres', [StorefrontTyreCatalogController::class, 'index']);
     Route::get('/storefront/catalog/tyres/{slug}', [StorefrontTyreCatalogController::class, 'show']);
+    Route::post('/storefront/orders', [StorefrontOrderController::class, 'store']);
 });
 
 // Order Sync Routes

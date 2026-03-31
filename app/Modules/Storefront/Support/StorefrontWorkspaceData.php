@@ -123,17 +123,29 @@ class StorefrontWorkspaceData
     private function orderPayload(Account $account, Order $order, ?AddressBook $primaryAddress): array
     {
         $status = $order->order_status?->value;
+        $billingAddress = $order->customer?->addresses()
+            ->where('address_type', 1)
+            ->latest('id')
+            ->first()
+            ?? $primaryAddress;
+        $shippingAddress = $order->shipping_address_id
+            ? AddressBook::query()->find($order->shipping_address_id)
+            : ($order->customer?->addresses()
+                ->where('address_type', 2)
+                ->latest('id')
+                ->first()
+                ?? $billingAddress);
 
         return [
             'id' => $order->display_number ?: sprintf('CW-%d', $order->id),
-            'status' => in_array($status, ['processing', 'shipped', 'completed', 'cancelled'], true)
+            'status' => in_array($status, ['pending', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'], true)
                 ? $status
                 : 'processing',
             'createdAt' => $order->issue_date?->toDateString() ?? $order->created_at?->toDateString() ?? now()->toDateString(),
             'supplierName' => $account->name,
             'trackingNumber' => (string) ($order->tracking_number ?? ''),
-            'billing' => $this->orderAddressPayload($account, $primaryAddress),
-            'shipping' => $this->orderAddressPayload($account, $primaryAddress),
+            'billing' => $this->orderAddressPayload($account, $billingAddress),
+            'shipping' => $this->orderAddressPayload($account, $shippingAddress),
             'lines' => $order->items
                 ->map(fn (OrderItem $item) => $this->orderLinePayload($item))
                 ->values()
@@ -169,7 +181,7 @@ class StorefrontWorkspaceData
             ),
             'quantity' => (int) $item->quantity,
             'unitPrice' => (float) $item->unit_price,
-            'origin' => 'own',
+            'origin' => data_get($item->item_attributes, 'origin') === 'supplier' ? 'supplier' : 'own',
         ];
     }
 }

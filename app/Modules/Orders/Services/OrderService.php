@@ -138,6 +138,8 @@ class OrderService
         $item->quantity = $itemData['quantity'] ?? 1;
         $item->tax_inclusive = $itemData['tax_inclusive'] ?? $order->tax_inclusive;
         $item->discount = $itemData['discount'] ?? 0;
+        $item->warehouse_id = $itemData['warehouse_id'] ?? null;
+        $item->item_attributes = $itemData['item_attributes'] ?? null;
 
         // Determine if this is a product, variant, or addon
         if (isset($itemData['product_variant_id'])) {
