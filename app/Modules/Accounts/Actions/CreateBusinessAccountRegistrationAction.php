@@ -10,6 +10,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountOnboarding;
 use App\Modules\Accounts\Models\AccountSubscription;
+use App\Modules\Customers\Models\Customer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,6 +50,24 @@ class CreateBusinessAccountRegistrationAction
                 'role' => AccountRole::OWNER->value,
                 'is_default' => true,
             ]);
+
+            $workspaceCustomer = Customer::query()->updateOrCreate(
+                [
+                    'account_id' => $account->id,
+                    'external_source' => 'business_owner_workspace',
+                ],
+                [
+                    'customer_type' => $this->resolveWorkspaceCustomerType($accountType),
+                    'business_name' => $account->name,
+                    'email' => $owner->email,
+                    'status' => 'active',
+                    'website' => null,
+                    'trade_license_number' => null,
+                    'license_no' => null,
+                    'instagram' => null,
+                    'external_customer_id' => sprintf('account-%d', $account->id),
+                ],
+            );
 
             $subscription = AccountSubscription::query()->create([
                 'account_id' => $account->id,
@@ -107,6 +126,11 @@ class CreateBusinessAccountRegistrationAction
                     'reports_enabled' => (bool) $subscription->reports_enabled,
                     'status' => $subscription->status,
                 ],
+                'workspace_customer' => [
+                    'id' => $workspaceCustomer->id,
+                    'customer_type' => $workspaceCustomer->customer_type,
+                    'external_source' => $workspaceCustomer->external_source,
+                ],
                 'onboarding' => [
                     'id' => $onboarding->id,
                     'country' => $onboarding->country,
@@ -132,6 +156,14 @@ class CreateBusinessAccountRegistrationAction
         return $plan === SubscriptionPlan::PREMIUM->value
             ? SubscriptionPlan::PREMIUM
             : SubscriptionPlan::BASIC;
+    }
+
+    private function resolveWorkspaceCustomerType(AccountType $accountType): string
+    {
+        return match ($accountType) {
+            AccountType::SUPPLIER => 'wholesale',
+            default => 'dealer',
+        };
     }
 
     private function uniqueSlugFor(string $businessName): string

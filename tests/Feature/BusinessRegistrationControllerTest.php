@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountOnboarding;
 use App\Modules\Accounts\Models\AccountSubscription;
+use App\Modules\Customers\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ class BusinessRegistrationControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_creates_a_business_owner_account_subscription_and_onboarding_record(): void
+    public function test_it_creates_a_business_owner_account_subscription_onboarding_and_workspace_customer(): void
     {
         Storage::fake('public');
 
@@ -45,6 +46,10 @@ class BusinessRegistrationControllerTest extends TestCase
         $account = Account::query()->where('created_by_user_id', $owner->id)->firstOrFail();
         $subscription = AccountSubscription::query()->where('account_id', $account->id)->firstOrFail();
         $onboarding = AccountOnboarding::query()->where('account_id', $account->id)->firstOrFail();
+        $workspaceCustomer = Customer::query()
+            ->where('account_id', $account->id)
+            ->where('external_source', 'business_owner_workspace')
+            ->firstOrFail();
 
         $this->assertSame('Alpha Tyres Trading', $account->name);
         $this->assertSame('alpha-tyres-trading', $account->slug);
@@ -58,6 +63,9 @@ class BusinessRegistrationControllerTest extends TestCase
         $this->assertSame('United Arab Emirates', $onboarding->country);
         $this->assertNotNull($onboarding->supporting_document_path);
         $this->assertSame('trade-license.png', $onboarding->supporting_document_name);
+        $this->assertSame('dealer', $workspaceCustomer->customer_type);
+        $this->assertSame('Alpha Tyres Trading', $workspaceCustomer->business_name);
+        $this->assertSame('owner@alpha.test', $workspaceCustomer->email);
         $this->assertCount(0, $owner->roles);
 
         $membership = DB::table('account_user')

@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,17 +20,37 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
         ]);
 
-        $admin = User::query()->firstOrCreate(
-            ['email' => 'test@example.com'],
+        $this->seedPanelUser(
+            name: 'Clockwork Super Admin',
+            email: 'superadmin@clockwork.local',
+            role: 'super_admin',
+        );
+
+        $this->seedPanelUser(
+            name: 'Clockwork Admin',
+            email: 'admin@clockwork.local',
+            role: 'admin',
+        );
+
+        // Preserve the original seeded admin for backwards-compatible local access.
+        $this->seedPanelUser(
+            name: 'Clockwork Legacy Admin',
+            email: 'test@example.com',
+            role: 'super_admin',
+        );
+    }
+
+    private function seedPanelUser(string $name, string $email, string $role): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => $email],
             [
-                'name' => 'Clockwork Admin',
+                'name' => $name,
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
             ],
         );
 
-        if (! $admin->hasRole('super_admin')) {
-            $admin->assignRole('super_admin');
-        }
+        $user->syncRoles([$role]);
     }
 }
