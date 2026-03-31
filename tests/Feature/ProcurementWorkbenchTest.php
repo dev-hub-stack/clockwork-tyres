@@ -13,6 +13,8 @@ use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
+use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Models\ProcurementSubmission;
 use App\Modules\Orders\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -213,6 +215,57 @@ class ProcurementWorkbenchTest extends TestCase
         $this->assertSame(1, $page->requestSummary[2]['value']);
         $this->assertSame($requestNumber, $page->recentProcurementSignals[0]['document_number']);
         $this->assertSame('Procurement Request', $page->recentProcurementSignals[0]['document_type_label']);
+    }
+
+    public function test_procurement_workbench_can_submit_grouped_procurement_from_the_active_account(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('view_quotes');
+
+        $currentAccount = $this->createAccount($user, [
+            'name' => 'Retail Admin',
+            'slug' => 'retail-admin',
+            'account_type' => AccountType::BOTH,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ], true);
+
+        $supplier = Account::create([
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $supplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get('/admin/procurement-workbench')
+            ->assertOk()
+            ->assertSee('Procurement Workbench');
+
+        $page = app(ProcurementWorkbench::class);
+        $page->mount();
+        $page->submitGroupedProcurement(app(SubmitGroupedProcurementAction::class));
+
+        $this->assertDatabaseCount('procurement_submissions', 1);
+        $this->assertDatabaseCount('procurement_requests', 1);
+        $this->assertSame(1, ProcurementSubmission::query()->firstOrFail()->request_count);
+        $this->assertSame(1, $page->currentAccountSummary['procurement_request_counts']['total']);
+        $this->assertNotEmpty($page->latestSubmissionSummary['submission_number'] ?? null);
+        $this->assertSame(1, $page->latestSubmissionSummary['supplier_count'] ?? null);
+        $this->assertSame(1, $page->latestSubmissionSummary['request_count'] ?? null);
     }
 
     private function createAccount(User $user, array $attributes, bool $isDefault = false): Account

@@ -11,10 +11,18 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\ProductInventory;
+use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
+use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
+use App\Modules\Products\Models\Product;
+use App\Modules\Products\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -214,6 +222,111 @@ class SupplierIntakeWorkbenchTest extends TestCase
         $this->assertSame(1, $page->signalCards[0]['value']);
         $this->assertSame('Retail Alpha', $page->incomingRequests[0]['retailer']);
         $this->assertSame('submitted', $page->incomingRequests[0]['stage']);
+    }
+
+    public function test_supplier_intake_workbench_can_approve_a_procurement_request_to_invoice(): void
+    {
+        $supplierUser = User::factory()->create();
+        $supplierUser->givePermissionTo('view_quotes');
+
+        $supplierAccount = $this->createAccount($supplierUser, [
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+        ]);
+
+        $retailerOwner = User::factory()->create();
+        $retailerAccount = $this->createAccount($retailerOwner, [
+            'name' => 'Retail Alpha',
+            'slug' => 'retail-alpha',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+            'notes' => 'Primary procurement connection',
+        ]);
+
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Alpha Fleet Services',
+            'email' => 'fleet@example.test',
+            'account_id' => $retailerAccount->id,
+            'status' => 'active',
+        ]);
+
+        $warehouse = Warehouse::create([
+            'warehouse_name' => 'Main Warehouse',
+            'code' => 'MAIN',
+        ]);
+
+        $product = Product::create([
+            'name' => 'Touring Tyre',
+            'slug' => 'touring-tyre',
+            'sku' => 'TYR-225-45-17',
+            'price' => 120,
+        ]);
+
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'TYR-225-45-17-A',
+            'price' => 120,
+            'uae_retail_price' => 120,
+        ]);
+
+        ProductInventory::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'quantity' => 12,
+        ]);
+
+        $submission = app(SubmitGroupedProcurementAction::class)->execute(
+            retailerAccount: $retailerAccount,
+            actor: $retailerOwner,
+            customer: $customer,
+            lineItems: [
+                [
+                    'supplier_id' => $supplierAccount->id,
+                    'supplier_name' => 'North Coast Tyres',
+                    'product_variant_id' => $variant->id,
+                    'warehouse_id' => $warehouse->id,
+                    'sku' => 'TYR-225-45-17-A',
+                    'product_name' => 'Touring Tyre',
+                    'size' => '225/45R17',
+                    'quantity' => 4,
+                    'unit_price' => 120,
+                    'source' => 'Approved supplier connection',
+                ],
+            ],
+        );
+
+        $request = $submission->requests()->firstOrFail();
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/supplier-intake-workbench')
+            ->assertOk()
+            ->assertSee('Supplier Intake Workbench');
+
+        $page = app(SupplierIntakeWorkbench::class);
+        $page->mount();
+        $page->approveRequest($request->id, app(ApproveProcurementRequestAction::class));
+
+        $request->refresh();
+
+        $this->assertSame(ProcurementWorkflowStage::STOCK_RESERVED, $request->current_stage);
+        $this->assertNotNull($request->invoice_order_id);
+        $this->assertSame(DocumentType::INVOICE, $request->invoiceOrder?->document_type);
+        $this->assertSame('North Coast Tyres', $page->currentAccountSummary['name']);
+        $this->assertSame(1, $page->currentAccountSummary['invoices_issued']);
+        $this->assertSame($request->request_number, $page->latestApprovalSummary['request_number'] ?? null);
+        $this->assertSame($request->invoiceOrder?->order_number, $page->latestApprovalSummary['invoice_number'] ?? null);
     }
 
     /**

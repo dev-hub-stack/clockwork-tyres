@@ -96,6 +96,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Reference</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Note</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
@@ -111,10 +112,26 @@
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['reference'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $row['status'] ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-600">{{ $row['note'] ?? '-' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">
+                                            @if (($row['document_type'] ?? null) === 'Procurement Request' && ! in_array($row['stage'] ?? null, ['stock_reserved', 'stock_deducted', 'fulfilled', 'cancelled'], true))
+                                                <button
+                                                    type="button"
+                                                    wire:click="approveRequest({{ (int) ($row['record_id'] ?? 0) }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="approveRequest"
+                                                    class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                                                >
+                                                    <span wire:loading.remove wire:target="approveRequest">Approve to invoice</span>
+                                                    <span wire:loading wire:target="approveRequest">Approving...</span>
+                                                </button>
+                                            @else
+                                                <span class="text-xs text-gray-400">No action</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="10" class="px-4 py-10 text-center text-sm text-gray-500">
+                                        <td colspan="11" class="px-4 py-10 text-center text-sm text-gray-500">
                                             No procurement requests are loaded yet.
                                         </td>
                                     </tr>
@@ -153,6 +170,14 @@
                                     <li>{{ $item }}</li>
                                 @endforeach
                             </ul>
+
+                            @if (! empty($latestApprovalSummary))
+                                <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                                    <p class="font-semibold">{{ $latestApprovalSummary['request_number'] ?? 'Latest approval' }}</p>
+                                    <p class="mt-1">Invoice reference: {{ $latestApprovalSummary['invoice_number'] ?? 'Pending invoice' }}</p>
+                                    <p class="mt-1 text-xs text-emerald-700">Current stage: {{ $latestApprovalSummary['stage'] ?? 'Approved' }}</p>
+                                </div>
+                            @endif
                         </div>
 
                         <div class="rounded-2xl border border-gray-200 bg-emerald-50 p-5 shadow-sm">

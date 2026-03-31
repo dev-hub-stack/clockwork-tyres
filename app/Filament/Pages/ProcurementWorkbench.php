@@ -3,13 +3,18 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasSupplierNetworkAccess;
+use App\Models\User;
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Support\ProcurementWorkbenchData;
 use App\Modules\Procurement\Support\ProcurementWorkflow;
 use App\Modules\Procurement\Support\SupplierGroupedProcurementPlanner;
 use BackedEnum;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Throwable;
 use UnitEnum;
 
 class ProcurementWorkbench extends Page
@@ -42,22 +47,15 @@ class ProcurementWorkbench extends Page
 
     public array $plannedSubmission = [];
 
+    public array $supplierConnectionGroups = [];
+
     public array $recentProcurementSignals = [];
+
+    public array $latestSubmissionSummary = [];
 
     public function mount(): void
     {
-        $currentAccount = $this->resolveCurrentRetailAccount();
-        $snapshot = ProcurementWorkbenchData::forAccount($currentAccount)->toArray();
-
-        $this->currentAccountSummary = $snapshot['current_account_summary'];
-        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan(
-            $this->buildWorkbenchLineItems($snapshot['supplier_groups'] ?? [])
-        );
-        $this->recentProcurementSignals = $snapshot['recent_procurement_signals'] ?? [];
-        $this->statusRail = $this->buildStatusRail();
-        $this->supplierGroups = $this->buildSupplierGroups();
-        $this->placeOrderCallout = $this->buildPlaceOrderCallout();
-        $this->requestSummary = $this->buildRequestSummary();
+        $this->refreshWorkbench();
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -68,6 +66,91 @@ class ProcurementWorkbench extends Page
     public static function canAccess(): bool
     {
         return auth()->user()?->can('view_quotes') ?? false;
+    }
+
+    public function submitGroupedProcurement(SubmitGroupedProcurementAction $submitAction): void
+    {
+        $currentAccount = $this->resolveCurrentRetailAccount();
+        $actor = Auth::user();
+
+        if (! $currentAccount instanceof Account || ! $actor instanceof User) {
+            Notification::make()
+                ->title('Retail account required')
+                ->body('Select an active retailer account before submitting grouped procurement.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $lineItems = $this->buildWorkbenchLineItems($this->supplierConnectionGroups);
+
+        if ($lineItems === []) {
+            Notification::make()
+                ->title('No approved supplier groups')
+                ->body('Grouped procurement only opens when the active retailer account has approved supplier connections.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        try {
+            $submission = $submitAction->execute(
+                retailerAccount: $currentAccount,
+                actor: $actor,
+                lineItems: $lineItems,
+                notes: 'Submitted from Procurement Workbench',
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            Notification::make()
+                ->title('Procurement submit failed')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->latestSubmissionSummary = [
+            'submission_number' => $submission->submission_number,
+            'request_count' => $submission->request_count,
+            'supplier_count' => $submission->supplier_count,
+            'submitted_at' => $submission->submitted_at?->toDateTimeString(),
+        ];
+
+        $this->refreshWorkbench();
+
+        Notification::make()
+            ->title('Grouped procurement submitted')
+            ->body(sprintf(
+                '%s created %d supplier request%s for %s.',
+                $submission->submission_number,
+                $submission->request_count,
+                $submission->request_count === 1 ? '' : 's',
+                $currentAccount->name
+            ))
+            ->success()
+            ->send();
+    }
+
+    protected function refreshWorkbench(): void
+    {
+        $currentAccount = $this->resolveCurrentRetailAccount();
+        $snapshot = ProcurementWorkbenchData::forAccount($currentAccount)->toArray();
+
+        $this->currentAccountSummary = $snapshot['current_account_summary'];
+        $this->supplierConnectionGroups = $snapshot['supplier_groups'] ?? [];
+        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan(
+            $this->buildWorkbenchLineItems($this->supplierConnectionGroups)
+        );
+        $this->recentProcurementSignals = $snapshot['recent_procurement_signals'] ?? [];
+        $this->statusRail = $this->buildStatusRail();
+        $this->supplierGroups = $this->buildSupplierGroups();
+        $this->placeOrderCallout = $this->buildPlaceOrderCallout();
+        $this->requestSummary = $this->buildRequestSummary();
     }
 
     protected function buildStatusRail(): array

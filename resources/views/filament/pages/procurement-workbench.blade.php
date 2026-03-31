@@ -169,9 +169,30 @@
                         </div>
 
                         <div class="mt-5 flex flex-wrap items-center gap-3">
-                            <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">{{ $placeOrderCallout['action_label'] }}</span>
+                            <button
+                                type="button"
+                                wire:click="submitGroupedProcurement"
+                                wire:loading.attr="disabled"
+                                wire:target="submitGroupedProcurement"
+                                @disabled(empty($plannedSubmission['supplier_orders']))
+                                class="inline-flex items-center rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+                            >
+                                <span wire:loading.remove wire:target="submitGroupedProcurement">{{ $placeOrderCallout['action_label'] }}</span>
+                                <span wire:loading wire:target="submitGroupedProcurement">Submitting...</span>
+                            </button>
                             <span class="text-sm text-gray-600">{{ $placeOrderCallout['supporting_note'] }}</span>
                         </div>
+
+                        @if (! empty($latestSubmissionSummary))
+                            <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                                <p class="font-semibold">{{ $latestSubmissionSummary['submission_number'] ?? 'Latest submission' }}</p>
+                                <p class="mt-1">
+                                    Created {{ $latestSubmissionSummary['request_count'] ?? 0 }} supplier request(s)
+                                    across {{ $latestSubmissionSummary['supplier_count'] ?? 0 }} supplier group(s).
+                                </p>
+                                <p class="mt-1 text-xs text-sky-700">Submitted at {{ $latestSubmissionSummary['submitted_at'] ?? 'Pending timestamp' }}</p>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="rounded-2xl border border-gray-200 bg-amber-50 p-5 shadow-sm">

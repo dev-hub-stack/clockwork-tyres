@@ -9,6 +9,7 @@ use Filament\Pages\Page;
 class Dashboard extends Page
 {
     private const REVENUE_CUTOFF_DATE = '2026-01-01';
+    private const RECENT_ORDER_LIMIT = 50;
 
     protected string $view = 'filament.pages.dashboard';
     
@@ -66,11 +67,38 @@ class Dashboard extends Page
 
         // Get pending orders with relationships - ONLY INVOICES
         // Exclude orders where delivered + paid (those are "complete")
-        $pendingOrdersList = Order::where('document_type', DocumentType::INVOICE)
+        $pendingOrdersList = Order::query()
+            ->select([
+                'id',
+                'order_number',
+                'customer_id',
+                'document_type',
+                'tracking_number',
+                'tracking_url',
+                'order_status',
+                'payment_status',
+                'outstanding_amount',
+                'sub_total',
+                'vat',
+                'shipping',
+                'total',
+                'order_notes',
+                'internal_notes',
+                'vehicle_year',
+                'vehicle_make',
+                'vehicle_model',
+                'vehicle_sub_model',
+                'created_at',
+            ])
+            ->where('document_type', DocumentType::INVOICE)
             ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
             ->where(fn($q) => $q->where('order_status', '!=', 'delivered')->orWhere('payment_status', '!=', 'paid'))
-            ->with(['customer', 'items'])
+            ->with([
+                'customer:id,name,phone,email',
+                'items:id,order_id,product_name,brand_name,model_name,sku,quantity,unit_price,line_total',
+            ])
             ->orderBy('created_at', 'desc')
+            ->limit(self::RECENT_ORDER_LIMIT)
             ->get();
         
         $this->orders = [];
