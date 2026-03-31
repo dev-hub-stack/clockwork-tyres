@@ -127,6 +127,8 @@ readonly class SuperAdminOverviewData
     private function accountRow(Account $account): array
     {
         return [
+            'id' => $account->id,
+            'slug' => $account->slug,
             'account' => $account->name,
             'type' => $this->accountTypeLabel($account),
             'status' => $this->accountStatusLabel($account),

@@ -7,7 +7,7 @@
                 This is the platform control tower George described. It is intentionally focused on live accounts, subscriptions, reports add-ons, analytics, and operational visibility. It does not manage supplier product or inventory editing.
             </p>
             <p class="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200">
-                Read-only surface for governance, subscriptions, and platform visibility.
+                Live governance surface for accounts, subscriptions, and reports add-ons.
             </p>
         </div>
 
@@ -55,7 +55,16 @@
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @forelse ($accountRows as $row)
                                 <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $row['account'] }}</td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                        <button
+                                            type="button"
+                                            wire:click="selectAccount({{ $row['id'] }})"
+                                            class="font-semibold text-violet-700 hover:text-violet-900"
+                                        >
+                                            {{ $row['account'] }}
+                                        </button>
+                                        <p class="mt-1 text-xs text-gray-500">{{ $row['slug'] }}</p>
+                                    </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['type'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['status'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $row['base_plan'] }}</td>
@@ -79,26 +88,185 @@
             <aside class="space-y-6">
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account creation</p>
-                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Create and manage accounts</h3>
+                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Create supplier, retailer, or mixed account</h3>
 
-                    <div class="mt-4 space-y-3">
-                        @foreach ($accountGovernanceActions as $action)
-                            <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
-                                <p class="text-sm font-semibold text-gray-900">{{ $action }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Creation fields</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach ($accountCreationFields as $field)
-                                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
-                                    {{ $field['label'] }}
-                                </span>
-                            @endforeach
+                    <form wire:submit.prevent="createAccount" class="mt-4 space-y-4">
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account name</label>
+                            <input wire:model.defer="createAccountForm.name" type="text" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                            @error('name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
-                    </div>
+
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Slug</label>
+                            <input wire:model.defer="createAccountForm.slug" type="text" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                            <p class="mt-1 text-xs text-gray-500">Leave blank to auto-generate from the account name.</p>
+                            @error('slug') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account type</label>
+                                <select wire:model.defer="createAccountForm.account_type" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                    @foreach ($accountTypeOptions as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</label>
+                                <select wire:model.defer="createAccountForm.status" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                    @foreach ($accountStatusOptions as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                <input wire:model.defer="createAccountForm.retail_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                                Retail enabled
+                            </label>
+                            <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                <input wire:model.defer="createAccountForm.wholesale_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                                Wholesale enabled
+                            </label>
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Base plan</label>
+                                <select wire:model.defer="createAccountForm.base_subscription_plan" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                    @foreach ($subscriptionPlanOptions as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Reports customer limit</label>
+                                <input wire:model.defer="createAccountForm.reports_customer_limit" type="number" min="1" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                                @error('reports_customer_limit') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                            <input wire:model.defer="createAccountForm.reports_subscription_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                            Reports add-on enabled
+                        </label>
+
+                        <button type="submit" class="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">
+                            Create account
+                        </button>
+                    </form>
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Selected account</p>
+                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Manage live subscription and status</h3>
+
+                    @if ($selectedAccountId && ! empty($selectedAccountSummary))
+                        <div class="mt-4 rounded-xl border border-violet-100 bg-violet-50 p-4">
+                            <p class="text-sm font-semibold text-violet-950">{{ $selectedAccountSummary['name'] }}</p>
+                            <p class="mt-1 text-xs text-violet-700">{{ $selectedAccountSummary['slug'] }}</p>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                                <div class="rounded-lg bg-white px-3 py-2">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Type</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ $selectedAccountSummary['type'] }}</p>
+                                </div>
+                                <div class="rounded-lg bg-white px-3 py-2">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Status</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ $selectedAccountSummary['status'] }}</p>
+                                </div>
+                                <div class="rounded-lg bg-white px-3 py-2">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Connections</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ $selectedAccountSummary['approved_connections'] }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form wire:submit.prevent="saveSelectedAccount" class="mt-4 space-y-4">
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account name</label>
+                                <input wire:model.defer="manageAccountForm.name" type="text" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                            </div>
+
+                            <div>
+                                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Slug</label>
+                                <input wire:model.defer="manageAccountForm.slug" type="text" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Account type</label>
+                                    <select wire:model.defer="manageAccountForm.account_type" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                        @foreach ($accountTypeOptions as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</label>
+                                    <select wire:model.defer="manageAccountForm.status" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                        @foreach ($accountStatusOptions as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                    <input wire:model.defer="manageAccountForm.retail_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                                    Retail enabled
+                                </label>
+                                <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                    <input wire:model.defer="manageAccountForm.wholesale_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                                    Wholesale enabled
+                                </label>
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Base plan</label>
+                                    <select wire:model.defer="manageAccountForm.base_subscription_plan" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                        @foreach ($subscriptionPlanOptions as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Reports customer limit</label>
+                                    <input wire:model.defer="manageAccountForm.reports_customer_limit" type="number" min="1" class="mt-2 w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-violet-500 focus:ring-violet-500" />
+                                </div>
+                            </div>
+
+                            <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                                <input wire:model.defer="manageAccountForm.reports_subscription_enabled" type="checkbox" class="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                                Reports add-on enabled
+                            </label>
+
+                            <button type="submit" class="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800">
+                                Save governance changes
+                            </button>
+                        </form>
+                    @else
+                        <div class="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                            Select an account from the directory to manage status, capabilities, and subscription settings.
+                        </div>
+                    @endif
+
+                    @if (! empty($latestGovernanceAction))
+                        <div class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">{{ $latestGovernanceAction['label'] }}</p>
+                            <p class="mt-1 text-sm font-semibold text-emerald-950">{{ $latestGovernanceAction['summary'] }}</p>
+                            <p class="mt-2 text-xs leading-5 text-emerald-800">{{ $latestGovernanceAction['note'] }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

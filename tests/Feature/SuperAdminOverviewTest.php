@@ -4,13 +4,16 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\SuperAdminOverview;
 use App\Models\User;
+use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Accounts\Models\AccountSubscription;
 use BackedEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -42,8 +45,8 @@ class SuperAdminOverviewTest extends TestCase
             ->get('/admin/super-admin-overview')
             ->assertOk()
             ->assertSee('Super Admin Overview')
-            ->assertSee('Read-only surface')
-            ->assertSee('Create and manage accounts')
+            ->assertSee('Live governance surface')
+            ->assertSee('Create supplier, retailer, or mixed account')
             ->assertSee('No impersonation')
             ->assertSee('No impersonation, no approval queue, no product editing');
 
@@ -162,6 +165,103 @@ class SuperAdminOverviewTest extends TestCase
         $this->assertStringContainsString('Both Modes', $page->reportAddOnTiers[1]['note']);
         $this->assertContains('Create supplier account directly', $page->accountGovernanceActions);
         $this->assertContains('No impersonation', array_column($page->guardrailCards, 'label'));
+    }
+
+    public function test_super_admin_overview_can_create_account_and_active_subscription(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super_admin');
+
+        $this->actingAs($superAdmin);
+
+        Livewire::test(SuperAdminOverview::class)
+            ->set('createAccountForm', [
+                'name' => 'Tyre Hub',
+                'slug' => '',
+                'account_type' => AccountType::SUPPLIER->value,
+                'retail_enabled' => false,
+                'wholesale_enabled' => true,
+                'status' => AccountStatus::ACTIVE->value,
+                'base_subscription_plan' => SubscriptionPlan::PREMIUM->value,
+                'reports_subscription_enabled' => true,
+                'reports_customer_limit' => 250,
+            ])
+            ->call('createAccount')
+            ->assertHasNoErrors()
+            ->assertSet('selectedAccountSummary.name', 'Tyre Hub');
+
+        $account = Account::query()->where('slug', 'tyre-hub')->first();
+
+        $this->assertNotNull($account);
+        $this->assertSame(AccountType::SUPPLIER, $account->account_type);
+        $this->assertTrue($account->wholesale_enabled);
+        $this->assertTrue($account->reports_subscription_enabled);
+        $this->assertSame(250, $account->reports_customer_limit);
+
+        $subscription = AccountSubscription::query()->where('account_id', $account->id)->first();
+        $this->assertNotNull($subscription);
+        $this->assertSame(SubscriptionPlan::PREMIUM, $subscription->plan_code);
+        $this->assertTrue($subscription->reports_enabled);
+        $this->assertSame(250, $subscription->reports_customer_limit);
+    }
+
+    public function test_super_admin_overview_can_update_selected_account_governance(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super_admin');
+
+        $account = Account::query()->create([
+            'name' => 'Road Retail',
+            'slug' => 'road-retail',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+            'reports_customer_limit' => null,
+            'created_by_user_id' => $superAdmin->id,
+        ]);
+
+        AccountSubscription::query()->create([
+            'account_id' => $account->id,
+            'plan_code' => SubscriptionPlan::BASIC,
+            'status' => 'active',
+            'reports_enabled' => false,
+            'reports_customer_limit' => null,
+            'starts_at' => now(),
+            'created_by_user_id' => $superAdmin->id,
+        ]);
+
+        $this->actingAs($superAdmin);
+
+        Livewire::test(SuperAdminOverview::class)
+            ->call('selectAccount', $account->id)
+            ->set('manageAccountForm.status', AccountStatus::SUSPENDED->value)
+            ->set('manageAccountForm.base_subscription_plan', SubscriptionPlan::PREMIUM->value)
+            ->set('manageAccountForm.reports_subscription_enabled', true)
+            ->set('manageAccountForm.reports_customer_limit', 500)
+            ->set('manageAccountForm.wholesale_enabled', true)
+            ->set('manageAccountForm.account_type', AccountType::BOTH->value)
+            ->call('saveSelectedAccount')
+            ->assertHasNoErrors()
+            ->assertSet('selectedAccountSummary.status', AccountStatus::SUSPENDED->label());
+
+        $account->refresh();
+        $subscription = $account->subscriptions()->where('status', 'active')->latest('id')->first();
+
+        $this->assertSame(AccountType::BOTH, $account->account_type);
+        $this->assertSame(AccountStatus::SUSPENDED, $account->status);
+        $this->assertTrue($account->retail_enabled);
+        $this->assertTrue($account->wholesale_enabled);
+        $this->assertSame(SubscriptionPlan::PREMIUM, $account->base_subscription_plan);
+        $this->assertTrue($account->reports_subscription_enabled);
+        $this->assertSame(500, $account->reports_customer_limit);
+
+        $this->assertNotNull($subscription);
+        $this->assertSame(SubscriptionPlan::PREMIUM, $subscription->plan_code);
+        $this->assertTrue($subscription->reports_enabled);
+        $this->assertSame(500, $subscription->reports_customer_limit);
     }
 
     protected function createAccount(array $attributes): int
