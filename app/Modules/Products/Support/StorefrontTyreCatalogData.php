@@ -14,6 +14,7 @@ class StorefrontTyreCatalogData
 {
     public function __construct(
         private readonly TyreOfferAvailabilityResolver $availabilityResolver,
+        private readonly TyreVehicleFitmentResolver $vehicleFitmentResolver,
     ) {
     }
 
@@ -228,6 +229,11 @@ class StorefrontTyreCatalogData
     private function normalizeCatalogFilters(array $filters): array
     {
         $normalized = [];
+        $vehicleResolution = $this->vehicleFitmentResolver->resolve($filters);
+
+        if ($vehicleResolution['requested']) {
+            $normalized = array_merge($normalized, $vehicleResolution['filters']);
+        }
 
         $stringMappings = [
             'loadIndex' => 'load_index',
@@ -236,11 +242,14 @@ class StorefrontTyreCatalogData
             'speed_rating' => 'speed_rating',
             'season' => 'season',
             'brand' => 'brand',
-            'model' => 'model',
             'query' => 'query',
             'search' => 'query',
             'q' => 'query',
         ];
+
+        if (! $vehicleResolution['requested']) {
+            $stringMappings['model'] = 'model';
+        }
 
         $integerMappings = [
             'width' => 'width',
@@ -286,6 +295,10 @@ class StorefrontTyreCatalogData
      */
     private function applyCatalogFilters(Builder $query, array $filters): Builder
     {
+        if (($filters['vehicle_requested'] ?? false) === true && ($filters['vehicle_resolved'] ?? false) !== true) {
+            return $query->whereRaw('1 = 0');
+        }
+
         if (isset($filters['width'])) {
             $query->where('width', $filters['width']);
         }

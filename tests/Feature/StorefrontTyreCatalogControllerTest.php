@@ -15,6 +15,7 @@ use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Products\Models\TyreCatalogGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class StorefrontTyreCatalogControllerTest extends TestCase
@@ -345,6 +346,101 @@ class StorefrontTyreCatalogControllerTest extends TestCase
             ->assertJsonPath('data.meta.filters.load_index', '95')
             ->assertJsonPath('data.meta.filters.speed_rating', 'Y')
             ->assertJsonPath('data.meta.filters.season', 'Summer');
+    }
+
+    public function test_retail_store_catalog_resolves_vehicle_search_into_live_tyre_filters(): void
+    {
+        config()->set('wheel_size.key', 'test-wheel-key');
+        config()->set('wheel_size.url', 'https://api.wheel-size.com/v2/');
+
+        [$owner, $account] = $this->createOwnerAccount('Alpha Retail', 'alpha-retail', AccountType::BOTH, true, true);
+
+        $matchingGroup = TyreCatalogGroup::create([
+            'storefront_merge_key' => 'michelin|pilot-sport-4s|245/35R20|2026',
+            'brand_name' => 'Michelin',
+            'model_name' => 'Pilot Sport 4S',
+            'width' => 245,
+            'height' => 35,
+            'rim_size' => 20,
+            'full_size' => '245/35R20',
+            'load_index' => '95',
+            'speed_rating' => 'Y',
+            'dot_year' => '2026',
+            'tyre_type' => 'Summer',
+        ]);
+
+        $nonMatchingGroup = TyreCatalogGroup::create([
+            'storefront_merge_key' => 'continental|sportcontact-7|255/40R20|2026',
+            'brand_name' => 'Continental',
+            'model_name' => 'SportContact 7',
+            'width' => 255,
+            'height' => 40,
+            'rim_size' => 20,
+            'full_size' => '255/40R20',
+            'load_index' => '99',
+            'speed_rating' => 'Y',
+            'dot_year' => '2026',
+            'tyre_type' => 'Summer',
+        ]);
+
+        $matchingOffer = TyreAccountOffer::create([
+            'tyre_catalog_group_id' => $matchingGroup->id,
+            'account_id' => $account->id,
+            'source_sku' => 'ALPHA-245',
+            'retail_price' => 390,
+        ]);
+
+        $nonMatchingOffer = TyreAccountOffer::create([
+            'tyre_catalog_group_id' => $nonMatchingGroup->id,
+            'account_id' => $account->id,
+            'source_sku' => 'ALPHA-255',
+            'retail_price' => 410,
+        ]);
+
+        $warehouse = $this->createWarehouse('Vehicle Filter Warehouse', 'VEHICLE-FILTER');
+        $this->seedOfferInventory($matchingOffer, $warehouse, 4);
+        $this->seedOfferInventory($nonMatchingOffer, $warehouse, 7);
+
+        Http::fake([
+            'https://api.wheel-size.com/v2/search/by_model/*' => Http::response([
+                'data' => [[
+                    'wheels' => [[
+                        'is_stock' => true,
+                        'front' => [
+                            'tire_width' => 245,
+                            'tire_aspect_ratio' => 35,
+                            'rim_diameter' => 20,
+                            'load_index' => '95',
+                            'speed_rating' => 'Y',
+                        ],
+                    ]],
+                ]],
+            ]),
+        ]);
+
+        $token = $owner->createToken('storefront-catalog')->plainTextToken;
+
+        $response = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/storefront/catalog/tyres?mode=retail-store&search_by_vehicle=true&make=Audi&model=RS6&year=2024&variant=Performance');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.brand', 'Michelin')
+            ->assertJsonPath('data.items.0.size', '245/35R20')
+            ->assertJsonPath('data.meta.filters.vehicle_requested', true)
+            ->assertJsonPath('data.meta.filters.vehicle_resolved', true)
+            ->assertJsonPath('data.meta.filters.vehicle_search.make', 'Audi')
+            ->assertJsonPath('data.meta.filters.vehicle_search.model', 'RS6')
+            ->assertJsonPath('data.meta.filters.vehicle_search.year', '2024')
+            ->assertJsonPath('data.meta.filters.vehicle_search.modification', 'Performance')
+            ->assertJsonPath('data.meta.filters.width', 245)
+            ->assertJsonPath('data.meta.filters.height', 35)
+            ->assertJsonPath('data.meta.filters.rim_size', 20)
+            ->assertJsonPath('data.meta.filters.load_index', '95')
+            ->assertJsonPath('data.meta.filters.speed_rating', 'Y');
     }
 
     private function createOwnerAccount(
