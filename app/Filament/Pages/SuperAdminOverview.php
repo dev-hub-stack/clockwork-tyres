@@ -86,12 +86,19 @@ class SuperAdminOverview extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return static::experimentalPagesEnabled()
+            && (auth()->user()?->hasRole('super_admin') ?? false);
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return static::experimentalPagesEnabled()
+            && (auth()->user()?->hasRole('super_admin') ?? false);
+    }
+
+    protected static function experimentalPagesEnabled(): bool
+    {
+        return (bool) config('wholesale.experimental_admin_pages', false);
     }
 
     protected function buildGovernanceCards(): array

@@ -29,6 +29,7 @@ class ProcurementWorkbenchTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('wholesale.experimental_admin_pages', true);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Permission::firstOrCreate(['name' => 'view_quotes', 'guard_name' => 'web']);
     }

@@ -26,6 +26,7 @@ class SuperAdminOverviewTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('wholesale.experimental_admin_pages', true);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
     }

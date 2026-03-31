@@ -45,4 +45,14 @@ return [
         ['id' => 'BankTransfer', 'name' => 'Bank Transfer', 'icon' => 'bank'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Experimental Clockwork-Tyres admin pages
+    |--------------------------------------------------------------------------
+    | Internal workbench pages used during platform workflow validation.
+    | Keep these hidden from the live CRM until they are rebuilt with the
+    | native resource/table patterns already used across the product.
+    */
+    'experimental_admin_pages' => env('WHOLESALE_EXPERIMENTAL_ADMIN_PAGES', false),
+
 ];

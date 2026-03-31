@@ -49,12 +49,19 @@ class SupplierIntakeWorkbench extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_quotes') ?? false;
+        return static::experimentalPagesEnabled()
+            && (auth()->user()?->can('view_quotes') ?? false);
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_quotes') ?? false;
+        return static::experimentalPagesEnabled()
+            && (auth()->user()?->can('view_quotes') ?? false);
+    }
+
+    protected static function experimentalPagesEnabled(): bool
+    {
+        return (bool) config('wholesale.experimental_admin_pages', false);
     }
 
     public function approveRequest(int $requestId, ApproveProcurementRequestAction $approveAction): void
