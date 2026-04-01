@@ -50,6 +50,8 @@ class OrderService
             $order = Order::create([
                 'document_type' => $documentType,
                 'customer_id' => $data['customer_id'],
+                'quote_number' => $data['quote_number'] ?? null,
+                'order_number' => $data['order_number'] ?? null,
                 'warehouse_id' => $data['warehouse_id'] ?? null,
                 'representative_id' => $data['representative_id'] ?? null,
                 'external_order_id' => $data['external_order_id'] ?? null,

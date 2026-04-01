@@ -200,6 +200,8 @@ class SubmitGroupedProcurementAction
         ?string $notes,
         string $currency,
     ): Order {
+        $quoteNumber = sprintf('QUO-%s-%04d', now()->format('Ymd'), $request->id);
+
         $items = array_map(function (array $lineItem): array {
             $item = [
                 'quantity' => max(1, (int) ($lineItem['quantity'] ?? 1)),
@@ -232,6 +234,8 @@ class SubmitGroupedProcurementAction
         $quote = $this->orderService->createOrder([
             'document_type' => DocumentType::QUOTE,
             'customer_id' => $customer->id,
+            'quote_number' => $quoteNumber,
+            'order_number' => $quoteNumber,
             'channel' => 'wholesale',
             'external_source' => 'clockwork_procurement',
             'external_order_id' => $request->request_number,
