@@ -70,6 +70,25 @@ class CurrentAccountResolver
             ->get();
     }
 
+    public function selectById(Request $request, User $user, int $accountId): CurrentAccountContext
+    {
+        $availableAccounts = $this->availableAccounts($user);
+        $selectedAccount = $this->matchOrDeny($availableAccounts, 'id', $accountId, 'account_id');
+
+        if (! $selectedAccount instanceof Account) {
+            throw new AuthorizationException('The selected account_id is not available to this user.');
+        }
+
+        $this->rememberSelection($request, $selectedAccount, $user);
+
+        return new CurrentAccountContext(
+            user: $user,
+            currentAccount: $selectedAccount,
+            availableAccounts: $availableAccounts,
+            selectionSource: 'explicit',
+        );
+    }
+
     /**
      * @param  Collection<int, Account>  $availableAccounts
      */
@@ -124,10 +143,12 @@ class CurrentAccountResolver
         return null;
     }
 
-    private function rememberSelection(Request $request, Account $account): void
+    private function rememberSelection(Request $request, Account $account, ?User $user = null): void
     {
-        if ($request->user() !== null) {
-            Cache::put($this->cacheKeyForUser($request->user()->id), $account->id, now()->addDays(30));
+        $resolvedUser = $user ?? $request->user();
+
+        if ($resolvedUser !== null) {
+            Cache::put($this->cacheKeyForUser($resolvedUser->id), $account->id, now()->addDays(30));
         }
 
         if ($request->hasSession()) {
