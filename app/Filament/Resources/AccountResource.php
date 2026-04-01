@@ -118,7 +118,7 @@ class AccountResource extends Resource
                             ->all())
                         ->required()
                         ->default(SubscriptionPlan::BASIC->value)
-                        ->helperText('`Basic` maps to the free starter plan. `Premium` maps to the paid self-serve plan. Combined retail + wholesale accounts must use a paid plan.'),
+                        ->helperText('`Basic` maps to the free Starter plan. `Premium` maps to the paid self-serve plan: retailer `Plus` or wholesaler `Premium` at AED 199/month. Enterprise stays manual/custom pricing. Combined retail + wholesale accounts must use a paid plan.'),
 
                     Toggle::make('reports_subscription_enabled')
                         ->label('Reports add-on enabled')

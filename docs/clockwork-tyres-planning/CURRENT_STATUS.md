@@ -22,6 +22,9 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - supplier and wholesaler mean the same role
 - combined `both` accounts require a paid subscription
 - retailer free plan supplier limit is fixed at `3`
+- George has now shared plan screenshots for:
+  - retailer `Starter / Plus / Enterprise`
+  - wholesaler `Starter / Premium / Enterprise`
 - storefront is counter-only after login in phase 1
 - procurement can be standalone
 - supplier approval converts to invoice and deducts stock
@@ -47,6 +50,10 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
   - add to cart works
   - checkout creates an order
   - created order appears in account orders
+- internal subscription mapping is now stable:
+  - `basic` = free starter
+  - `premium` = retailer `Plus` or wholesaler `Premium`
+  - enterprise remains manual / custom pricing
 
 ## Main Remaining Work
 

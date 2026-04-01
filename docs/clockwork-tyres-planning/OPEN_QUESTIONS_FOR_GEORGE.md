@@ -28,6 +28,7 @@ The following items are no longer open questions:
 - combined `both` accounts require a paid subscription
 - supplier and wholesaler mean the same role
 - the free retailer supplier limit is fixed at `3`
+- plan structure screenshots are now shared for retailer and wholesaler pricing
 - storefront is counter-only after login for phase 1
 - end customers should not see supplier count unless visible stock is `4 pcs or less`
 - procurement can be done standalone

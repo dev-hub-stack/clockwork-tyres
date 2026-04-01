@@ -72,15 +72,26 @@ Phase 1 commercial plans are now clearer.
 #### Retailer
 
 - retailer starter plan:
+  - access to `3` suppliers
+  - `24/7` live inventory and ordering
+  - unlimited orders
   - cannot add own products
   - cannot add own inventory
   - cannot add more than `3` suppliers
 - `3 suppliers` is the final free limit
 - retailer plus plan:
+  - everything in starter
+  - add unlimited suppliers
+  - change portal logo to company logo
+  - manage and showcase on-hand inventory
+  - store analytics
   - can add own products
   - can add own inventory
   - can add more than `3` suppliers
 - retailer enterprise is sales-led / custom pricing
+- retailer enterprise mockup currently highlights:
+  - businesses that sell both wholesale and retail
+  - customer analytics
 - retailer pricing mockup currently maps to:
   - `starter = free`
   - `plus = AED 199 / month`
@@ -89,14 +100,21 @@ Phase 1 commercial plans are now clearer.
 #### Supplier / Wholesaler
 
 - supplier starter plan:
+  - `24/7` live inventory and order portal
+  - unlimited orders
+  - inventory and product management admin
   - can add own products
   - can add own inventory
   - has no access to reports
 - supplier premium plan:
+  - for businesses that sell both wholesale and retail
   - unlocks retail sales portal
   - unlocks procurement module
   - unlocks store analytics
 - supplier enterprise is sales-led / custom pricing
+- supplier enterprise mockup currently highlights:
+  - businesses that sell both wholesale and retail
+  - customer analytics
 - supplier pricing mockup currently maps to:
   - `starter = free`
   - `premium = AED 199 / month`
@@ -121,6 +139,8 @@ Phase 1 commercial plans are now clearer.
 - phase 1 backend may continue to store internal plan codes as:
   - `basic` for free starter
   - `premium` for the paid self-serve plan
+    - retailer-facing label: `Plus`
+    - wholesaler-facing label: `Premium`
   - enterprise handled manually until a dedicated code is needed
 
 ### 5. Catalog Direction
