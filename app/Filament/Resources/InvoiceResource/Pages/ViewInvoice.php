@@ -6,6 +6,7 @@ use App\Filament\Resources\InvoiceResource;
 use App\Filament\Resources\InvoiceResource\Actions\CancelOrderAction;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Mail;
@@ -137,6 +138,8 @@ class ViewInvoice extends ViewRecord
                     $this->record->update([
                         'order_status' => OrderStatus::PROCESSING,
                     ]);
+
+                    $this->syncProcurementLifecycle();
                 }),
 
             Actions\Action::make('markShipped')
@@ -177,6 +180,8 @@ class ViewInvoice extends ViewRecord
                         'tracking_url'     => $data['tracking_url'] ?? null,
                         'shipped_at'       => now(),
                     ]);
+
+                    $this->syncProcurementLifecycle();
                 }),
 
             Actions\Action::make('markCompleted')
@@ -190,7 +195,26 @@ class ViewInvoice extends ViewRecord
                 ->action(function () {
                     $this->record->update([
                         'order_status' => OrderStatus::DELIVERED,
+                        'delivered_at' => now(),
                     ]);
+
+                    $this->syncProcurementLifecycle();
+                }),
+
+            Actions\Action::make('markFulfilled')
+                ->label('Mark as Completed')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->visible(fn () => $this->record->order_status->value === 'delivered')
+                ->requiresConfirmation()
+                ->modalHeading('Mark as Completed')
+                ->modalDescription('Confirm that this procurement invoice is fully completed.')
+                ->action(function () {
+                    $this->record->update([
+                        'order_status' => OrderStatus::COMPLETED,
+                    ]);
+
+                    $this->syncProcurementLifecycle();
                 }),
 
             CancelOrderAction::make(),
@@ -198,5 +222,12 @@ class ViewInvoice extends ViewRecord
             Actions\EditAction::make(),
             Actions\DeleteAction::make(),
         ];
+    }
+
+    private function syncProcurementLifecycle(): void
+    {
+        $this->record = $this->record->fresh();
+
+        app(ProcurementInvoiceLifecycle::class)->sync($this->record);
     }
 }

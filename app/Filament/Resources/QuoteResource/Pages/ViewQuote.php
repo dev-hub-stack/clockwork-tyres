@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\QuoteResource\Pages;
 
 use App\Filament\Resources\QuoteResource;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\QuoteConversionService;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
@@ -184,11 +185,13 @@ class ViewQuote extends ViewRecord
             return false;
         }
 
-        return ! in_array($request->current_stage, [
-            ProcurementWorkflowStage::STOCK_RESERVED,
-            ProcurementWorkflowStage::STOCK_DEDUCTED,
-            ProcurementWorkflowStage::FULFILLED,
-            ProcurementWorkflowStage::CANCELLED,
+        if (! $this->isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::QUOTED,
+            ProcurementWorkflowStage::APPROVED,
         ], true);
     }
 
@@ -204,9 +207,29 @@ class ViewQuote extends ViewRecord
             return false;
         }
 
+        if (! $this->isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
         return in_array($request->current_stage, [
             ProcurementWorkflowStage::DRAFT,
             ProcurementWorkflowStage::SUBMITTED,
         ], true);
+    }
+
+    private function isActiveSupplierForRequest(ProcurementRequest $request): bool
+    {
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return false;
+        }
+
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        return $currentAccount !== null
+            && (int) $request->supplier_account_id === (int) $currentAccount->id;
     }
 }

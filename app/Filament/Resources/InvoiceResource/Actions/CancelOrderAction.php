@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 
 class CancelOrderAction
 {
@@ -225,6 +226,7 @@ class CancelOrderAction
                     $notes = $data['cancellation_notes'] ?? null;
                     
                     $service->cancelOrderWithReturns($record, $cancelledItems, $reason, $notes);
+                    app(ProcurementInvoiceLifecycle::class)->sync($record->fresh());
                     
                     $totalQty = collect($cancelledItems)->sum('quantity');
                     $goodQty = collect($cancelledItems)->where('condition', 'good')->sum('quantity');

@@ -14,9 +14,11 @@ use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Orders\Services\OrderService;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -43,6 +45,7 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
 
         $quote = $request->quoteOrder()->firstOrFail();
         $hiddenQuote = $this->createDirectQuote('Hidden Wholesale Quote');
+        $this->assertSame(QuoteStatus::DRAFT, $quote->quote_status);
 
         $this->actingAs($supplierUser)
             ->get('/admin/quotes')
@@ -60,18 +63,30 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ->assertOk()
             ->assertSee('Open Procurement Request')
             ->assertSee('Start Supplier Review')
-            ->assertSee('Approve Procurement');
+            ->assertDontSee('Approve Procurement');
 
         $this->actingAs($retailerOwner)
             ->get('/admin/quotes')
             ->assertOk()
             ->assertSee((string) $quote->quote_number)
-            ->assertSee('Procurement Quotes');
+            ->assertSee('Procurement Quotes')
+            ->assertDontSee('Supplier Intake');
+
+        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        $request = app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/quotes/'.$quote->id)
+            ->assertOk()
+            ->assertSee('Approve Procurement');
     }
 
     public function test_invoices_resource_surfaces_procurement_context_after_supplier_approval(): void
     {
         [$supplierUser, $retailerOwner, $request] = $this->createProcurementRequest();
+        $quote = $request->quoteOrder()->firstOrFail();
+        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        $request = app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
 
         $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
         $invoice = $approvedRequest->invoiceOrder()->firstOrFail();
@@ -127,6 +142,74 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ProcurementWorkflowStage::STOCK_DEDUCTED,
             ProcurementWorkflowStage::FULFILLED,
         ], true));
+    }
+
+    public function test_procurement_invoice_stage_advances_with_invoice_status_sync(): void
+    {
+        [$supplierUser, , $request] = $this->createProcurementRequest();
+        $quote = $request->quoteOrder()->firstOrFail();
+        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        $request = app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
+
+        $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
+        $invoice = $approvedRequest->invoiceOrder()->firstOrFail();
+        $lifecycle = app(ProcurementInvoiceLifecycle::class);
+
+        $this->assertSame(ProcurementWorkflowStage::STOCK_RESERVED, $approvedRequest->fresh()->current_stage);
+
+        $invoice->update([
+            'order_status' => OrderStatus::SHIPPED,
+            'shipped_at' => now(),
+        ]);
+
+        $request = $lifecycle->sync($invoice->fresh());
+        $this->assertSame(ProcurementWorkflowStage::STOCK_DEDUCTED, $request?->current_stage);
+
+        $invoice->update([
+            'order_status' => OrderStatus::DELIVERED,
+            'delivered_at' => now(),
+        ]);
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/invoices/'.$invoice->id)
+            ->assertOk()
+            ->assertSee('Mark as Completed');
+
+        $invoice->update([
+            'order_status' => OrderStatus::COMPLETED,
+        ]);
+
+        $request = $lifecycle->sync($invoice->fresh());
+        $this->assertSame(ProcurementWorkflowStage::FULFILLED, $request?->current_stage);
+        $this->assertNotNull($request?->fulfilled_at);
+    }
+
+    public function test_procurement_invoice_stage_cancels_with_invoice_cancellation(): void
+    {
+        [, , $request] = $this->createProcurementRequest();
+        $quote = $request->quoteOrder()->firstOrFail();
+        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        $request = app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
+
+        $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
+        $invoice = $approvedRequest->invoiceOrder()->firstOrFail();
+
+        app(OrderService::class)->cancelOrder($invoice, 'Customer requested cancellation');
+
+        $cancelledRequest = $approvedRequest->fresh();
+
+        $this->assertSame(ProcurementWorkflowStage::CANCELLED, $cancelledRequest->current_stage);
+        $this->assertNotNull($cancelledRequest->cancelled_at);
+    }
+
+    public function test_procurement_request_cannot_be_approved_before_supplier_quotes_it(): void
+    {
+        [, , $request] = $this->createProcurementRequest();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Procurement requests can only be approved after the supplier has quoted the request.');
+
+        app(ApproveProcurementRequestAction::class)->execute($request);
     }
 
     /**

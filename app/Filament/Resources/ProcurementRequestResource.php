@@ -325,15 +325,31 @@ class ProcurementRequestResource extends Resource
 
     private static function canApproveRecord(ProcurementRequest $record): bool
     {
-        if (! ($record->quoteOrder || $record->invoiceOrder)) {
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
             return false;
         }
 
-        return ! in_array($record->current_stage, [
-            ProcurementWorkflowStage::STOCK_RESERVED,
-            ProcurementWorkflowStage::STOCK_DEDUCTED,
-            ProcurementWorkflowStage::FULFILLED,
-            ProcurementWorkflowStage::CANCELLED,
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        if (! $currentAccount) {
+            return false;
+        }
+
+        if ((int) $record->supplier_account_id !== (int) $currentAccount->id) {
+            return false;
+        }
+
+        if (! $record->quoteOrder || $record->invoiceOrder) {
+            return false;
+        }
+
+        return in_array($record->current_stage, [
+            ProcurementWorkflowStage::QUOTED,
+            ProcurementWorkflowStage::APPROVED,
         ], true);
     }
 

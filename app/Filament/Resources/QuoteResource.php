@@ -1324,11 +1324,13 @@ class QuoteResource extends Resource
             return false;
         }
 
-        return ! in_array($request->current_stage, [
-            ProcurementWorkflowStage::STOCK_RESERVED,
-            ProcurementWorkflowStage::STOCK_DEDUCTED,
-            ProcurementWorkflowStage::FULFILLED,
-            ProcurementWorkflowStage::CANCELLED,
+        if (! static::isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::QUOTED,
+            ProcurementWorkflowStage::APPROVED,
         ], true);
     }
 
@@ -1344,10 +1346,30 @@ class QuoteResource extends Resource
             return false;
         }
 
+        if (! static::isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
         return in_array($request->current_stage, [
             ProcurementWorkflowStage::DRAFT,
             ProcurementWorkflowStage::SUBMITTED,
         ], true);
+    }
+
+    private static function isActiveSupplierForRequest(ProcurementRequest $request): bool
+    {
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return false;
+        }
+
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        return $currentAccount !== null
+            && (int) $request->supplier_account_id === (int) $currentAccount->id;
     }
 
     public static function getRelations(): array

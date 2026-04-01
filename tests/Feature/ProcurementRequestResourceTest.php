@@ -13,6 +13,7 @@ use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -122,6 +123,10 @@ class ProcurementRequestResourceTest extends TestCase
             ->assertSee('Request Items')
             ->assertSee('Open Quote')
             ->assertSee('Touring tyre');
+
+        $quote = $request->quoteOrder()->firstOrFail();
+        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        $request = app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
 
         $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
 

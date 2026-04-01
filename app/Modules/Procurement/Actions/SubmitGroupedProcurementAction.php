@@ -7,6 +7,7 @@ use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Orders\Enums\DocumentType;
+use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Services\OrderService;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
@@ -244,7 +245,9 @@ class SubmitGroupedProcurementAction
             'items' => $items,
         ]);
 
-        $this->orderService->sendQuote($quote);
+        $quote->update([
+            'quote_status' => QuoteStatus::DRAFT,
+        ]);
 
         return $quote->fresh(['items', 'customer']);
     }

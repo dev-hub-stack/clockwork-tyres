@@ -9,6 +9,7 @@ use App\Modules\Orders\Models\Payment;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Settings\Models\CompanyBranding;
@@ -1492,6 +1493,8 @@ class InvoiceResource extends Resource
                             'shipped_at' => $data['shipped_at'],
                         ]);
 
+                        app(ProcurementInvoiceLifecycle::class)->sync($record->fresh());
+
                         app(\App\Services\TunerstopOrderStatusSyncService::class)
                             ->sync($record->fresh(), 'invoice_marked_shipped');
                         
@@ -1559,7 +1562,10 @@ class InvoiceResource extends Resource
                     ->action(function ($record, array $data) {
                         $record->update([
                             'order_status' => OrderStatus::DELIVERED,
+                            'delivered_at' => now(),
                         ]);
+
+                        app(ProcurementInvoiceLifecycle::class)->sync($record->fresh());
 
                         app(\App\Services\TunerstopOrderStatusSyncService::class)
                             ->sync($record->fresh(), 'invoice_marked_delivered');
@@ -1567,6 +1573,28 @@ class InvoiceResource extends Resource
                         Notification::make()
                             ->title('Order Marked as Delivered')
                             ->body("Order {$record->order_number} has been marked as delivered")
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('markFulfilled')
+                    ->label('Mark as Completed')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn($record) => $record->order_status->value === 'delivered')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark as Completed')
+                    ->modalDescription('Confirm that this procurement invoice is fully completed.')
+                    ->action(function ($record) {
+                        $record->update([
+                            'order_status' => OrderStatus::COMPLETED,
+                        ]);
+
+                        app(ProcurementInvoiceLifecycle::class)->sync($record->fresh());
+
+                        Notification::make()
+                            ->title('Order Marked as Completed')
+                            ->body("Order {$record->order_number} has been completed")
                             ->success()
                             ->send();
                     }),

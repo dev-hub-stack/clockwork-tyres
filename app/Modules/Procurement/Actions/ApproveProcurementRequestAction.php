@@ -10,6 +10,7 @@ use App\Modules\Orders\Services\OrderService;
 use App\Modules\Orders\Services\QuoteConversionService;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -18,6 +19,7 @@ class ApproveProcurementRequestAction
     public function __construct(
         protected OrderService $orderService,
         protected QuoteConversionService $quoteConversionService,
+        protected ProcurementInvoiceLifecycle $procurementInvoiceLifecycle,
     ) {}
 
     public function execute(ProcurementRequest $request): ProcurementRequest
@@ -31,27 +33,35 @@ class ApproveProcurementRequestAction
                 throw new InvalidArgumentException('A linked supplier quote is required before the procurement request can be approved.');
             }
 
+            if (! in_array($request->current_stage, [
+                ProcurementWorkflowStage::QUOTED,
+                ProcurementWorkflowStage::APPROVED,
+            ], true)) {
+                throw new InvalidArgumentException('Procurement requests can only be approved after the supplier has quoted the request.');
+            }
+
             $invoice = $this->approveAndConvert($linkedOrder);
             $now = now();
 
             $request->forceFill([
                 'quote_order_id' => $request->quote_order_id ?? $invoice->id,
                 'invoice_order_id' => $invoice->id,
-                'current_stage' => $this->stageForInvoice($invoice),
                 'supplier_reviewed_at' => $request->supplier_reviewed_at ?? $now,
                 'quoted_at' => $request->quoted_at ?? $linkedOrder->sent_at ?? $now,
                 'approved_at' => $request->approved_at ?? $invoice->approved_at ?? $now,
-                'invoiced_at' => $request->invoiced_at ?? $now,
-                'meta' => array_merge($request->meta ?? [], [
+            ])->save();
+
+            $syncedRequest = $this->procurementInvoiceLifecycle->syncRequest($request, $invoice);
+
+            $syncedRequest->forceFill([
+                'meta' => array_merge($syncedRequest->meta ?? [], [
                     'linked_quote_id' => $request->quote_order_id ?? $invoice->id,
-                    'linked_invoice_id' => $invoice->id,
                     'linked_quote_number' => $invoice->quote_number,
-                    'linked_invoice_number' => $invoice->order_number,
                     'last_transition' => 'approved_to_invoice',
                 ]),
             ])->save();
 
-            return $request->fresh([
+            return $syncedRequest->fresh([
                 'items',
                 'quoteOrder.items',
                 'invoiceOrder.items',
@@ -78,18 +88,5 @@ class ApproveProcurementRequestAction
         }
 
         return $this->quoteConversionService->convertQuoteToInvoice($order);
-    }
-
-    private function stageForInvoice(Order $invoice): ProcurementWorkflowStage
-    {
-        return match ($invoice->order_status) {
-            OrderStatus::PENDING,
-            OrderStatus::PROCESSING => ProcurementWorkflowStage::STOCK_RESERVED,
-            OrderStatus::SHIPPED,
-            OrderStatus::DELIVERED => ProcurementWorkflowStage::STOCK_DEDUCTED,
-            OrderStatus::COMPLETED => ProcurementWorkflowStage::FULFILLED,
-            OrderStatus::CANCELLED => ProcurementWorkflowStage::CANCELLED,
-            default => ProcurementWorkflowStage::INVOICED,
-        };
     }
 }

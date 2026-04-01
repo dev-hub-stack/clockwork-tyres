@@ -8,6 +8,7 @@ use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Orders\Models\OrderItemQuantity;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -607,6 +608,8 @@ class OrderFulfillmentService
             
             // recalculate (zeros out)
             $order->calculateTotals();
+
+            app(ProcurementInvoiceLifecycle::class)->sync($order->fresh());
         });
     }
 

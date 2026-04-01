@@ -14,6 +14,7 @@ use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Procurement\Support\ProcurementInvoiceLifecycle;
 use App\Modules\Customers\Services\DealerPricingService;
 use App\Services\AddonSnapshotService;
 use App\Services\ProductSnapshotService;
@@ -437,6 +438,8 @@ class OrderService
             'order_status' => OrderStatus::CANCELLED,
             'order_notes' => $order->order_notes . "\n\nCancellation reason: " . $reason,
         ]);
+
+        app(ProcurementInvoiceLifecycle::class)->sync($order->fresh());
         
         return true;
     }
@@ -486,6 +489,8 @@ class OrderService
         if (count($results['failed']) === 0 && $order->order_status !== OrderStatus::PROCESSING) {
             $this->updateStatus($order, OrderStatus::PROCESSING);
         }
+
+        app(ProcurementInvoiceLifecycle::class)->sync($order->fresh());
         
         return $results;
     }
@@ -522,6 +527,8 @@ class OrderService
         }
         
         $order->update($updateData);
+
+        app(ProcurementInvoiceLifecycle::class)->sync($order->fresh());
         
         return true;
     }
@@ -539,6 +546,8 @@ class OrderService
         }
         
         $this->updateStatus($order, OrderStatus::COMPLETED);
+
+        app(ProcurementInvoiceLifecycle::class)->sync($order->fresh());
         
         return true;
     }
