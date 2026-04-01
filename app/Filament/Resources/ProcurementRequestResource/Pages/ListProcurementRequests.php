@@ -26,7 +26,10 @@ class ListProcurementRequests extends ListRecords
                         ProcurementWorkflowStage::SUPPLIER_REVIEW->value,
                         ProcurementWorkflowStage::QUOTED->value,
                         ProcurementWorkflowStage::APPROVED->value,
-                    ]);
+                    ])->where(function (Builder $query): void {
+                        $query->whereNull('meta->last_transition')
+                            ->orWhere('meta->last_transition', '!=', 'supplier_revision_requested');
+                    });
                 }))
                 ->modifyQueryUsing(function (Builder $query): Builder {
                     return $query->whereIn('current_stage', [
@@ -35,7 +38,30 @@ class ListProcurementRequests extends ListRecords
                         ProcurementWorkflowStage::SUPPLIER_REVIEW,
                         ProcurementWorkflowStage::QUOTED,
                         ProcurementWorkflowStage::APPROVED,
-                    ]);
+                    ])->where(function (Builder $query): void {
+                        $query->whereNull('meta->last_transition')
+                            ->orWhere('meta->last_transition', '!=', 'supplier_revision_requested');
+                    });
+                }),
+
+            'revision_requested' => Tab::make('Revision Requested')
+                ->badge($this->requestCount(function (Builder $query): void {
+                    $query->where('current_stage', ProcurementWorkflowStage::SUPPLIER_REVIEW->value)
+                        ->where('meta->last_transition', 'supplier_revision_requested');
+                }))
+                ->modifyQueryUsing(function (Builder $query): Builder {
+                    return $query->where('current_stage', ProcurementWorkflowStage::SUPPLIER_REVIEW)
+                        ->where('meta->last_transition', 'supplier_revision_requested');
+                }),
+
+            'supplier_rejected' => Tab::make("Rejected / Can't Supply")
+                ->badge($this->requestCount(function (Builder $query): void {
+                    $query->where('current_stage', ProcurementWorkflowStage::CANCELLED->value)
+                        ->where('meta->last_transition', 'supplier_rejected');
+                }))
+                ->modifyQueryUsing(function (Builder $query): Builder {
+                    return $query->where('current_stage', ProcurementWorkflowStage::CANCELLED)
+                        ->where('meta->last_transition', 'supplier_rejected');
                 }),
 
             'invoiced' => Tab::make('Invoiced Flow')
@@ -58,10 +84,18 @@ class ListProcurementRequests extends ListRecords
 
             'cancelled' => Tab::make('Cancelled')
                 ->badge($this->requestCount(function (Builder $query): void {
-                    $query->where('current_stage', ProcurementWorkflowStage::CANCELLED->value);
+                    $query->where('current_stage', ProcurementWorkflowStage::CANCELLED->value)
+                        ->where(function (Builder $query): void {
+                            $query->whereNull('meta->last_transition')
+                                ->orWhere('meta->last_transition', '!=', 'supplier_rejected');
+                        });
                 }))
                 ->modifyQueryUsing(function (Builder $query): Builder {
-                    return $query->where('current_stage', ProcurementWorkflowStage::CANCELLED);
+                    return $query->where('current_stage', ProcurementWorkflowStage::CANCELLED)
+                        ->where(function (Builder $query): void {
+                            $query->whereNull('meta->last_transition')
+                                ->orWhere('meta->last_transition', '!=', 'supplier_rejected');
+                        });
                 }),
         ];
     }
