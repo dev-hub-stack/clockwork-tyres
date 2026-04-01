@@ -76,6 +76,57 @@ class ViewQuote extends ViewRecord
                         ->send();
                 }),
 
+            Actions\Action::make('request_revision')
+                ->label('Request Revision')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->visible(fn (): bool => $this->canRequestProcurementRevision())
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('note')
+                        ->label('Revision Note')
+                        ->required()
+                        ->rows(4),
+                ])
+                ->action(function (array $data) {
+                    $request = app(ProcurementQuoteLifecycle::class)->requestRevision($this->record, $data['note']);
+
+                    if (! $request instanceof ProcurementRequest) {
+                        return;
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Revision requested')
+                        ->body(($request->request_number ?? 'Procurement request').' was returned to supplier review.')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('reject_procurement')
+                ->label("Reject / Can't Supply")
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->visible(fn (): bool => $this->canRejectProcurement())
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('reason')
+                        ->label('Rejection Reason')
+                        ->required()
+                        ->rows(4),
+                ])
+                ->requiresConfirmation()
+                ->action(function (array $data) {
+                    $request = app(ProcurementQuoteLifecycle::class)->reject($this->record, $data['reason']);
+
+                    if (! $request instanceof ProcurementRequest) {
+                        return;
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Procurement rejected')
+                        ->body(($request->request_number ?? 'Procurement request').' was cancelled for the supplier.')
+                        ->success()
+                        ->send();
+                }),
+
             Actions\Action::make('send')
                 ->label('Send Quote')
                 ->icon('heroicon-o-paper-airplane')
@@ -214,6 +265,52 @@ class ViewQuote extends ViewRecord
         return in_array($request->current_stage, [
             ProcurementWorkflowStage::DRAFT,
             ProcurementWorkflowStage::SUBMITTED,
+        ], true);
+    }
+
+    private function canRejectProcurement(): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $this->record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        if (! $this->isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::DRAFT,
+            ProcurementWorkflowStage::SUBMITTED,
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
+        ], true);
+    }
+
+    private function canRequestProcurementRevision(): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $this->record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        if (! $this->isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
         ], true);
     }
 

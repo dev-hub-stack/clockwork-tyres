@@ -1247,6 +1247,51 @@ class QuoteResource extends Resource
                             ->send();
                     }),
 
+                Action::make('request_revision')
+                    ->label('Request Revision')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Order $record): bool => static::canRequestProcurementRevision($record))
+                    ->form([
+                        Textarea::make('note')
+                            ->label('Revision Note')
+                            ->required()
+                            ->rows(4)
+                            ->placeholder('Describe what must be revised before this quote can move forward.'),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        $request = app(ProcurementQuoteLifecycle::class)->requestRevision($record, $data['note']);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Revision requested')
+                            ->body(($request?->request_number ?? 'Procurement request').' was returned to supplier review.')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('reject_procurement')
+                    ->label("Reject / Can't Supply")
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn (Order $record): bool => static::canRejectProcurement($record))
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Rejection Reason')
+                            ->required()
+                            ->rows(4)
+                            ->placeholder('Explain why this procurement request cannot be fulfilled.'),
+                    ])
+                    ->requiresConfirmation()
+                    ->action(function (Order $record, array $data) {
+                        $request = app(ProcurementQuoteLifecycle::class)->reject($record, $data['reason']);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Procurement rejected')
+                            ->body(($request?->request_number ?? 'Procurement request').' was cancelled for the supplier.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('convert')
                     ->label('Convert to Invoice')
                     ->icon('heroicon-o-arrow-right-circle')
@@ -1353,6 +1398,52 @@ class QuoteResource extends Resource
         return in_array($request->current_stage, [
             ProcurementWorkflowStage::DRAFT,
             ProcurementWorkflowStage::SUBMITTED,
+        ], true);
+    }
+
+    private static function canRejectProcurement(Order $record): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        if (! static::isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::DRAFT,
+            ProcurementWorkflowStage::SUBMITTED,
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
+        ], true);
+    }
+
+    private static function canRequestProcurementRevision(Order $record): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        if (! static::isActiveSupplierForRequest($request)) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
         ], true);
     }
 
