@@ -212,6 +212,40 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
         app(ApproveProcurementRequestAction::class)->execute($request);
     }
 
+    public function test_supplier_rejection_cancels_procurement_request_and_quote(): void
+    {
+        [, , $request] = $this->createProcurementRequest();
+
+        $quote = $request->quoteOrder()->firstOrFail();
+        $rejectedRequest = app(ProcurementQuoteLifecycle::class)->reject($quote, 'No stock available from supplier');
+
+        $this->assertSame(ProcurementWorkflowStage::CANCELLED, $rejectedRequest?->current_stage);
+        $this->assertNotNull($rejectedRequest?->cancelled_at);
+        $this->assertStringContainsString('No stock available from supplier', (string) $rejectedRequest?->notes);
+        $this->assertSame(QuoteStatus::REJECTED, $quote->fresh()->quote_status);
+    }
+
+    public function test_supplier_revision_keeps_procurement_request_in_supplier_review(): void
+    {
+        [, , $request] = $this->createProcurementRequest();
+
+        $quote = $request->quoteOrder()->firstOrFail();
+        app(ProcurementQuoteLifecycle::class)->startSupplierReview($quote);
+        app(ProcurementQuoteLifecycle::class)->markQuoted($quote);
+
+        $revisedRequest = app(ProcurementQuoteLifecycle::class)->requestRevision($quote->fresh(), 'Need updated tyre size confirmation');
+
+        $this->assertSame(ProcurementWorkflowStage::SUPPLIER_REVIEW, $revisedRequest?->current_stage);
+        $this->assertStringContainsString('Need updated tyre size confirmation', (string) $revisedRequest?->notes);
+        $this->assertSame(QuoteStatus::DRAFT, $quote->fresh()->quote_status);
+        $this->assertNull($quote->fresh()->sent_at);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Procurement requests can only be approved after the supplier has quoted the request.');
+
+        app(ApproveProcurementRequestAction::class)->execute($revisedRequest);
+    }
+
     /**
      * @return array{0: User, 1: User, 2: \App\Modules\Procurement\Models\ProcurementRequest}
      */

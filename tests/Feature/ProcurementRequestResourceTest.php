@@ -147,4 +147,92 @@ class ProcurementRequestResourceTest extends TestCase
             ->assertOk()
             ->assertSee('Procurement Requests');
     }
+
+    public function test_rejected_procurement_request_is_visible_in_cancelled_queue_and_has_no_approve_action(): void
+    {
+        $supplierUser = User::factory()->create();
+        $supplierUser->givePermissionTo('view_quotes');
+
+        $supplierAccount = Account::query()->create([
+            'name' => 'North Coast Tyres',
+            'slug' => 'north-coast-tyres-2',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+            'created_by_user_id' => $supplierUser->id,
+        ]);
+
+        $supplierUser->accounts()->attach($supplierAccount->id, [
+            'role' => AccountRole::OWNER->value,
+            'is_default' => true,
+        ]);
+
+        $retailerOwner = User::factory()->create();
+        $retailerAccount = Account::query()->create([
+            'name' => 'Retail Beta',
+            'slug' => 'retail-beta',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => false,
+            'created_by_user_id' => $retailerOwner->id,
+        ]);
+
+        $retailerOwner->accounts()->attach($retailerAccount->id, [
+            'role' => AccountRole::OWNER->value,
+            'is_default' => true,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $retailerAccount->id,
+            'supplier_account_id' => $supplierAccount->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => 'Beta Fleet Services',
+            'email' => 'betafleet@example.test',
+            'account_id' => $retailerAccount->id,
+            'status' => 'active',
+        ]);
+
+        $submission = app(SubmitGroupedProcurementAction::class)->execute(
+            retailerAccount: $retailerAccount,
+            actor: $retailerOwner,
+            customer: $customer,
+            lineItems: [[
+                'supplier_id' => $supplierAccount->id,
+                'supplier_name' => 'North Coast Tyres',
+                'sku' => 'TYR-BETA-001',
+                'product_name' => 'All season tyre',
+                'size' => '235/45R18',
+                'quantity' => 4,
+                'unit_price' => 135,
+                'source' => 'Approved supplier connection',
+            ]],
+        );
+
+        $request = $submission->requests()->firstOrFail();
+        $quote = $request->quoteOrder()->firstOrFail();
+        app(ProcurementQuoteLifecycle::class)->reject($quote, 'Unable to supply requested stock');
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/procurement-requests?activeTab=cancelled')
+            ->assertOk()
+            ->assertSee((string) $request->request_number)
+            ->assertSee('Cancelled');
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/procurement-requests/'.$request->id)
+            ->assertOk()
+            ->assertSee('Unable to supply requested stock')
+            ->assertDontSee('Approve to Invoice');
+    }
 }

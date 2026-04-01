@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\ProcurementRequestResource\Pages;
 
 use App\Filament\Resources\ProcurementRequestResource;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -52,6 +54,57 @@ class ViewProcurementRequest extends ViewRecord
                         ->success()
                         ->send();
                 }),
+            Action::make('request_revision')
+                ->label('Request Revision')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->visible(fn (): bool => $this->canRequestRevision($this->record))
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('note')
+                        ->label('Revision Note')
+                        ->required()
+                        ->rows(4),
+                ])
+                ->action(function (array $data): void {
+                    if (! $this->record->quoteOrder) {
+                        return;
+                    }
+
+                    app(ProcurementQuoteLifecycle::class)->requestRevision($this->record->quoteOrder, $data['note']);
+                    $this->record->refresh();
+
+                    Notification::make()
+                        ->title('Revision requested')
+                        ->body(($this->record->request_number ?? 'Procurement request').' was returned to supplier review.')
+                        ->success()
+                        ->send();
+                }),
+            Action::make('reject_procurement')
+                ->label("Reject / Can't Supply")
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->visible(fn (): bool => $this->canReject($this->record))
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('reason')
+                        ->label('Rejection Reason')
+                        ->required()
+                        ->rows(4),
+                ])
+                ->requiresConfirmation()
+                ->action(function (array $data): void {
+                    if (! $this->record->quoteOrder) {
+                        return;
+                    }
+
+                    app(ProcurementQuoteLifecycle::class)->reject($this->record->quoteOrder, $data['reason']);
+                    $this->record->refresh();
+
+                    Notification::make()
+                        ->title('Procurement rejected')
+                        ->body(($this->record->request_number ?? 'Procurement request').' was cancelled for the supplier.')
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 
@@ -61,11 +114,63 @@ class ViewProcurementRequest extends ViewRecord
             return false;
         }
 
-        return ! in_array($record->current_stage, [
-            ProcurementWorkflowStage::STOCK_RESERVED,
-            ProcurementWorkflowStage::STOCK_DEDUCTED,
-            ProcurementWorkflowStage::FULFILLED,
-            ProcurementWorkflowStage::CANCELLED,
+        if (! $this->isActiveSupplierForRequest($record)) {
+            return false;
+        }
+
+        return in_array($record->current_stage, [
+            ProcurementWorkflowStage::QUOTED,
+            ProcurementWorkflowStage::APPROVED,
         ], true);
+    }
+
+    private function canReject(ProcurementRequest $record): bool
+    {
+        if (! $record->quoteOrder || $record->invoiceOrder) {
+            return false;
+        }
+
+        if (! $this->isActiveSupplierForRequest($record)) {
+            return false;
+        }
+
+        return in_array($record->current_stage, [
+            ProcurementWorkflowStage::DRAFT,
+            ProcurementWorkflowStage::SUBMITTED,
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
+        ], true);
+    }
+
+    private function canRequestRevision(ProcurementRequest $record): bool
+    {
+        if (! $record->quoteOrder || $record->invoiceOrder) {
+            return false;
+        }
+
+        if (! $this->isActiveSupplierForRequest($record)) {
+            return false;
+        }
+
+        return in_array($record->current_stage, [
+            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+            ProcurementWorkflowStage::QUOTED,
+        ], true);
+    }
+
+    private function isActiveSupplierForRequest(ProcurementRequest $request): bool
+    {
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return false;
+        }
+
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        return $currentAccount !== null
+            && (int) $request->supplier_account_id === (int) $currentAccount->id;
     }
 }
