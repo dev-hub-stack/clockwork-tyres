@@ -11,6 +11,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -108,6 +109,8 @@ class ProcurementRequestResourceTest extends TestCase
             ->get('/admin/procurement-requests')
             ->assertOk()
             ->assertSee('Procurement Requests')
+            ->assertSee('Open Queue')
+            ->assertSee('Invoiced Flow')
             ->assertSee((string) $request->request_number)
             ->assertSee('Retail Alpha')
             ->assertSee('North Coast Tyres');
@@ -117,7 +120,16 @@ class ProcurementRequestResourceTest extends TestCase
             ->assertOk()
             ->assertSee((string) $request->request_number)
             ->assertSee('Request Items')
+            ->assertSee('Open Quote')
             ->assertSee('Touring tyre');
+
+        $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
+
+        $this->actingAs($supplierUser)
+            ->get('/admin/procurement-requests/'.$approvedRequest->id)
+            ->assertOk()
+            ->assertSee('Open Quote')
+            ->assertSee('Open Invoice');
     }
 
     public function test_procurement_requests_resource_is_visible_to_super_admin(): void

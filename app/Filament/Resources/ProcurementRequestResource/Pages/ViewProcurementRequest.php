@@ -17,6 +17,24 @@ class ViewProcurementRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('open_quote')
+                ->label('Open Quote')
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->visible(fn (): bool => $this->record->quoteOrder !== null)
+                ->url(fn (): ?string => $this->record->quoteOrder
+                    ? route('filament.admin.resources.quotes.view', ['record' => $this->record->quoteOrder])
+                    : null),
+
+            Action::make('open_invoice')
+                ->label('Open Invoice')
+                ->icon('heroicon-o-document-currency-dollar')
+                ->color('gray')
+                ->visible(fn (): bool => $this->record->invoiceOrder !== null)
+                ->url(fn (): ?string => $this->record->invoiceOrder
+                    ? route('filament.admin.resources.invoices.view', ['record' => $this->record->invoiceOrder])
+                    : null),
+
             Action::make('approve_to_invoice')
                 ->label('Approve to Invoice')
                 ->icon('heroicon-o-check-badge')

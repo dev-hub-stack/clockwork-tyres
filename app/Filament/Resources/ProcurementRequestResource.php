@@ -256,6 +256,22 @@ class ProcurementRequestResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Action::make('open_quote')
+                    ->label('Open Quote')
+                    ->icon('heroicon-o-document-text')
+                    ->color('gray')
+                    ->visible(fn (ProcurementRequest $record): bool => $record->quoteOrder !== null)
+                    ->url(fn (ProcurementRequest $record): ?string => $record->quoteOrder
+                        ? route('filament.admin.resources.quotes.view', ['record' => $record->quoteOrder])
+                        : null),
+                Action::make('open_invoice')
+                    ->label('Open Invoice')
+                    ->icon('heroicon-o-document-currency-dollar')
+                    ->color('gray')
+                    ->visible(fn (ProcurementRequest $record): bool => $record->invoiceOrder !== null)
+                    ->url(fn (ProcurementRequest $record): ?string => $record->invoiceOrder
+                        ? route('filament.admin.resources.invoices.view', ['record' => $record->invoiceOrder])
+                        : null),
                 ViewAction::make(),
             ])
             ->defaultSort('submitted_at', 'desc')
