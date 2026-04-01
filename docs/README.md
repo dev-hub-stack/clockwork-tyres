@@ -48,6 +48,7 @@ docs/
 ### Planning & Implementation
 - **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - 16-week phased development plan with daily tasks
 - **[PROGRESS.md](./PROGRESS.md)** - Current project progress snapshot
+- **[clockwork-tyres-planning/](./clockwork-tyres-planning/README.md)** - Clockwork Tyres roadmap, George-facing planning, frontend analysis, and tyre-launch architecture notes consolidated into the backend codebase docs
 
 ### Architecture Overview
 - **[ARCHITECTURE_MASTER_INDEX.md](./architecture/ARCHITECTURE_MASTER_INDEX.md)** - Complete architecture overview and module index

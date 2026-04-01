@@ -8,6 +8,7 @@ use App\Modules\Orders\Services\QuoteConversionService;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -55,6 +56,25 @@ class ViewQuote extends ViewRecord
                     }
                 }),
 
+            Actions\Action::make('start_supplier_review')
+                ->label('Start Supplier Review')
+                ->icon('heroicon-o-eye')
+                ->color('warning')
+                ->visible(fn (): bool => $this->canStartSupplierReview())
+                ->action(function () {
+                    $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($this->record);
+
+                    if (! $request instanceof ProcurementRequest) {
+                        return;
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Supplier review started')
+                        ->body(($request->request_number ?? 'Procurement request').' moved into supplier review.')
+                        ->success()
+                        ->send();
+                }),
+
             Actions\Action::make('send')
                 ->label('Send Quote')
                 ->icon('heroicon-o-paper-airplane')
@@ -68,6 +88,8 @@ class ViewQuote extends ViewRecord
                         ->default(fn () => $this->record->customer?->email ?? ''),
                 ])
                 ->action(function (array $data) {
+                    app(ProcurementQuoteLifecycle::class)->markQuoted($this->record);
+
                     $this->record->update([
                         'quote_status' => QuoteStatus::SENT,
                         'sent_at' => now(),
@@ -112,6 +134,8 @@ class ViewQuote extends ViewRecord
                 ->modalDescription('This will mark the quote as sent without sending an email. Use this if you shared the quote manually or via another channel.')
                 ->modalSubmitActionLabel('Yes, Mark as Sent')
                 ->action(function () {
+                    app(ProcurementQuoteLifecycle::class)->markQuoted($this->record);
+
                     $this->record->update([
                         'quote_status' => QuoteStatus::SENT,
                         'sent_at' => now(),
@@ -165,6 +189,24 @@ class ViewQuote extends ViewRecord
             ProcurementWorkflowStage::STOCK_DEDUCTED,
             ProcurementWorkflowStage::FULFILLED,
             ProcurementWorkflowStage::CANCELLED,
+        ], true);
+    }
+
+    private function canStartSupplierReview(): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $this->record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::DRAFT,
+            ProcurementWorkflowStage::SUBMITTED,
         ], true);
     }
 }

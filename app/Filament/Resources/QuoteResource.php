@@ -11,6 +11,7 @@ use App\Modules\Orders\Services\QuoteConversionService;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Settings\Models\CompanyBranding;
@@ -1007,8 +1008,7 @@ class QuoteResource extends Resource
                             ProcurementWorkflowStage::FULFILLED,
                         ], true),
                         'danger' => static fn (?ProcurementWorkflowStage $state): bool => $state === ProcurementWorkflowStage::CANCELLED,
-                    ])
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ]),
 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -1121,6 +1121,25 @@ class QuoteResource extends Resource
                         }
                     }),
 
+                Action::make('start_supplier_review')
+                    ->label('Start Review')
+                    ->icon('heroicon-o-eye')
+                    ->color('warning')
+                    ->visible(fn (Order $record): bool => static::canStartSupplierReview($record))
+                    ->action(function (Order $record) {
+                        $request = app(ProcurementQuoteLifecycle::class)->startSupplierReview($record);
+
+                        if (! $request) {
+                            return;
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Supplier review started')
+                            ->body(($request->request_number ?? 'Procurement request').' moved into supplier review.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('preview')
                     ->label('Preview')
                     ->icon('heroicon-o-eye')
@@ -1166,6 +1185,8 @@ class QuoteResource extends Resource
                             ->helperText('Quote will be sent to this email address'),
                     ])
                     ->action(function ($record, array $data) {
+                        app(ProcurementQuoteLifecycle::class)->markQuoted($record);
+
                         // Send quote and update status
                         $record->update([
                             'quote_status' => QuoteStatus::SENT,
@@ -1212,6 +1233,8 @@ class QuoteResource extends Resource
                     ->modalDescription('This will mark the quote as sent without sending an email. Use this if you delivered the quote manually or via another channel.')
                     ->modalSubmitActionLabel('Yes, Mark as Sent')
                     ->action(function ($record) {
+                        app(ProcurementQuoteLifecycle::class)->markQuoted($record);
+
                         $record->update([
                             'quote_status' => QuoteStatus::SENT,
                             'sent_at' => now(),
@@ -1306,6 +1329,24 @@ class QuoteResource extends Resource
             ProcurementWorkflowStage::STOCK_DEDUCTED,
             ProcurementWorkflowStage::FULFILLED,
             ProcurementWorkflowStage::CANCELLED,
+        ], true);
+    }
+
+    private static function canStartSupplierReview(Order $record): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        return in_array($request->current_stage, [
+            ProcurementWorkflowStage::DRAFT,
+            ProcurementWorkflowStage::SUBMITTED,
         ], true);
     }
 

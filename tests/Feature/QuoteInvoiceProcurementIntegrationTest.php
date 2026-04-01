@@ -16,6 +16,8 @@ use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -47,6 +49,7 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ->assertOk()
             ->assertSee('Quotes & Proformas')
             ->assertSee('Procurement Quotes')
+            ->assertSee('Supplier Intake')
             ->assertSee((string) $quote->quote_number)
             ->assertSee((string) $request->request_number)
             ->assertSee('Retail Alpha')
@@ -56,6 +59,7 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ->get('/admin/quotes/'.$quote->id)
             ->assertOk()
             ->assertSee('Open Procurement Request')
+            ->assertSee('Start Supplier Review')
             ->assertSee('Approve Procurement');
 
         $this->actingAs($retailerOwner)
@@ -92,6 +96,37 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ->assertOk()
             ->assertSee((string) $invoice->order_number)
             ->assertSee('Procurement Invoices');
+    }
+
+    public function test_supplier_quote_lifecycle_syncs_procurement_stage_before_invoice_conversion(): void
+    {
+        [$supplierUser, , $request] = $this->createProcurementRequest();
+
+        $quote = $request->quoteOrder()->firstOrFail();
+        $lifecycle = app(ProcurementQuoteLifecycle::class);
+
+        $this->assertSame(ProcurementWorkflowStage::SUBMITTED, $request->current_stage);
+
+        $reviewingRequest = $lifecycle->startSupplierReview($quote);
+
+        $this->assertSame(ProcurementWorkflowStage::SUPPLIER_REVIEW, $reviewingRequest?->current_stage);
+        $this->assertNotNull($reviewingRequest?->supplier_reviewed_at);
+
+        $quotedRequest = $lifecycle->markQuoted($quote);
+
+        $this->assertSame(ProcurementWorkflowStage::QUOTED, $quotedRequest?->current_stage);
+        $this->assertNotNull($quotedRequest?->quoted_at);
+
+        $this->actingAs($supplierUser);
+
+        $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($quotedRequest->fresh());
+
+        $this->assertTrue(in_array($approvedRequest->current_stage, [
+            ProcurementWorkflowStage::INVOICED,
+            ProcurementWorkflowStage::STOCK_RESERVED,
+            ProcurementWorkflowStage::STOCK_DEDUCTED,
+            ProcurementWorkflowStage::FULFILLED,
+        ], true));
     }
 
     /**
