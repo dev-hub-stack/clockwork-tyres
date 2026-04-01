@@ -39,6 +39,15 @@ class ViewInvoice extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('open_procurement_request')
+                ->label('Open Procurement Request')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->color('gray')
+                ->visible(fn () => $this->record->procurementInvoiceRequest !== null)
+                ->url(fn (): ?string => $this->record->procurementInvoiceRequest
+                    ? route('filament.admin.resources.procurement-requests.view', ['record' => $this->record->procurementInvoiceRequest])
+                    : null),
+
             Actions\Action::make('send_invoice')
                 ->label('Send Invoice')
                 ->icon('heroicon-o-paper-airplane')

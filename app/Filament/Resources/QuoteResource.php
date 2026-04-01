@@ -7,6 +7,9 @@ use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\OrderService;
 use App\Modules\Orders\Services\QuoteConversionService;
+use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Settings\Models\CompanyBranding;
@@ -104,7 +107,12 @@ class QuoteResource extends Resource
     {
         return parent::getEloquentQuery()
             ->quotes() // Uses the scope from Order model
-            ->with(['customer', 'items.warehouse'])
+            ->with([
+                'customer',
+                'items.warehouse',
+                'procurementQuoteRequest.retailerAccount',
+                'procurementQuoteRequest.supplierAccount',
+            ])
             ->latest('issue_date');
     }
 
@@ -941,6 +949,40 @@ class QuoteResource extends Resource
                     ->formatStateUsing(fn ($state) => $state ? ucfirst($state) : 'Retail')
                     ->toggleable(),
 
+                TextColumn::make('procurementQuoteRequest.request_number')
+                    ->label('Procurement #')
+                    ->placeholder('Direct quote')
+                    ->toggleable(),
+
+                TextColumn::make('procurementQuoteRequest.retailerAccount.name')
+                    ->label('Retailer')
+                    ->placeholder('Direct quote')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                BadgeColumn::make('procurementQuoteRequest.current_stage')
+                    ->label('Procurement')
+                    ->formatStateUsing(fn (?ProcurementWorkflowStage $state): string => $state?->label() ?? 'Direct quote')
+                    ->colors([
+                        'gray' => static fn (?ProcurementWorkflowStage $state): bool => in_array($state, [
+                            null,
+                            ProcurementWorkflowStage::DRAFT,
+                            ProcurementWorkflowStage::SUBMITTED,
+                        ], true),
+                        'warning' => static fn (?ProcurementWorkflowStage $state): bool => in_array($state, [
+                            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+                            ProcurementWorkflowStage::QUOTED,
+                            ProcurementWorkflowStage::APPROVED,
+                        ], true),
+                        'success' => static fn (?ProcurementWorkflowStage $state): bool => in_array($state, [
+                            ProcurementWorkflowStage::INVOICED,
+                            ProcurementWorkflowStage::STOCK_RESERVED,
+                            ProcurementWorkflowStage::STOCK_DEDUCTED,
+                            ProcurementWorkflowStage::FULFILLED,
+                        ], true),
+                        'danger' => static fn (?ProcurementWorkflowStage $state): bool => $state === ProcurementWorkflowStage::CANCELLED,
+                    ])
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime()
@@ -972,6 +1014,28 @@ class QuoteResource extends Resource
                     ->searchable()
                     ->preload()
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->business_name ?? $record->name ?? 'Unknown Customer'),
+
+                Filter::make('procurement_linked')
+                    ->label('Procurement linked')
+                    ->query(fn (Builder $query): Builder => $query->whereHas('procurementQuoteRequest'))
+                    ->toggle(),
+
+                SelectFilter::make('procurement_stage')
+                    ->label('Procurement Stage')
+                    ->options(collect(ProcurementWorkflowStage::ordered())
+                        ->mapWithKeys(fn (ProcurementWorkflowStage $stage): array => [$stage->value => $stage->label()])
+                        ->all())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! $value) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('procurementQuoteRequest', function (Builder $procurementQuery) use ($value): void {
+                            $procurementQuery->where('current_stage', $value);
+                        });
+                    }),
                 
                 Filter::make('issue_date')
                     ->form([
@@ -993,6 +1057,43 @@ class QuoteResource extends Resource
                     }),
             ])
             ->recordActions([
+                Action::make('view_procurement')
+                    ->label('Procurement')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->color('gray')
+                    ->visible(fn (Order $record): bool => $record->procurementQuoteRequest !== null)
+                    ->url(fn (Order $record): ?string => $record->procurementQuoteRequest
+                        ? route('filament.admin.resources.procurement-requests.view', ['record' => $record->procurementQuoteRequest])
+                        : null),
+
+                Action::make('approve_procurement')
+                    ->label('Approve Procurement')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn (Order $record): bool => static::canApproveProcurement($record))
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve Procurement Quote')
+                    ->modalDescription('This approves the linked procurement request and converts the supplier quote into an invoice using the existing CRM order workflow.')
+                    ->action(function (Order $record) {
+                        $procurementRequest = $record->procurementQuoteRequest;
+
+                        if (! $procurementRequest) {
+                            return;
+                        }
+
+                        $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($procurementRequest);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Procurement approved')
+                            ->body(($approvedRequest->request_number ?? 'Procurement request').' moved into invoice flow.')
+                            ->success()
+                            ->send();
+
+                        if ($approvedRequest->invoiceOrder) {
+                            return redirect()->route('filament.admin.resources.invoices.view', ['record' => $approvedRequest->invoiceOrder]);
+                        }
+                    }),
+
                 Action::make('preview')
                     ->label('Preview')
                     ->icon('heroicon-o-eye')
@@ -1100,7 +1201,7 @@ class QuoteResource extends Resource
                     ->label('Convert to Invoice')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('warning')
-                    ->visible(fn($record) => $record->canConvertToInvoice())
+                    ->visible(fn(Order $record) => $record->canConvertToInvoice() && $record->procurementQuoteRequest === null)
                     ->requiresConfirmation()
                     ->modalHeading('Convert Quote to Invoice')
                     ->modalDescription('This will convert this quote into an invoice and start the order workflow.')
@@ -1159,6 +1260,26 @@ class QuoteResource extends Resource
                     ->visible(fn ($record) => auth()->user()?->can('delete_quotes') ?? false),
             ])
             ->defaultSort('issue_date', 'desc');
+    }
+
+    private static function canApproveProcurement(Order $record): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        return ! in_array($request->current_stage, [
+            ProcurementWorkflowStage::STOCK_RESERVED,
+            ProcurementWorkflowStage::STOCK_DEDUCTED,
+            ProcurementWorkflowStage::FULFILLED,
+            ProcurementWorkflowStage::CANCELLED,
+        ], true);
     }
 
     public static function getRelations(): array

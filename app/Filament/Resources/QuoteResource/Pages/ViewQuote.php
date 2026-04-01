@@ -5,6 +5,9 @@ namespace App\Filament\Resources\QuoteResource\Pages;
 use App\Filament\Resources\QuoteResource;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\QuoteConversionService;
+use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -15,6 +18,43 @@ class ViewQuote extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('open_procurement_request')
+                ->label('Open Procurement Request')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->color('gray')
+                ->visible(fn () => $this->record->procurementQuoteRequest !== null)
+                ->url(fn (): ?string => $this->record->procurementQuoteRequest
+                    ? route('filament.admin.resources.procurement-requests.view', ['record' => $this->record->procurementQuoteRequest])
+                    : null),
+
+            Actions\Action::make('approve_procurement')
+                ->label('Approve Procurement')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->visible(fn (): bool => $this->canApproveProcurement())
+                ->requiresConfirmation()
+                ->modalHeading('Approve Procurement Quote')
+                ->modalDescription('Approve the linked procurement request and convert this quote into invoice flow using the CRM workflow.')
+                ->action(function () {
+                    $procurementRequest = $this->record->procurementQuoteRequest;
+
+                    if (! $procurementRequest instanceof ProcurementRequest) {
+                        return;
+                    }
+
+                    $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($procurementRequest);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Procurement approved')
+                        ->body(($approvedRequest->request_number ?? 'Procurement request').' moved into invoice flow.')
+                        ->success()
+                        ->send();
+
+                    if ($approvedRequest->invoiceOrder) {
+                        return redirect()->route('filament.admin.resources.invoices.view', ['record' => $approvedRequest->invoiceOrder]);
+                    }
+                }),
+
             Actions\Action::make('send')
                 ->label('Send Quote')
                 ->icon('heroicon-o-paper-airplane')
@@ -88,7 +128,7 @@ class ViewQuote extends ViewRecord
                 ->label('Convert to Invoice')
                 ->icon('heroicon-o-arrow-right-circle')
                 ->color('success')
-                ->visible(fn () => $this->record->canConvertToInvoice())
+                ->visible(fn () => $this->record->canConvertToInvoice() && $this->record->procurementQuoteRequest === null)
                 ->requiresConfirmation()
                 ->modalHeading('Convert Quote to Invoice')
                 ->modalDescription('This will convert the quote to an invoice. This action cannot be undone.')
@@ -106,5 +146,25 @@ class ViewQuote extends ViewRecord
             Actions\DeleteAction::make()
                 ->visible(fn () => $this->record->quote_status === QuoteStatus::DRAFT),
         ];
+    }
+
+    private function canApproveProcurement(): bool
+    {
+        if (! (auth()->user()?->can('edit_quotes') ?? false)) {
+            return false;
+        }
+
+        $request = $this->record->procurementQuoteRequest;
+
+        if (! $request instanceof ProcurementRequest) {
+            return false;
+        }
+
+        return ! in_array($request->current_stage, [
+            ProcurementWorkflowStage::STOCK_RESERVED,
+            ProcurementWorkflowStage::STOCK_DEDUCTED,
+            ProcurementWorkflowStage::FULFILLED,
+            ProcurementWorkflowStage::CANCELLED,
+        ], true);
     }
 }

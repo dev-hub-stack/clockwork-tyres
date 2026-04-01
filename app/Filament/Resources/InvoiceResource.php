@@ -7,6 +7,7 @@ use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Settings\Models\CompanyBranding;
@@ -87,7 +88,13 @@ class InvoiceResource extends Resource
     {
         return parent::getEloquentQuery()
             ->invoices() // Uses the scope from Order model
-            ->with(['customer', 'warehouse', 'payments'])
+            ->with([
+                'customer',
+                'warehouse',
+                'payments',
+                'procurementInvoiceRequest.retailerAccount',
+                'procurementInvoiceRequest.supplierAccount',
+            ])
             ->latest('issue_date');
     }
 
@@ -856,6 +863,36 @@ class InvoiceResource extends Resource
                     ->label('Tracking')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('procurementInvoiceRequest.request_number')
+                    ->label('Procurement #')
+                    ->placeholder('Direct invoice')
+                    ->toggleable(),
+
+                TextColumn::make('procurementInvoiceRequest.retailerAccount.name')
+                    ->label('Retailer')
+                    ->placeholder('Direct invoice')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                BadgeColumn::make('procurementInvoiceRequest.current_stage')
+                    ->label('Procurement')
+                    ->formatStateUsing(fn (?ProcurementWorkflowStage $state): string => $state?->label() ?? 'Direct invoice')
+                    ->colors([
+                        'gray' => static fn (?ProcurementWorkflowStage $state): bool => $state === null,
+                        'warning' => static fn (?ProcurementWorkflowStage $state): bool => in_array($state, [
+                            ProcurementWorkflowStage::SUPPLIER_REVIEW,
+                            ProcurementWorkflowStage::QUOTED,
+                            ProcurementWorkflowStage::APPROVED,
+                            ProcurementWorkflowStage::INVOICED,
+                        ], true),
+                        'success' => static fn (?ProcurementWorkflowStage $state): bool => in_array($state, [
+                            ProcurementWorkflowStage::STOCK_RESERVED,
+                            ProcurementWorkflowStage::STOCK_DEDUCTED,
+                            ProcurementWorkflowStage::FULFILLED,
+                        ], true),
+                        'danger' => static fn (?ProcurementWorkflowStage $state): bool => $state === ProcurementWorkflowStage::CANCELLED,
+                    ])
+                    ->toggleable(isToggledHiddenByDefault: true),
                 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -897,6 +934,28 @@ class InvoiceResource extends Resource
                     ->relationship('representative', 'name')
                     ->searchable()
                     ->preload(),
+
+                Filter::make('procurement_linked')
+                    ->label('Procurement linked')
+                    ->query(fn (Builder $query): Builder => $query->whereHas('procurementInvoiceRequest'))
+                    ->toggle(),
+
+                SelectFilter::make('procurement_stage')
+                    ->label('Procurement Stage')
+                    ->options(collect(ProcurementWorkflowStage::ordered())
+                        ->mapWithKeys(fn (ProcurementWorkflowStage $stage): array => [$stage->value => $stage->label()])
+                        ->all())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! $value) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('procurementInvoiceRequest', function (Builder $procurementQuery) use ($value): void {
+                            $procurementQuery->where('current_stage', $value);
+                        });
+                    }),
                 
                 Filter::make('issue_date')
                     ->label('Invoice Date')
@@ -1001,6 +1060,15 @@ class InvoiceResource extends Resource
                     }),
             ])
             ->recordActions([
+                Action::make('view_procurement')
+                    ->label('Procurement')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->color('gray')
+                    ->visible(fn (Order $record): bool => $record->procurementInvoiceRequest !== null)
+                    ->url(fn (Order $record): ?string => $record->procurementInvoiceRequest
+                        ? route('filament.admin.resources.procurement-requests.view', ['record' => $record->procurementInvoiceRequest])
+                        : null),
+
                 Action::make('preview')
                     ->label('Preview')
                     ->icon('heroicon-o-eye')

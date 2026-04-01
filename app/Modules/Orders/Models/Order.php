@@ -9,11 +9,13 @@ use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
+use App\Modules\Procurement\Models\ProcurementRequest;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
@@ -185,6 +187,22 @@ class Order extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Procurement request linked to this quote.
+     */
+    public function procurementQuoteRequest(): HasOne
+    {
+        return $this->hasOne(ProcurementRequest::class, 'quote_order_id');
+    }
+
+    /**
+     * Procurement request linked to this invoice.
+     */
+    public function procurementInvoiceRequest(): HasOne
+    {
+        return $this->hasOne(ProcurementRequest::class, 'invoice_order_id');
     }
 
     /**
@@ -585,4 +603,3 @@ class Order extends Model
         $this->saveQuietly();
     }
 }
-
