@@ -25,7 +25,7 @@ class ClockworkTyresDemoFlowTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $loginResponse = $this->postJson('/api/auth/business-login', [
-            'email' => 'retailer.owner@clockwork.local',
+            'email' => 'sheikhahmad91@gmail.com',
             'password' => 'password',
         ]);
 
@@ -138,7 +138,7 @@ class ClockworkTyresDemoFlowTest extends TestCase
         $this->assertSame('pending', data_get($createdWorkspaceOrder, 'status'));
         $this->assertSame('supplier', data_get($createdWorkspaceOrder, 'lines.1.origin'));
 
-        $retailerOwner = User::query()->where('email', 'retailer.owner@clockwork.local')->firstOrFail();
+        $retailerOwner = User::query()->where('email', 'sheikhahmad91@gmail.com')->firstOrFail();
         $retailerAccount = Account::query()->where('slug', 'clockwork-retail-demo')->firstOrFail();
         $supplierAccount = Account::query()->where('slug', 'clockwork-supply-demo')->firstOrFail();
         $retailCustomer = Customer::query()

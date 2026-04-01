@@ -9,9 +9,9 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - architecture / product direction: `93%`
 - backend platform foundation: `96%`
 - tyre import / catalog / inventory flow: `90%`
-- storefront functional foundation: `85%`
+- storefront functional foundation: `88%`
 - CRM-native admin rebuild for new Clockwork flows: `88-90%`
-- overall V1: about `90%`
+- overall V1: about `91%`
 
 ## What Is Confirmed
 
@@ -41,6 +41,12 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - live tyre listing and PDP APIs
 - storefront business login / registration flow
 - realistic demo data and end-to-end flow tests
+- fresh Playwright counter-flow smoke:
+  - login required for storefront
+  - login succeeds with seeded retailer owner
+  - add to cart works
+  - checkout creates an order
+  - created order appears in account orders
 
 ## Main Remaining Work
 
@@ -56,13 +62,16 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - environment hardening
 - UAT smoke checklist
 - final cleanup of remaining legacy rough edges around the new flows
+- broader backend coverage beyond the new Clockwork Tyres slice
 
 ### Storefront
 
 - finish login-only / counter-only UX polish
 - replace remaining fallback/mock seams with final live behavior
 - tighter UI parity against the live Clockwork experience
-- end-to-end storefront workflow validation
+- broader storefront regression stability
+  - Playwright is green
+  - Vitest still hits worker-startup timeouts in this environment
 
 ### Launch / Ops
 

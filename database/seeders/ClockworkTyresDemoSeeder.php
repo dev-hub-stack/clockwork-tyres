@@ -41,9 +41,9 @@ class ClockworkTyresDemoSeeder extends Seeder
             return;
         }
 
-        $retailerOwner = $this->upsertUser('Desert Drift Retail Owner', 'retailer.owner@clockwork.local');
-        $supplierOwner = $this->upsertUser('Northern Rubber Supply Owner', 'supplier.owner@clockwork.local');
-        $hybridOwner = $this->upsertUser('Urban Fleet Owner', 'hybrid.owner@clockwork.local');
+        $retailerOwner = $this->upsertUser('Desert Drift Retail Owner', 'sheikhahmad91@gmail.com');
+        $supplierOwner = $this->upsertUser('Northern Rubber Supply Owner', 'supplier.owner@clockwork-demo.test');
+        $hybridOwner = $this->upsertUser('Urban Fleet Owner', 'hybrid.owner@clockwork-demo.test');
 
         $retailAccount = $this->upsertAccount(
             slug: 'clockwork-retail-demo',
@@ -94,19 +94,19 @@ class ClockworkTyresDemoSeeder extends Seeder
 
         $retailWorkspaceCustomer = $this->upsertWorkspaceCustomer(
             $retailAccount,
-            'retailer.owner@clockwork.local',
+            'sheikhahmad91@gmail.com',
             '+971500001101',
             'Trade License RD-45821'
         );
         $supplierWorkspaceCustomer = $this->upsertWorkspaceCustomer(
             $supplierAccount,
-            'supplier.owner@clockwork.local',
+            'supplier.owner@clockwork-demo.test',
             '+971500001202',
             'Trade License NR-77214'
         );
         $hybridWorkspaceCustomer = $this->upsertWorkspaceCustomer(
             $hybridAccount,
-            'hybrid.owner@clockwork.local',
+            'hybrid.owner@clockwork-demo.test',
             '+971500001303',
             'Trade License UF-99842'
         );
