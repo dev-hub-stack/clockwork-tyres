@@ -33,11 +33,11 @@ class AccountResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Administration';
 
-    protected static ?string $navigationLabel = 'Accounts';
+    protected static ?string $navigationLabel = 'Business Accounts';
 
-    protected static ?string $modelLabel = 'Account';
+    protected static ?string $modelLabel = 'Business Account';
 
-    protected static ?string $pluralModelLabel = 'Accounts';
+    protected static ?string $pluralModelLabel = 'Business Accounts';
 
     protected static ?int $navigationSort = 1;
 
