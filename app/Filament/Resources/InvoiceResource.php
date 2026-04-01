@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\InvoiceResource\Pages;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
 use App\Modules\Orders\Enums\OrderStatus;
@@ -86,7 +87,7 @@ class InvoiceResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->invoices() // Uses the scope from Order model
             ->with([
                 'customer',
@@ -96,6 +97,34 @@ class InvoiceResource extends Resource
                 'procurementInvoiceRequest.supplierAccount',
             ])
             ->latest('issue_date');
+
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        if (! $currentAccount) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $builder) use ($currentAccount): void {
+            $builder->whereHas('customer', function (Builder $customerQuery) use ($currentAccount): void {
+                $customerQuery->where('account_id', $currentAccount->id);
+            })->orWhereHas('procurementInvoiceRequest', function (Builder $procurementQuery) use ($currentAccount): void {
+                $procurementQuery
+                    ->where('retailer_account_id', $currentAccount->id)
+                    ->orWhere('supplier_account_id', $currentAccount->id);
+            });
+        });
     }
 
     /**

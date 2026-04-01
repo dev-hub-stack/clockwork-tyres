@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\QuoteResource\Pages;
 
 use App\Filament\Resources\QuoteResource;
-use App\Modules\Orders\Models\Order;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Actions;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -31,23 +30,30 @@ class ListQuotes extends ListRecords
     {
         return [
             'all' => Tab::make('All Quotes')
-                ->badge(Order::quotes()->count()),
-                
-            'retail' => Tab::make('Retail Orders')
-                ->badge(Order::quotes()->where(function($q) {
-                    $q->where('channel', 'retail')->orWhereNull('channel');
-                })->count())
+                ->badge($this->quoteCount()),
+
+            'direct' => Tab::make('Direct Quotes')
+                ->badge($this->quoteCount(fn (Builder $query) => $query->whereDoesntHave('procurementQuoteRequest')))
                 ->modifyQueryUsing(function (Builder $query) {
-                    return $query->where(function($q) {
-                        $q->where('channel', 'retail')->orWhereNull('channel');
-                    });
+                    return $query->whereDoesntHave('procurementQuoteRequest');
                 }),
-                
-            'wholesale' => Tab::make('Wholesale Orders')
-                ->badge(Order::quotes()->where('channel', 'wholesale')->count())
+
+            'procurement' => Tab::make('Procurement Quotes')
+                ->badge($this->quoteCount(fn (Builder $query) => $query->whereHas('procurementQuoteRequest')))
                 ->modifyQueryUsing(function (Builder $query) {
-                    return $query->where('channel', 'wholesale');
+                    return $query->whereHas('procurementQuoteRequest');
                 }),
         ];
+    }
+
+    private function quoteCount(?callable $scope = null): int
+    {
+        $query = clone QuoteResource::getEloquentQuery();
+
+        if ($scope) {
+            $scope($query);
+        }
+
+        return $query->count();
     }
 }

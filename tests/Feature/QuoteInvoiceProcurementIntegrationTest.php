@@ -10,6 +10,10 @@ use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Orders\Enums\DocumentType;
+use App\Modules\Orders\Enums\OrderStatus;
+use App\Modules\Orders\Enums\QuoteStatus;
+use App\Modules\Orders\Models\Order;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,47 +37,65 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
 
     public function test_quotes_resource_surfaces_procurement_context_and_actions(): void
     {
-        [$supplierUser, $request] = $this->createProcurementRequest();
+        [$supplierUser, $retailerOwner, $request] = $this->createProcurementRequest();
 
         $quote = $request->quoteOrder()->firstOrFail();
+        $hiddenQuote = $this->createDirectQuote('Hidden Wholesale Quote');
 
         $this->actingAs($supplierUser)
             ->get('/admin/quotes')
             ->assertOk()
             ->assertSee('Quotes & Proformas')
+            ->assertSee('Procurement Quotes')
             ->assertSee((string) $quote->quote_number)
             ->assertSee((string) $request->request_number)
-            ->assertSee('Retail Alpha');
+            ->assertSee('Retail Alpha')
+            ->assertDontSee($hiddenQuote->quote_number);
 
         $this->actingAs($supplierUser)
             ->get('/admin/quotes/'.$quote->id)
             ->assertOk()
             ->assertSee('Open Procurement Request')
             ->assertSee('Approve Procurement');
+
+        $this->actingAs($retailerOwner)
+            ->get('/admin/quotes')
+            ->assertOk()
+            ->assertSee((string) $quote->quote_number)
+            ->assertSee('Procurement Quotes');
     }
 
     public function test_invoices_resource_surfaces_procurement_context_after_supplier_approval(): void
     {
-        [$supplierUser, $request] = $this->createProcurementRequest();
+        [$supplierUser, $retailerOwner, $request] = $this->createProcurementRequest();
 
         $approvedRequest = app(ApproveProcurementRequestAction::class)->execute($request);
         $invoice = $approvedRequest->invoiceOrder()->firstOrFail();
+        $hiddenInvoice = $this->createDirectInvoice('Hidden Direct Invoice');
 
         $this->actingAs($supplierUser)
             ->get('/admin/invoices')
             ->assertOk()
+            ->assertSee('Procurement Invoices')
             ->assertSee((string) $invoice->order_number)
             ->assertSee((string) $approvedRequest->request_number)
-            ->assertSee('Retail Alpha');
+            ->assertSee('Retail Alpha')
+            ->assertDontSee($hiddenInvoice->order_number);
 
         $this->actingAs($supplierUser)
             ->get('/admin/invoices/'.$invoice->id)
             ->assertOk()
             ->assertSee('Open Procurement Request');
+
+        $this->actingAs($retailerOwner)
+            ->get('/admin/invoices')
+            ->assertOk()
+            ->assertSee((string) $invoice->order_number)
+            ->assertSee('Procurement Invoices');
     }
 
     /**
-     * @return array{0: User, 1: \App\Modules\Procurement\Models\ProcurementRequest}
+     * @return array{0: User, 1: User, 2: \App\Modules\Procurement\Models\ProcurementRequest}
      */
     private function createProcurementRequest(): array
     {
@@ -96,6 +118,7 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
         ]);
 
         $retailerOwner = User::factory()->create();
+        $retailerOwner->givePermissionTo(['view_quotes', 'edit_quotes', 'view_invoices']);
         $retailerAccount = Account::query()->create([
             'name' => 'Retail Alpha',
             'slug' => 'retail-alpha',
@@ -142,6 +165,46 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ]],
         );
 
-        return [$supplierUser, $submission->requests()->with(['quoteOrder', 'invoiceOrder'])->firstOrFail()];
+        return [$supplierUser, $retailerOwner, $submission->requests()->with(['quoteOrder', 'invoiceOrder'])->firstOrFail()];
+    }
+
+    private function createDirectQuote(string $businessName): Order
+    {
+        $customer = Customer::create([
+            'customer_type' => 'wholesale',
+            'business_name' => $businessName,
+            'email' => str($businessName)->slug('-').'@example.test',
+            'status' => 'active',
+        ]);
+
+        return Order::create([
+            'customer_id' => $customer->id,
+            'document_type' => DocumentType::QUOTE,
+            'quote_number' => 'QUO-HIDDEN-001',
+            'quote_status' => QuoteStatus::DRAFT,
+            'issue_date' => now(),
+            'valid_until' => now()->addDays(14),
+            'channel' => 'wholesale',
+        ]);
+    }
+
+    private function createDirectInvoice(string $businessName): Order
+    {
+        $customer = Customer::create([
+            'customer_type' => 'retail',
+            'business_name' => $businessName,
+            'email' => str($businessName)->slug('-').'@example.test',
+            'status' => 'active',
+        ]);
+
+        return Order::create([
+            'customer_id' => $customer->id,
+            'document_type' => DocumentType::INVOICE,
+            'order_number' => 'INV-HIDDEN-001',
+            'order_status' => OrderStatus::PROCESSING,
+            'issue_date' => now(),
+            'valid_until' => now()->addDays(14),
+            'channel' => 'wholesale',
+        ]);
     }
 }

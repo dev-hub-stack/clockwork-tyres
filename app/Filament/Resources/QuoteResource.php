@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\QuoteResource\Pages;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\OrderService;
@@ -88,9 +89,7 @@ class QuoteResource extends Resource
      */
     public static function getNavigationBadge(): ?string
     {
-        $count = Order::quotes()
-            ->where('channel', 'wholesale')
-            ->count();
+        $count = (clone static::getEloquentQuery())->count();
 
         return $count > 0 ? (string) $count : null;
     }
@@ -105,7 +104,7 @@ class QuoteResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->quotes() // Uses the scope from Order model
             ->with([
                 'customer',
@@ -114,6 +113,34 @@ class QuoteResource extends Resource
                 'procurementQuoteRequest.supplierAccount',
             ])
             ->latest('issue_date');
+
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        $currentAccount = app(CurrentAccountResolver::class)
+            ->resolve(request(), $user)
+            ->currentAccount;
+
+        if (! $currentAccount) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $builder) use ($currentAccount): void {
+            $builder->whereHas('customer', function (Builder $customerQuery) use ($currentAccount): void {
+                $customerQuery->where('account_id', $currentAccount->id);
+            })->orWhereHas('procurementQuoteRequest', function (Builder $procurementQuery) use ($currentAccount): void {
+                $procurementQuery
+                    ->where('retailer_account_id', $currentAccount->id)
+                    ->orWhere('supplier_account_id', $currentAccount->id);
+            });
+        });
     }
 
     /**
