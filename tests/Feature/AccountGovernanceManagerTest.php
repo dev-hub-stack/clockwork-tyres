@@ -9,6 +9,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Support\AccountGovernanceManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class AccountGovernanceManagerTest extends TestCase
@@ -104,5 +105,22 @@ class AccountGovernanceManagerTest extends TestCase
         $this->assertTrue($subscription->reports_enabled);
         $this->assertSame(500, $subscription->reports_customer_limit);
         $this->assertSame('accounts_resource_test', $subscription->meta['source']);
+    }
+
+    public function test_it_rejects_combined_accounts_on_the_free_plan(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        app(AccountGovernanceManager::class)->create([
+            'name' => 'Hybrid Tyres',
+            'slug' => '',
+            'account_type' => AccountType::BOTH->value,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE->value,
+            'base_subscription_plan' => SubscriptionPlan::BASIC->value,
+            'reports_subscription_enabled' => false,
+            'reports_customer_limit' => null,
+        ]);
     }
 }

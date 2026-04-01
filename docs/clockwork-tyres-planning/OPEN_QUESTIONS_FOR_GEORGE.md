@@ -24,6 +24,17 @@ The tyre sample sheet has now been shared, so the main dependency is no longer t
 The following items are no longer open questions:
 
 - the tyre sample sheet has been shared
+- each account can be retailer-only, supplier-only, or both
+- combined `both` accounts require a paid subscription
+- supplier and wholesaler mean the same role
+- the free retailer supplier limit is fixed at `3`
+- storefront is counter-only after login for phase 1
+- end customers should not see supplier count unless visible stock is `4 pcs or less`
+- procurement can be done standalone
+- supplier approval converts to invoice and deducts stock
+- no platform payments in phase 1
+- launch assumes fresh accounts by default, with case-by-case import only if needed
+- multi-branch support is required from day one using multiple users and warehouses
 - storefront grouping should ignore supplier SKU and use brand, model, size, and year
 - one shared stock pool for `both` accounts
 - four pricing levels in the tire sheet

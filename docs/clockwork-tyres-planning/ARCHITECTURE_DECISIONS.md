@@ -17,11 +17,23 @@ These decisions supersede earlier assumptions where they conflict.
 - one business account can be `retailer`
 - one business account can be `supplier`
 - one business account can be `both`
+- retailer-only accounts can stay on the free limited plan
+- supplier-only accounts can stay on the free limited plan
+- combined `both` accounts require a paid subscription
 - `both` means wholesale is enabled for the same business account
 - `both` accounts use one shared stock pool
+- supplier and wholesaler mean the same business role in phase 1
+- launch is fresh-account first by default
+- there is no bulk legacy history migration planned for launch
+- case-by-case imports can still be handled if needed later
+- multi-branch support is required from day one through:
+  - multiple users
+  - multiple warehouses
 
 ### 2. Storefront Catalog Visibility
 
+- storefront is a counter-only experience for phase 1
+- live catalog and ordering should be used after login, not as a public retail browse flow
 - retail storefront shows:
   - the retailer's own products
   - products from the retailer's approved suppliers
@@ -41,6 +53,7 @@ These decisions supersede earlier assumptions where they conflict.
   - `in stock` for own products
   - `available` for supplier-backed products
 - quantity should only be shown when stock is `4 pcs or less`
+- end customers do not see supplier count unless the visible low-stock quantity is `4 pcs or less`
 - there may be `5 to 10 suppliers` for the same product
 - supplier allocation is not automatic on the storefront
 - supplier selection is manual in retailer admin
@@ -54,23 +67,40 @@ These decisions supersede earlier assumptions where they conflict.
 
 ### 4. Subscription Rules
 
+Phase 1 commercial plans are now clearer.
+
 #### Retailer
 
-- basic retailer plan:
+- retailer starter plan:
   - cannot add own products
   - cannot add own inventory
   - cannot add more than `3` suppliers
-- premium retailer plan:
+- `3 suppliers` is the final free limit
+- retailer plus plan:
   - can add own products
   - can add own inventory
   - can add more than `3` suppliers
+- retailer enterprise is sales-led / custom pricing
+- retailer pricing mockup currently maps to:
+  - `starter = free`
+  - `plus = AED 199 / month`
+  - `enterprise = custom pricing`
 
 #### Supplier / Wholesaler
 
-- basic wholesaler plan:
+- supplier starter plan:
   - can add own products
   - can add own inventory
   - has no access to reports
+- supplier premium plan:
+  - unlocks retail sales portal
+  - unlocks procurement module
+  - unlocks store analytics
+- supplier enterprise is sales-led / custom pricing
+- supplier pricing mockup currently maps to:
+  - `starter = free`
+  - `premium = AED 199 / month`
+  - `enterprise = custom pricing`
 
 #### Reports Add-On
 
@@ -86,6 +116,12 @@ These decisions supersede earlier assumptions where they conflict.
 
 - an account that is both retailer and supplier uses one combined subscription
 - reports remain a separate add-on on top of the main subscription
+- self-serve phase 1 should treat `both` accounts as paid-only
+- enterprise remains a manual / super-admin / sales path, not a self-serve checkout path yet
+- phase 1 backend may continue to store internal plan codes as:
+  - `basic` for free starter
+  - `premium` for the paid self-serve plan
+  - enterprise handled manually until a dedicated code is needed
 
 ### 5. Catalog Direction
 
@@ -269,6 +305,7 @@ We now need at least two storefront modes:
 - `retail-store`
   - cart enabled
   - checkout enabled
+  - only after authenticated business login
 - `supplier-preview`
   - cart disabled
   - checkout disabled
@@ -318,6 +355,11 @@ Examples:
 - wholesaler basic:
   - `can_add_own_products = true`
   - `can_add_own_inventory = true`
+  - `can_view_reports = false`
+- combined both account:
+  - `requires_paid_plan = true`
+  - `retail_enabled = true`
+  - `wholesale_enabled = true`
   - `can_view_reports = false`
 
 Reports should be treated as a metered or tiered add-on.

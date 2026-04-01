@@ -14,6 +14,7 @@ use App\Modules\Customers\Models\Customer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CreateBusinessAccountRegistrationAction
 {
@@ -26,6 +27,8 @@ class CreateBusinessAccountRegistrationAction
         return DB::transaction(function () use ($payload): array {
             $accountType = $this->resolveAccountType((string) $payload['account_mode']);
             $subscriptionPlan = $this->resolveSubscriptionPlan((string) $payload['plan_preference']);
+
+            $this->guardCombinedAccountRequiresPaidPlan($accountType, $subscriptionPlan);
 
             $owner = User::query()->create([
                 'name' => (string) $payload['business_name'],
@@ -164,6 +167,15 @@ class CreateBusinessAccountRegistrationAction
             AccountType::SUPPLIER => 'wholesale',
             default => 'dealer',
         };
+    }
+
+    private function guardCombinedAccountRequiresPaidPlan(AccountType $accountType, SubscriptionPlan $subscriptionPlan): void
+    {
+        if ($accountType === AccountType::BOTH && $subscriptionPlan === SubscriptionPlan::BASIC) {
+            throw ValidationException::withMessages([
+                'plan_preference' => 'Retail + wholesale business accounts require a paid subscription.',
+            ]);
+        }
     }
 
     private function uniqueSlugFor(string $businessName): string

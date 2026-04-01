@@ -104,4 +104,25 @@ class BusinessRegistrationControllerTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
+
+    public function test_it_rejects_combined_accounts_on_the_free_plan(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->withHeader('Accept', 'application/json')->post('/api/auth/business-register', [
+            'business_name' => 'Hybrid Counter Business',
+            'email' => 'owner@hybrid.test',
+            'password' => 'clockwork123',
+            'country' => 'United Arab Emirates',
+            'account_mode' => 'both',
+            'plan_preference' => 'basic',
+            'accepts_terms' => '1',
+            'accepts_privacy' => '1',
+            'trade_license' => UploadedFile::fake()->create('trade-license.pdf', 100),
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['plan_preference']);
+    }
 }

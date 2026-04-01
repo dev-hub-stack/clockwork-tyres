@@ -24,7 +24,12 @@ readonly class AccountEntitlements
 
     public function canManageOwnProductsAndInventory(): bool
     {
-        return $this->hasWholesaleAccess();
+        if ($this->hasWholesaleAccess()) {
+            return true;
+        }
+
+        return $this->account->isRetailEnabled()
+            && $this->account->base_subscription_plan === SubscriptionPlan::PREMIUM;
     }
 
     public function hasReportsAddon(): bool

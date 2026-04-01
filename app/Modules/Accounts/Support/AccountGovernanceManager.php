@@ -64,6 +64,13 @@ class AccountGovernanceManager
             if ($normalized['reports_subscription_enabled'] && $normalized['reports_customer_limit'] === null) {
                 $validator->errors()->add('reports_customer_limit', 'Provide the reports customer limit when the add-on is enabled.');
             }
+
+            if (
+                $normalized['account_type'] === AccountType::BOTH->value
+                && $normalized['base_subscription_plan'] === SubscriptionPlan::BASIC->value
+            ) {
+                $validator->errors()->add('base_subscription_plan', 'Retail + wholesale business accounts require a paid subscription.');
+            }
         })->validate();
 
         if ($validated['account_type'] === AccountType::SUPPLIER->value) {

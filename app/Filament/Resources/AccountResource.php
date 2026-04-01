@@ -117,7 +117,8 @@ class AccountResource extends Resource
                             ->mapWithKeys(fn (SubscriptionPlan $plan): array => [$plan->value => $plan->label()])
                             ->all())
                         ->required()
-                        ->default(SubscriptionPlan::BASIC->value),
+                        ->default(SubscriptionPlan::BASIC->value)
+                        ->helperText('`Basic` maps to the free starter plan. `Premium` maps to the paid self-serve plan. Combined retail + wholesale accounts must use a paid plan.'),
 
                     Toggle::make('reports_subscription_enabled')
                         ->label('Reports add-on enabled')

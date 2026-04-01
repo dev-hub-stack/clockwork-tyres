@@ -75,6 +75,25 @@ class AccountEntitlementsTest extends TestCase
         $this->assertTrue($entitlements->canAddSupplierConnection(10));
     }
 
+    #[Test]
+    public function it_allows_premium_retailers_to_manage_their_own_products_and_inventory(): void
+    {
+        $account = $this->account([
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => false,
+            'reports_customer_limit' => null,
+        ]);
+
+        $entitlements = AccountEntitlements::for($account);
+
+        $this->assertFalse($entitlements->hasWholesaleAccess());
+        $this->assertTrue($entitlements->canManageOwnProductsAndInventory());
+        $this->assertNull($entitlements->supplierConnectionLimit());
+    }
+
     private function account(array $attributes): Account
     {
         $account = new Account();

@@ -58,20 +58,21 @@ Recommended product split:
 
 ## Current Key Docs
 
-- [ROADMAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/ROADMAP.md)
-- [FRONTEND_REBUILD_ANALYSIS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/FRONTEND_REBUILD_ANALYSIS.md)
-- [ARCHITECTURE_DECISIONS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/ARCHITECTURE_DECISIONS.md)
-- [CATEGORY_FOUNDATION_STRATEGY.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CATEGORY_FOUNDATION_STRATEGY.md)
-- [LEGACY_WHEEL_FOUNDATION_RESEARCH.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_WHEEL_FOUNDATION_RESEARCH.md)
-- [LEGACY_FEATURE_COMPATIBILITY_MATRIX.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_FEATURE_COMPATIBILITY_MATRIX.md)
-- [LEGACY_ROUTE_QUERY_CONTRACT_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/LEGACY_ROUTE_QUERY_CONTRACT_MAP.md)
-- [CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md)
-- [BACKEND_CATEGORY_SEARCH_CONTRACT.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/BACKEND_CATEGORY_SEARCH_CONTRACT.md)
-- [NEXT_CATALOG_INTEGRATION_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/NEXT_CATALOG_INTEGRATION_MAPPING.md)
-- [TYRE_SAMPLE_SHEET_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/TYRE_SAMPLE_SHEET_MAPPING.md)
-- [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
-- [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/OPEN_QUESTIONS_FOR_GEORGE.md)
-- [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres/docs/MESSAGE_FOR_GEORGE.md)
+- [CURRENT_STATUS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/CURRENT_STATUS.md)
+- [ROADMAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/ROADMAP.md)
+- [FRONTEND_REBUILD_ANALYSIS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/FRONTEND_REBUILD_ANALYSIS.md)
+- [ARCHITECTURE_DECISIONS.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/ARCHITECTURE_DECISIONS.md)
+- [CATEGORY_FOUNDATION_STRATEGY.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/CATEGORY_FOUNDATION_STRATEGY.md)
+- [LEGACY_WHEEL_FOUNDATION_RESEARCH.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/LEGACY_WHEEL_FOUNDATION_RESEARCH.md)
+- [LEGACY_FEATURE_COMPATIBILITY_MATRIX.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/LEGACY_FEATURE_COMPATIBILITY_MATRIX.md)
+- [LEGACY_ROUTE_QUERY_CONTRACT_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/LEGACY_ROUTE_QUERY_CONTRACT_MAP.md)
+- [CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/CRM_WHEEL_TO_CATEGORY_ADAPTER_MAP.md)
+- [BACKEND_CATEGORY_SEARCH_CONTRACT.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/BACKEND_CATEGORY_SEARCH_CONTRACT.md)
+- [NEXT_CATALOG_INTEGRATION_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/NEXT_CATALOG_INTEGRATION_MAPPING.md)
+- [TYRE_SAMPLE_SHEET_MAPPING.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/TYRE_SAMPLE_SHEET_MAPPING.md)
+- [CLIENT_FACING_ROADMAP_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/CLIENT_FACING_ROADMAP_FOR_GEORGE.md)
+- [OPEN_QUESTIONS_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/OPEN_QUESTIONS_FOR_GEORGE.md)
+- [MESSAGE_FOR_GEORGE.md](C:/Users/Dell/Documents/Gerorge/clockwork-tyres-backend/docs/clockwork-tyres-planning/MESSAGE_FOR_GEORGE.md)
 
 ## What Can Start Now
 
@@ -88,7 +89,6 @@ Low-regret work that can start immediately:
 
 ## What Must Wait For Product Answers
 
-- exact report add-on tier serialization in admin
 - any optional wheel-later requirements George wants locked before launch
 - small tyre-sheet clarifications:
   - `height` vs `full_size` conflict handling
