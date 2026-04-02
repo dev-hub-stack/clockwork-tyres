@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\Support\PanelAccess;
 use Illuminate\Http\Request;
 use App\Modules\Products\Models\ProductImage;
 use App\Modules\Products\Models\Brand;
@@ -10,11 +11,26 @@ use App\Modules\Products\Models\Finish;
 
 class ProductImageController extends Controller
 {
+    protected function authorizeReadAccess(): void
+    {
+        abort_unless(PanelAccess::canAccessOperationalSurface('view_products'), 403);
+    }
+
+    protected function authorizeWriteAccess(): void
+    {
+        abort_unless(
+            PanelAccess::canAccessOperationalSurfaceAny(['create_products', 'edit_products']),
+            403
+        );
+    }
+
     /**
      * Display the product images index page
      */
     public function index(Request $request)
     {
+        $this->authorizeReadAccess();
+
         $query = ProductImage::with(['brand', 'model', 'finish']);
 
         // Apply filters
@@ -62,6 +78,8 @@ class ProductImageController extends Controller
      */
     public function edit($id)
     {
+        $this->authorizeReadAccess();
+
         $image = ProductImage::with(['brand', 'model', 'finish'])->findOrFail($id);
         $brands = Brand::orderBy('name')->get();
         $models = ProductModel::orderBy('name')->get();
@@ -75,6 +93,8 @@ class ProductImageController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $this->authorizeWriteAccess();
+
         $image = ProductImage::findOrFail($id);
 
         $validated = $request->validate([
@@ -109,6 +129,8 @@ class ProductImageController extends Controller
      */
     public function export(Request $request)
     {
+        $this->authorizeReadAccess();
+
         $query = ProductImage::with(['brand', 'model', 'finish']);
 
         // Apply same filters as index
@@ -172,6 +194,8 @@ class ProductImageController extends Controller
      */
     public function bulkImport(Request $request)
     {
+        $this->authorizeWriteAccess();
+
         $request->validate([
             'importFile' => 'required|file|mimes:csv,txt',
         ]);

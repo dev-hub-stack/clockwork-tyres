@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -62,7 +63,7 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-photo')
                     ->group('Products')
                     ->sort(5)
-                    ->visible(fn () => auth()->user()?->can('view_products') ?? false),
+                    ->visible(fn () => PanelAccess::canAccessOperationalSurface('view_products')),
                 
                 // Reports Group Header
                 NavigationItem::make('Sales Dashboard')
