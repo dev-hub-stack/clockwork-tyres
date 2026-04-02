@@ -9,9 +9,9 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - architecture / product direction: `93%`
 - backend platform foundation: `96%`
 - tyre import / catalog / inventory flow: `90%`
-- storefront functional foundation: `88%`
+- storefront functional foundation: `90%`
 - CRM-native admin rebuild for new Clockwork flows: `88-90%`
-- overall V1: about `91%`
+- overall V1: about `92%`
 
 ## What Is Confirmed
 
@@ -56,6 +56,12 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
   - add to cart works
   - checkout creates an order
   - created order appears in account orders
+- guarded storefront routes now use honest live states:
+  - catalog shows loading / empty / error instead of silent mock fallback
+  - account workspace shows loading / empty / error instead of silent mock fallback
+  - PDP no longer falls back to a fake product when the live slug is missing
+- checkout now waits for live workspace hydration before allowing order submission
+- storefront unit/spec suite is green locally again
 - internal subscription mapping is now stable:
   - `basic` = free starter
   - `premium` = retailer `Plus` or wholesaler `Premium`
@@ -78,11 +84,8 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 ### Storefront
 
 - finish login-only / counter-only UX polish
-- replace remaining fallback/mock seams with final live behavior
 - tighter UI parity against the live Clockwork experience
-- broader storefront regression stability
-  - Playwright is green
-  - Vitest still hits worker-startup timeouts in this environment
+- broader storefront regression coverage beyond the current smoke and spec suite
 
 ### Launch / Ops
 
