@@ -146,9 +146,10 @@ final class TyreCatalogContract
                 'storefront grouping must ignore supplier SKU and merge by brand, model, size, and year',
             ],
             'validation_notes' => [
-                'sample row full_size 245/35R20 does not match height value 30 and should be validated with George',
-                'DOT sample value is 2026 and needs confirmation whether it is a year or full DOT code',
-                'image columns currently look like file names and need storage-source confirmation',
+                'full_size is derived from width, height, and rim_size and should be treated as the composed canonical size',
+                'if a provided full_size does not match the numeric dimensions, importer should warn and use the canonical derived size for grouping',
+                'DOT may be provided as year only (for example 2025) or as week plus year (for example 2625 for week 26 of 2025); grouping should normalize both forms to the same year',
+                'image columns should follow the same storage/import handling approach already used for wheel products in the current CRM',
             ],
         ];
     }

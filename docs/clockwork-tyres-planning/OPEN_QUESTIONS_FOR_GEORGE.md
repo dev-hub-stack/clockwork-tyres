@@ -8,16 +8,7 @@ The tyre sample sheet has now been shared, so the main dependency is no longer t
 
 ## Still Pending
 
-### 1. Tyre Sheet Validation Clarifications
-
-- confirm whether `height` or `full_size` is the source of truth when the two values conflict
-- confirm whether `DOT` is intended to store:
-  - year only
-  - or full DOT code
-- confirm whether image fields are:
-  - uploaded file names
-  - internal storage paths
-  - or full external URLs
+There are no active blocking questions at this time.
 
 ## Everything Else Now Confirmed
 
@@ -35,7 +26,7 @@ The following items are no longer open questions:
 - supplier approval converts to invoice and deducts stock
 - no platform payments in phase 1
 - launch assumes fresh accounts by default, with case-by-case import only if needed
-- multi-branch support is required from day one using multiple users and warehouses
+- multi-branch should be handled as multiple warehouses only in phase 1
 - storefront grouping should ignore supplier SKU and use brand, model, size, and year
 - one shared stock pool for `both` accounts
 - four pricing levels in the tire sheet
@@ -44,3 +35,7 @@ The following items are no longer open questions:
 - stock returns to selected warehouse on cancellation using current reporting CRM behavior
 - reports tiers count total wholesale customers registered and connected to the supplier
 - one combined main subscription, with reports as a configurable add-on
+- `full_size` is composed from width, height, and rim size
+- `DOT` can be year only or week+year, and both normalize to the same year for grouping
+- tyre image fields should use the same handling already used for wheel products
+- enterprise custom pricing is configured manually per account by super admin

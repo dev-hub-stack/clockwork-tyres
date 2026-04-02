@@ -26,9 +26,12 @@ These decisions supersede earlier assumptions where they conflict.
 - launch is fresh-account first by default
 - there is no bulk legacy history migration planned for launch
 - case-by-case imports can still be handled if needed later
-- multi-branch support is required from day one through:
-  - multiple users
-  - multiple warehouses
+- multi-branch should be handled in phase 1 as:
+  - multiple warehouses only
+- phase 1 should not introduce:
+  - branch-specific users
+  - branch-specific permissions
+  - default branch context switching
 
 ### 2. Storefront Catalog Visibility
 
@@ -46,6 +49,12 @@ These decisions supersede earlier assumptions where they conflict.
   - `model`
   - `size`
   - `year`
+- `size` is composed from:
+  - `width`
+  - `height`
+  - `rim_size`
+- example:
+  - `245 + 30 + 19 = 245/30R19`
 - listing priority is:
   - own stock first
   - supplier stock after
@@ -136,6 +145,7 @@ Phase 1 commercial plans are now clearer.
 - reports remain a separate add-on on top of the main subscription
 - self-serve phase 1 should treat `both` accounts as paid-only
 - enterprise remains a manual / super-admin / sales path, not a self-serve checkout path yet
+- enterprise custom pricing should be configured manually per account from super admin
 - phase 1 backend may continue to store internal plan codes as:
   - `basic` for free starter
   - `premium` for the paid self-serve plan
@@ -174,10 +184,14 @@ Phase 1 commercial plans are now clearer.
   - `product_image_2`
   - `product_image_3`
 - internal field names should normalize these headers into snake_case
-- sample row also exposes validation follow-ups around:
-  - `height` vs `full_size`
-  - `DOT` meaning
-  - image reference format
+- importer should treat `full_size` as the composed canonical size from:
+  - `width`
+  - `height`
+  - `rim_size`
+- `DOT` may be entered by suppliers as:
+  - year only, such as `2025`
+  - week plus year, such as `2625` for week `26` of `2025`
+- image fields should follow the same storage and import handling approach already used for wheel products in the current CRM
 
 ### 6. Pricing Model
 
@@ -441,13 +455,7 @@ These answers are enough to start:
 
 ## Remaining Open Questions
 
-The tyre sheet is now shared.
-
-Only small launch clarifications remain:
-
-1. Which field wins if `height` and `full_size` conflict?
-2. Does `DOT` store year only or full DOT code?
-3. Are image fields file names, server paths, or full URLs?
+There are no major tyre-sheet or pricing-model blockers remaining from George's current answers.
 
 ## Recommended Next Move
 

@@ -86,7 +86,7 @@ class StageTyreImportActionTest extends TestCase
         $account = $this->createAccount($owner, 'Bravo Tyres', 'bravo-tyres');
         $filePath = $this->createCsvFile(implode("\n", [
             "\xEF\xBB\xBFSKU,Brand,Model,width,height,rim_size,full_size,load_index,speed_rating,DOT,Country,Type,Runflat,RFID,sidewall,warranty,Retail_price,wholesale_price_lvl1,wholesale_price_lvl2,wholesale_price_lvl3,brand_image,product_image_1,product_image_2,product_image_3",
-            'CSV-001,Pirelli,P Zero,275,35,21,275/35R21,103,Y,2025,Italy,Summer,YES,NO,Black,3 Years,1500,1400,1350,1300,brand.png,p1.png,p2.png,p3.png',
+            'CSV-001,Pirelli,P Zero,275,35,21,275/35R21,103,Y,2625,Italy,Summer,YES,NO,Black,3 Years,1500,1400,1350,1300,brand.png,p1.png,p2.png,p3.png',
         ]));
 
         $batch = app(StageTyreImportAction::class)->execute(

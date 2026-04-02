@@ -127,7 +127,9 @@ For merged catalogue / storefront grouping:
 Recommended current mapping:
 
 - `size` -> `full_size`
-- `year` -> currently most likely `DOT`, pending final confirmation
+- `year` -> normalized from `DOT`
+  - `2025` means year `2025`
+  - `2625` also means year `2025` (`week 26 of 2025`)
 
 This affects:
 
@@ -168,17 +170,20 @@ Recommended required fields for Phase 1 import:
   - `wholesale_lvl3`
 - store source columns exactly for audit, but persist normalized field names in the platform
 - normalize `Runflat` and `RFID` as boolean-like values from `YES/NO`
-- treat image fields as import references, not final media records, until storage rules are finalized
+- treat image fields using the same import/storage approach already used for wheel products in the current CRM
 
 ## Important Validation Notes
 
-The sample row reveals a few points we should validate before final importer signoff:
+George has now clarified the remaining sheet behavior:
 
-1. `full_size` sample value is `245/35R20` while `height` sample value is `30`
-2. `DOT` sample value is `2026`, which may mean manufacturing year rather than a full DOT code
-3. image columns currently look like file names, not URLs
-
-These do not block us from building the schema and grid now, but they should be confirmed before we finalize import validation.
+1. `full_size` is the composed size from `width + height + rim_size`
+   - example: `245 + 30 + 19` => `245/30R19`
+2. if an incoming `full_size` does not match the numeric dimensions, importer should warn and prefer the canonical derived size for grouping
+3. `DOT` can be either:
+   - year only, such as `2025`
+   - week plus year, such as `2625` for week 26 of 2025
+4. grouping should normalize both DOT forms to the same year
+5. image fields should follow the same handling already used for wheel products
 
 ## Build Decisions Unblocked By This Sheet
 
@@ -193,8 +198,4 @@ This sheet is enough to move forward with:
 
 ## Remaining Clarifications
 
-Only small clarifications remain from the sample sheet:
-
-- confirm whether `height` or `full_size` is the source of truth when they conflict
-- confirm whether `DOT` stores year only or the full DOT code
-- confirm whether image fields are uploaded file names, server paths, or external URLs
+There are no remaining tyre-sheet blockers from George's current answers.

@@ -276,7 +276,18 @@ final class TyreImportRowValidator
         $dot = trim((string) $dotValue);
 
         if (preg_match('/^\d{4}$/', $dot) === 1) {
-            return $dot;
+            $numericDot = (int) $dot;
+
+            if ($numericDot >= 1900 && $numericDot <= 2099) {
+                return $dot;
+            }
+
+            $week = (int) substr($dot, 0, 2);
+            $yearSuffix = substr($dot, 2, 2);
+
+            if ($week >= 1 && $week <= 53) {
+                return '20'.$yearSuffix;
+            }
         }
 
         $warnings[] = 'The DOT field is ambiguous, so the grouping year defaults to unknown.';

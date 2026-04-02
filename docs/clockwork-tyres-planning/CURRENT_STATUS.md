@@ -30,7 +30,13 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - supplier approval converts to invoice and deducts stock
 - payments are out of scope for phase 1
 - launch assumes fresh accounts by default
-- multi-branch requires multiple users and warehouses from day one
+- multi-branch is handled in phase 1 as multiple warehouses only
+- enterprise custom pricing is manually configured per account by super admin
+- tyre import image fields should follow the same approach used for wheel products
+- `full_size` is derived from `width + height + rim_size`
+- `DOT` can be either:
+  - year only, such as `2025`
+  - week plus year, such as `2625` for week `26` of `2025`
 
 ## Main Work Already In Place
 
@@ -59,9 +65,7 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 
 ### Product / Data Clarifications
 
-- confirm `height` vs `full_size` when they conflict
-- confirm whether `DOT` is year-only or full DOT code
-- confirm whether image fields are file names, storage paths, or URLs
+- no current product-blocking questions remain from George's latest answers
 
 ### Backend / Platform
 

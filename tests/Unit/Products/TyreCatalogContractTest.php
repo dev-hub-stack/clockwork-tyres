@@ -46,7 +46,11 @@ class TyreCatalogContractTest extends TestCase
             $blueprint['launch_notes']
         );
         $this->assertContains(
-            'sample row full_size 245/35R20 does not match height value 30 and should be validated with George',
+            'full_size is derived from width, height, and rim_size and should be treated as the composed canonical size',
+            $blueprint['validation_notes']
+        );
+        $this->assertContains(
+            'DOT may be provided as year only (for example 2025) or as week plus year (for example 2625 for week 26 of 2025); grouping should normalize both forms to the same year',
             $blueprint['validation_notes']
         );
     }
