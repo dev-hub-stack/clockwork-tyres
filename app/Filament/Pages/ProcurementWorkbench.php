@@ -5,15 +5,14 @@ namespace App\Filament\Pages;
 use App\Filament\Pages\Concerns\HasSupplierNetworkAccess;
 use App\Models\User;
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Support\TyreOfferAvailabilityResolver;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Support\ProcurementWorkbenchData;
-use App\Modules\Procurement\Support\ProcurementWorkflow;
-use App\Modules\Procurement\Support\SupplierGroupedProcurementPlanner;
+use App\Modules\Products\Models\TyreAccountOffer;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Throwable;
 use UnitEnum;
 
@@ -23,11 +22,11 @@ class ProcurementWorkbench extends Page
 
     protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?string $navigationLabel = 'Procurement Workbench';
+    protected static ?string $navigationLabel = 'Procurement';
 
-    protected static ?string $title = 'Procurement Workbench';
+    protected static ?string $title = 'Procurement Checkout';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Procurement';
+    protected static UnitEnum|string|null $navigationGroup = 'Suppliers';
 
     protected static ?int $navigationSort = 1;
 
@@ -37,17 +36,13 @@ class ProcurementWorkbench extends Page
 
     public array $currentAccountSummary = [];
 
-    public array $statusRail = [];
-
-    public array $supplierGroups = [];
-
-    public array $placeOrderCallout = [];
-
-    public array $requestSummary = [];
-
-    public array $plannedSubmission = [];
-
     public array $supplierConnectionGroups = [];
+
+    public array $supplierCatalogSections = [];
+
+    public array $selectedQuantities = [];
+
+    public array $checkoutSummary = [];
 
     public array $recentProcurementSignals = [];
 
@@ -60,19 +55,13 @@ class ProcurementWorkbench extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::experimentalPagesEnabled()
-            && (auth()->user()?->can('view_quotes') ?? false);
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return static::experimentalPagesEnabled()
-            && (auth()->user()?->can('view_quotes') ?? false);
-    }
-
-    protected static function experimentalPagesEnabled(): bool
-    {
-        return (bool) config('wholesale.experimental_admin_pages', false);
+        return (auth()->user()?->can('view_quotes') ?? false)
+            && static::currentRetailAccountForNavigation() instanceof Account;
     }
 
     public function submitGroupedProcurement(SubmitGroupedProcurementAction $submitAction): void
@@ -90,12 +79,12 @@ class ProcurementWorkbench extends Page
             return;
         }
 
-        $lineItems = $this->buildWorkbenchLineItems($this->supplierConnectionGroups);
+        $lineItems = $this->buildWorkbenchLineItems($this->supplierCatalogSections);
 
         if ($lineItems === []) {
             Notification::make()
-                ->title('No approved supplier groups')
-                ->body('Grouped procurement only opens when the active retailer account has approved supplier connections.')
+                ->title('Select at least one supplier line')
+                ->body('Add quantities to one or more supplier offers before placing the grouped procurement checkout.')
                 ->warning()
                 ->send();
 
@@ -143,6 +132,29 @@ class ProcurementWorkbench extends Page
             ->send();
     }
 
+    public function updatedSelectedQuantities($value, string $key): void
+    {
+        $this->selectedQuantities[(string) $key] = max(0, (int) $value);
+        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
+        $this->checkoutSummary = $this->buildCheckoutSummary();
+    }
+
+    public function incrementQuantity(int $offerId): void
+    {
+        $current = (int) ($this->selectedQuantities[(string) $offerId] ?? 0);
+        $this->selectedQuantities[(string) $offerId] = $current + 1;
+        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
+        $this->checkoutSummary = $this->buildCheckoutSummary();
+    }
+
+    public function decrementQuantity(int $offerId): void
+    {
+        $current = (int) ($this->selectedQuantities[(string) $offerId] ?? 0);
+        $this->selectedQuantities[(string) $offerId] = max(0, $current - 1);
+        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
+        $this->checkoutSummary = $this->buildCheckoutSummary();
+    }
+
     protected function refreshWorkbench(): void
     {
         $currentAccount = $this->resolveCurrentRetailAccount();
@@ -150,151 +162,153 @@ class ProcurementWorkbench extends Page
 
         $this->currentAccountSummary = $snapshot['current_account_summary'];
         $this->supplierConnectionGroups = $snapshot['supplier_groups'] ?? [];
-        $this->plannedSubmission = SupplierGroupedProcurementPlanner::plan(
-            $this->buildWorkbenchLineItems($this->supplierConnectionGroups)
-        );
         $this->recentProcurementSignals = $snapshot['recent_procurement_signals'] ?? [];
-        $this->statusRail = $this->buildStatusRail();
-        $this->supplierGroups = $this->buildSupplierGroups();
-        $this->placeOrderCallout = $this->buildPlaceOrderCallout();
-        $this->requestSummary = $this->buildRequestSummary();
+        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
+        $this->checkoutSummary = $this->buildCheckoutSummary();
     }
 
-    protected function buildStatusRail(): array
+    protected function buildSupplierCatalogSections(): array
     {
-        $descriptions = [
-            'draft' => 'Build the request cart and confirm the tyre lines.',
-            'submitted' => 'Send the procurement request forward to the supplier side.',
-            'supplier_review' => 'Supplier reviews availability, pricing, and fulfilment fit.',
-            'quoted' => 'Review the supplier quote before approval.',
-            'approved' => 'Approved requests move toward invoice conversion.',
-            'invoiced' => 'Invoice creation follows the quote approval path.',
-            'stock_reserved' => 'Reserved stock is held against the selected supplier source.',
-            'stock_deducted' => 'Stock deduction follows the current CRM method.',
-            'fulfilled' => 'Procurement is completed and ready for downstream reporting.',
-            'cancelled' => 'Cancelled requests add stock back to the selected warehouse.',
-        ];
+        $availabilityResolver = app(TyreOfferAvailabilityResolver::class);
 
-        return array_map(
-            static function (array $stage, int $index) use ($descriptions): array {
-                $value = $stage['value'];
+        return collect($this->supplierConnectionGroups)
+            ->filter(fn (array $group): bool => ($group['connection_status'] ?? null) === 'approved' && ! empty($group['supplier_id']))
+            ->map(function (array $group) use ($availabilityResolver): array {
+                $offers = TyreAccountOffer::query()
+                    ->with(['tyreCatalogGroup', 'inventories.warehouse'])
+                    ->where('account_id', (int) $group['supplier_id'])
+                    ->whereHas('inventories', function ($query): void {
+                        $query->where('quantity', '>', 0)
+                            ->whereHas('warehouse', fn ($warehouseQuery) => $warehouseQuery->where('code', '!=', 'NON-STOCK'));
+                    })
+                    ->latest('id')
+                    ->limit(8)
+                    ->get();
+
+                $rows = $offers
+                    ->map(function (TyreAccountOffer $offer) use ($availabilityResolver, $group): array {
+                        $catalogGroup = $offer->tyreCatalogGroup;
+                        $warehouse = $offer->inventories
+                            ->first(fn ($inventory) => $inventory->warehouse?->code !== 'NON-STOCK');
+                        $availableQuantity = $availabilityResolver->offerCurrentQuantity($offer);
+                        $unitPrice = (float) ($offer->wholesale_price_lvl1 ?? $offer->retail_price ?? 0);
+                        $selectedQuantity = min(
+                            max(0, (int) ($this->selectedQuantities[(string) $offer->id] ?? 0)),
+                            max(0, $availableQuantity)
+                        );
+
+                        return [
+                            'offer_id' => $offer->id,
+                            'supplier_id' => (int) ($group['supplier_id'] ?? 0),
+                            'supplier_name' => $group['supplier_name'] ?? 'Supplier',
+                            'sku' => $offer->source_sku ?? ('TYR-' . $offer->id),
+                            'brand_name' => $catalogGroup?->brand_name ?? 'Tyre',
+                            'model_name' => $catalogGroup?->model_name ?? 'Offer',
+                            'full_size' => $catalogGroup?->full_size ?? 'N/A',
+                            'dot_year' => $catalogGroup?->dot_year ?? null,
+                            'country' => $catalogGroup?->country ?? null,
+                            'warehouse_id' => $warehouse?->warehouse_id ?? $warehouse?->id,
+                            'warehouse_name' => $warehouse?->warehouse?->warehouse_name ?? $warehouse?->warehouse?->name ?? null,
+                            'available_quantity' => $availableQuantity,
+                            'unit_price' => round($unitPrice, 2),
+                            'selected_quantity' => $selectedQuantity,
+                            'line_total' => round($unitPrice * $selectedQuantity, 2),
+                            'image_url' => $this->primaryImageForOffer($offer),
+                            'summary' => trim(collect([
+                                $catalogGroup?->tyre_type,
+                                $catalogGroup?->runflat ? 'Run Flat' : null,
+                                $catalogGroup?->speed_rating ? 'Speed ' . $catalogGroup->speed_rating : null,
+                            ])->filter()->implode(' · ')),
+                        ];
+                    })
+                    ->values();
 
                 return [
-                    'key' => $value,
-                    'label' => $stage['label'],
-                    'description' => $descriptions[$value] ?? 'Procurement stage placeholder.',
-                    'state' => $index === 0 ? 'active' : 'pending',
-                    'terminal' => $stage['terminal'],
+                    'supplier_id' => (int) ($group['supplier_id'] ?? 0),
+                    'supplier_name' => $group['supplier_name'] ?? 'Supplier',
+                    'supplier_summary' => $group['summary'] ?? 'Approved supplier connection ready for procurement.',
+                    'offer_count' => $rows->count(),
+                    'selected_line_count' => $rows->where('selected_quantity', '>', 0)->count(),
+                    'selected_quantity_total' => (int) $rows->sum('selected_quantity'),
+                    'selected_subtotal' => round((float) $rows->sum('line_total'), 2),
+                    'offers' => $rows->all(),
                 ];
-            },
-            ProcurementWorkflow::stages(),
-            array_keys(ProcurementWorkflow::stages())
-        );
-    }
-
-    protected function buildRequestSummary(): array
-    {
-        return [
-            [
-                'label' => 'Current retailer account',
-                'value' => $this->currentAccountName(),
-                'note' => 'George\'s grouped-by-supplier admin checkout rule stays scoped to the active retailer account.',
-            ],
-            [
-                'label' => 'Approved supplier groups',
-                'value' => $this->currentAccountSummary['supplier_connections']['approved'] ?? 0,
-                'note' => 'Each approved supplier connection becomes its own grouped workbench section while pending links stay out of checkout.',
-            ],
-            [
-                'label' => 'Live procurement requests',
-                'value' => ($this->currentAccountSummary['procurement_request_counts']['total'] ?? 0) > 0
-                    ? ($this->currentAccountSummary['procurement_request_counts']['total'] ?? 0)
-                    : ($this->currentAccountSummary['document_counts']['total'] ?? 0),
-                'note' => 'Persisted grouped supplier requests sit alongside the existing quote, order, and invoice history.',
-            ],
-        ];
-    }
-
-    protected function buildSupplierGroups(): array
-    {
-        return array_map(
-            function (array $supplierOrder, int $index): array {
-                return [
-                    'supplier_name' => $supplierOrder['supplier_name'],
-                    'supplier_reference' => 'Supplier order #' . ($index + 1),
-                    'status' => 'Ready to submit',
-                    'summary' => sprintf(
-                        '%s keeps this supplier grouped until the unified submit action runs.',
-                        $this->currentAccountName()
-                    ),
-                    'items' => array_map(
-                        static fn (array $lineItem): array => [
-                            'sku' => $lineItem['sku'] ?? '--',
-                            'product_name' => $lineItem['product_name'] ?? 'Procurement line',
-                            'size' => $lineItem['size'] ?? 'Pending tyre size',
-                            'quantity' => $lineItem['quantity'] ?? 0,
-                            'source' => $lineItem['source'] ?? 'Approved supplier connection',
-                            'status' => $lineItem['status'] ?? 'Ready',
-                            'note' => $lineItem['note'] ?? 'Grouped under the active retailer account before submit.',
-                        ],
-                        $supplierOrder['line_items'] ?? []
-                    ),
-                ];
-            },
-            $this->plannedSubmission['supplier_orders'] ?? [],
-            array_keys($this->plannedSubmission['supplier_orders'] ?? [])
-        );
-    }
-
-    protected function buildPlaceOrderCallout(): array
-    {
-        return [
-            'title' => 'George\'s grouped-by-supplier admin checkout rule',
-            'description' => 'Retailer admins work inside the active account, add requests from approved suppliers, and keep each supplier section separate until the shared submit action runs.',
-            'highlights' => [
-                'The current retail account stays in scope for the whole checkout flow.',
-                'Each approved supplier keeps its own grouped workbench section.',
-                'The backend creates separate supplier orders, quotes, and invoices per supplier.',
-            ],
-            'action_label' => $this->plannedSubmission['place_order_label'] ?? 'Place Order',
-            'supporting_note' => $this->currentAccountSlug()
-                ? 'Working in ' . $this->currentAccountName() . ' keeps the grouped checkout rule tied to the active retailer account.'
-                : 'Select a retail account to load supplier groups.',
-        ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $supplierGroups
+     * @param  array<int, array<string, mixed>>  $supplierSections
      * @return array<int, array<string, mixed>>
      */
-    protected function buildWorkbenchLineItems(array $supplierGroups): array
+    protected function buildWorkbenchLineItems(array $supplierSections): array
     {
-        return collect($supplierGroups)
-            ->filter(fn (array $group): bool => ($group['connection_status'] ?? null) === 'approved')
-            ->map(function (array $group): array {
-                $supplierName = $group['supplier_name'] ?? 'Supplier';
-                $supplierSlug = $group['supplier_slug'] ?? $supplierName;
+        return collect($supplierSections)
+            ->flatMap(function (array $section): array {
+                return collect($section['offers'] ?? [])
+                    ->filter(fn (array $offer): bool => (int) ($offer['selected_quantity'] ?? 0) > 0)
+                    ->map(function (array $offer): array {
+                        $quantity = max(1, (int) ($offer['selected_quantity'] ?? 0));
+                        $productName = trim(($offer['brand_name'] ?? 'Tyre') . ' ' . ($offer['model_name'] ?? 'Offer'));
 
-                return [
-                    'sku' => sprintf(
-                        'PROC-%s-%s',
-                        Str::upper(Str::slug($this->currentAccountSlug() ?? $this->currentAccountName())),
-                        Str::upper(Str::slug($supplierSlug))
-                    ),
-                    'product_name' => $this->currentAccountName() . ' procurement request',
-                    'size' => 'Grouped for ' . $supplierName,
-                    'quantity' => 1,
-                    'supplier_id' => $group['supplier_id'] ?? null,
-                    'supplier_name' => $supplierName,
-                    'unit_price' => 0,
-                    'source' => 'Approved supplier connection',
-                    'status' => 'Ready to submit',
-                    'note' => $group['summary'] ?? ('Approved supplier connection for ' . $this->currentAccountName() . '.'),
-                ];
+                        return [
+                            'sku' => $offer['sku'] ?? null,
+                            'product_name' => $productName,
+                            'size' => $offer['full_size'] ?? null,
+                            'quantity' => $quantity,
+                            'supplier_id' => $offer['supplier_id'] ?? null,
+                            'supplier_name' => $offer['supplier_name'] ?? null,
+                            'unit_price' => (float) ($offer['unit_price'] ?? 0),
+                            'warehouse_id' => $offer['warehouse_id'] ?? null,
+                            'source' => 'Approved supplier offer',
+                            'status' => 'Ready to quote',
+                            'note' => $offer['warehouse_name']
+                                ? 'Supplier warehouse: ' . $offer['warehouse_name']
+                                : 'Approved supplier offer',
+                            'line_total' => round(((float) ($offer['unit_price'] ?? 0)) * $quantity, 2),
+                            'product_description' => $offer['summary'] ?? null,
+                            'tyre_account_offer_id' => $offer['offer_id'] ?? null,
+                        ];
+                    })
+                    ->values()
+                    ->all();
             })
             ->filter()
             ->values()
             ->all();
+    }
+
+    protected function buildCheckoutSummary(): array
+    {
+        $selectedOffers = collect($this->supplierCatalogSections)
+            ->flatMap(fn (array $section): array => $section['offers'] ?? [])
+            ->filter(fn (array $offer): bool => (int) ($offer['selected_quantity'] ?? 0) > 0)
+            ->values();
+
+        return [
+            'approved_suppliers' => (int) ($this->currentAccountSummary['supplier_connections']['approved'] ?? 0),
+            'selected_suppliers' => $selectedOffers->pluck('supplier_id')->filter()->unique()->count(),
+            'selected_lines' => $selectedOffers->count(),
+            'quantity_total' => (int) $selectedOffers->sum('selected_quantity'),
+            'subtotal' => round((float) $selectedOffers->sum('line_total'), 2),
+            'action_label' => $selectedOffers->isEmpty() ? 'Select items to place order' : 'Place Order',
+            'supporting_note' => $this->currentAccountSlug()
+                ? 'Submitting from ' . $this->currentAccountName() . ' will split the final checkout into one procurement request per supplier.'
+                : 'Select a retail account to start procurement.',
+        ];
+    }
+
+    protected function primaryImageForOffer(TyreAccountOffer $offer): ?string
+    {
+        $candidate = collect([
+            $offer->product_image_1,
+            $offer->product_image_2,
+            $offer->product_image_3,
+            $offer->brand_image,
+        ])->first(fn (?string $value): bool => filled($value) && str_starts_with($value, 'http'));
+
+        return $candidate ?: null;
     }
 
     protected function currentAccountName(): string
