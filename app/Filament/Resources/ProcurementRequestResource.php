@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProcurementRequestResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
@@ -46,9 +47,7 @@ class ProcurementRequestResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-
-        return ($user?->can('view_quotes') ?? false) || ($user?->hasRole('super_admin') ?? false);
+        return PanelAccess::canAccessOperationalSurface('view_quotes');
     }
 
     public static function canCreate(): bool

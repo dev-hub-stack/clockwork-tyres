@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\PanelAccess;
 use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Pages\Page;
@@ -23,12 +24,12 @@ class InventoryMovementLog extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_inventory') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_inventory');
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_inventory') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_inventory');
     }
 
     public function getViewData(): array

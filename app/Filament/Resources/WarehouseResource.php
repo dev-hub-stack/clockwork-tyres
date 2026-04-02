@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\WarehouseResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -27,12 +28,22 @@ class WarehouseResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_warehouses') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_warehouses');
+    }
+
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('create_warehouses');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('edit_warehouses');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_warehouses') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_warehouses');
     }
 
     public static function form(Schema $schema): Schema

@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\WarrantyClaimResource\Pages;
 use App\Filament\Resources\WarrantyClaimResource\Schemas\WarrantyClaimForm;
 use App\Filament\Resources\WarrantyClaimResource\Tables\WarrantyClaimsTable;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Warranties\Models\WarrantyClaim;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -26,22 +27,22 @@ class WarrantyClaimResource extends Resource
     
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_warranty_claims') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_warranty_claims');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_warranty_claims') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_warranty_claims');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_warranty_claims') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_warranty_claims');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_warranty_claims') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_warranty_claims');
     }
     
     protected static ?string $navigationLabel = 'Warranty Claims';

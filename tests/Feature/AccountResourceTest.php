@@ -51,7 +51,7 @@ class AccountResourceTest extends TestCase
         $this->actingAs($superAdmin)
             ->get('/admin/accounts')
             ->assertOk()
-            ->assertSee('Accounts')
+            ->assertSee('Business Accounts')
             ->assertSee('Tyre Hub')
             ->assertSee('Premium');
 

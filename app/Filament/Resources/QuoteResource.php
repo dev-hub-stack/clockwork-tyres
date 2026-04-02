@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\QuoteResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Enums\QuoteStatus;
@@ -58,22 +59,22 @@ class QuoteResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_quotes') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_quotes');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_quotes') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_quotes');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_quotes') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_quotes');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_quotes') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_quotes');
     }
     
     protected static string|UnitEnum|null $navigationGroup = 'Sales';

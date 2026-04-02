@@ -9,6 +9,7 @@ use App\Filament\Resources\ConsignmentResource\Pages\ViewConsignment;
 use App\Filament\Resources\ConsignmentResource\Schemas\ConsignmentForm;
 use App\Filament\Resources\ConsignmentResource\Schemas\ConsignmentInfolist;
 use App\Filament\Resources\ConsignmentResource\Tables\ConsignmentsTable;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Consignments\Models\Consignment;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -28,22 +29,22 @@ class ConsignmentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_consignments') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_consignments');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_consignments') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_consignments');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_consignments') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_consignments');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_consignments') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_consignments');
     }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

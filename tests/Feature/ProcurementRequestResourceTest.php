@@ -137,15 +137,14 @@ class ProcurementRequestResourceTest extends TestCase
             ->assertSee('Open Invoice');
     }
 
-    public function test_procurement_requests_resource_is_visible_to_super_admin(): void
+    public function test_procurement_requests_resource_is_hidden_from_super_admin(): void
     {
         $superAdmin = User::factory()->create();
         $superAdmin->assignRole('super_admin');
 
         $this->actingAs($superAdmin)
             ->get('/admin/procurement-requests')
-            ->assertOk()
-            ->assertSee('Procurement Requests');
+            ->assertForbidden();
     }
 
     public function test_rejected_procurement_request_is_visible_in_cancelled_queue_and_has_no_approve_action(): void

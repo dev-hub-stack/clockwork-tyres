@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Customers\Enums\CustomerType;
 use Filament\Forms\Components\TextInput;
@@ -45,22 +46,22 @@ class CustomerResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_customers') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_customers');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_customers') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_customers');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_customers') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_customers');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_customers') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_customers');
     }
 
     public static function form(Schema $schema): Schema

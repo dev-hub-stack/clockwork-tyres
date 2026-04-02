@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AccountResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Enums\AccountConnectionStatus;
 use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
@@ -43,22 +44,22 @@ class AccountResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return PanelAccess::canAccessGovernanceSurface();
     }
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return PanelAccess::canAccessGovernanceSurface();
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return PanelAccess::canAccessGovernanceSurface();
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->hasRole('super_admin') ?? false;
+        return PanelAccess::canAccessGovernanceSurface();
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AbandonedCartResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Settings\Models\CurrencySetting;
 use App\Modules\Wholesale\Cart\Models\Cart;
 use Filament\Resources\Resource;
@@ -34,7 +35,7 @@ class AbandonedCartResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_quotes') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_quotes');
     }
 
     public static function canCreate(): bool

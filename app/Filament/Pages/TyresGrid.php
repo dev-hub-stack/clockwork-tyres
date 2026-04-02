@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\User;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Products\Models\TyreImportBatch;
@@ -78,12 +79,12 @@ class TyresGrid extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
     }
 
     protected function loadTyresData(): void

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\PanelAccess;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
@@ -23,12 +24,12 @@ class ProductsGrid extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
     }
 
     protected string $view = 'filament.pages.products-grid';

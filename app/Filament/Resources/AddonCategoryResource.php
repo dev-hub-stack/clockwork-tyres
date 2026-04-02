@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AddonCategoryResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Models\AddonCategory;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
@@ -31,7 +32,22 @@ class AddonCategoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_categories') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_categories');
+    }
+
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('create_categories');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('edit_categories');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('delete_categories');
     }
 
     public static function form(Schema $schema): Schema

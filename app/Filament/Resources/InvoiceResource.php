@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\InvoiceResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
@@ -63,22 +64,22 @@ class InvoiceResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_invoices') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_invoices');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_invoices') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_invoices');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_invoices') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_invoices');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_invoices') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_invoices');
     }
 
 

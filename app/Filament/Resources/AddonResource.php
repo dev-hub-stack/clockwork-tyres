@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AddonResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Models\Addon;
 use App\Models\AddonCategory;
 use Filament\Forms\Components\TextInput;
@@ -34,7 +35,22 @@ class AddonResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
+    }
+
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('create_products');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('edit_products');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessOperationalSurface('delete_products');
     }
 
     public static function form(Schema $schema): Schema

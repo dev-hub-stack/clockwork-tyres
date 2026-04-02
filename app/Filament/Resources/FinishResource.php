@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\FinishResource\Pages;
+use App\Filament\Support\PanelAccess;
 use App\Modules\Products\Models\Finish;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -42,22 +43,22 @@ class FinishResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('view_products');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('create_products');
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('edit_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('edit_products');
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()?->can('delete_products') ?? false;
+        return PanelAccess::canAccessOperationalSurface('delete_products');
     }
 
     protected static ?int $navigationSort = 3;
