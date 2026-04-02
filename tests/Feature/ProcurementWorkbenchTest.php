@@ -103,26 +103,28 @@ class ProcurementWorkbenchTest extends TestCase
         $this->actingAs($user)
             ->get('/admin/procurement-workbench')
             ->assertOk()
-            ->assertSee('Procurement Checkout')
+            ->assertSee('Procurement')
+            ->assertSee('Search')
+            ->assertSee('Cart')
+            ->assertSee('My Orders')
+            ->assertSee('Pending Orders')
+            ->assertSee('Search approved supplier stock')
+            ->assertSee('View Results')
             ->assertSee('North Coast Tyres')
-            ->assertSee('Desert Line Trading')
-            ->assertSee('Michelin')
-            ->assertSee('Pilot Sport 4S')
-            ->assertSee('Continental')
-            ->assertSee('SportContact 7')
-            ->assertSee('Checkout summary')
-            ->assertSee('Recent procurement activity');
+            ->assertSee('Desert Line Trading');
 
         /** @var ProcurementWorkbench $page */
         $page = app(ProcurementWorkbench::class);
         $page->mount();
 
         $this->assertCount(2, $page->supplierCatalogSections);
+        $this->assertCount(2, $page->searchResults);
         $this->assertSame('Retail Admin', $page->currentAccountSummary['account']['name']);
         $this->assertSame(2, $page->checkoutSummary['approved_suppliers']);
         $this->assertSame(0, $page->checkoutSummary['selected_lines']);
         $this->assertSame('Select items to place order', $page->checkoutSummary['action_label']);
         $this->assertSame('NCT-PS4S-245', $page->supplierCatalogSections[0]['offers'][0]['sku']);
+        $this->assertSame('search', $page->activeView);
     }
 
     public function test_procurement_workbench_surfaces_persisted_grouped_procurement_requests(): void
@@ -184,13 +186,16 @@ class ProcurementWorkbenchTest extends TestCase
         $this->actingAs($user)
             ->get('/admin/procurement-workbench')
             ->assertOk()
-            ->assertSee($requestNumber);
+            ->assertSee('My Orders')
+            ->assertSee('Pending Orders');
 
         /** @var ProcurementWorkbench $page */
         $page = app(ProcurementWorkbench::class);
         $page->mount();
 
         $this->assertSame($requestNumber, $page->recentProcurementSignals[0]['document_number']);
+        $this->assertSame($requestNumber, $page->orderHistory[0]['document_number']);
+        $this->assertSame($requestNumber, $page->pendingOrderHistory[0]['document_number']);
         $this->assertSame('Procurement Request', $page->recentProcurementSignals[0]['document_type_label']);
     }
 
@@ -228,6 +233,8 @@ class ProcurementWorkbenchTest extends TestCase
         /** @var ProcurementWorkbench $page */
         $page = app(ProcurementWorkbench::class);
         $page->mount();
+        $page->addRecommendedQuantity($offer->id, 2);
+        $page->setActiveView('cart');
         $page->updatedSelectedQuantities(4, (string) $offer->id);
         $page->submitGroupedProcurement(app(SubmitGroupedProcurementAction::class));
 
@@ -237,6 +244,7 @@ class ProcurementWorkbenchTest extends TestCase
         $this->assertSame(1, $page->checkoutSummary['selected_suppliers']);
         $this->assertSame(1, $page->latestSubmissionSummary['supplier_count'] ?? null);
         $this->assertSame(1, $page->latestSubmissionSummary['request_count'] ?? null);
+        $this->assertSame('cart', $page->activeView);
     }
 
     private function createAccount(User $user, array $attributes, bool $isDefault = false): Account

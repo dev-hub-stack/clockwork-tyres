@@ -19,6 +19,7 @@ use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Support\ProcurementQuoteLifecycle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -112,7 +113,10 @@ class ApproveProcurementRequestActionTest extends TestCase
         $this->assertNotNull($request->quote_order_id);
         $this->assertSame(DocumentType::QUOTE, $request->quoteOrder?->document_type);
 
-        $approved = app(ApproveProcurementRequestAction::class)->execute($request);
+        app(ProcurementQuoteLifecycle::class)->startSupplierReview($request->quoteOrder()->firstOrFail());
+        $quotedRequest = app(ProcurementQuoteLifecycle::class)->markQuoted($request->quoteOrder()->firstOrFail());
+
+        $approved = app(ApproveProcurementRequestAction::class)->execute($quotedRequest);
         $invoice = $approved->invoiceOrder;
 
         $this->assertNotNull($approved->approved_at);

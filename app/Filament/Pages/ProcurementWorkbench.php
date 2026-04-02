@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Pages\Concerns\HasSupplierNetworkAccess;
 use App\Models\User;
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Support\TyreOfferAvailabilityResolver;
 use App\Modules\Procurement\Actions\SubmitGroupedProcurementAction;
 use App\Modules\Procurement\Support\ProcurementWorkbenchData;
@@ -47,6 +48,32 @@ class ProcurementWorkbench extends Page
     public array $recentProcurementSignals = [];
 
     public array $latestSubmissionSummary = [];
+
+    public string $activeView = 'search';
+
+    public ?int $shipToWarehouseId = null;
+
+    public string $purchaseOrderNumber = '';
+
+    public ?int $searchSupplierId = null;
+
+    public string $searchWidth = '';
+
+    public string $searchHeight = '';
+
+    public string $searchRimSize = '';
+
+    public int $searchMinimumQty = 1;
+
+    public array $shipToWarehouseOptions = [];
+
+    public array $searchResults = [];
+
+    public array $orderHistory = [];
+
+    public array $pendingOrderHistory = [];
+
+    public array $expandedResultKeys = [];
 
     public function mount(): void
     {
@@ -92,11 +119,17 @@ class ProcurementWorkbench extends Page
         }
 
         try {
+            $submissionNote = collect([
+                'Submitted from Procurement Workbench',
+                $this->purchaseOrderNumber !== '' ? 'PO '.$this->purchaseOrderNumber : null,
+                $this->shipToWarehouseLabel() !== null ? 'Ship to '.$this->shipToWarehouseLabel() : null,
+            ])->filter()->implode(' | ');
+
             $submission = $submitAction->execute(
                 retailerAccount: $currentAccount,
                 actor: $actor,
                 lineItems: $lineItems,
-                notes: 'Submitted from Procurement Workbench',
+                notes: $submissionNote,
             );
         } catch (Throwable $exception) {
             report($exception);
@@ -134,25 +167,83 @@ class ProcurementWorkbench extends Page
 
     public function updatedSelectedQuantities($value, string $key): void
     {
-        $this->selectedQuantities[(string) $key] = max(0, (int) $value);
-        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
-        $this->checkoutSummary = $this->buildCheckoutSummary();
+        $offerId = (int) $key;
+        $this->selectedQuantities[(string) $key] = min(
+            max(0, (int) $value),
+            $this->maxSelectableQuantityForOffer($offerId)
+        );
+        $this->rebuildWorkbenchViews();
     }
 
     public function incrementQuantity(int $offerId): void
     {
         $current = (int) ($this->selectedQuantities[(string) $offerId] ?? 0);
-        $this->selectedQuantities[(string) $offerId] = $current + 1;
-        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
-        $this->checkoutSummary = $this->buildCheckoutSummary();
+        $this->selectedQuantities[(string) $offerId] = min(
+            $current + 1,
+            $this->maxSelectableQuantityForOffer($offerId)
+        );
+        $this->rebuildWorkbenchViews();
     }
 
     public function decrementQuantity(int $offerId): void
     {
         $current = (int) ($this->selectedQuantities[(string) $offerId] ?? 0);
         $this->selectedQuantities[(string) $offerId] = max(0, $current - 1);
-        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
-        $this->checkoutSummary = $this->buildCheckoutSummary();
+        $this->rebuildWorkbenchViews();
+    }
+
+    public function setActiveView(string $view): void
+    {
+        if (! in_array($view, ['search', 'cart', 'orders', 'pending'], true)) {
+            return;
+        }
+
+        $this->activeView = $view;
+    }
+
+    public function applySearchFilters(): void
+    {
+        $this->searchMinimumQty = max(1, (int) $this->searchMinimumQty);
+        $this->searchResults = $this->buildSearchResults();
+        $this->activeView = 'search';
+    }
+
+    public function resetSearchFilters(): void
+    {
+        $this->searchSupplierId = null;
+        $this->searchWidth = '';
+        $this->searchHeight = '';
+        $this->searchRimSize = '';
+        $this->searchMinimumQty = 1;
+        $this->searchResults = $this->buildSearchResults();
+    }
+
+    public function toggleResultExpansion(string $resultKey): void
+    {
+        if (in_array($resultKey, $this->expandedResultKeys, true)) {
+            $this->expandedResultKeys = array_values(array_filter(
+                $this->expandedResultKeys,
+                fn (string $key): bool => $key !== $resultKey
+            ));
+
+            return;
+        }
+
+        $this->expandedResultKeys[] = $resultKey;
+    }
+
+    public function addRecommendedQuantity(int $offerId, ?int $recommendedQuantity = null): void
+    {
+        $current = (int) ($this->selectedQuantities[(string) $offerId] ?? 0);
+        $this->selectedQuantities[(string) $offerId] = max(
+            1,
+            min(
+                $current + max(1, (int) ($recommendedQuantity ?? 1)),
+                $this->maxSelectableQuantityForOffer($offerId)
+            )
+        );
+        $this->rebuildWorkbenchViews();
+        $this->activeView = 'cart';
     }
 
     protected function refreshWorkbench(): void
@@ -163,8 +254,13 @@ class ProcurementWorkbench extends Page
         $this->currentAccountSummary = $snapshot['current_account_summary'];
         $this->supplierConnectionGroups = $snapshot['supplier_groups'] ?? [];
         $this->recentProcurementSignals = $snapshot['recent_procurement_signals'] ?? [];
-        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
-        $this->checkoutSummary = $this->buildCheckoutSummary();
+        $this->shipToWarehouseOptions = $this->buildShipToWarehouseOptions();
+
+        if ($this->shipToWarehouseId === null && $this->shipToWarehouseOptions !== []) {
+            $this->shipToWarehouseId = (int) array_key_first($this->shipToWarehouseOptions);
+        }
+
+        $this->rebuildWorkbenchViews();
     }
 
     protected function buildSupplierCatalogSections(): array
@@ -205,6 +301,12 @@ class ProcurementWorkbench extends Page
                             'brand_name' => $catalogGroup?->brand_name ?? 'Tyre',
                             'model_name' => $catalogGroup?->model_name ?? 'Offer',
                             'full_size' => $catalogGroup?->full_size ?? 'N/A',
+                            'width' => (string) ($catalogGroup?->width ?? ''),
+                            'height' => (string) ($catalogGroup?->height ?? ''),
+                            'rim_size' => (string) ($catalogGroup?->rim_size ?? ''),
+                            'load_index' => $catalogGroup?->load_index,
+                            'speed_rating' => $catalogGroup?->speed_rating,
+                            'runflat' => (bool) ($catalogGroup?->runflat ?? false),
                             'dot_year' => $catalogGroup?->dot_year ?? null,
                             'country' => $catalogGroup?->country ?? null,
                             'warehouse_id' => $warehouse?->warehouse_id ?? $warehouse?->id,
@@ -297,6 +399,125 @@ class ProcurementWorkbench extends Page
                 ? 'Submitting from ' . $this->currentAccountName() . ' will split the final checkout into one procurement request per supplier.'
                 : 'Select a retail account to start procurement.',
         ];
+    }
+
+    protected function rebuildWorkbenchViews(): void
+    {
+        $this->supplierCatalogSections = $this->buildSupplierCatalogSections();
+        $this->checkoutSummary = $this->buildCheckoutSummary();
+        $this->searchResults = $this->buildSearchResults();
+        $this->orderHistory = $this->buildOrderHistory();
+        $this->pendingOrderHistory = $this->buildPendingOrderHistory();
+    }
+
+    protected function buildSearchResults(): array
+    {
+        $supplierFilter = $this->searchSupplierId;
+        $widthFilter = trim($this->searchWidth);
+        $heightFilter = trim($this->searchHeight);
+        $rimFilter = trim($this->searchRimSize);
+        $minimumQty = max(1, (int) $this->searchMinimumQty);
+
+        return collect($this->supplierCatalogSections)
+            ->flatMap(fn (array $section): array => $section['offers'] ?? [])
+            ->filter(function (array $offer) use ($supplierFilter, $widthFilter, $heightFilter, $rimFilter, $minimumQty): bool {
+                if ($supplierFilter !== null && (int) ($offer['supplier_id'] ?? 0) !== $supplierFilter) {
+                    return false;
+                }
+
+                if ($widthFilter !== '' && (string) ($offer['width'] ?? '') !== $widthFilter) {
+                    return false;
+                }
+
+                if ($heightFilter !== '' && (string) ($offer['height'] ?? '') !== $heightFilter) {
+                    return false;
+                }
+
+                if ($rimFilter !== '' && (string) ($offer['rim_size'] ?? '') !== $rimFilter) {
+                    return false;
+                }
+
+                return (int) ($offer['available_quantity'] ?? 0) >= $minimumQty;
+            })
+            ->groupBy(fn (array $offer): string => implode('|', [
+                strtolower((string) ($offer['brand_name'] ?? '')),
+                strtolower((string) ($offer['model_name'] ?? '')),
+                strtolower((string) ($offer['full_size'] ?? '')),
+                strtolower((string) ($offer['dot_year'] ?? '')),
+            ]))
+            ->map(function ($offers, string $resultKey): array {
+                $rows = collect($offers)->sortBy('unit_price')->values();
+                $first = $rows->first() ?? [];
+
+                return [
+                    'result_key' => $resultKey,
+                    'brand_name' => $first['brand_name'] ?? 'Tyre',
+                    'model_name' => $first['model_name'] ?? 'Offer',
+                    'full_size' => $first['full_size'] ?? 'N/A',
+                    'load_index' => $first['load_index'] ?? 'N/A',
+                    'speed_rating' => $first['speed_rating'] ?? 'N/A',
+                    'dot_year' => $first['dot_year'] ?? 'N/A',
+                    'runflat_label' => ($first['runflat'] ?? false) ? 'Yes' : 'No',
+                    'offer_count' => $rows->count(),
+                    'available_quantity_total' => (int) $rows->sum('available_quantity'),
+                    'best_unit_price' => round((float) $rows->min('unit_price'), 2),
+                    'supplier_rows' => $rows->all(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function buildOrderHistory(): array
+    {
+        return collect($this->recentProcurementSignals)
+            ->sortByDesc(fn (array $signal): string => (string) ($signal['occurred_at'] ?? ''))
+            ->values()
+            ->all();
+    }
+
+    protected function buildPendingOrderHistory(): array
+    {
+        return collect($this->recentProcurementSignals)
+            ->filter(function (array $signal): bool {
+                $status = (string) ($signal['status'] ?? '');
+
+                return ! in_array($status, ['fulfilled', 'cancelled'], true);
+            })
+            ->sortByDesc(fn (array $signal): string => (string) ($signal['occurred_at'] ?? ''))
+            ->values()
+            ->all();
+    }
+
+    protected function buildShipToWarehouseOptions(): array
+    {
+        return Warehouse::query()
+            ->active()
+            ->where('is_system', false)
+            ->orderByDesc('is_primary')
+            ->orderBy('warehouse_name')
+            ->limit(20)
+            ->pluck('warehouse_name', 'id')
+            ->mapWithKeys(fn ($name, $id): array => [(int) $id => (string) $name])
+            ->all();
+    }
+
+    protected function maxSelectableQuantityForOffer(int $offerId): int
+    {
+        $offer = collect($this->supplierCatalogSections)
+            ->flatMap(fn (array $section): array => $section['offers'] ?? [])
+            ->first(fn (array $row): bool => (int) ($row['offer_id'] ?? 0) === $offerId);
+
+        return max(0, (int) ($offer['available_quantity'] ?? 0));
+    }
+
+    protected function shipToWarehouseLabel(): ?string
+    {
+        if ($this->shipToWarehouseId === null) {
+            return null;
+        }
+
+        return $this->shipToWarehouseOptions[$this->shipToWarehouseId] ?? null;
     }
 
     protected function primaryImageForOffer(TyreAccountOffer $offer): ?string

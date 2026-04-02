@@ -11,6 +11,7 @@ use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Products\Models\TyreAccountOffer;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ProcurementWorkbenchData
@@ -121,6 +122,7 @@ final class ProcurementWorkbenchData
 
         return $this->accountConnectionsQuery()
             ->with('supplierAccount')
+            ->approved()
             ->orderByRaw(
                 "CASE status WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END",
                 [
@@ -148,6 +150,7 @@ final class ProcurementWorkbenchData
                     'reports_subscription_enabled' => (bool) ($supplier?->reports_subscription_enabled ?? false),
                     'wholesale_enabled' => (bool) ($supplier?->wholesale_enabled ?? false),
                     'summary' => $this->supplierSummary($connection),
+                    'line_items' => $supplier instanceof Account ? $this->supplierOfferRows($supplier) : [],
                 ];
             })
             ->values()
@@ -327,6 +330,59 @@ final class ProcurementWorkbenchData
             AccountConnectionStatus::INACTIVE => 'Supplier connection is inactive.',
             default => 'Supplier connection status is not available.',
         };
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function supplierOfferRows(Account $supplier): array
+    {
+        return TyreAccountOffer::query()
+            ->with(['tyreCatalogGroup', 'inventories.warehouse'])
+            ->where('account_id', $supplier->id)
+            ->whereHas('inventories', function (Builder $query): void {
+                $query
+                    ->where('quantity', '>', 0)
+                    ->orWhere('eta_qty', '>', 0);
+            })
+            ->orderByDesc('updated_at')
+            ->limit(4)
+            ->get()
+            ->map(function (TyreAccountOffer $offer) use ($supplier): array {
+                $group = $offer->tyreCatalogGroup;
+                $inventories = $offer->inventories;
+                $inStockInventory = $inventories->first(fn ($inventory) => (int) $inventory->quantity > 0);
+                $activeInventory = $inStockInventory ?? $inventories->first();
+                $availableQuantity = (int) $inventories->sum('quantity');
+                $etaQuantity = (int) $inventories->sum('eta_qty');
+                $recommendedQuantity = $availableQuantity > 0 ? min(4, $availableQuantity) : ($etaQuantity > 0 ? 1 : 0);
+                $unitPrice = (float) ($offer->wholesale_price_lvl1 ?: $offer->retail_price ?: 0);
+
+                return [
+                    'offer_id' => $offer->id,
+                    'supplier_id' => $supplier->id,
+                    'supplier_name' => $supplier->name,
+                    'product_name' => trim(($group?->brand_name ?? '').' '.($group?->model_name ?? '')),
+                    'brand_name' => $group?->brand_name,
+                    'model_name' => $group?->model_name,
+                    'sku' => $offer->source_sku,
+                    'size' => $group?->full_size,
+                    'year' => $group?->dot_year,
+                    'available_quantity' => $availableQuantity,
+                    'eta_quantity' => $etaQuantity,
+                    'availability_label' => $availableQuantity > 0 ? 'In stock' : ($etaQuantity > 0 ? 'ETA stock' : 'No stock'),
+                    'recommended_quantity' => $recommendedQuantity,
+                    'warehouse_id' => $activeInventory?->warehouse_id,
+                    'warehouse_label' => $activeInventory?->warehouse?->warehouse_name ?? 'Warehouse pending',
+                    'unit_price' => round($unitPrice, 2),
+                    'line_note' => $availableQuantity > 0
+                        ? 'Ready to request from approved supplier stock.'
+                        : 'ETA-only supplier stock.',
+                ];
+            })
+            ->filter(fn (array $row): bool => ($row['unit_price'] ?? 0) > 0)
+            ->values()
+            ->all();
     }
 
     private function orderSignal(Order $order): array

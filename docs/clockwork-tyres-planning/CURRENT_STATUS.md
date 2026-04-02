@@ -10,8 +10,8 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - backend platform foundation: `96%`
 - tyre import / catalog / inventory flow: `90%`
 - storefront functional foundation: `90%`
-- CRM-native admin rebuild for new Clockwork flows: `88-90%`
-- overall V1: about `92%`
+- CRM-native admin rebuild for new Clockwork flows: `90-92%`
+- overall V1: about `93%`
 
 ## What Is Confirmed
 
@@ -42,6 +42,12 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 
 - business accounts and account switching
 - CRM-native procurement requests
+- retailer-admin procurement entry points:
+  - search
+  - grouped results
+  - cart
+  - my orders
+  - pending orders
 - supplier review / approval / revision / rejection lifecycle
 - quote and invoice linkage for procurement
 - tyre import staging and apply flow

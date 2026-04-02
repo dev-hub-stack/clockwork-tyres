@@ -146,16 +146,18 @@ class SubmitGroupedProcurementActionTest extends TestCase
         $this->assertNotNull($requests[0]->quote_order_id);
         $this->assertNotNull($requests[0]->quoteOrder);
         $this->assertSame(DocumentType::QUOTE, $requests[0]->quoteOrder?->document_type);
-        $this->assertSame(QuoteStatus::SENT, $requests[0]->quoteOrder?->quote_status);
+        $this->assertSame(QuoteStatus::DRAFT, $requests[0]->quoteOrder?->quote_status);
         $this->assertSame($northCoastConnection->supplier_customer_id, $requests[0]->quoteOrder?->customer_id);
+        $this->assertNull($requests[0]->quoteOrder?->sent_at);
         $this->assertCount(2, $requests[0]->items);
         $this->assertSame($desertLineConnection->supplier_customer_id, $requests[1]->customer_id);
         $this->assertSame($desertLine->id, $requests[1]->customer?->account_id);
         $this->assertNotNull($requests[1]->quote_order_id);
         $this->assertNotNull($requests[1]->quoteOrder);
         $this->assertSame(DocumentType::QUOTE, $requests[1]->quoteOrder?->document_type);
-        $this->assertSame(QuoteStatus::SENT, $requests[1]->quoteOrder?->quote_status);
+        $this->assertSame(QuoteStatus::DRAFT, $requests[1]->quoteOrder?->quote_status);
         $this->assertSame($desertLineConnection->supplier_customer_id, $requests[1]->quoteOrder?->customer_id);
+        $this->assertNull($requests[1]->quoteOrder?->sent_at);
         $this->assertCount(1, $requests[1]->items);
     }
 
