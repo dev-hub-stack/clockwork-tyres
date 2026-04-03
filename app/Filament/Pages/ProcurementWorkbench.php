@@ -77,6 +77,18 @@ class ProcurementWorkbench extends Page
 
     public function mount(): void
     {
+        $requestedSupplierId = request()->integer('supplier');
+
+        if ($requestedSupplierId > 0) {
+            $this->searchSupplierId = $requestedSupplierId;
+        }
+
+        $requestedView = request()->string('view')->toString();
+
+        if (in_array($requestedView, ['search', 'cart', 'orders', 'pending'], true)) {
+            $this->activeView = $requestedView;
+        }
+
         $this->refreshWorkbench();
     }
 
