@@ -1,4 +1,140 @@
 <x-filament-panels::page>
+    <style>
+        .procurement-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .procurement-summary-grid {
+            display: grid;
+            gap: 0.875rem;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        .procurement-summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 1.5rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            padding: 1rem 1.125rem;
+            min-height: 8.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .procurement-summary-card--account {
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+        }
+
+        .procurement-summary-label {
+            font-size: 0.7rem;
+            line-height: 1.15;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .procurement-summary-value {
+            margin-top: 0.85rem;
+            font-size: 1.75rem;
+            line-height: 1.05;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: #0f172a;
+        }
+
+        .procurement-summary-note {
+            margin-top: 0.4rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            color: #475569;
+        }
+
+        .procurement-result-shell {
+            display: grid;
+            gap: 1rem;
+            align-items: center;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .procurement-result-metrics {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .procurement-result-metric {
+            border: 1px solid #e5e7eb;
+            border-radius: 1.25rem;
+            background: #f8fafc;
+            padding: 1rem;
+            min-height: 6.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .procurement-result-metric--price {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        }
+
+        .procurement-result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+
+        .procurement-result-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            padding: 0.4rem 0.7rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .procurement-result-actions {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        @media (min-width: 768px) {
+            .procurement-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .procurement-summary-card--account {
+                grid-column: span 2;
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .procurement-summary-grid {
+                grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 0.82fr));
+            }
+
+            .procurement-summary-card--account {
+                grid-column: span 1;
+            }
+
+            .procurement-result-shell {
+                grid-template-columns: minmax(0, 1fr) 24rem auto;
+            }
+
+            .procurement-result-actions {
+                justify-content: flex-end;
+            }
+        }
+    </style>
+
     @php
         $supplierOptions = collect($supplierConnectionGroups)
             ->filter(fn (array $group): bool => ($group['connection_status'] ?? null) === 'approved')
@@ -29,31 +165,42 @@
         $historyRows = $activeView === 'pending' ? $pendingOrderHistory : $orderHistory;
     @endphp
 
-    <div class="space-y-6">
+    <div class="procurement-shell">
         <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div class="max-w-3xl">
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Retailer Admin</p>
-                    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950">Procurement</h1>
-                    <p class="mt-3 text-sm leading-6 text-gray-600">
-                        Search approved supplier stock, compare supplier offers, build one grouped cart, and place one admin-side order that the backend
-                        splits into separate supplier requests.
-                    </p>
+            <div class="max-w-3xl">
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Retailer Admin</p>
+                <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950">Procurement</h1>
+                <p class="mt-3 text-sm leading-6 text-gray-600">
+                    Search approved supplier stock, compare supplier offers, build one grouped cart, and place one admin-side order that the backend
+                    splits into separate supplier requests.
+                </p>
+            </div>
+
+            <div class="mt-6 procurement-summary-grid">
+                <div class="procurement-summary-card procurement-summary-card--account">
+                    <div>
+                        <p class="procurement-summary-label">Current business account</p>
+                        <p class="procurement-summary-value">{{ $currentAccountSummary['account']['name'] ?? 'No active retail account' }}</p>
+                    </div>
+                    <p class="procurement-summary-note">Ship-to warehouse, procurement history, and supplier eligibility stay scoped to this active retailer account.</p>
                 </div>
 
-                <div class="grid w-full gap-3 sm:grid-cols-3 lg:w-[32rem]">
-                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current business account</p>
-                        <p class="mt-2 text-lg font-semibold text-gray-950">{{ $currentAccountSummary['account']['name'] ?? 'No active retail account' }}</p>
-                    </div>
-                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Approved suppliers</p>
-                        <p class="mt-2 text-lg font-semibold text-gray-950">{{ $checkoutSummary['approved_suppliers'] ?? 0 }}</p>
-                    </div>
-                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Cart subtotal</p>
-                        <p class="mt-2 text-lg font-semibold text-gray-950">AED {{ number_format($checkoutSummary['subtotal'] ?? 0, 2) }}</p>
-                    </div>
+                <div class="procurement-summary-card">
+                    <p class="procurement-summary-label">Approved suppliers</p>
+                    <p class="procurement-summary-value">{{ $checkoutSummary['approved_suppliers'] ?? 0 }}</p>
+                    <p class="procurement-summary-note">Connected suppliers available for admin-side ordering.</p>
+                </div>
+
+                <div class="procurement-summary-card">
+                    <p class="procurement-summary-label">Selected lines</p>
+                    <p class="procurement-summary-value">{{ $checkoutSummary['selected_lines'] ?? 0 }}</p>
+                    <p class="procurement-summary-note">Grouped request lines currently sitting in the shared cart.</p>
+                </div>
+
+                <div class="procurement-summary-card">
+                    <p class="procurement-summary-label">Cart subtotal</p>
+                    <p class="procurement-summary-value">AED {{ number_format($checkoutSummary['subtotal'] ?? 0, 2) }}</p>
+                    <p class="procurement-summary-note">Final submit fans out into supplier-side requests after review.</p>
                 </div>
             </div>
         </div>
@@ -195,35 +342,39 @@
                         <div class="divide-y divide-gray-100">
                             @foreach ($searchResults as $result)
                                 <div class="px-6 py-5">
-                                    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem_12rem_12rem] lg:items-center">
+                                    <div class="procurement-result-shell">
                                         <div>
                                             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">{{ $result['brand_name'] }}</p>
                                             <h3 class="mt-1 text-2xl font-semibold text-gray-950">{{ $result['model_name'] }}</h3>
-                                            <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
-                                                <span>Size {{ $result['full_size'] }}</span>
-                                                <span>Load {{ $result['load_index'] }}</span>
-                                                <span>Speed {{ $result['speed_rating'] }}</span>
-                                                <span>Year {{ $result['dot_year'] }}</span>
-                                                <span>Run Flat {{ $result['runflat_label'] }}</span>
+                                            <div class="procurement-result-meta">
+                                                <span class="procurement-result-chip">Size {{ $result['full_size'] }}</span>
+                                                <span class="procurement-result-chip">Load {{ $result['load_index'] }}</span>
+                                                <span class="procurement-result-chip">Speed {{ $result['speed_rating'] }}</span>
+                                                <span class="procurement-result-chip">Year {{ $result['dot_year'] }}</span>
+                                                <span class="procurement-result-chip">Run Flat {{ $result['runflat_label'] }}</span>
                                             </div>
                                         </div>
-                                        <div class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
-                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Suppliers</p>
-                                            <p class="mt-2 text-lg font-semibold text-gray-950">{{ $result['offer_count'] }}</p>
-                                        </div>
-                                        <div class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
-                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total available</p>
-                                            <p class="mt-2 text-lg font-semibold text-gray-950">{{ $result['available_quantity_total'] }}</p>
-                                        </div>
-                                        <div class="flex items-center justify-end gap-3">
-                                            <div class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
+
+                                        <div class="procurement-result-metrics">
+                                            <div class="procurement-result-metric">
+                                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Suppliers</p>
+                                                <p class="mt-2 text-2xl font-semibold text-gray-950">{{ $result['offer_count'] }}</p>
+                                            </div>
+                                            <div class="procurement-result-metric">
+                                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total available</p>
+                                                <p class="mt-2 text-2xl font-semibold text-gray-950">{{ $result['available_quantity_total'] }}</p>
+                                            </div>
+                                            <div class="procurement-result-metric procurement-result-metric--price">
                                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Best unit price</p>
                                                 <p class="mt-2 text-lg font-semibold text-gray-950">AED {{ number_format($result['best_unit_price'], 2) }}</p>
                                             </div>
+                                        </div>
+
+                                        <div class="procurement-result-actions">
                                             <button
                                                 type="button"
                                                 wire:click="toggleResultExpansion('{{ $result['result_key'] }}')"
-                                                class="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
+                                                class="inline-flex min-h-[3.5rem] items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
                                             >
                                                 {{ in_array($result['result_key'], $expandedResultKeys, true) ? 'Hide suppliers' : 'Compare suppliers' }}
                                             </button>
