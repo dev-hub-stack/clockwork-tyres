@@ -32,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::hex('#e91e63'), // Pink/Magenta accent
                 'gray' => Color::Slate,
             ])
-            ->viteTheme('resources/css/app.css')
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->darkMode(false)
             // Enable collapsible sidebar on desktop (like Tunerstop)
             ->sidebarCollapsibleOnDesktop()
