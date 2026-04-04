@@ -7,6 +7,7 @@ use App\Http\Controllers\ConsignmentPdfController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\ProductVariantGridController;
 use App\Http\Controllers\QuotePdfController;
+use App\Http\Controllers\TyreImageController;
 use App\Http\Controllers\WarrantyClaimPdfController;
 use Illuminate\Support\Facades\Route;
 
@@ -104,4 +105,16 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('products.images.export');
     Route::post('products/images/import', [ProductImageController::class, 'bulkImport'])
         ->name('products.images.import');
+
+    // Tyre Images Routes (mirrors Product Images pattern, scoped to current business account)
+    Route::get('tyres/images', [TyreImageController::class, 'index'])
+        ->name('tyres.images.index');
+    Route::get('tyres/images/{id}/edit', [TyreImageController::class, 'edit'])
+        ->name('tyres.images.edit');
+    Route::put('tyres/images/{id}', [TyreImageController::class, 'update'])
+        ->name('tyres.images.update');
+    Route::get('tyres/images/export', [TyreImageController::class, 'export'])
+        ->name('tyres.images.export');
+    Route::post('tyres/images/import', [TyreImageController::class, 'bulkImport'])
+        ->name('tyres.images.import');
 });

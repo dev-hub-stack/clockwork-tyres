@@ -65,6 +65,13 @@ class AdminPanelProvider extends PanelProvider
                     ->group('Products')
                     ->sort(5)
                     ->visible(fn () => PanelAccess::canAccessOperationalSurface('view_products')),
+
+                NavigationItem::make('Tyre Images')
+                    ->url('/admin/tyres/images')
+                    ->icon('heroicon-o-photo')
+                    ->group('Tyres')
+                    ->sort(5)
+                    ->visible(fn () => PanelAccess::canAccessOperationalSurface('view_products')),
                 
                 // Reports Group Header
                 NavigationItem::make('Sales Dashboard')

@@ -162,6 +162,12 @@
             </div>
         @endif
 
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/admin/tyres/images" class="btn btn-primary">
+                <i class="bi bi-images"></i> Tyre Images
+            </a>
+        </div>
+
         <div class="grid gap-4 lg:grid-cols-[1.5fr,1fr]">
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex flex-col gap-3">
