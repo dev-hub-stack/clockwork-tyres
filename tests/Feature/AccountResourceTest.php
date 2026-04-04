@@ -53,13 +53,17 @@ class AccountResourceTest extends TestCase
             ->assertOk()
             ->assertSee('Business Accounts')
             ->assertSee('Tyre Hub')
-            ->assertSee('Premium');
+            ->assertSee('Premium')
+            ->assertSee('AED 199 / Month');
 
         $this->actingAs($superAdmin)
             ->get('/admin/accounts/create')
             ->assertOk()
             ->assertSee('Account Details')
-            ->assertSee('Subscription');
+            ->assertSee('Subscription')
+            ->assertSee('Starter (Free)')
+            ->assertSee('Plus (199 AED / Month)')
+            ->assertSee('Enterprise/custom pricing is configured manually from super admin after account creation.');
 
         $this->actingAs($superAdmin)
             ->get('/admin/accounts/'.$account->slug.'/edit')

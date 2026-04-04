@@ -87,6 +87,14 @@ class AccountResource extends Resource
                             ->mapWithKeys(fn (AccountType $type): array => [$type->value => $type->label()])
                             ->all())
                         ->required()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get): void {
+                            $availablePlans = static::planOptionLabels((string) $state);
+
+                            if (! array_key_exists((string) $get('base_subscription_plan'), $availablePlans)) {
+                                $set('base_subscription_plan', array_key_first($availablePlans));
+                            }
+                        })
                         ->default(AccountType::RETAILER->value),
 
                     Select::make('status')
@@ -114,12 +122,10 @@ class AccountResource extends Resource
                 ->schema([
                     Select::make('base_subscription_plan')
                         ->label('Base plan')
-                        ->options(collect(SubscriptionPlan::cases())
-                            ->mapWithKeys(fn (SubscriptionPlan $plan): array => [$plan->value => $plan->label()])
-                            ->all())
+                        ->options(fn ($get): array => static::planOptionLabels((string) ($get('account_type') ?? AccountType::RETAILER->value)))
                         ->required()
                         ->default(SubscriptionPlan::BASIC->value)
-                        ->helperText('`Basic` maps to the free Starter plan. `Premium` maps to the paid self-serve plan: retailer `Plus` or wholesaler `Premium` at AED 199/month. Enterprise stays manual/custom pricing. Combined retail + wholesale accounts must use a paid plan.'),
+                        ->helperText(fn ($get): string => static::planHelperText((string) ($get('account_type') ?? AccountType::RETAILER->value))),
 
                     Toggle::make('reports_subscription_enabled')
                         ->label('Reports add-on enabled')
@@ -164,7 +170,8 @@ class AccountResource extends Resource
 
                 BadgeColumn::make('base_subscription_plan')
                     ->label('Plan')
-                    ->formatStateUsing(fn (?SubscriptionPlan $state): string => $state?->label() ?? 'Basic')
+                    ->formatStateUsing(fn (?SubscriptionPlan $state, Account $record): string => static::displayPlanLabel($record))
+                    ->description(fn (Account $record): string => static::planPriceSummary($record))
                     ->colors([
                         'gray' => SubscriptionPlan::BASIC->value,
                         'success' => SubscriptionPlan::PREMIUM->value,
@@ -272,5 +279,55 @@ class AccountResource extends Resource
                     $query->where('status', AccountConnectionStatus::APPROVED->value);
                 },
             ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected static function planOptionLabels(?string $accountType): array
+    {
+        return match ($accountType) {
+            AccountType::SUPPLIER->value => [
+                SubscriptionPlan::BASIC->value => 'Starter (Free)',
+                SubscriptionPlan::PREMIUM->value => 'Premium (199 AED / Month)',
+            ],
+            AccountType::BOTH->value => [
+                SubscriptionPlan::PREMIUM->value => 'Premium (199 AED / Month)',
+            ],
+            default => [
+                SubscriptionPlan::BASIC->value => 'Starter (Free)',
+                SubscriptionPlan::PREMIUM->value => 'Plus (199 AED / Month)',
+            ],
+        };
+    }
+
+    protected static function planHelperText(?string $accountType): string
+    {
+        return match ($accountType) {
+            AccountType::SUPPLIER->value => 'Wholesaler Starter stays free. Wholesaler Premium is AED 199/month. Enterprise/custom pricing is configured manually from super admin after account creation.',
+            AccountType::BOTH->value => 'Combined retailer + wholesaler accounts must use the paid AED 199/month plan or a manual enterprise/custom setup from super admin.',
+            default => 'Retailer Starter stays free. Retailer Plus is AED 199/month. Enterprise/custom pricing is configured manually from super admin after account creation.',
+        };
+    }
+
+    protected static function displayPlanLabel(Account $record): string
+    {
+        if ($record->base_subscription_plan === SubscriptionPlan::BASIC) {
+            return 'Starter';
+        }
+
+        return match ($record->account_type) {
+            AccountType::RETAILER => 'Plus',
+            default => 'Premium',
+        };
+    }
+
+    protected static function planPriceSummary(Account $record): string
+    {
+        if ($record->base_subscription_plan === SubscriptionPlan::BASIC) {
+            return 'Free';
+        }
+
+        return 'AED 199 / Month';
     }
 }

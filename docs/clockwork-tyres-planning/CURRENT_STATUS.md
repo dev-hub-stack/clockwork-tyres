@@ -1,6 +1,6 @@
 # Clockwork Tyres Current Status
 
-Date: April 2, 2026
+Date: April 4, 2026
 
 This file is the practical status snapshot for the active Clockwork Tyres build.
 
@@ -72,6 +72,22 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
   - `basic` = free starter
   - `premium` = retailer `Plus` or wholesaler `Premium`
   - enterprise remains manual / custom pricing
+- storefront pricing cards now switch cleanly between:
+  - retailer `Starter / Plus / Enterprise`
+  - wholesaler `Starter / Premium / Enterprise`
+- storefront registration now hydrates plan intent from pricing CTAs:
+  - `retailer + basic`
+  - `retailer + premium`
+  - `supplier + basic`
+  - `supplier + premium`
+  - enterprise/custom inquiry
+- super admin business-account creation now reflects the same commercial language:
+  - retailer `Starter / Plus`
+  - wholesaler `Starter / Premium`
+  - `both` accounts remain paid-only and enterprise stays a manual super-admin path
+- broader regression beyond the main counter-flow critical path is now in place for:
+  - pricing / registration alignment
+  - account governance and subscription labeling
 
 ## Main Remaining Work
 
