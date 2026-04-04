@@ -262,7 +262,7 @@
             <button type="button" class="btn btn-info" id="export-btn" onclick="exportInventoryGrid()">
                 <i class="bi bi-file-earmark-csv"></i> Export CSV
             </button>
-            <a href="/admin/inventory-movement-log" class="btn btn-secondary" id="view-log-btn">
+            <a href="/admin/inventory-movement-log?inventory_type=products" class="btn btn-secondary" id="view-log-btn">
                 <i class="bi bi-clock-history"></i> Movement Log
             </a>
             @if($this->canEditCells)

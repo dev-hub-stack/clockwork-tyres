@@ -17,15 +17,40 @@ use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Products\Models\TyreCatalogGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class InventoryMovementLogTypeFilterTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Permission::firstOrCreate(['name' => 'view_inventory', 'guard_name' => 'web']);
+    }
+
+    public function test_inventory_log_page_honors_the_requested_inventory_type_preset(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('view_inventory');
+        $this->createAccount($user, 'Scope Demo', 'scope-demo', true);
+
+        $response = $this->actingAs($user)->get('/admin/inventory-movement-log?inventory_type=tyres');
+
+        $response->assertOk();
+        $response->assertSee('id="f-inventory-type" value="tyres"', false);
+        $response->assertSee('class="log-tab-btn active" data-type="tyres"', false);
+    }
+
     public function test_inventory_log_can_filter_by_products_tyres_and_addons_for_current_business(): void
     {
         $user = User::factory()->create();
+        $user->givePermissionTo('view_inventory');
         $account = $this->createAccount($user, 'Scope Demo', 'scope-demo', true);
 
         $warehouse = Warehouse::create([

@@ -166,6 +166,9 @@
             <a href="/admin/tyres/images" class="btn btn-primary">
                 <i class="bi bi-images"></i> Tyre Images
             </a>
+            <a href="/admin/inventory-movement-log?inventory_type=tyres" class="btn btn-secondary">
+                <i class="bi bi-clock-history"></i> Movement Log
+            </a>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-[1.5fr,1fr]">

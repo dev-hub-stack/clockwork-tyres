@@ -32,14 +32,14 @@
 
 <div class="log-page">
     <div class="log-tabs">
-        <button type="button" class="log-tab-btn active" data-type="">All</button>
-        <button type="button" class="log-tab-btn" data-type="products">Products</button>
-        <button type="button" class="log-tab-btn" data-type="tyres">Tyres</button>
-        <button type="button" class="log-tab-btn" data-type="addons">Addons</button>
+        <button type="button" class="log-tab-btn {{ ($defaultInventoryType ?? '') === '' ? 'active' : '' }}" data-type="">All</button>
+        <button type="button" class="log-tab-btn {{ ($defaultInventoryType ?? '') === 'products' ? 'active' : '' }}" data-type="products">Products</button>
+        <button type="button" class="log-tab-btn {{ ($defaultInventoryType ?? '') === 'tyres' ? 'active' : '' }}" data-type="tyres">Tyres</button>
+        <button type="button" class="log-tab-btn {{ ($defaultInventoryType ?? '') === 'addons' ? 'active' : '' }}" data-type="addons">Addons</button>
     </div>
 
     <div class="log-filters">
-        <input type="hidden" id="f-inventory-type" value="">
+        <input type="hidden" id="f-inventory-type" value="{{ $defaultInventoryType ?? '' }}">
         <div class="filter-group">
             <label>SKU</label>
             <input type="text" id="f-sku" placeholder="Search SKU..." style="width: 180px;">
@@ -173,6 +173,8 @@ function clearFilters() {
 }
 
 $(document).ready(function() {
+    $('.log-tab-btn').removeClass('active');
+    $('.log-tab-btn[data-type="' + ($('#f-inventory-type').val() || '') + '"]').addClass('active');
     loadLogs();
 
     var debounceHandle;

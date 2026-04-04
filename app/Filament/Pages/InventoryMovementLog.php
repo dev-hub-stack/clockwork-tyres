@@ -13,6 +13,8 @@ use UnitEnum;
 
 class InventoryMovementLog extends Page
 {
+    private const ALLOWED_INVENTORY_TYPES = ['products', 'tyres', 'addons'];
+
     protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
     protected static ?string $navigationLabel = 'Movement Log';
@@ -35,6 +37,11 @@ class InventoryMovementLog extends Page
 
     public function getViewData(): array
     {
+        $defaultInventoryType = request()?->query('inventory_type');
+        if (! in_array($defaultInventoryType, self::ALLOWED_INVENTORY_TYPES, true)) {
+            $defaultInventoryType = '';
+        }
+
         $currentAccountId = auth()->check() && request()
             ? app(CurrentAccountResolver::class)->resolve(request(), auth()->user())->currentAccount?->id
             : null;
@@ -46,6 +53,7 @@ class InventoryMovementLog extends Page
             ->get();
 
         return [
+            'defaultInventoryType' => $defaultInventoryType,
             'warehouses' => $warehouses,
         ];
     }
