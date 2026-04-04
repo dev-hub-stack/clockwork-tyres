@@ -7,11 +7,11 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 ## Current Standing
 
 - architecture / product direction: `93%`
-- backend platform foundation: `96%`
+- backend platform foundation: `97%`
 - tyre import / catalog / inventory flow: `90%`
 - storefront functional foundation: `90%`
 - CRM-native admin rebuild for new Clockwork flows: `90-92%`
-- overall V1: about `93%`
+- overall V1: about `94%`
 
 ## What Is Confirmed
 
@@ -97,6 +97,12 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
   - users
   - retail transaction count/value
   - wholesale transaction count/value
+- launch-readiness hardening is now in place:
+  - `php artisan clockwork:launch-readiness --storefront-path="C:\Users\Dell\Documents\Gerorge\clockwork-tyres-storefront"`
+  - current local audit result: `9 pass / 0 warn / 0 fail`
+- dedicated launch docs now exist:
+  - `LAUNCH_HARDENING_CHECKLIST.md`
+  - `UAT_SMOKE_CHECKLIST.md`
 
 ## Main Remaining Work
 
@@ -108,7 +114,11 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 
 - deployment pipeline setup
 - environment hardening
-- UAT smoke checklist
+- run the new launch-readiness audit and clear any failures:
+  - `php artisan clockwork:launch-readiness --storefront-path="C:\Users\Dell\Documents\Gerorge\clockwork-tyres-storefront"`
+- execute the UAT smoke checklist during pilot validation:
+  - see `LAUNCH_HARDENING_CHECKLIST.md`
+  - see `UAT_SMOKE_CHECKLIST.md`
 - final cleanup of remaining legacy rough edges around the new flows
 - broader backend coverage beyond the new Clockwork Tyres slice
 - final KPI/reporting polish on the super-admin dashboard once George confirms any extra bird's-eye metrics
