@@ -131,6 +131,8 @@ class SuperAdminOverviewDataTest extends TestCase
 
         $this->assertSame([
             [
+                'id' => $bothModes,
+                'slug' => 'both-modes',
                 'account' => 'Both Modes',
                 'type' => 'Retailer & Supplier',
                 'status' => 'Suspended',
@@ -141,6 +143,8 @@ class SuperAdminOverviewDataTest extends TestCase
                 'approved_connections' => '1',
             ],
             [
+                'id' => $retailOne,
+                'slug' => 'retail-one',
                 'account' => 'Retail One',
                 'type' => 'Retailer',
                 'status' => 'Active',
@@ -151,6 +155,8 @@ class SuperAdminOverviewDataTest extends TestCase
                 'approved_connections' => '1',
             ],
             [
+                'id' => $supplierOne,
+                'slug' => 'supplier-one',
                 'account' => 'Supplier One',
                 'type' => 'Supplier',
                 'status' => 'Active',

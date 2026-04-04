@@ -2,191 +2,228 @@
 
 namespace App\Filament\Pages;
 
-use App\Modules\Orders\Enums\DocumentType;
-use App\Modules\Orders\Models\Order;
+use App\Filament\Support\PanelAccess;
+use App\Modules\Accounts\Enums\AccountConnectionStatus;
+use App\Modules\Accounts\Enums\AccountStatus;
+use App\Modules\Accounts\Enums\AccountType;
+use App\Modules\Accounts\Enums\SubscriptionPlan;
+use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Support\BusinessAccountInsights;
+use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
+use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Products\Enums\TyreImportBatchStatus;
+use App\Modules\Products\Models\TyreImportBatch;
 use Filament\Pages\Page;
 
 class Dashboard extends Page
 {
-    private const REVENUE_CUTOFF_DATE = '2026-01-01';
-    private const RECENT_ORDER_LIMIT = 50;
-
     protected string $view = 'filament.pages.dashboard';
-    
+
     protected static ?string $navigationLabel = 'Dashboard';
-    
+
     protected static ?int $navigationSort = -2;
-    
-    public $pendingOrders;
-    public $monthlyRevenue;
-    public $todayOrders;
-    public $notifications;
-    public $orders;
-    public $currency = 'AED'; // Default currency
+
+    public bool $isSuperAdmin = false;
+
+    /** @var array<int, array<string, string|int>> */
+    public array $headlineStats = [];
+
+    /** @var array<int, array<string, string|int>> */
+    public array $businessMixStats = [];
+
+    /** @var array<int, array<string, string|int>> */
+    public array $operationalStats = [];
+
+    /** @var array<int, array<string, string|int>> */
+    public array $commerceStats = [];
+
+    /** @var array<int, array<string, string|null>> */
+    public array $recentAccounts = [];
+
+    /** @var array<int, array<string, string|null>> */
+    public array $recentProcurementRequests = [];
+
+    /** @var array<int, array<string, string|int|null>> */
+    public array $importAlerts = [];
 
     public function mount(): void
     {
-        // Get currency from settings
-        try {
-            $currencySetting = \DB::table('settings')->where('key', 'site.currency')->first();
-            if ($currencySetting) {
-                $this->currency = $currencySetting->value ?? 'AED';
-            }
-        } catch (\Exception $e) {
-            $this->currency = 'AED';
-        }
-        
-        // Filter: Only INVOICES (exclude quotes)
-        // Pending orders = not yet (delivered AND paid) — i.e. still active
-        $this->pendingOrders = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
-            ->where(fn($q) => $q->where('order_status', '!=', 'delivered')->orWhere('payment_status', '!=', 'paid'))
-            ->count();
-        
-        $this->monthlyRevenue = Order::where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['delivered', 'completed'])
-            ->whereDate('created_at', '>=', self::REVENUE_CUTOFF_DATE)
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->sum('total');
-        
-        $this->todayOrders = Order::where('document_type', DocumentType::INVOICE)
-            ->whereDate('created_at', today())
-            ->count();
-        
-        $this->notifications = 0;
-        try {
-            if (\Schema::hasTable('warranty_claims')) {
-                $this->notifications = \DB::table('warranty_claims')
-                    ->where('status', 'pending')
-                    ->count();
-            }
-        } catch (\Exception $e) {
-            // Skip if table doesn't exist
+        $this->isSuperAdmin = PanelAccess::canAccessGovernanceSurface();
+
+        if (! $this->isSuperAdmin) {
+            return;
         }
 
-        // Get pending orders with relationships - ONLY INVOICES
-        // Exclude orders where delivered + paid (those are "complete")
-        $pendingOrdersList = Order::query()
-            ->select([
-                'id',
-                'order_number',
-                'customer_id',
-                'document_type',
-                'tracking_number',
-                'tracking_url',
-                'order_status',
-                'payment_status',
-                'outstanding_amount',
-                'sub_total',
-                'vat',
-                'shipping',
-                'total',
-                'order_notes',
-                'internal_notes',
-                'vehicle_year',
-                'vehicle_make',
-                'vehicle_model',
-                'vehicle_sub_model',
-                'created_at',
-            ])
-            ->where('document_type', DocumentType::INVOICE)
-            ->whereIn('order_status', ['pending', 'processing', 'shipped', 'delivered'])
-            ->where(fn($q) => $q->where('order_status', '!=', 'delivered')->orWhere('payment_status', '!=', 'paid'))
-            ->with([
-                'customer:id,name,phone,email',
-                'items:id,order_id,product_name,brand_name,model_name,sku,quantity,unit_price,line_total',
-            ])
-            ->orderBy('created_at', 'desc')
-            ->limit(self::RECENT_ORDER_LIMIT)
-            ->get();
-        
-        $this->orders = [];
-        foreach ($pendingOrdersList as $order) {
-            $firstItem = $order->items->first();
-            
-            // Get wheel brand from order_items.brand_name (snapshot)
-            $wheelBrand = 'N/A';
-            if ($firstItem) {
-                $wheelBrand = $firstItem->brand_name ?? 'N/A';
-            }
-            
-            $vehicle = 'N/A';
-            if ($order->vehicle_year || $order->vehicle_make || $order->vehicle_model || $order->vehicle_sub_model) {
-                $vehicle = implode(' ', array_filter([
-                    $order->vehicle_year,
-                    $order->vehicle_make,
-                    $order->vehicle_model,
-                    $order->vehicle_sub_model,
-                ]));
-            }
-            
-            // Collect all items for expandable view
-            $orderItems = [];
-            foreach ($order->items as $item) {
-                // Calculate line total if it's 0
-                $unitPrice = (float) ($item->unit_price ?? 0);
-                $quantity = $item->quantity ?? 0;
-                $lineTotal = (float) ($item->line_total ?? 0);
-                
-                // If line_total is 0, calculate it
-                if ($lineTotal == 0 && $unitPrice > 0) {
-                    $lineTotal = $unitPrice * $quantity;
-                }
-                
-                $orderItems[] = [
-                    'product_name' => $item->product_name ?? 'N/A',
-                    'brand' => $item->brand_name ?? 'N/A',
-                    'model' => $item->model_name ?? 'N/A',
-                    'sku' => $item->sku ?? 'N/A',
-                    'quantity' => $quantity,
-                    'unit_price' => $unitPrice,
-                    'line_total' => $lineTotal,
+        $this->headlineStats = [
+            [
+                'label' => 'Business Accounts',
+                'value' => Account::query()->count(),
+                'hint' => 'Platform tenants across retailer, supplier, and mixed accounts.',
+            ],
+            [
+                'label' => 'Active Accounts',
+                'value' => Account::query()->where('status', AccountStatus::ACTIVE->value)->count(),
+                'hint' => 'Businesses currently able to use the platform.',
+            ],
+            [
+                'label' => 'Premium Plans',
+                'value' => Account::query()->where('base_subscription_plan', SubscriptionPlan::PREMIUM->value)->count(),
+                'hint' => 'Paid base subscriptions on the platform.',
+            ],
+            [
+                'label' => 'Reports Add-ons',
+                'value' => Account::query()->where('reports_subscription_enabled', true)->count(),
+                'hint' => 'Accounts with reporting enabled from governance.',
+            ],
+        ];
+
+        $commerce = app(BusinessAccountInsights::class)->platform();
+
+        $this->commerceStats = [
+            [
+                'label' => 'Products Listed',
+                'value' => $commerce['products_listed'],
+                'hint' => 'Tyre offers currently listed across all business accounts.',
+            ],
+            [
+                'label' => 'Retail Transactions',
+                'value' => $commerce['retail_transaction_count'],
+                'hint' => 'Platform-wide retail invoices processed.',
+            ],
+            [
+                'label' => 'Retail Transaction Value',
+                'value' => 'AED '.number_format((float) $commerce['retail_transaction_value'], 2),
+                'hint' => 'Retail transaction value across all business accounts.',
+            ],
+            [
+                'label' => 'Wholesale Transactions',
+                'value' => $commerce['wholesale_transaction_count'],
+                'hint' => 'Procurement invoices processed for suppliers.',
+            ],
+            [
+                'label' => 'Wholesale Transaction Value',
+                'value' => 'AED '.number_format((float) $commerce['wholesale_transaction_value'], 2),
+                'hint' => 'Wholesale invoice value across supplier procurement flows.',
+            ],
+        ];
+
+        $this->businessMixStats = [
+            [
+                'label' => 'Retailers',
+                'value' => Account::query()->where('account_type', AccountType::RETAILER->value)->count(),
+                'hint' => 'Retail-only business accounts.',
+            ],
+            [
+                'label' => 'Suppliers',
+                'value' => Account::query()->where('account_type', AccountType::SUPPLIER->value)->count(),
+                'hint' => 'Wholesale-only business accounts.',
+            ],
+            [
+                'label' => 'Mixed Accounts',
+                'value' => Account::query()->where('account_type', AccountType::BOTH->value)->count(),
+                'hint' => 'Businesses operating in both modes.',
+            ],
+            [
+                'label' => 'Suspended Accounts',
+                'value' => Account::query()->where('status', AccountStatus::SUSPENDED->value)->count(),
+                'hint' => 'Accounts paused by governance.',
+            ],
+        ];
+
+        $openProcurementStages = [
+            ProcurementWorkflowStage::DRAFT->value,
+            ProcurementWorkflowStage::SUBMITTED->value,
+            ProcurementWorkflowStage::SUPPLIER_REVIEW->value,
+            ProcurementWorkflowStage::QUOTED->value,
+            ProcurementWorkflowStage::APPROVED->value,
+        ];
+
+        $this->operationalStats = [
+            [
+                'label' => 'Approved Links',
+                'value' => AccountConnection::query()->where('status', AccountConnectionStatus::APPROVED->value)->count(),
+                'hint' => 'Active retailer-supplier relationships.',
+            ],
+            [
+                'label' => 'Open Procurement Queue',
+                'value' => ProcurementRequest::query()->whereIn('current_stage', $openProcurementStages)->count(),
+                'hint' => 'Requests waiting for supplier action or approval.',
+            ],
+            [
+                'label' => 'Invoiced Procurement',
+                'value' => ProcurementRequest::query()->where('current_stage', ProcurementWorkflowStage::INVOICED->value)->count(),
+                'hint' => 'Requests already moved into invoice flow.',
+            ],
+            [
+                'label' => 'Import Alerts',
+                'value' => TyreImportBatch::query()
+                    ->where(function ($query): void {
+                        $query->where('status', TyreImportBatchStatus::INVALID_HEADERS->value)
+                            ->orWhere('invalid_rows', '>', 0)
+                            ->orWhere('duplicate_rows', '>', 0);
+                    })
+                    ->count(),
+                'hint' => 'Tyre imports needing review or correction.',
+            ],
+        ];
+
+        $this->recentAccounts = Account::query()
+            ->with('createdBy:id,name')
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(function (Account $account): array {
+                return [
+                    'name' => $account->name,
+                    'slug' => $account->slug,
+                    'type' => $account->account_type?->label() ?? 'Retailer',
+                    'status' => $account->status?->label() ?? 'Active',
+                    'plan' => $account->base_subscription_plan === SubscriptionPlan::PREMIUM ? 'Premium' : 'Starter',
+                    'created_by' => $account->createdBy?->name ?? 'System',
+                    'created_at' => optional($account->created_at)?->diffForHumans(),
+                    'url' => route('filament.admin.resources.accounts.view', ['record' => $account]),
                 ];
-            }
-            
-            $this->orders[] = [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'created_at' => $order->created_at->format('n/j/y'),
-                'customer_name' => $order->customer ? $order->customer->name : 'Unknown Customer',
-                'customer_phone' => $order->customer ? $order->customer->phone : '',
-                'customer_email' => $order->customer ? $order->customer->email : '',
-                'customer_id' => $order->customer_id,
-                'customer_url' => $order->customer_id 
-                    ? '/admin/invoices?tableFilters[customer_id][value]=' . $order->customer_id
-                    : '#',
-                'order_url' => $this->getOrderUrl($order),
-                'wheel_brand' => $wheelBrand,
-                'vehicle' => $vehicle,
-                'tracking_number' => $order->tracking_number,
-                'tracking_url'    => $order->tracking_url,
-                'order_status'    => $order->order_status ?? 'pending',
-                'payment_status'  => $order->payment_status ?? 'pending',
-                'outstanding_amount' => (float) ($order->outstanding_amount ?? 0),
-                'sub_total' => (float) ($order->sub_total ?? 0),
-                'vat' => (float) ($order->vat ?? 0),
-                'shipping' => (float) ($order->shipping ?? 0),
-                'total' => (float) ($order->total ?? 0),
-                'items' => $orderItems,
-                'order_notes' => $order->order_notes ?? '',
-                'internal_notes' => $order->internal_notes ?? '',
-            ];
-        }
-    }
-    
-    /**
-     * Get the URL for an order based on its document type
-     */
-    protected function getOrderUrl($order): string
-    {
-        // Check document type to determine where to navigate
-        if ($order->document_type === 'quote') {
-            // Go to QuoteResource view page
-            return '/admin/quotes/' . $order->id;
-        } else {
-            // Go to InvoiceResource view page (not edit)
-            return '/admin/invoices/' . $order->id;
-        }
+            })
+            ->all();
+
+        $this->recentProcurementRequests = ProcurementRequest::query()
+            ->with(['retailerAccount:id,name', 'supplierAccount:id,name'])
+            ->latest('submitted_at')
+            ->limit(5)
+            ->get()
+            ->map(function (ProcurementRequest $request): array {
+                return [
+                    'request_number' => $request->request_number,
+                    'retailer' => $request->retailerAccount?->name,
+                    'supplier' => $request->supplierAccount?->name,
+                    'stage' => $request->current_stage?->label() ?? 'Submitted',
+                    'submitted_at' => optional($request->submitted_at ?? $request->created_at)?->diffForHumans(),
+                    'url' => route('filament.admin.resources.procurement-requests.view', ['record' => $request]),
+                ];
+            })
+            ->all();
+
+        $this->importAlerts = TyreImportBatch::query()
+            ->with('account:id,name')
+            ->where(function ($query): void {
+                $query->where('status', TyreImportBatchStatus::INVALID_HEADERS->value)
+                    ->orWhere('invalid_rows', '>', 0)
+                    ->orWhere('duplicate_rows', '>', 0);
+            })
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(function (TyreImportBatch $batch): array {
+                return [
+                    'file_name' => $batch->source_file_name,
+                    'account' => $batch->account?->name ?? 'Unknown account',
+                    'status' => $batch->status?->label() ?? 'Staged',
+                    'invalid_rows' => $batch->invalid_rows,
+                    'duplicate_rows' => $batch->duplicate_rows,
+                    'uploaded_at' => optional($batch->created_at)?->diffForHumans(),
+                ];
+            })
+            ->all();
     }
 }

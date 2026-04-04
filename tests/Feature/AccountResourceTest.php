@@ -69,5 +69,15 @@ class AccountResourceTest extends TestCase
             ->get('/admin/accounts/'.$account->slug.'/edit')
             ->assertOk()
             ->assertSee('Tyre Hub');
+
+        $this->actingAs($superAdmin)
+            ->get('/admin/accounts/'.$account->slug)
+            ->assertOk()
+            ->assertSee('Business Account Summary')
+            ->assertSee('Subscription Summary')
+            ->assertSee('Linked Platform Summary')
+            ->assertSee('Transaction Summary')
+            ->assertSee('Products listed')
+            ->assertSee('Tyre Hub');
     }
 }

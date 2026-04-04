@@ -9,13 +9,17 @@ use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Accounts\Support\BusinessAccountInsights;
 use BackedEnum;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -58,6 +62,11 @@ class AccountResource extends Resource
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return PanelAccess::canAccessGovernanceSurface();
+    }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return PanelAccess::canAccessGovernanceSurface();
     }
@@ -138,6 +147,112 @@ class AccountResource extends Resource
                         ->helperText('Required only when the reports add-on is enabled.'),
                 ])
                 ->columns(2),
+        ]);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('Business Account Summary')
+                ->schema([
+                    Grid::make(2)
+                        ->schema([
+                            TextEntry::make('name')
+                                ->label('Account name')
+                                ->weight('bold'),
+                            TextEntry::make('slug')
+                                ->copyable(),
+                            TextEntry::make('account_type')
+                                ->label('Account type')
+                                ->badge()
+                                ->formatStateUsing(fn (?AccountType $state): string => $state?->label() ?? 'Retailer'),
+                            TextEntry::make('status')
+                                ->badge()
+                                ->formatStateUsing(fn (?AccountStatus $state): string => $state?->label() ?? 'Active'),
+                            TextEntry::make('retail_enabled')
+                                ->label('Retail capability')
+                                ->badge()
+                                ->formatStateUsing(fn (bool $state): string => $state ? 'Enabled' : 'Disabled')
+                                ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                            TextEntry::make('wholesale_enabled')
+                                ->label('Wholesale capability')
+                                ->badge()
+                                ->formatStateUsing(fn (bool $state): string => $state ? 'Enabled' : 'Disabled')
+                                ->color(fn (bool $state): string => $state ? 'warning' : 'gray'),
+                            TextEntry::make('createdBy.name')
+                                ->label('Created by')
+                                ->placeholder('System'),
+                            TextEntry::make('created_at')
+                                ->label('Created')
+                                ->dateTime(),
+                        ]),
+                ]),
+
+            Section::make('Subscription Summary')
+                ->schema([
+                    Grid::make(2)
+                        ->schema([
+                            TextEntry::make('base_subscription_plan')
+                                ->label('Base plan')
+                                ->badge()
+                                ->formatStateUsing(fn (?SubscriptionPlan $state, Account $record): string => static::displayPlanLabel($record)),
+                            TextEntry::make('plan_price')
+                                ->label('Plan price')
+                                ->state(fn (Account $record): string => static::planPriceSummary($record)),
+                            TextEntry::make('reports_subscription_enabled')
+                                ->label('Reports add-on')
+                                ->badge()
+                                ->formatStateUsing(fn (bool $state): string => $state ? 'Enabled' : 'Disabled')
+                                ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                            TextEntry::make('reports_customer_limit')
+                                ->label('Reports customer limit')
+                                ->placeholder('Not set'),
+                        ]),
+                ]),
+
+            Section::make('Linked Platform Summary')
+                ->schema([
+                    Grid::make(3)
+                        ->schema([
+                            TextEntry::make('connected_suppliers')
+                                ->label('Approved supplier links')
+                                ->state(fn (Account $record): int => static::insights($record)['connected_suppliers']),
+                            TextEntry::make('connected_retailers')
+                                ->label('Approved retailer links')
+                                ->state(fn (Account $record): int => static::insights($record)['connected_retailers']),
+                            TextEntry::make('products_listed')
+                                ->label('Products listed')
+                                ->state(fn (Account $record): int => static::insights($record)['products_listed']),
+                            TextEntry::make('warehouses')
+                                ->label('Warehouses')
+                                ->state(fn (Account $record): int => static::insights($record)['warehouses']),
+                            TextEntry::make('users')
+                                ->label('Users')
+                                ->state(fn (Account $record): int => static::insights($record)['users']),
+                            TextEntry::make('customers_count')
+                                ->label('CRM customers')
+                                ->state(fn (Account $record): int => static::insights($record)['customers']),
+                        ]),
+                ]),
+
+            Section::make('Transaction Summary')
+                ->schema([
+                    Grid::make(4)
+                        ->schema([
+                            TextEntry::make('retail_transaction_count')
+                                ->label('Retail transactions')
+                                ->state(fn (Account $record): int => static::insights($record)['retail_transaction_count']),
+                            TextEntry::make('retail_transaction_value')
+                                ->label('Retail transaction value')
+                                ->state(fn (Account $record): string => static::formatCurrency(static::insights($record)['retail_transaction_value'])),
+                            TextEntry::make('wholesale_transaction_count')
+                                ->label('Wholesale transactions')
+                                ->state(fn (Account $record): int => static::insights($record)['wholesale_transaction_count']),
+                            TextEntry::make('wholesale_transaction_value')
+                                ->label('Wholesale transaction value')
+                                ->state(fn (Account $record): string => static::formatCurrency(static::insights($record)['wholesale_transaction_value'])),
+                        ]),
+                ]),
         ]);
     }
 
@@ -252,6 +367,7 @@ class AccountResource extends Resource
                     ->placeholder('All accounts'),
             ])
             ->actions([
+                ViewAction::make(),
                 EditAction::make(),
             ])
             ->striped();
@@ -262,6 +378,7 @@ class AccountResource extends Resource
         return [
             'index' => Pages\ListAccounts::route('/'),
             'create' => Pages\CreateAccount::route('/create'),
+            'view' => Pages\ViewAccount::route('/{record}'),
             'edit' => Pages\EditAccount::route('/{record}/edit'),
         ];
     }
@@ -329,5 +446,18 @@ class AccountResource extends Resource
         }
 
         return 'AED 199 / Month';
+    }
+
+    /**
+     * @return array<string, int|float>
+     */
+    protected static function insights(Account $record): array
+    {
+        return app(BusinessAccountInsights::class)->for($record);
+    }
+
+    protected static function formatCurrency(int|float $amount): string
+    {
+        return 'AED '.number_format((float) $amount, 2);
     }
 }

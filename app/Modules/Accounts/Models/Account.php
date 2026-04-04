@@ -9,6 +9,8 @@ use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Customers\Models\Customer;
+use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Products\Models\TyreAccountOffer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -80,6 +82,16 @@ class Account extends Model
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
+    }
+
+    public function warehouses(): HasMany
+    {
+        return $this->hasMany(Warehouse::class);
+    }
+
+    public function tyreAccountOffers(): HasMany
+    {
+        return $this->hasMany(TyreAccountOffer::class);
     }
 
     public function createdBy(): BelongsTo

@@ -88,6 +88,15 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - broader regression beyond the main counter-flow critical path is now in place for:
   - pricing / registration alignment
   - account governance and subscription labeling
+- super admin now has a real bird's-eye platform dashboard instead of a business-ops dashboard
+- `Business Accounts -> View` now shows a read-only business summary for:
+  - connected suppliers
+  - connected retailers
+  - products listed
+  - warehouses
+  - users
+  - retail transaction count/value
+  - wholesale transaction count/value
 
 ## Main Remaining Work
 
@@ -102,6 +111,7 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
 - UAT smoke checklist
 - final cleanup of remaining legacy rough edges around the new flows
 - broader backend coverage beyond the new Clockwork Tyres slice
+- final KPI/reporting polish on the super-admin dashboard once George confirms any extra bird's-eye metrics
 
 ### Storefront
 
