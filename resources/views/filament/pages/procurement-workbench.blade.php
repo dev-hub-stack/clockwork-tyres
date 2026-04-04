@@ -28,6 +28,24 @@
             background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
         }
 
+        .procurement-summary-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .procurement-summary-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            background: rgba(15, 23, 42, 0.06);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
         .procurement-summary-label {
             font-size: 0.7rem;
             line-height: 1.15;
@@ -60,6 +78,45 @@
             grid-template-columns: minmax(0, 1fr);
         }
 
+        .procurement-result-primary {
+            display: grid;
+            gap: 1rem;
+            align-items: center;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .procurement-result-media {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 7rem;
+            width: 7rem;
+            border-radius: 1.5rem;
+            border: 1px solid #e5e7eb;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+        }
+
+        .procurement-result-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .procurement-result-media-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
         .procurement-result-metrics {
             display: grid;
             gap: 0.75rem;
@@ -80,6 +137,14 @@
 
         .procurement-result-metric--price {
             background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        }
+
+        .procurement-result-metric-value {
+            margin-top: 0.55rem;
+            font-size: 1.5rem;
+            line-height: 1.05;
+            font-weight: 700;
+            color: #0f172a;
         }
 
         .procurement-result-meta {
@@ -106,6 +171,24 @@
             justify-content: flex-start;
         }
 
+        .procurement-view-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.15);
+            color: inherit;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .procurement-view-pill--idle {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
         @media (min-width: 768px) {
             .procurement-summary-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -118,7 +201,7 @@
 
         @media (min-width: 1280px) {
             .procurement-summary-grid {
-                grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 0.82fr));
+                grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(12rem, 1fr));
             }
 
             .procurement-summary-card--account {
@@ -126,7 +209,11 @@
             }
 
             .procurement-result-shell {
-                grid-template-columns: minmax(0, 1fr) 24rem auto;
+                grid-template-columns: minmax(0, 1fr) 25rem auto;
+            }
+
+            .procurement-result-primary {
+                grid-template-columns: 7rem minmax(0, 1fr);
             }
 
             .procurement-result-actions {
@@ -163,6 +250,13 @@
             ->values();
 
         $historyRows = $activeView === 'pending' ? $pendingOrderHistory : $orderHistory;
+        $viewCounts = [
+            'search' => count($searchResults),
+            'cart' => (int) ($checkoutSummary['selected_lines'] ?? 0),
+            'orders' => count($orderHistory),
+            'pending' => count($pendingOrderHistory),
+        ];
+        $currentAccount = $currentAccountSummary['account'] ?? $currentAccountSummary['current_account'] ?? [];
     @endphp
 
     <div class="procurement-shell">
@@ -181,6 +275,15 @@
                     <div>
                         <p class="procurement-summary-label">Current business account</p>
                         <p class="procurement-summary-value">{{ $currentAccountSummary['account']['name'] ?? 'No active retail account' }}</p>
+                        <div class="procurement-summary-meta">
+                            <span class="procurement-summary-pill">{{ $currentAccount['account_type_label'] ?? 'Retail account' }}</span>
+                            @if (($currentAccountSummary['supplier_connections']['approved'] ?? 0) > 0)
+                                <span class="procurement-summary-pill">{{ $currentAccountSummary['supplier_connections']['approved'] }} approved suppliers</span>
+                            @endif
+                            @if ($shipToWarehouseId !== null && ($shipToWarehouseOptions[$shipToWarehouseId] ?? null))
+                                <span class="procurement-summary-pill">{{ $shipToWarehouseOptions[$shipToWarehouseId] }}</span>
+                            @endif
+                        </div>
                     </div>
                     <p class="procurement-summary-note">Ship-to warehouse, procurement history, and supplier eligibility stay scoped to this active retailer account.</p>
                 </div>
@@ -217,7 +320,10 @@
                     wire:click="setActiveView('{{ $view }}')"
                     class="inline-flex items-center rounded-2xl border px-4 py-2.5 text-sm font-semibold transition {{ $activeView === $view ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:text-gray-950' }}"
                 >
-                    {{ $label }}
+                    <span>{{ $label }}</span>
+                    <span class="ml-2 {{ $activeView === $view ? 'procurement-view-pill' : 'procurement-view-pill procurement-view-pill--idle' }}">
+                        {{ $viewCounts[$view] ?? 0 }}
+                    </span>
                 </button>
             @endforeach
         </div>
@@ -343,26 +449,36 @@
                             @foreach ($searchResults as $result)
                                 <div class="px-6 py-5">
                                     <div class="procurement-result-shell">
-                                        <div>
-                                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">{{ $result['brand_name'] }}</p>
-                                            <h3 class="mt-1 text-2xl font-semibold text-gray-950">{{ $result['model_name'] }}</h3>
-                                            <div class="procurement-result-meta">
-                                                <span class="procurement-result-chip">Size {{ $result['full_size'] }}</span>
-                                                <span class="procurement-result-chip">Load {{ $result['load_index'] }}</span>
-                                                <span class="procurement-result-chip">Speed {{ $result['speed_rating'] }}</span>
-                                                <span class="procurement-result-chip">Year {{ $result['dot_year'] }}</span>
-                                                <span class="procurement-result-chip">Run Flat {{ $result['runflat_label'] }}</span>
+                                        <div class="procurement-result-primary">
+                                            <div class="procurement-result-media">
+                                                @if (! empty($result['primary_image']))
+                                                    <img src="{{ $result['primary_image'] }}" alt="{{ $result['brand_name'] }} {{ $result['model_name'] }}" loading="lazy" />
+                                                @else
+                                                    <span class="procurement-result-media-placeholder">Tyre</span>
+                                                @endif
+                                            </div>
+
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">{{ $result['brand_name'] }}</p>
+                                                <h3 class="mt-1 text-2xl font-semibold text-gray-950">{{ $result['model_name'] }}</h3>
+                                                <div class="procurement-result-meta">
+                                                    <span class="procurement-result-chip">Size {{ $result['full_size'] }}</span>
+                                                    <span class="procurement-result-chip">Load {{ $result['load_index'] }}</span>
+                                                    <span class="procurement-result-chip">Speed {{ $result['speed_rating'] }}</span>
+                                                    <span class="procurement-result-chip">Year {{ $result['dot_year'] }}</span>
+                                                    <span class="procurement-result-chip">Run Flat {{ $result['runflat_label'] }}</span>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div class="procurement-result-metrics">
                                             <div class="procurement-result-metric">
                                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Suppliers</p>
-                                                <p class="mt-2 text-2xl font-semibold text-gray-950">{{ $result['offer_count'] }}</p>
+                                                <p class="procurement-result-metric-value">{{ $result['offer_count'] }}</p>
                                             </div>
                                             <div class="procurement-result-metric">
                                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total available</p>
-                                                <p class="mt-2 text-2xl font-semibold text-gray-950">{{ $result['available_quantity_total'] }}</p>
+                                                <p class="procurement-result-metric-value">{{ $result['available_quantity_total'] }}</p>
                                             </div>
                                             <div class="procurement-result-metric procurement-result-metric--price">
                                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Best unit price</p>
@@ -453,7 +569,15 @@
 
                             <div class="divide-y divide-gray-100">
                                 @foreach ($section['offers'] as $offer)
-                                    <div class="grid gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_12rem_12rem] lg:items-center">
+                                    <div class="grid gap-4 px-6 py-5 lg:grid-cols-[7rem_minmax(0,1fr)_12rem_12rem] lg:items-center">
+                                        <div class="procurement-result-media">
+                                            @if (! empty($offer['image_url']))
+                                                <img src="{{ $offer['image_url'] }}" alt="{{ $offer['brand_name'] }} {{ $offer['model_name'] }}" loading="lazy" />
+                                            @else
+                                                <span class="procurement-result-media-placeholder">Tyre</span>
+                                            @endif
+                                        </div>
+
                                         <div>
                                             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">{{ $offer['brand_name'] }}</p>
                                             <h3 class="mt-1 text-xl font-semibold text-gray-950">{{ $offer['model_name'] }}</h3>

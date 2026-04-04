@@ -247,6 +247,80 @@ class ProcurementWorkbenchTest extends TestCase
         $this->assertSame('cart', $page->activeView);
     }
 
+    public function test_procurement_workbench_filters_results_by_dimensions_supplier_and_exposes_primary_image(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('view_quotes');
+
+        $currentAccount = $this->createAccount($user, [
+            'name' => 'Retail Admin Search',
+            'slug' => 'retail-admin-search',
+            'account_type' => AccountType::BOTH,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ], true);
+
+        $firstSupplier = $this->createSupplier('North Coast Tyres', 'north-coast-search');
+        $secondSupplier = $this->createSupplier('Desert Line Trading', 'desert-line-search');
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $firstSupplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $secondSupplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $matchingOffer = $this->seedOffer(
+            $firstSupplier,
+            'NCT-PS4S-245',
+            'Michelin',
+            'Pilot Sport 4S',
+            '245/35R20',
+            350,
+            12,
+            'https://example.test/images/pilot-sport-4s.jpg',
+        );
+
+        $this->seedOffer(
+            $secondSupplier,
+            'DLT-SC7-255',
+            'Continental',
+            'SportContact 7',
+            '255/35R19',
+            320,
+            8,
+            'https://example.test/images/sportcontact-7.jpg',
+        );
+
+        /** @var ProcurementWorkbench $page */
+        $page = app(ProcurementWorkbench::class);
+        $this->actingAs($user);
+        $page->mount();
+
+        $page->searchSupplierId = $firstSupplier->id;
+        $page->searchWidth = '245';
+        $page->searchHeight = '35';
+        $page->searchRimSize = '20';
+        $page->searchMinimumQty = 4;
+        $page->applySearchFilters();
+
+        $this->assertCount(1, $page->searchResults);
+        $this->assertSame('Michelin', $page->searchResults[0]['brand_name']);
+        $this->assertSame('Pilot Sport 4S', $page->searchResults[0]['model_name']);
+        $this->assertSame($matchingOffer->product_image_1_url, $page->searchResults[0]['primary_image']);
+        $this->assertSame(1, $page->searchResults[0]['offer_count']);
+        $this->assertSame($firstSupplier->id, $page->searchResults[0]['supplier_rows'][0]['supplier_id']);
+    }
+
     private function createAccount(User $user, array $attributes, bool $isDefault = false): Account
     {
         $account = Account::create(array_merge([
@@ -286,6 +360,7 @@ class ProcurementWorkbenchTest extends TestCase
         string $size,
         float $unitPrice,
         int $quantity,
+        ?string $productImage = null,
     ): TyreAccountOffer {
         preg_match('/^(?<width>\\d+)\\/(?<height>\\d+)R(?<rim>\\d+)$/', $size, $matches);
 
@@ -317,7 +392,7 @@ class ProcurementWorkbenchTest extends TestCase
             'wholesale_price_lvl2' => $unitPrice - 5,
             'wholesale_price_lvl3' => $unitPrice - 10,
             'brand_image' => null,
-            'product_image_1' => null,
+            'product_image_1' => $productImage,
             'product_image_2' => null,
             'product_image_3' => null,
             'media_status' => 'configured',

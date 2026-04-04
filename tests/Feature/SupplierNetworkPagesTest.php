@@ -155,6 +155,142 @@ class SupplierNetworkPagesTest extends TestCase
         $this->assertCount(1, $page->supplierRows);
     }
 
+    public function test_explore_suppliers_can_request_available_supplier_and_filter_pending_rows(): void
+    {
+        $retailerUser = User::factory()->create();
+        $retailerUser->givePermissionTo('view_customers');
+
+        $currentAccount = $this->createAccount($retailerUser, [
+            'name' => 'Retail Starter',
+            'slug' => 'retail-starter',
+            'account_type' => AccountType::RETAILER,
+            'retail_enabled' => true,
+            'wholesale_enabled' => false,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+        ], true);
+
+        $availableSupplier = Account::create([
+            'name' => 'Atlas Supplier',
+            'slug' => 'atlas-supplier',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ]);
+
+        $otherSupplier = Account::create([
+            'name' => 'Northern Rubber',
+            'slug' => 'northern-rubber',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        /** @var ExploreSuppliers $page */
+        $page = app(ExploreSuppliers::class);
+        $this->actingAs($retailerUser);
+        $page->mount();
+        $page->requestSupplier($availableSupplier->id);
+
+        $this->assertDatabaseHas('account_connections', [
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $availableSupplier->id,
+            'status' => AccountConnectionStatus::PENDING->value,
+        ]);
+
+        $page->statusFilter = 'pending';
+        $page->search = 'Atlas';
+        $filteredRows = $page->getFilteredSupplierRowsProperty();
+
+        $this->assertCount(1, $filteredRows);
+        $this->assertSame('Atlas Supplier', $filteredRows[0]['supplier']);
+        $this->assertSame(AccountConnectionStatus::PENDING->value, $filteredRows[0]['connection_status_value']);
+
+        $page->statusFilter = 'available';
+        $page->search = 'Northern';
+        $availableRows = $page->getFilteredSupplierRowsProperty();
+
+        $this->assertCount(1, $availableRows);
+        $this->assertSame($otherSupplier->id, $availableRows[0]['supplier_id']);
+    }
+
+    public function test_my_suppliers_filters_relationships_by_search_and_status(): void
+    {
+        $retailerUser = User::factory()->create();
+        $retailerUser->givePermissionTo('view_customers');
+
+        $currentAccount = $this->createAccount($retailerUser, [
+            'name' => 'Retail Network',
+            'slug' => 'retail-network',
+            'account_type' => AccountType::BOTH,
+            'retail_enabled' => true,
+            'wholesale_enabled' => true,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ], true);
+
+        $approvedSupplier = Account::create([
+            'name' => 'Approved Tyres',
+            'slug' => 'approved-tyres',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::PREMIUM,
+            'reports_subscription_enabled' => true,
+        ]);
+
+        $pendingSupplier = Account::create([
+            'name' => 'Pending Wheels',
+            'slug' => 'pending-wheels',
+            'account_type' => AccountType::SUPPLIER,
+            'retail_enabled' => false,
+            'wholesale_enabled' => true,
+            'status' => AccountStatus::ACTIVE,
+            'base_subscription_plan' => SubscriptionPlan::BASIC,
+            'reports_subscription_enabled' => false,
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $approvedSupplier->id,
+            'status' => AccountConnectionStatus::APPROVED,
+            'approved_at' => now(),
+            'notes' => 'Approved supplier connection.',
+        ]);
+
+        AccountConnection::create([
+            'retailer_account_id' => $currentAccount->id,
+            'supplier_account_id' => $pendingSupplier->id,
+            'status' => AccountConnectionStatus::PENDING,
+            'notes' => 'Waiting for supplier response.',
+        ]);
+
+        /** @var MySuppliers $page */
+        $page = app(MySuppliers::class);
+        $this->actingAs($retailerUser);
+        $page->mount();
+
+        $page->statusFilter = 'approved';
+        $page->search = 'Approved';
+        $approvedRows = $page->getFilteredSupplierRowsProperty();
+
+        $this->assertCount(1, $approvedRows);
+        $this->assertSame('Approved Tyres', $approvedRows[0]['supplier']);
+
+        $page->statusFilter = 'pending';
+        $page->search = 'Pending';
+        $pendingRows = $page->getFilteredSupplierRowsProperty();
+
+        $this->assertCount(1, $pendingRows);
+        $this->assertSame('Pending Wheels', $pendingRows[0]['supplier']);
+    }
+
     private function createAccount(User $user, array $attributes, bool $isDefault = false): Account
     {
         $account = Account::create(array_merge([

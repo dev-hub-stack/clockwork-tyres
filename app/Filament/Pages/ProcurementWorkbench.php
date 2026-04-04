@@ -470,6 +470,7 @@ class ProcurementWorkbench extends Page
                     'speed_rating' => $first['speed_rating'] ?? 'N/A',
                     'dot_year' => $first['dot_year'] ?? 'N/A',
                     'runflat_label' => ($first['runflat'] ?? false) ? 'Yes' : 'No',
+                    'primary_image' => $first['image_url'] ?? null,
                     'offer_count' => $rows->count(),
                     'available_quantity_total' => (int) $rows->sum('available_quantity'),
                     'best_unit_price' => round((float) $rows->min('unit_price'), 2),
