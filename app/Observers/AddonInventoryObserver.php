@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Addon;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Models\ProductInventory;
 use App\Services\ActivityLogService;
@@ -16,7 +17,21 @@ class AddonInventoryObserver
     public function created(Addon $addon): void
     {
         // Get all active warehouses
-        $warehouses = Warehouse::where('status', 1)->get();
+        $warehouses = Warehouse::query()
+            ->where('status', 1)
+            ->when(
+                auth()->check() && request(),
+                function ($query) {
+                    $currentAccountId = app(CurrentAccountResolver::class)
+                        ->resolve(request(), auth()->user())
+                        ->currentAccount?->id;
+
+                    if ($currentAccountId) {
+                        $query->where('account_id', $currentAccountId);
+                    }
+                }
+            )
+            ->get();
         
         foreach ($warehouses as $warehouse) {
             ProductInventory::create([

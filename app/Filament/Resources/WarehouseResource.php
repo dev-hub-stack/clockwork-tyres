@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\WarehouseResource\Pages;
 use App\Filament\Support\PanelAccess;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -17,6 +18,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 use BackedEnum;
 
@@ -162,6 +164,25 @@ class WarehouseResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (! auth()->check() || ! request()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $currentAccountId = app(CurrentAccountResolver::class)
+            ->resolve(request(), auth()->user())
+            ->currentAccount?->id;
+
+        if (! $currentAccountId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('account_id', $currentAccountId);
     }
 
     public static function getPages(): array

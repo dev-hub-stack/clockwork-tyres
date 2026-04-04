@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -16,9 +17,20 @@ class WarehouseStockOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        $warehouses = Warehouse::with(['inventories' => function ($query) {
-            $query->where('quantity', '>', 0);
-        }])->get();
+        $currentAccountId = auth()->check() && request()
+            ? app(CurrentAccountResolver::class)->resolve(request(), auth()->user())->currentAccount?->id
+            : null;
+
+        if (! $currentAccountId) {
+            return [];
+        }
+
+        $warehouses = Warehouse::query()
+            ->where('account_id', $currentAccountId)
+            ->with(['inventories' => function ($query) {
+                $query->where('quantity', '>', 0);
+            }])
+            ->get();
         
         $stats = [];
         
@@ -51,9 +63,12 @@ class WarehouseStockOverview extends BaseWidget
         }
         
         // Add overall stats
-        $totalProducts = ProductInventory::where('quantity', '>', 0)->count();
-        $totalStock = ProductInventory::sum('quantity');
-        $totalLowStock = ProductInventory::where('quantity', '<=', 10)->where('quantity', '>', 0)->count();
+        $scopedInventories = ProductInventory::query()
+            ->whereHas('warehouse', fn ($query) => $query->where('account_id', $currentAccountId));
+
+        $totalProducts = (clone $scopedInventories)->where('quantity', '>', 0)->count();
+        $totalStock = (clone $scopedInventories)->sum('quantity');
+        $totalLowStock = (clone $scopedInventories)->where('quantity', '<=', 10)->where('quantity', '>', 0)->count();
         
         array_unshift($stats, Stat::make('Total Stock', number_format($totalStock) . ' units')
             ->description($totalLowStock > 0 

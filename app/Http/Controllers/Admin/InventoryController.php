@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\ProductInventory;
 use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\Warehouse;
@@ -15,6 +16,37 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryController extends Controller
 {
+    private function currentAccountId(?Request $request = null): ?int
+    {
+        $request ??= request();
+
+        if (! $request || ! auth()->check()) {
+            return null;
+        }
+
+        return app(CurrentAccountResolver::class)
+            ->resolve($request, auth()->user())
+            ->currentAccount?->id;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function warehouseIdsForCurrentAccount(Request $request): array
+    {
+        $currentAccountId = $this->currentAccountId($request);
+
+        if (! $currentAccountId) {
+            return [];
+        }
+
+        return Warehouse::query()
+            ->where('account_id', $currentAccountId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
     /**
      * Save batch inventory updates from pqGrid
      * Matching: C:\Users\Dell\Documents\Reporting\app\Http\Controllers\ProductInventoryController.php
@@ -56,6 +88,7 @@ class InventoryController extends Controller
             $deleteList = $changes['deleteList'] ?? [];
 
             $updatedRows = [];
+            $allowedWarehouseIds = $this->warehouseIdsForCurrentAccount($request);
 
             // Process updates
             foreach ($updateList as $row) {
@@ -68,17 +101,17 @@ class InventoryController extends Controller
                             // Quantity columns: qty{warehouse_id}
                             if (preg_match('/^qty(\d+)$/', $key, $matches)) {
                                 $warehouseId = $matches[1];
-                                $this->updateInventory($variant, $warehouseId, 'quantity', $value);
+                                $this->updateInventory($variant, $warehouseId, 'quantity', $value, $allowedWarehouseIds);
                             }
                             // ETA columns: eta{warehouse_id}
                             elseif (preg_match('/^eta(\d+)$/', $key, $matches)) {
                                 $warehouseId = $matches[1];
-                                $this->updateInventory($variant, $warehouseId, 'eta', $value);
+                                $this->updateInventory($variant, $warehouseId, 'eta', $value, $allowedWarehouseIds);
                             }
                             // ETA Qty columns: e_ta_q_ty{warehouse_id}
                             elseif (preg_match('/^e_ta_q_ty(\d+)$/', $key, $matches)) {
                                 $warehouseId = $matches[1];
-                                $this->updateInventory($variant, $warehouseId, 'eta_qty', $value);
+                                $this->updateInventory($variant, $warehouseId, 'eta_qty', $value, $allowedWarehouseIds);
                             }
                         }
                     }
@@ -124,8 +157,12 @@ class InventoryController extends Controller
     /**
      * Update inventory for a specific warehouse
      */
-    protected function updateInventory($variant, $warehouseId, $field, $value)
+    protected function updateInventory($variant, $warehouseId, $field, $value, array $allowedWarehouseIds = [])
     {
+        if (! empty($allowedWarehouseIds) && ! in_array((int) $warehouseId, $allowedWarehouseIds, true)) {
+            throw new \RuntimeException('The selected warehouse is not available to the current business account.');
+        }
+
         $inventory = ProductInventory::firstOrNew([
             'product_variant_id' => $variant->id,
             'product_id' => $variant->product_id,
@@ -221,6 +258,11 @@ class InventoryController extends Controller
             ini_set('max_execution_time', 600);
 
             DB::beginTransaction();
+            $currentAccountId = $this->currentAccountId($request);
+
+            if (! $currentAccountId) {
+                throw new \RuntimeException('No active business account is selected for inventory import.');
+            }
 
             $file = $request->file('importFile');
             $data = Excel::toArray([], $file)[0];
@@ -236,7 +278,10 @@ class InventoryController extends Controller
                     if (preg_match('/^(.+?)(?:_eta|_incoming|_quantity_inbound)?$/', $header, $matches)) {
                         $code = $matches[1];
                         if (!isset($warehouseColumns[$code])) {
-                            $warehouse = Warehouse::where('code', $code)->first();
+                            $warehouse = Warehouse::query()
+                                ->where('account_id', $currentAccountId)
+                                ->where('code', $code)
+                                ->first();
                             if ($warehouse) {
                                 $warehouseColumns[$code] = [
                                     'id' => $warehouse->id,
@@ -334,8 +379,11 @@ class InventoryController extends Controller
      */
     public function downloadTemplate()
     {
+        $currentAccountId = $this->currentAccountId();
+
         // Exclude non-physical warehouses (NON-STOCK) from the template
         $warehouses = Warehouse::orderBy('warehouse_name')
+            ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
             ->where('code', '!=', 'NON-STOCK')
             ->get(['id', 'warehouse_name', 'code']);
 
@@ -381,7 +429,10 @@ class InventoryController extends Controller
      */
     public function exportCsv()
     {
+        $currentAccountId = $this->currentAccountId();
+
         $warehouses = Warehouse::orderBy('warehouse_name')
+            ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
             ->where('code', '!=', 'NON-STOCK')
             ->get(['id', 'warehouse_name', 'code']);
 
@@ -405,6 +456,10 @@ class InventoryController extends Controller
 
         $variantIds = $variants->pluck('id')->all();
         $inventoryMap = ProductInventory::whereIn('product_variant_id', $variantIds)
+            ->when(
+                $warehouses->isNotEmpty(),
+                fn ($query) => $query->whereIn('warehouse_id', $warehouses->pluck('id')->all())
+            )
             ->get()->groupBy('product_variant_id');
 
         $filename = 'inventory-import-ready-' . now()->format('Y-m-d') . '.csv';
@@ -448,6 +503,7 @@ class InventoryController extends Controller
     public function bulkTransfer(Request $request)
     {
         $lines = $request->input('lines', []);
+        $allowedWarehouseIds = $this->warehouseIdsForCurrentAccount($request);
 
         if (empty($lines)) {
             return response()->json(['success' => false, 'message' => 'No transfer lines provided.'], 422);
@@ -470,6 +526,9 @@ class InventoryController extends Controller
                 if (str_starts_with((string)$from, 'incoming_')) {
                     // Deduct from a specific warehouse's eta_qty
                     $fromWhId = (int) str_replace('incoming_', '', $from);
+                    if (! in_array($fromWhId, $allowedWarehouseIds, true)) {
+                        throw new \RuntimeException('The selected source warehouse is not available to the current business account.');
+                    }
                     $inv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
                         'warehouse_id'        => $fromWhId,
@@ -495,6 +554,9 @@ class InventoryController extends Controller
                         'user_id'           => auth()->id(),
                     ]);
                 } else {
+                    if (! in_array((int) $from, $allowedWarehouseIds, true)) {
+                        throw new \RuntimeException('The selected source warehouse is not available to the current business account.');
+                    }
                     $srcInv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
                         'warehouse_id'        => $from,
@@ -519,6 +581,10 @@ class InventoryController extends Controller
                 }
 
                 // ── ADD TO DESTINATION ─────────────────────────────────────
+                if (! in_array((int) $to, $allowedWarehouseIds, true)) {
+                    throw new \RuntimeException('The selected destination warehouse is not available to the current business account.');
+                }
+
                 $dstInv = ProductInventory::firstOrNew([
                     'product_variant_id' => $variantId,
                     'warehouse_id'        => $to,
@@ -564,6 +630,7 @@ class InventoryController extends Controller
     {
         $lines     = $request->input('lines', []);
         $reference = $request->input('reference', '');
+        $allowedWarehouseIds = $this->warehouseIdsForCurrentAccount($request);
 
         if (empty($lines)) {
             return response()->json(['success' => false, 'message' => 'No lines provided.'], 422);
@@ -584,6 +651,9 @@ class InventoryController extends Controller
                 if (str_starts_with((string)$to, 'incoming_')) {
                     // Add to a specific warehouse's eta_qty (incoming stock)
                     $toWhId = (int) str_replace('incoming_', '', $to);
+                    if (! in_array($toWhId, $allowedWarehouseIds, true)) {
+                        throw new \RuntimeException('The selected warehouse is not available to the current business account.');
+                    }
                     $inv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
                         'warehouse_id'        => $toWhId,
@@ -603,6 +673,9 @@ class InventoryController extends Controller
                         'user_id'           => auth()->id(),
                     ]);
                 } else {
+                    if (! in_array((int) $to, $allowedWarehouseIds, true)) {
+                        throw new \RuntimeException('The selected warehouse is not available to the current business account.');
+                    }
                     $inv = ProductInventory::firstOrNew([
                         'product_variant_id' => $variantId,
                         'warehouse_id'        => $to,
@@ -645,6 +718,8 @@ class InventoryController extends Controller
      */
     public function logData(Request $request)
     {
+        $currentAccountId = $this->currentAccountId($request);
+
         $query = DB::table('inventory_logs as il')
             ->leftJoin('warehouses as w', 'w.id', '=', 'il.warehouse_id')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'il.product_variant_id')
@@ -665,6 +740,7 @@ class InventoryController extends Controller
                 DB::raw('COALESCE(pv.sku, a.part_number) as sku'),
                 'u.name as user_name'
             )
+            ->when($currentAccountId, fn ($query) => $query->where('w.account_id', $currentAccountId))
             ->orderByDesc('il.id');
 
         if ($request->filled('sku'))          $query->where(function($q) use ($request) {

@@ -152,10 +152,10 @@ class ClockworkTyresDemoSeeder extends Seeder
         $northConnection = $this->upsertConnection($retailAccount, $supplierAccount, $northCoastCustomer);
         $urbanConnection = $this->upsertConnection($retailAccount, $hybridAccount, $urbanFleetCustomer);
 
-        $retailMain = $this->upsertWarehouse('Desert Drift Main Warehouse', 'DDT-MAIN', 'Dubai', true);
-        $supplierMain = $this->upsertWarehouse('Northern Rubber Main Warehouse', 'NRT-MAIN', 'Dubai', true);
-        $supplierTransit = $this->upsertWarehouse('Northern Rubber Transit', 'NRT-TRANSIT', 'Dubai', false);
-        $hybridMain = $this->upsertWarehouse('Urban Fleet Main Warehouse', 'UFW-MAIN', 'Abu Dhabi', true);
+        $retailMain = $this->upsertWarehouse($retailAccount, 'Desert Drift Main Warehouse', 'DDT-MAIN', 'Dubai', true);
+        $supplierMain = $this->upsertWarehouse($supplierAccount, 'Northern Rubber Main Warehouse', 'NRT-MAIN', 'Dubai', true);
+        $supplierTransit = $this->upsertWarehouse($supplierAccount, 'Northern Rubber Transit', 'NRT-TRANSIT', 'Dubai', false);
+        $hybridMain = $this->upsertWarehouse($hybridAccount, 'Urban Fleet Main Warehouse', 'UFW-MAIN', 'Abu Dhabi', true);
 
         [$pilotSport, $sportContact, $scorpion, $turanza] = $this->upsertTyreCatalog();
 
@@ -372,10 +372,13 @@ class ClockworkTyresDemoSeeder extends Seeder
         );
     }
 
-    private function upsertWarehouse(string $name, string $code, string $city, bool $isPrimary): Warehouse
+    private function upsertWarehouse(Account $account, string $name, string $code, string $city, bool $isPrimary): Warehouse
     {
         return Warehouse::query()->updateOrCreate(
-            ['code' => $code],
+            [
+                'account_id' => $account->id,
+                'code' => $code,
+            ],
             [
                 'warehouse_name' => $name,
                 'address' => $city.' Industrial Zone',

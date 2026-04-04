@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Consignments\Models\ConsignmentItem;
 use Illuminate\Http\Request;
@@ -10,18 +11,35 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryApiController extends Controller
 {
+    private function currentAccountId(Request $request): ?int
+    {
+        if (! auth()->check()) {
+            return null;
+        }
+
+        return app(CurrentAccountResolver::class)
+            ->resolve($request, auth()->user())
+            ->currentAccount?->id;
+    }
+
     /**
      * Get consignments for a specific product variant (by variant ID)
      * Returns list of customers with consignment quantities and dates
      */
-    public function getConsignmentsByVariant($variantId)
+    public function getConsignmentsByVariant($variantId, Request $request)
     {
         try {
+            $currentAccountId = $this->currentAccountId($request);
             $variant = ProductVariant::findOrFail($variantId);
             
             $consignments = ConsignmentItem::where('product_variant_id', $variant->id)
                 ->whereHas('consignment', function($q) {
                     $q->whereIn('status', ['sent', 'delivered', 'partially_sold', 'partially_returned']);
+                })
+                ->when($currentAccountId, function ($query) use ($currentAccountId) {
+                    $query->whereHas('consignment.customer', function ($customerQuery) use ($currentAccountId) {
+                        $customerQuery->where('account_id', $currentAccountId);
+                    });
                 })
                 ->with('consignment.customer')
                 ->get()
@@ -61,13 +79,19 @@ class InventoryApiController extends Controller
      * Get incoming stock for a specific product variant (by variant ID)
      * Returns list of incoming stock with ETA dates and quantities per warehouse
      */
-    public function getIncomingStockByVariant($variantId)
+    public function getIncomingStockByVariant($variantId, Request $request)
     {
         try {
+            $currentAccountId = $this->currentAccountId($request);
             $variant = ProductVariant::with(['inventories.warehouse'])->findOrFail($variantId);
             
             $incomingStock = $variant->inventories()
                 ->with('warehouse')
+                ->when($currentAccountId, function ($query) use ($currentAccountId) {
+                    $query->whereHas('warehouse', function ($warehouseQuery) use ($currentAccountId) {
+                        $warehouseQuery->where('account_id', $currentAccountId);
+                    });
+                })
                 ->where(function($q) {
                     $q->where('eta_qty', '>', 0)
                       ->orWhereNotNull('eta');
@@ -104,14 +128,20 @@ class InventoryApiController extends Controller
      * Get consignments for a specific product variant (by SKU)
      * Returns list of customers with consignment quantities and dates
      */
-    public function getConsignmentsBySku($sku)
+    public function getConsignmentsBySku($sku, Request $request)
     {
         try {
+            $currentAccountId = $this->currentAccountId($request);
             $variant = ProductVariant::where('sku', $sku)->firstOrFail();
             
             $consignments = ConsignmentItem::where('product_variant_id', $variant->id)
                 ->whereHas('consignment', function($q) {
                     $q->whereIn('status', ['sent', 'delivered', 'partially_sold', 'partially_returned']);
+                })
+                ->when($currentAccountId, function ($query) use ($currentAccountId) {
+                    $query->whereHas('consignment.customer', function ($customerQuery) use ($currentAccountId) {
+                        $customerQuery->where('account_id', $currentAccountId);
+                    });
                 })
                 ->with('consignment.customer')
                 ->get()
@@ -154,12 +184,19 @@ class InventoryApiController extends Controller
     public function getIncomingStockBySku($sku, Request $request)
     {
         try {
+            $currentAccountId = $this->currentAccountId($request);
             $variant = ProductVariant::where('sku', $sku)->firstOrFail();
             
             // Get warehouse filter if provided
             $warehouseCode = $request->query('warehouse');
             
             $query = $variant->inventories()->with('warehouse');
+
+            if ($currentAccountId) {
+                $query->whereHas('warehouse', function ($warehouseQuery) use ($currentAccountId) {
+                    $warehouseQuery->where('account_id', $currentAccountId);
+                });
+            }
             
             // Filter by warehouse if specified
             if ($warehouseCode) {
@@ -200,8 +237,14 @@ class InventoryApiController extends Controller
      * Called via AJAX from the inventory grid page — avoids inlining 51k rows
      * into the Livewire snapshot.
      */
-    public function gridData()
+    public function gridData(Request $request)
     {
+        $currentAccountId = $this->currentAccountId($request);
+
+        if (! $currentAccountId) {
+            return response()->json([]);
+        }
+
         // 1. All variants with product metadata (1 query)
         $variants = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
@@ -236,8 +279,10 @@ class InventoryApiController extends Controller
 
         // 2. All inventory rows (1 query via JOIN, no IN clause)
         $inventoryRows = DB::table('product_inventories as pi')
+            ->join('warehouses as w', 'w.id', '=', 'pi.warehouse_id')
             ->join('product_variants as pv2', 'pv2.id', '=', 'pi.product_variant_id')
             ->whereNotNull('pv2.sku')
+            ->where('w.account_id', $currentAccountId)
             ->select('pi.product_variant_id', 'pi.warehouse_id', 'pi.quantity', 'pi.eta', 'pi.eta_qty')
             ->get()
             ->groupBy('product_variant_id');
@@ -245,11 +290,13 @@ class InventoryApiController extends Controller
         // 3. Consignment aggregate (1 query)
         $consignmentStock = DB::table('consignment_items as ci')
             ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
+            ->join('customers as cu', 'cu.id', '=', 'c.customer_id')
             ->join('product_variants as pv3', 'pv3.id', '=', 'ci.product_variant_id')
             ->whereIn('c.status', ['sent', 'delivered', 'partially_sold', 'partially_returned'])
             ->whereNull('ci.deleted_at')
             ->whereNull('c.deleted_at')
             ->whereNotNull('pv3.sku')
+            ->where('cu.account_id', $currentAccountId)
             ->select(
                 'ci.product_variant_id',
                 DB::raw('SUM(ci.quantity_sent - ci.quantity_sold - ci.quantity_returned) as consignment_qty')
@@ -259,8 +306,10 @@ class InventoryApiController extends Controller
 
         // 3.1 Damaged aggregate (1 query)
         $damagedStock = DB::table('damaged_inventories as di')
+            ->join('warehouses as w2', 'w2.id', '=', 'di.warehouse_id')
             ->join('product_variants as pv4', 'pv4.id', '=', 'di.product_variant_id')
             ->whereNotNull('pv4.sku')
+            ->where('w2.account_id', $currentAccountId)
             ->select(
                 'di.product_variant_id',
                 DB::raw('SUM(di.quantity) as damaged_qty')
@@ -304,14 +353,16 @@ class InventoryApiController extends Controller
     /**
      * Get damaged stock details for a specific SKU
      */
-    public function getDamagedStockBySku($sku)
+    public function getDamagedStockBySku($sku, Request $request)
     {
         try {
+            $currentAccountId = $this->currentAccountId($request);
             $variant = ProductVariant::where('sku', $sku)->firstOrFail();
             
             $damagedItems = DB::table('damaged_inventories as di')
                 ->join('warehouses as w', 'w.id', '=', 'di.warehouse_id')
                 ->where('di.product_variant_id', $variant->id)
+                ->when($currentAccountId, fn ($query) => $query->where('w.account_id', $currentAccountId))
                 ->select(
                     'w.warehouse_name as warehouse',
                     'w.code as warehouse_code',

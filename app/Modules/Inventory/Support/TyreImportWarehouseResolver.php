@@ -10,7 +10,10 @@ final class TyreImportWarehouseResolver
     public function resolve(Account $account): Warehouse
     {
         return Warehouse::query()->firstOrCreate(
-            ['code' => $this->codeFor($account)],
+            [
+                'account_id' => $account->id,
+                'code' => $this->codeFor($account),
+            ],
             [
                 'warehouse_name' => $this->nameFor($account),
                 'status' => 1,

@@ -2,8 +2,10 @@
 
 namespace App\Modules\Inventory\Models;
 
+use App\Modules\Accounts\Models\Account;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Warehouse extends Model
@@ -11,6 +13,7 @@ class Warehouse extends Model
     use HasFactory;
 
     protected $fillable = [
+        'account_id',
         'warehouse_name',
         'code',
         'address',
@@ -22,18 +25,25 @@ class Warehouse extends Model
         'lng',
         'phone',
         'email',
+        'notes',
         'status',
         'is_primary',
         'is_system',
     ];
 
     protected $casts = [
+        'account_id' => 'integer',
         'lat' => 'decimal:8',
         'lng' => 'decimal:8',
         'status' => 'integer',
         'is_primary' => 'boolean',
         'is_system' => 'boolean',
     ];
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
 
     /**
      * Get all inventory records for this warehouse
@@ -54,6 +64,13 @@ class Warehouse extends Model
     public function tyreOfferInventories(): HasMany
     {
         return $this->hasMany(TyreOfferInventory::class);
+    }
+
+    public function scopeForAccount($query, int|Account $account)
+    {
+        $accountId = $account instanceof Account ? $account->id : $account;
+
+        return $query->where('account_id', $accountId);
     }
 
     /**

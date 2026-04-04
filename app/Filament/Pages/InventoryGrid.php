@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Support\PanelAccess;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,7 @@ class InventoryGrid extends Page
     public bool $canEditCells = false;
     public bool $canBulkTransfer = false;
     public bool $canAddInventory = false;
+    public ?int $currentAccountId = null;
 
     public function mount(): void
     {
@@ -43,13 +45,23 @@ class InventoryGrid extends Page
         $this->canEditCells    = $user?->can('edit_inventory_grid')   ?? false;
         $this->canBulkTransfer = $user?->can('view_bulk_transfer')    ?? false;
         $this->canAddInventory = $user?->can('view_add_inventory')    ?? false;
+        $this->currentAccountId = ($user && request())
+            ? app(CurrentAccountResolver::class)->resolve(request(), $user)->currentAccount?->id
+            : null;
         $this->loadInventoryData();
     }
 
     protected function loadInventoryData(): void
     {
+        if (! $this->currentAccountId) {
+            $this->warehouses = collect();
+            $this->products_data = [];
+            return;
+        }
+
         // Get all active warehouses (excluding system warehouses)
         $this->warehouses = Warehouse::where('status', 1)
+            ->where('account_id', $this->currentAccountId)
             ->where('is_system', false)
             ->orderBy('code')
             ->get();
@@ -93,8 +105,10 @@ class InventoryGrid extends Page
         // ── 2. One query for all inventory rows ───────────────────────────────
         // Use a JOIN to the same filtered variant set instead of a 51k-item IN clause
         $inventoryRows = DB::table('product_inventories as pi')
+            ->join('warehouses as w', 'w.id', '=', 'pi.warehouse_id')
             ->join('product_variants as pv2', 'pv2.id', '=', 'pi.product_variant_id')
             ->whereNotNull('pv2.sku')
+            ->where('w.account_id', $this->currentAccountId)
             ->select('pi.product_variant_id', 'pi.warehouse_id', 'pi.quantity', 'pi.eta', 'pi.eta_qty')
             ->get()
             ->groupBy('product_variant_id');

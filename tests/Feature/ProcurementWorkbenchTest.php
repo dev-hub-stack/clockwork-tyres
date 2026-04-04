@@ -326,6 +326,7 @@ class ProcurementWorkbenchTest extends TestCase
         ]);
 
         $warehouse = Warehouse::create([
+            'account_id' => $supplier->id,
             'warehouse_name' => $supplier->name.' Main Warehouse',
             'code' => strtoupper(substr($slug = preg_replace('/[^A-Z]/', '', strtoupper($supplier->slug)) ?: 'SUP', 0, 3)).'-MAIN-'.random_int(10, 99),
             'address' => 'Dubai Industrial Area',

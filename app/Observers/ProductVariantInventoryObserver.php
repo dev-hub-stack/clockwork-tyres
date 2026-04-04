@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Products\Models\ProductVariant;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Models\ProductInventory;
@@ -29,7 +30,21 @@ class ProductVariantInventoryObserver
     {
         try {
             // Get all active warehouses
-            $warehouses = Warehouse::where('status', 1)->get();
+            $warehouses = Warehouse::query()
+                ->where('status', 1)
+                ->when(
+                    auth()->check() && request(),
+                    function ($query) {
+                        $currentAccountId = app(CurrentAccountResolver::class)
+                            ->resolve(request(), auth()->user())
+                            ->currentAccount?->id;
+
+                        if ($currentAccountId) {
+                            $query->where('account_id', $currentAccountId);
+                        }
+                    }
+                )
+                ->get();
             
             if ($warehouses->isEmpty()) {
                 Log::info("No active warehouses found. Skipping inventory initialization for variant: {$variant->id}");

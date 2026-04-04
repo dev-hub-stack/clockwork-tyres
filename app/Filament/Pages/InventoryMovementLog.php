@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Support\PanelAccess;
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\Warehouse;
 use Filament\Pages\Page;
@@ -34,7 +35,16 @@ class InventoryMovementLog extends Page
 
     public function getViewData(): array
     {
-        $warehouses = Warehouse::where('status', 1)->orderBy('code')->get();
+        $currentAccountId = auth()->check() && request()
+            ? app(CurrentAccountResolver::class)->resolve(request(), auth()->user())->currentAccount?->id
+            : null;
+
+        $warehouses = Warehouse::query()
+            ->where('status', 1)
+            ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
+            ->orderBy('code')
+            ->get();
+
         return [
             'warehouses' => $warehouses,
         ];

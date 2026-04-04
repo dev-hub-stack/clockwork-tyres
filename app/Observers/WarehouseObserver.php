@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Inventory\Models\Warehouse;
 
 class WarehouseObserver
@@ -12,9 +13,17 @@ class WarehouseObserver
      */
     public function creating(Warehouse $warehouse): void
     {
+        if (! $warehouse->account_id && auth()->check() && request()) {
+            $context = app(CurrentAccountResolver::class)->resolve(request(), auth()->user());
+            $warehouse->account_id = $context->currentAccount?->id;
+        }
+
         if ($warehouse->is_primary) {
             // Set all other warehouses to non-primary
-            Warehouse::where('is_primary', true)->update(['is_primary' => false]);
+            Warehouse::query()
+                ->where('account_id', $warehouse->account_id)
+                ->where('is_primary', true)
+                ->update(['is_primary' => false]);
         }
     }
 
@@ -27,6 +36,7 @@ class WarehouseObserver
         if ($warehouse->isDirty('is_primary') && $warehouse->is_primary) {
             // Set all other warehouses to non-primary
             Warehouse::where('id', '!=', $warehouse->id)
+                ->where('account_id', $warehouse->account_id)
                 ->where('is_primary', true)
                 ->update(['is_primary' => false]);
         }
@@ -41,6 +51,7 @@ class WarehouseObserver
         if ($warehouse->is_primary) {
             // Find the next active warehouse and make it primary
             $nextWarehouse = Warehouse::where('id', '!=', $warehouse->id)
+                ->where('account_id', $warehouse->account_id)
                 ->where('status', 1)
                 ->orderBy('created_at', 'asc')
                 ->first();
