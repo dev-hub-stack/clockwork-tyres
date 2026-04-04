@@ -723,6 +723,7 @@ class InventoryController extends Controller
         $query = DB::table('inventory_logs as il')
             ->leftJoin('warehouses as w', 'w.id', '=', 'il.warehouse_id')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'il.product_variant_id')
+            ->leftJoin('tyre_account_offers as tao', 'tao.id', '=', 'il.tyre_account_offer_id')
             ->leftJoin('addons as a', 'a.id', '=', 'il.add_on_id')
             ->leftJoin('users as u', 'u.id', '=', 'il.user_id')
             ->select(
@@ -737,7 +738,12 @@ class InventoryController extends Controller
                 'il.created_at',
                 'w.code as warehouse_code',
                 'w.warehouse_name',
-                DB::raw('COALESCE(pv.sku, a.part_number) as sku'),
+                DB::raw('COALESCE(pv.sku, tao.source_sku, a.part_number) as sku'),
+                DB::raw("CASE
+                    WHEN il.tyre_account_offer_id IS NOT NULL THEN 'tyres'
+                    WHEN il.add_on_id IS NOT NULL THEN 'addons'
+                    ELSE 'products'
+                END as inventory_type"),
                 'u.name as user_name'
             )
             ->when($currentAccountId, fn ($query) => $query->where('w.account_id', $currentAccountId))
@@ -745,12 +751,21 @@ class InventoryController extends Controller
 
         if ($request->filled('sku'))          $query->where(function($q) use ($request) {
             $q->where('pv.sku', 'like', '%' . $request->sku . '%')
+              ->orWhere('tao.source_sku', 'like', '%' . $request->sku . '%')
               ->orWhere('a.part_number', 'like', '%' . $request->sku . '%');
         });
         if ($request->filled('action'))       $query->where('il.action', $request->action);
         if ($request->filled('warehouse_id')) $query->where('il.warehouse_id', $request->warehouse_id);
         if ($request->filled('from_date'))    $query->whereDate('il.created_at', '>=', $request->from_date);
         if ($request->filled('to_date'))      $query->whereDate('il.created_at', '<=', $request->to_date);
+        if ($request->filled('inventory_type')) {
+            match ($request->inventory_type) {
+                'products' => $query->whereNotNull('il.product_variant_id'),
+                'tyres' => $query->whereNotNull('il.tyre_account_offer_id'),
+                'addons' => $query->whereNotNull('il.add_on_id'),
+                default => null,
+            };
+        }
 
         return response()->json($query->limit(500)->get());
     }

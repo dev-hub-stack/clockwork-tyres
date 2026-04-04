@@ -3,6 +3,7 @@
 namespace App\Modules\Inventory\Models;
 
 use App\Models\User;
+use App\Modules\Products\Models\TyreAccountOffer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,7 @@ class InventoryLog extends Model
         'warehouse_id',
         'product_id',
         'product_variant_id',
+        'tyre_account_offer_id',
         'add_on_id',
         'action',
         'quantity_before',
@@ -68,11 +70,32 @@ class InventoryLog extends Model
     }
 
     /**
+     * Get the tyre account offer for this log entry
+     */
+    public function tyreAccountOffer(): BelongsTo
+    {
+        return $this->belongsTo(TyreAccountOffer::class);
+    }
+
+    /**
      * Get the user who made this change
      */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getInventoryTypeAttribute(): string
+    {
+        if ($this->tyre_account_offer_id) {
+            return 'tyres';
+        }
+
+        if ($this->add_on_id) {
+            return 'addons';
+        }
+
+        return 'products';
     }
 
     /**

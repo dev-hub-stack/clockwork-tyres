@@ -59,6 +59,7 @@ final class UpsertTyreOfferInventoryAction
 
             InventoryLog::create([
                 'warehouse_id' => $warehouse->id,
+                'tyre_account_offer_id' => $offer->id,
                 'action' => InventoryLog::ACTION_ADJUSTMENT,
                 'quantity_before' => $beforeQuantity,
                 'quantity_after' => $inventory->quantity,
