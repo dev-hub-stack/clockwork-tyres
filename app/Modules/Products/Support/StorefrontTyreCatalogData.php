@@ -448,10 +448,10 @@ class StorefrontTyreCatalogData
         }
 
         foreach ([
-            $offer->product_image_1,
-            $offer->product_image_2,
-            $offer->product_image_3,
-            $offer->brand_image,
+            $offer->product_image_1_url,
+            $offer->product_image_2_url,
+            $offer->product_image_3_url,
+            $offer->brand_image_url,
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
                 return trim($candidate);
@@ -470,10 +470,10 @@ class StorefrontTyreCatalogData
         return $offers
             ->flatMap(function (TyreAccountOffer $offer): array {
                 return array_values(array_filter([
-                    $offer->product_image_1,
-                    $offer->product_image_2,
-                    $offer->product_image_3,
-                    $offer->brand_image,
+                    $offer->product_image_1_url,
+                    $offer->product_image_2_url,
+                    $offer->product_image_3_url,
+                    $offer->brand_image_url,
                 ], fn ($candidate) => is_string($candidate) && trim($candidate) !== ''));
             })
             ->map(fn ($path) => trim((string) $path))

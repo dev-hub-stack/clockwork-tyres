@@ -535,11 +535,11 @@ class ProcurementWorkbench extends Page
     protected function primaryImageForOffer(TyreAccountOffer $offer): ?string
     {
         $candidate = collect([
-            $offer->product_image_1,
-            $offer->product_image_2,
-            $offer->product_image_3,
-            $offer->brand_image,
-        ])->first(fn (?string $value): bool => filled($value) && str_starts_with($value, 'http'));
+            $offer->product_image_1_url,
+            $offer->product_image_2_url,
+            $offer->product_image_3_url,
+            $offer->brand_image_url,
+        ])->first(fn (?string $value): bool => filled($value));
 
         return $candidate ?: null;
     }

@@ -4,6 +4,7 @@ namespace App\Modules\Products\Models;
 
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Inventory\Models\TyreOfferInventory;
+use App\Modules\Products\Support\TyreImageStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -37,6 +38,13 @@ class TyreAccountOffer extends Model
         'offer_payload' => 'array',
     ];
 
+    protected $appends = [
+        'brand_image_url',
+        'product_image_1_url',
+        'product_image_2_url',
+        'product_image_3_url',
+    ];
+
     public function tyreCatalogGroup(): BelongsTo
     {
         return $this->belongsTo(TyreCatalogGroup::class);
@@ -60,5 +68,25 @@ class TyreAccountOffer extends Model
     public function inventories(): HasMany
     {
         return $this->hasMany(TyreOfferInventory::class, 'tyre_account_offer_id');
+    }
+
+    public function getBrandImageUrlAttribute(): ?string
+    {
+        return TyreImageStorage::url($this->getRawOriginal('brand_image'));
+    }
+
+    public function getProductImage1UrlAttribute(): ?string
+    {
+        return TyreImageStorage::url($this->getRawOriginal('product_image_1'));
+    }
+
+    public function getProductImage2UrlAttribute(): ?string
+    {
+        return TyreImageStorage::url($this->getRawOriginal('product_image_2'));
+    }
+
+    public function getProductImage3UrlAttribute(): ?string
+    {
+        return TyreImageStorage::url($this->getRawOriginal('product_image_3'));
     }
 }

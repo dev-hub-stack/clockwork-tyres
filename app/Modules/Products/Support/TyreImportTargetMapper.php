@@ -67,7 +67,7 @@ final class TyreImportTargetMapper
                     ],
                     'offer_targets' => $offerTargets,
                     'blocked_surfaces' => [
-                        'media' => collect($offerTargets)->where('media_status', 'blocked_storage_resolution')->count(),
+                        'media' => collect($offerTargets)->where('media_status', 'mapped_storage_pattern')->count(),
                         'inventory' => collect($offerTargets)->where('inventory_status', 'blocked_warehouse_mapping')->count(),
                     ],
                 ];
@@ -89,9 +89,9 @@ final class TyreImportTargetMapper
                     'note' => 'Groups whose brand already exists in CRM reference data.',
                 ],
                 [
-                    'label' => 'Blocked media',
+                    'label' => 'Mapped media',
                     'value' => $groupTargets->sum(fn (array $group): int => $group['blocked_surfaces']['media']),
-                    'note' => 'Image targets stay blocked until storage source rules are confirmed.',
+                    'note' => 'Image targets now follow the same S3 path pattern as products and add-ons under tyres/.',
                 ],
                 [
                     'label' => 'Blocked inventory',
@@ -208,11 +208,11 @@ final class TyreImportTargetMapper
                     'wholesale_price_lvl1' => $payload['wholesale_price_lvl1'] ?? null,
                     'wholesale_price_lvl2' => $payload['wholesale_price_lvl2'] ?? null,
                     'wholesale_price_lvl3' => $payload['wholesale_price_lvl3'] ?? null,
-                    'brand_image' => $payload['brand_image'] ?? null,
-                    'product_image_1' => $payload['product_image_1'] ?? null,
-                    'product_image_2' => $payload['product_image_2'] ?? null,
-                    'product_image_3' => $payload['product_image_3'] ?? null,
-                    'media_status' => $hasMedia ? 'blocked_storage_resolution' : 'not_provided',
+                    'brand_image' => TyreImageStorage::normalizeImportPath($payload['brand_image'] ?? null),
+                    'product_image_1' => TyreImageStorage::normalizeImportPath($payload['product_image_1'] ?? null),
+                    'product_image_2' => TyreImageStorage::normalizeImportPath($payload['product_image_2'] ?? null),
+                    'product_image_3' => TyreImageStorage::normalizeImportPath($payload['product_image_3'] ?? null),
+                    'media_status' => $hasMedia ? 'mapped_storage_pattern' : 'not_provided',
                     'inventory_status' => 'blocked_warehouse_mapping',
                     'offer_payload' => [
                         'source_row_number' => $row->source_row_number,

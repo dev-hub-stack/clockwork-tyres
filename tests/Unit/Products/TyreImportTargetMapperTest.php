@@ -81,7 +81,11 @@ class TyreImportTargetMapperTest extends TestCase
         $this->assertSame('MAP-001', $offerTarget['source_sku']);
         $this->assertSame(1000, $offerTarget['retail_price']);
         $this->assertSame(900, $offerTarget['wholesale_price_lvl1']);
-        $this->assertSame('blocked_storage_resolution', $offerTarget['media_status']);
+        $this->assertSame('mapped_storage_pattern', $offerTarget['media_status']);
+        $this->assertSame('tyres/brand.png', $offerTarget['brand_image']);
+        $this->assertSame('tyres/p1.png', $offerTarget['product_image_1']);
+        $this->assertSame('tyres/p2.png', $offerTarget['product_image_2']);
+        $this->assertSame('tyres/p3.png', $offerTarget['product_image_3']);
         $this->assertSame('blocked_warehouse_mapping', $offerTarget['inventory_status']);
     }
 

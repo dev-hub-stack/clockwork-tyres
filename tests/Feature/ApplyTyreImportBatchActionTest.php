@@ -87,7 +87,9 @@ class ApplyTyreImportBatchActionTest extends TestCase
 
         $this->assertSame('245/35R20', $group->full_size);
         $this->assertSame($group->id, $offer->tyre_catalog_group_id);
-        $this->assertSame('blocked_storage_resolution', $offer->media_status);
+        $this->assertSame('mapped_storage_pattern', $offer->media_status);
+        $this->assertSame('tyres/brand.png', $offer->brand_image);
+        $this->assertSame('tyres/p1.png', $offer->product_image_1);
         $this->assertSame('configured_out_of_stock', $offer->inventory_status);
         $this->assertNotNull($warehouse);
         $this->assertSame($warehouse?->id, $inventory->warehouse_id);

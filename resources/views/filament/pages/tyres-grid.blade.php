@@ -334,7 +334,7 @@
             <div class="mb-4 flex flex-col gap-2">
                 <h2 class="text-lg font-semibold text-slate-900">Target mapping preview</h2>
                 <p class="text-sm text-slate-600">
-                    This maps the staged tyre groups onto the dedicated tyre target tables we will use for live import apply. It also highlights unresolved reference, media, and inventory targets.
+                    This maps the staged tyre groups onto the dedicated tyre target tables we will use for live import apply. It also highlights unresolved references plus the media and inventory targets prepared from the staged file.
                 </p>
                 @if ($target_mapping_scope_note !== '')
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ $target_mapping_scope_note }}</p>
@@ -360,7 +360,7 @@
                                 <th class="px-3 py-2 text-left font-semibold text-slate-700">Brand Ref</th>
                                 <th class="px-3 py-2 text-left font-semibold text-slate-700">Model Ref</th>
                                 <th class="px-3 py-2 text-left font-semibold text-slate-700">Offer Targets</th>
-                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Blocked Surfaces</th>
+                                <th class="px-3 py-2 text-left font-semibold text-slate-700">Prepared Targets</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
