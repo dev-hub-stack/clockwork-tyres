@@ -235,19 +235,23 @@
         <div style="padding: 20px 35px; background-color: #f9fafb; border-bottom: 1px solid #eee;">
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                    <td style="width: 25%; padding: 6px 0; vertical-align: top;">
+                    <td style="width: 20%; padding: 6px 0; vertical-align: top;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Quote #</div>
                         <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">{{ $record->quote_number }}</div>
                     </td>
-                    <td style="width: 25%; padding: 6px 0; vertical-align: top;">
+                    <td style="width: 20%; padding: 6px 0; vertical-align: top;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Issue Date</div>
                         <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">{{ $record->issue_date ? \Carbon\Carbon::parse($record->issue_date)->format('M d, Y') : date('M d, Y') }}</div>
                     </td>
-                    <td style="width: 25%; padding: 6px 0; vertical-align: top;">
+                    <td style="width: 20%; padding: 6px 0; vertical-align: top;">
+                        <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Payment Terms</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">{{ $record->payment_term?->label() ?? '30 Days' }}</div>
+                    </td>
+                    <td style="width: 20%; padding: 6px 0; vertical-align: top;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Valid Until</div>
                         <div style="font-size: 13px; font-weight: 600; color: #222; margin-top: 3px;">{{ $record->valid_until ? \Carbon\Carbon::parse($record->valid_until)->format('M d, Y') : 'N/A' }}</div>
                     </td>
-                    <td style="width: 25%; padding: 6px 0; vertical-align: top; text-align: right;">
+                    <td style="width: 20%; padding: 6px 0; vertical-align: top; text-align: right;">
                         <div style="font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Status</div>
                         <div style="margin-top: 3px;">
                             <span style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #e8f4fd; color: #2b6cb0;">

@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ProcurementRequestResource\Pages;
 use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Procurement\Actions\ApproveProcurementRequestAction;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
 use App\Modules\Procurement\Models\ProcurementRequest;
@@ -104,6 +105,11 @@ class ProcurementRequestResource extends Resource
                                 \Filament\Infolists\Components\TextEntry::make('subtotal')
                                     ->label('Subtotal')
                                     ->money('AED'),
+                                \Filament\Infolists\Components\TextEntry::make('payment_term')
+                                    ->label('Payment Terms')
+                                    ->badge()
+                                    ->formatStateUsing(fn (?PaymentTerm $state): string => $state?->label() ?? PaymentTerm::default()->label())
+                                    ->color(fn (?PaymentTerm $state): string => $state === PaymentTerm::CASH_ON_DELIVERY ? 'warning' : 'gray'),
                                 \Filament\Infolists\Components\TextEntry::make('quoteOrder.quote_number')
                                     ->label('Quote')
                                     ->placeholder('Not linked'),
@@ -226,6 +232,18 @@ class ProcurementRequestResource extends Resource
                     ->label('Subtotal')
                     ->money('AED')
                     ->sortable(),
+
+                BadgeColumn::make('payment_term')
+                    ->label('Payment Terms')
+                    ->formatStateUsing(fn (?PaymentTerm $state): string => $state?->label() ?? PaymentTerm::default()->label())
+                    ->colors([
+                        'gray' => static fn (?PaymentTerm $state): bool => in_array($state, [
+                            PaymentTerm::DAYS_30,
+                            PaymentTerm::DAYS_60,
+                            PaymentTerm::DAYS_90,
+                        ], true),
+                        'warning' => static fn (?PaymentTerm $state): bool => $state === PaymentTerm::CASH_ON_DELIVERY,
+                    ]),
 
                 TextColumn::make('quoteOrder.quote_number')
                     ->label('Quote')

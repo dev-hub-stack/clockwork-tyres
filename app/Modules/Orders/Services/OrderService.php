@@ -2,6 +2,7 @@
 
 namespace App\Modules\Orders\Services;
 
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Products\Models\AddOn;
 use App\Modules\Orders\Enums\DocumentType;
@@ -19,6 +20,7 @@ use App\Modules\Customers\Services\DealerPricingService;
 use App\Services\AddonSnapshotService;
 use App\Services\ProductSnapshotService;
 use App\Services\VariantSnapshotService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
@@ -46,10 +48,17 @@ class OrderService
                 $documentType = DocumentType::from($documentType);
             }
 
+            $customer = Customer::findOrFail($data['customer_id']);
+            $issueDate = isset($data['issue_date'])
+                ? Carbon::parse($data['issue_date'])
+                : now();
+            $paymentTerm = $this->resolvePaymentTerm($data, $customer);
+            $validUntil = $this->resolveValidUntil($data, $documentType, $paymentTerm, $issueDate);
+
             // Create the order
             $order = Order::create([
                 'document_type' => $documentType,
-                'customer_id' => $data['customer_id'],
+                'customer_id' => $customer->id,
                 'quote_number' => $data['quote_number'] ?? null,
                 'order_number' => $data['order_number'] ?? null,
                 'warehouse_id' => $data['warehouse_id'] ?? null,
@@ -59,6 +68,7 @@ class OrderService
                 'tax_inclusive' => $data['tax_inclusive'] ?? true,
                 'currency' => $data['currency'] ?? 'USD',
                 'channel' => $data['channel'] ?? null, // Added channel field
+                'payment_term' => $paymentTerm,
                 'shipping' => $data['shipping'] ?? 0,
                 'discount' => $data['discount'] ?? 0,
                 'vehicle_year' => $data['vehicle_year'] ?? null,
@@ -66,8 +76,8 @@ class OrderService
                 'vehicle_model' => $data['vehicle_model'] ?? null,
                 'vehicle_sub_model' => $data['vehicle_sub_model'] ?? null,
                 'order_notes' => $data['order_notes'] ?? null,
-                'issue_date' => $data['issue_date'] ?? now(),
-                'valid_until' => $data['valid_until'] ?? now()->addDays(30),
+                'issue_date' => $issueDate,
+                'valid_until' => $validUntil,
             ]);
 
             // Add order items if provided
@@ -85,6 +95,34 @@ class OrderService
 
             return $order->fresh(['items', 'customer', 'warehouse']);
         });
+    }
+
+    protected function resolvePaymentTerm(array $data, Customer $customer): PaymentTerm
+    {
+        $rawPaymentTerm = $data['payment_term'] ?? $customer->payment_term ?? PaymentTerm::default();
+
+        if ($rawPaymentTerm instanceof PaymentTerm) {
+            return $rawPaymentTerm;
+        }
+
+        return PaymentTerm::from((string) $rawPaymentTerm);
+    }
+
+    protected function resolveValidUntil(
+        array $data,
+        DocumentType $documentType,
+        PaymentTerm $paymentTerm,
+        Carbon $issueDate,
+    ): Carbon {
+        if (! empty($data['valid_until'])) {
+            return Carbon::parse($data['valid_until']);
+        }
+
+        if ($documentType === DocumentType::QUOTE) {
+            return $issueDate->copy()->addDays(30);
+        }
+
+        return Carbon::instance($paymentTerm->dueDateFrom($issueDate));
     }
 
     public function normalizeVehicleData(array $data): array

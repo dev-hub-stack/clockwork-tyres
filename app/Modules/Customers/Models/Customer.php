@@ -3,6 +3,7 @@
 namespace App\Modules\Customers\Models;
 
 use App\Modules\Accounts\Models\Account;
+use App\Modules\Customers\Enums\PaymentTerm;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,6 +47,7 @@ class Customer extends Authenticatable
         'external_source',
         'external_customer_id',
         'status',
+        'payment_term',
         'email_verified_at',
         'profile_image',
         'trade_license_path',
@@ -70,6 +72,7 @@ class Customer extends Authenticatable
         'password'                     => 'hashed',
         'wholesale_invite_expires_at'  => 'datetime',
         'wholesale_invited_at'         => 'datetime',
+        'payment_term'                 => PaymentTerm::class,
     ];
 
     /**

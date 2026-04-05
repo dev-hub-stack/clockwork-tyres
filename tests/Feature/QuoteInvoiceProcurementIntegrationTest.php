@@ -9,6 +9,7 @@ use App\Modules\Accounts\Enums\AccountStatus;
 use App\Modules\Accounts\Enums\AccountType;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Orders\Enums\DocumentType;
 use App\Modules\Orders\Enums\OrderStatus;
@@ -111,6 +112,9 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             ->assertOk()
             ->assertSee((string) $invoice->order_number)
             ->assertSee('Procurement Invoices');
+
+        $this->assertSame(PaymentTerm::DAYS_60, $invoice->payment_term);
+        $this->assertTrue($invoice->valid_until->equalTo($invoice->issue_date->copy()->addDays(60)));
     }
 
     public function test_supplier_quote_lifecycle_syncs_procurement_stage_before_invoice_conversion(): void
@@ -299,6 +303,7 @@ class QuoteInvoiceProcurementIntegrationTest extends TestCase
             'email' => 'retail-alpha@example.test',
             'account_id' => $retailerAccount->id,
             'status' => 'active',
+            'payment_term' => PaymentTerm::DAYS_60,
         ]);
 
         $submission = app(SubmitGroupedProcurementAction::class)->execute(

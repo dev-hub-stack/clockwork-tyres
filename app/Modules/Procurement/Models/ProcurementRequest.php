@@ -5,6 +5,7 @@ namespace App\Modules\Procurement\Models;
 use App\Models\User;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountConnection;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Procurement\Enums\ProcurementWorkflowStage;
@@ -34,6 +35,7 @@ class ProcurementRequest extends Model
         'quantity_total',
         'subtotal',
         'currency',
+        'payment_term',
         'notes',
         'submitted_at',
         'supplier_reviewed_at',
@@ -50,6 +52,7 @@ class ProcurementRequest extends Model
         'line_item_count' => 'integer',
         'quantity_total' => 'integer',
         'subtotal' => 'decimal:2',
+        'payment_term' => PaymentTerm::class,
         'submitted_at' => 'datetime',
         'supplier_reviewed_at' => 'datetime',
         'quoted_at' => 'datetime',

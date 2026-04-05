@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\InvoiceResource\Pages;
 use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\Payment;
 use App\Modules\Orders\Enums\OrderStatus;
@@ -24,6 +25,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
@@ -39,6 +41,7 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
@@ -214,6 +217,11 @@ class InvoiceResource extends Resource
                                     ->required(),
                                 TextInput::make('email')->email(),
                                 TextInput::make('phone'),
+                                Select::make('payment_term')
+                                    ->label('Payment Terms')
+                                    ->options(PaymentTerm::options())
+                                    ->default(PaymentTerm::default()->value)
+                                    ->required(),
                                 TextInput::make('address')
                                     ->label('Address'),
                                 TextInput::make('city')
@@ -233,6 +241,17 @@ class InvoiceResource extends Resource
                                     }
                                 }
                                 return \App\Modules\Customers\Models\Customer::create($data)->id;
+                            })
+                            ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                                $paymentTerm = Customer::query()->find($state)?->payment_term?->value
+                                    ?? PaymentTerm::default()->value;
+                                $issueDate = $get('issue_date') ?? now();
+
+                                $set('payment_term', $paymentTerm);
+                                $set(
+                                    'valid_until',
+                                    PaymentTerm::from($paymentTerm)->dueDateFrom(Carbon::parse($issueDate))->toDateString()
+                                );
                             })
                             ->live()
                             ->columnSpanFull(),
@@ -263,14 +282,40 @@ class InvoiceResource extends Resource
                                     ->label('Issue Date')
                                     ->required()
                                     ->default(now())
+                                    ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                                        $paymentTerm = $get('payment_term') ?? PaymentTerm::default()->value;
+
+                                        $set(
+                                            'valid_until',
+                                            PaymentTerm::from((string) $paymentTerm)->dueDateFrom(Carbon::parse($state ?? now()))->toDateString()
+                                        );
+                                    })
+                                    ->live()
                                     ->columnSpan(1),
                                 
                                 DatePicker::make('valid_until')
                                     ->label('Due Date')
                                     ->required()
-                                    ->default(now()->addDays(30))
+                                    ->default(PaymentTerm::default()->dueDateFrom(now())->toDateString())
                                     ->columnSpan(1),
                             ]),
+
+                        Select::make('payment_term')
+                            ->label('Payment Terms')
+                            ->options(PaymentTerm::options())
+                            ->default(PaymentTerm::default()->value)
+                            ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                                $issueDate = $get('issue_date') ?? now();
+
+                                $set(
+                                    'valid_until',
+                                    PaymentTerm::from((string) ($state ?: PaymentTerm::default()->value))
+                                        ->dueDateFrom(Carbon::parse($issueDate))
+                                        ->toDateString()
+                                );
+                            })
+                            ->live()
+                            ->required(),
 
                         Select::make('order_status')
                             ->label('Order Status')
@@ -824,6 +869,11 @@ class InvoiceResource extends Resource
                             ->modalSubmitAction(false)
                             ->modalCancelAction(fn ($action) => $action->label('Close'))
                     ),
+
+                BadgeColumn::make('payment_term')
+                    ->label('Payment Terms')
+                    ->formatStateUsing(fn (?PaymentTerm $state): string => $state?->label() ?? PaymentTerm::default()->label())
+                    ->color(fn (?PaymentTerm $state): string => $state === PaymentTerm::CASH_ON_DELIVERY ? 'warning' : 'gray'),
                 
                 BadgeColumn::make('order_status')
                     ->label('Status')

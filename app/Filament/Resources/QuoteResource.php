@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\QuoteResource\Pages;
 use App\Filament\Support\PanelAccess;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Orders\Services\OrderService;
@@ -240,6 +241,11 @@ class QuoteResource extends Resource
                                     ->required(),
                                 TextInput::make('email')->email(),
                                 TextInput::make('phone'),
+                                Select::make('payment_term')
+                                    ->label('Payment Terms')
+                                    ->options(PaymentTerm::options())
+                                    ->default(PaymentTerm::default()->value)
+                                    ->required(),
                                 TextInput::make('address')
                                     ->label('Address'),
                                 TextInput::make('city')
@@ -259,6 +265,12 @@ class QuoteResource extends Resource
                                     }
                                 }
                                 return Customer::create($data)->id;
+                            })
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                $paymentTerm = Customer::query()->find($state)?->payment_term?->value
+                                    ?? PaymentTerm::default()->value;
+
+                                $set('payment_term', $paymentTerm);
                             })
                             ->live()
                             ->columnSpanFull(),
@@ -297,6 +309,12 @@ class QuoteResource extends Resource
                                     ->default(now()->addDays(30))
                                     ->columnSpan(1),
                             ]),
+
+                        Select::make('payment_term')
+                            ->label('Payment Terms')
+                            ->options(PaymentTerm::options())
+                            ->default(PaymentTerm::default()->value)
+                            ->required(),
                     ]),
 
                 Section::make('Vehicle Information')
@@ -943,7 +961,12 @@ class QuoteResource extends Resource
                     ->label('Amount')
                     ->money(fn() => CurrencySetting::getBase()?->currency_code ?? 'AED')
                     ->sortable(),
-                
+
+                BadgeColumn::make('payment_term')
+                    ->label('Payment Terms')
+                    ->formatStateUsing(fn (?PaymentTerm $state): string => $state?->label() ?? PaymentTerm::default()->label())
+                    ->color(fn (?PaymentTerm $state): string => $state === PaymentTerm::CASH_ON_DELIVERY ? 'warning' : 'gray'),
+                 
                 TextColumn::make('valid_until')
                     ->label('Valid Until')
                     ->date()

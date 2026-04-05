@@ -161,9 +161,12 @@
                         @else
                             <h4>Invoice Date:</h4>
                             <p>{{ $record->created_at->format('d/m/Y') }}</p>
+
+                            <h4 style="margin-top: 10px;">Payment Terms:</h4>
+                            <p>{{ $record->payment_term?->label() ?? '30 Days' }}</p>
                             
                             <h4 style="margin-top: 10px;">Due Date:</h4>
-                            <p>{{ $record->due_date ? \Carbon\Carbon::parse($record->due_date)->format('d/m/Y') : \Carbon\Carbon::parse($record->created_at)->addDays(30)->format('d/m/Y') }}</p>
+                            <p>{{ $record->valid_until ? \Carbon\Carbon::parse($record->valid_until)->format('d/m/Y') : (\App\Modules\Customers\Enums\PaymentTerm::default()->dueDateFrom($record->issue_date ?? $record->created_at))->format('d/m/Y') }}</p>
                         @endif
                         
                         <h4 style="margin-top: 10px;">Status:</h4>

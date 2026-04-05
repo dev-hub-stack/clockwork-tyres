@@ -73,6 +73,10 @@
                     <span class="text-gray-600">Date:</span>
                     <span class="font-medium">{{ $record->issue_date->format('Y-m-d') }}</span>
                 </div>
+                <div class="flex justify-between gap-8">
+                    <span class="text-gray-600">Payment Terms:</span>
+                    <span class="font-medium">{{ $record->payment_term?->label() ?? '30 Days' }}</span>
+                </div>
                 @if($record->valid_until)
                 <div class="flex justify-between gap-8">
                     <span class="text-gray-600">Valid Until:</span>

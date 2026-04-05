@@ -97,7 +97,7 @@ class SubmitGroupedProcurementAction
                     throw new InvalidArgumentException('Procurement can only be submitted to approved supplier connections.');
                 }
 
-                $supplierCustomer = $this->resolveSupplierCustomer($connection, $retailerAccount);
+                $supplierCustomer = $this->resolveSupplierCustomer($connection, $retailerAccount, $customer);
 
                 $request = ProcurementRequest::create([
                     'procurement_submission_id' => $submission->id,
@@ -111,6 +111,7 @@ class SubmitGroupedProcurementAction
                     'quantity_total' => (int) ($supplierOrder['quantity_total'] ?? 0),
                     'subtotal' => (float) ($supplierOrder['subtotal'] ?? 0),
                     'currency' => $currency,
+                    'payment_term' => $supplierCustomer->payment_term,
                     'notes' => $notes,
                     'submitted_at' => now(),
                     'meta' => [
@@ -164,11 +165,21 @@ class SubmitGroupedProcurementAction
         });
     }
 
-    private function resolveSupplierCustomer(AccountConnection $connection, Account $retailerAccount): Customer
+    private function resolveSupplierCustomer(
+        AccountConnection $connection,
+        Account $retailerAccount,
+        ?Customer $sourceCustomer = null,
+    ): Customer
     {
         $connection->loadMissing('supplierCustomer');
 
         if ($connection->supplierCustomer instanceof Customer) {
+            if (! $connection->supplierCustomer->payment_term && $sourceCustomer?->payment_term) {
+                $connection->supplierCustomer->forceFill([
+                    'payment_term' => $sourceCustomer->payment_term,
+                ])->save();
+            }
+
             return $connection->supplierCustomer;
         }
 
@@ -180,6 +191,7 @@ class SubmitGroupedProcurementAction
             'external_source' => 'account_connection',
             'external_customer_id' => (string) $retailerAccount->id,
             'status' => 'active',
+            'payment_term' => $sourceCustomer?->payment_term,
         ]);
 
         $connection->forceFill([
@@ -241,6 +253,7 @@ class SubmitGroupedProcurementAction
             'external_order_id' => $request->request_number,
             'currency' => $currency,
             'tax_inclusive' => $sourceOrder?->tax_inclusive ?? true,
+            'payment_term' => $customer->payment_term,
             'vehicle_year' => $sourceOrder?->vehicle_year,
             'vehicle_make' => $sourceOrder?->vehicle_make,
             'vehicle_model' => $sourceOrder?->vehicle_model,

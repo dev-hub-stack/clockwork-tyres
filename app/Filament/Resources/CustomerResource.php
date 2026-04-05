@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers;
 use App\Filament\Support\PanelAccess;
+use App\Modules\Customers\Enums\PaymentTerm;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Customers\Enums\CustomerType;
 use Filament\Forms\Components\TextInput;
@@ -94,6 +95,12 @@ class CustomerResource extends Resource
                             ->label('Phone')
                             ->tel()
                             ->maxLength(50),
+
+                        Select::make('payment_term')
+                            ->label('Payment Terms')
+                            ->options(PaymentTerm::options())
+                            ->default(PaymentTerm::default()->value)
+                            ->required(),
                     ])->columns(2),
 
                 Section::make('Address Information')
@@ -194,6 +201,18 @@ class CustomerResource extends Resource
                     ->colors([
                         'success' => 'retail',
                         'primary' => 'wholesale',
+                    ]),
+
+                Tables\Columns\BadgeColumn::make('payment_term')
+                    ->label('Payment Terms')
+                    ->formatStateUsing(fn (?PaymentTerm $state): string => $state?->label() ?? PaymentTerm::default()->label())
+                    ->colors([
+                        'gray' => fn (?PaymentTerm $state): bool => in_array($state, [
+                            PaymentTerm::DAYS_30,
+                            PaymentTerm::DAYS_60,
+                            PaymentTerm::DAYS_90,
+                        ], true),
+                        'warning' => fn (?PaymentTerm $state): bool => $state === PaymentTerm::CASH_ON_DELIVERY,
                     ]),
                 
                 Tables\Columns\TextColumn::make('email')

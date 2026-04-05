@@ -79,6 +79,7 @@
         <div class="text-right">
             <div class="text-sm space-y-1">
                 <div><span class="text-gray-600">Issue Date:</span> <strong>{{ $record->issue_date->format('M d, Y') }}</strong></div>
+                <div><span class="text-gray-600">Payment Terms:</span> <strong>{{ $record->payment_term?->label() ?? '30 Days' }}</strong></div>
                 <div><span class="text-gray-600">Due Date:</span> <strong>{{ $record->valid_until->format('M d, Y') }}</strong></div>
                 @if($record->warehouse)
                     <div><span class="text-gray-600">Warehouse:</span> <strong>{{ $record->warehouse->name }}</strong></div>

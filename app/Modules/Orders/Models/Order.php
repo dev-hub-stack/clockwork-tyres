@@ -10,6 +10,7 @@ use App\Modules\Orders\Enums\OrderStatus;
 use App\Modules\Orders\Enums\PaymentStatus;
 use App\Modules\Orders\Enums\QuoteStatus;
 use App\Modules\Procurement\Models\ProcurementRequest;
+use App\Modules\Customers\Enums\PaymentTerm;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,7 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'payment_gateway',
+        'payment_term',
         
         // Relationships
         'customer_id',
@@ -118,6 +120,7 @@ class Order extends Model
         'quote_status' => QuoteStatus::class,
         'order_status' => OrderStatus::class,
         'payment_status' => PaymentStatus::class,
+        'payment_term' => PaymentTerm::class,
         'tax_inclusive' => 'boolean',
         'is_quote_converted' => 'boolean',
         'sub_total' => 'decimal:2',
