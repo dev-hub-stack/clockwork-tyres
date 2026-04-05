@@ -6,11 +6,17 @@ use App\Models\User;
 use App\Modules\Inventory\Models\InventoryLog;
 use App\Modules\Inventory\Models\TyreOfferInventory;
 use App\Modules\Inventory\Models\Warehouse;
+use App\Modules\Inventory\Support\SyncTyreOfferInventoryStatus;
 use App\Modules\Products\Models\TyreAccountOffer;
 use Illuminate\Support\Facades\DB;
 
 final class UpsertTyreOfferInventoryAction
 {
+    public function __construct(
+        private readonly SyncTyreOfferInventoryStatus $statusSync,
+    ) {
+    }
+
     public function execute(
         TyreAccountOffer $offer,
         Warehouse $warehouse,
@@ -21,6 +27,7 @@ final class UpsertTyreOfferInventoryAction
         ?string $referenceType = null,
         ?int $referenceId = null,
         ?string $notes = null,
+        string $action = InventoryLog::ACTION_ADJUSTMENT,
     ): TyreOfferInventory {
         $normalizedQuantity = max(0, $quantity);
         $normalizedEtaQty = max(0, $etaQty);
@@ -53,14 +60,12 @@ final class UpsertTyreOfferInventoryAction
             $inventory->eta_qty = $normalizedEtaQty;
             $inventory->save();
 
-            $offer->forceFill([
-                'inventory_status' => $this->resolveOfferInventoryStatus($offer),
-            ])->save();
+            $this->statusSync->sync($offer);
 
             InventoryLog::create([
                 'warehouse_id' => $warehouse->id,
                 'tyre_account_offer_id' => $offer->id,
-                'action' => InventoryLog::ACTION_ADJUSTMENT,
+                'action' => $action,
                 'quantity_before' => $beforeQuantity,
                 'quantity_after' => $inventory->quantity,
                 'quantity_change' => $inventory->quantity - $beforeQuantity,
@@ -76,24 +81,5 @@ final class UpsertTyreOfferInventoryAction
 
             return $inventory;
         });
-    }
-
-    private function resolveOfferInventoryStatus(TyreAccountOffer $offer): string
-    {
-        $hasInventory = $offer->inventories()->exists();
-
-        if (! $hasInventory) {
-            return 'blocked_warehouse_mapping';
-        }
-
-        $hasCurrentStock = $offer->inventories()->where('quantity', '>', 0)->exists();
-
-        if ($hasCurrentStock) {
-            return 'configured_in_stock';
-        }
-
-        $hasInboundStock = $offer->inventories()->where('eta_qty', '>', 0)->exists();
-
-        return $hasInboundStock ? 'configured_inbound' : 'configured_out_of_stock';
     }
 }

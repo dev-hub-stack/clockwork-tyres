@@ -5,8 +5,10 @@ namespace App\Modules\Warranties\Models;
 use App\Models\User;
 use App\Modules\Customers\Models\Customer;
 use App\Modules\Inventory\Models\InventoryLog;
+use App\Modules\Inventory\Models\TyreDamagedInventory;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Inventory\Models\TyreOfferInventory;
 use App\Modules\Warranties\Enums\ClaimActionType;
 use App\Modules\Warranties\Enums\WarrantyClaimStatus;
 use Illuminate\Database\Eloquent\Model;
@@ -206,6 +208,42 @@ class WarrantyClaim extends Model
 
         // Process inventory adjustments for each claimed item
         foreach ($this->items as $item) {
+            if ($item->tyre_account_offer_id) {
+                $inventory = TyreOfferInventory::where('warehouse_id', $this->warehouse_id)
+                    ->where('tyre_account_offer_id', $item->tyre_account_offer_id)
+                    ->first();
+
+                if ($inventory && $inventory->quantity >= $item->quantity) {
+                    $qtyBefore = $inventory->quantity;
+                    $inventory->decrement('quantity', $item->quantity);
+
+                    InventoryLog::create([
+                        'warehouse_id' => $this->warehouse_id,
+                        'tyre_account_offer_id' => $item->tyre_account_offer_id,
+                        'action' => InventoryLog::ACTION_ADJUSTMENT,
+                        'quantity_before' => $qtyBefore,
+                        'quantity_after' => $qtyBefore - $item->quantity,
+                        'quantity_change' => -$item->quantity,
+                        'reference_type' => 'warranty_claim',
+                        'reference_id' => $this->id,
+                        'notes' => "Warranty replacement — Claim #{$this->claim_number}",
+                        'user_id' => auth()->id(),
+                    ]);
+                }
+
+                $claimRef = $this->claim_number . ($item->issue_description ? ' - ' . $item->issue_description : '');
+
+                TyreDamagedInventory::create([
+                    'tyre_account_offer_id' => $item->tyre_account_offer_id,
+                    'warehouse_id' => $this->warehouse_id,
+                    'quantity' => $item->quantity,
+                    'condition' => 'damaged',
+                    'notes' => 'From Warranty Claim: ' . $claimRef,
+                ]);
+
+                continue;
+            }
+
             if (!$item->product_variant_id) {
                 continue; // Only process variants
             }

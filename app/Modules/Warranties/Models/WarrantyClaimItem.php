@@ -4,6 +4,7 @@ namespace App\Modules\Warranties\Models;
 
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Products\Models\TyreAccountOffer;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\OrderItem;
 use App\Modules\Warranties\Enums\ResolutionAction;
@@ -12,10 +13,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WarrantyClaimItem extends Model
 {
+    protected $attributes = [
+        'resolution_action' => ResolutionAction::NO_ACTION->value,
+    ];
+
     protected $fillable = [
         'warranty_claim_id',
         'product_id',
         'product_variant_id',
+        'tyre_account_offer_id',
         'invoice_id',
         'invoice_item_id',
         'quantity',
@@ -45,6 +51,11 @@ class WarrantyClaimItem extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    public function tyreAccountOffer(): BelongsTo
+    {
+        return $this->belongsTo(TyreAccountOffer::class);
+    }
+
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Order::class, 'invoice_id');
@@ -67,6 +78,10 @@ class WarrantyClaimItem extends Model
             $model = $this->productVariant->product->model?->name ?? 'Unknown Model';
             return $brand . ' ' . $model;
         }
+
+        if ($this->tyreAccountOffer) {
+            return trim(($this->tyreAccountOffer->brand_name ?? 'Unknown Brand') . ' ' . ($this->tyreAccountOffer->model_name ?? 'Unknown Model'));
+        }
         
         if ($this->product) {
             $brand = $this->product->brand?->name ?? 'Unknown Brand';
@@ -85,6 +100,10 @@ class WarrantyClaimItem extends Model
         if ($this->productVariant) {
             return $this->productVariant->product->brand?->name;
         }
+
+        if ($this->tyreAccountOffer) {
+            return $this->tyreAccountOffer->brand_name;
+        }
         
         if ($this->product) {
             return $this->product->brand?->name;
@@ -98,7 +117,10 @@ class WarrantyClaimItem extends Model
      */
     public function getSkuAttribute(): ?string
     {
-        return $this->productVariant?->sku ?? $this->product?->sku ?? null;
+        return $this->productVariant?->sku
+            ?? $this->tyreAccountOffer?->source_sku
+            ?? $this->product?->sku
+            ?? null;
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Modules\AddOns\Models\Addon;
 use App\Modules\Consignments\Enums\ConsignmentItemStatus;
 use App\Modules\Products\Models\Product;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Products\Models\TyreAccountOffer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ class ConsignmentItem extends Model
         // Relationships
         'consignment_id',
         'product_variant_id',
+        'tyre_account_offer_id',
         'warehouse_id',
         
         // Snapshots (JSONB) - preserve product data at time of consignment
@@ -66,6 +68,47 @@ class ConsignmentItem extends Model
     {
         static::saving(function (ConsignmentItem $item) {
             if (!$item->product_variant_id) {
+                if (! $item->tyre_account_offer_id) {
+                    return;
+                }
+
+                $offer = TyreAccountOffer::with('tyreCatalogGroup')->find($item->tyre_account_offer_id);
+
+                if (! $offer) {
+                    return;
+                }
+
+                $group = $offer->tyreCatalogGroup;
+                $brand = $group?->brand_name ?? 'Unknown Brand';
+                $model = $group?->model_name ?? 'Unknown Model';
+                $fullSize = $group?->full_size ?? 'Unknown Size';
+                $loadIndex = $group?->load_index;
+                $speedRating = $group?->speed_rating;
+
+                $item->product_name = $item->product_name ?: trim($brand . ' ' . $model);
+                $item->brand_name = $item->brand_name ?: $brand;
+                $item->description = $item->description ?: trim(collect([
+                    $fullSize,
+                    $loadIndex ? 'Load ' . $loadIndex : null,
+                    $speedRating ? 'Speed ' . $speedRating : null,
+                ])->filter()->implode('  '));
+
+                $snapshot = is_array($item->product_snapshot) ? $item->product_snapshot : [];
+                $snapshot['product_type'] = 'tyre';
+                $snapshot['brand_name'] = $brand;
+                $snapshot['model_name'] = $model;
+                $snapshot['specifications'] = array_filter([
+                    'full_size' => $fullSize,
+                    'width' => $group?->width,
+                    'height' => $group?->height,
+                    'rim_size' => $group?->rim_size,
+                    'load_index' => $loadIndex,
+                    'speed_rating' => $speedRating,
+                    'dot_year' => $group?->dot_year,
+                    'runflat' => $group?->runflat,
+                ], fn ($value) => $value !== null && $value !== '');
+
+                $item->product_snapshot = $snapshot;
                 return;
             }
 
@@ -108,6 +151,11 @@ class ConsignmentItem extends Model
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    public function tyreAccountOffer(): BelongsTo
+    {
+        return $this->belongsTo(TyreAccountOffer::class);
     }
 
     /**

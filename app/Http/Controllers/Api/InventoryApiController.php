@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Accounts\Support\CurrentAccountResolver;
 use App\Modules\Products\Models\ProductVariant;
+use App\Modules\Products\Models\TyreAccountOffer;
+use App\Modules\Products\Support\TyreImageStorage;
 use App\Modules\Consignments\Models\ConsignmentItem;
+use App\Modules\Inventory\Models\TyreDamagedInventory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -348,6 +351,267 @@ class InventoryApiController extends Controller
         }
 
         return response()->json($rows);
+    }
+
+    /**
+     * Return tyre inventory grid data as JSON.
+     */
+    public function tyreGridData(Request $request)
+    {
+        $currentAccountId = $this->currentAccountId($request);
+
+        if (! $currentAccountId) {
+            return response()->json([]);
+        }
+
+        $offers = DB::table('tyre_account_offers as tao')
+            ->join('tyre_catalog_groups as tcg', 'tcg.id', '=', 'tao.tyre_catalog_group_id')
+            ->select(
+                'tao.id',
+                'tao.source_sku',
+                'tao.retail_price',
+                'tao.wholesale_price_lvl1',
+                'tao.inventory_status',
+                'tao.product_image_1',
+                'tcg.brand_name as brand',
+                'tcg.model_name as model',
+                'tcg.full_size',
+                'tcg.width',
+                'tcg.height',
+                'tcg.rim_size',
+                'tcg.load_index',
+                'tcg.speed_rating',
+                'tcg.dot_year',
+                'tcg.tyre_type',
+                'tcg.runflat',
+                'tcg.rfid'
+            )
+            ->where('tao.account_id', $currentAccountId)
+            ->orderBy('tcg.brand_name')
+            ->orderBy('tcg.model_name')
+            ->orderBy('tao.source_sku')
+            ->get()
+            ->keyBy('id');
+
+        if ($offers->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $inventoryRows = DB::table('tyre_offer_inventories as toi')
+            ->join('warehouses as w', 'w.id', '=', 'toi.warehouse_id')
+            ->where('toi.account_id', $currentAccountId)
+            ->where('w.account_id', $currentAccountId)
+            ->select('toi.tyre_account_offer_id', 'toi.warehouse_id', 'toi.quantity', 'toi.eta', 'toi.eta_qty')
+            ->get()
+            ->groupBy('tyre_account_offer_id');
+
+        $consignmentStock = DB::table('consignment_items as ci')
+            ->join('consignments as c', 'c.id', '=', 'ci.consignment_id')
+            ->join('customers as cu', 'cu.id', '=', 'c.customer_id')
+            ->whereIn('c.status', ['sent', 'delivered', 'partially_sold', 'partially_returned'])
+            ->whereNull('ci.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->whereNotNull('ci.tyre_account_offer_id')
+            ->where('cu.account_id', $currentAccountId)
+            ->select(
+                'ci.tyre_account_offer_id',
+                DB::raw('SUM(ci.quantity_sent - ci.quantity_sold - ci.quantity_returned) as consignment_qty')
+            )
+            ->groupBy('ci.tyre_account_offer_id')
+            ->pluck('consignment_qty', 'ci.tyre_account_offer_id');
+
+        $damagedStock = DB::table('tyre_damaged_inventories as tdi')
+            ->join('warehouses as w2', 'w2.id', '=', 'tdi.warehouse_id')
+            ->where('w2.account_id', $currentAccountId)
+            ->select(
+                'tdi.tyre_account_offer_id',
+                DB::raw('SUM(tdi.quantity) as damaged_qty')
+            )
+            ->groupBy('tdi.tyre_account_offer_id')
+            ->pluck('damaged_qty', 'tdi.tyre_account_offer_id');
+
+        $rows = [];
+        foreach ($offers as $offer) {
+            $offerInventories = $inventoryRows->get($offer->id, collect());
+
+            $rows[] = [
+                'id' => $offer->id,
+                'sku' => $offer->source_sku ?? '',
+                'brand' => $offer->brand ?? '',
+                'model' => $offer->model ?? '',
+                'full_size' => $offer->full_size ?? '',
+                'width' => $offer->width ?? '',
+                'height' => $offer->height ?? '',
+                'rim_size' => $offer->rim_size ?? '',
+                'load_index' => $offer->load_index ?? '',
+                'speed_rating' => $offer->speed_rating ?? '',
+                'dot_year' => $offer->dot_year ?? '',
+                'tyre_type' => $offer->tyre_type ?? '',
+                'runflat' => $offer->runflat ? 'Yes' : 'No',
+                'rfid' => $offer->rfid ? 'Yes' : 'No',
+                'inventory_status' => $offer->inventory_status ?? '',
+                'retail_price' => $offer->retail_price,
+                'wholesale_price_lvl1' => $offer->wholesale_price_lvl1,
+                'image' => TyreImageStorage::url($offer->product_image_1),
+                'inventory' => $offerInventories->map(fn ($inventory) => [
+                    'warehouse_id' => $inventory->warehouse_id,
+                    'quantity' => $inventory->quantity ?? 0,
+                    'eta' => $inventory->eta ?? '',
+                    'eta_qty' => $inventory->eta_qty ?? 0,
+                ])->values()->toArray(),
+                'incoming_stock' => $offerInventories->sum('eta_qty'),
+                'current_stock' => $offerInventories->sum('quantity'),
+                'consignment_stock' => (int) ($consignmentStock[$offer->id] ?? 0),
+                'damaged_stock' => (int) ($damagedStock[$offer->id] ?? 0),
+            ];
+        }
+
+        return response()->json($rows);
+    }
+
+    public function getTyreConsignmentsBySku($sku, Request $request)
+    {
+        try {
+            $currentAccountId = $this->currentAccountId($request);
+            $offer = TyreAccountOffer::query()
+                ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
+                ->where('source_sku', $sku)
+                ->firstOrFail();
+
+            $consignments = ConsignmentItem::where('tyre_account_offer_id', $offer->id)
+                ->whereHas('consignment', function ($q) {
+                    $q->whereIn('status', ['sent', 'delivered', 'partially_sold', 'partially_returned']);
+                })
+                ->when($currentAccountId, function ($query) use ($currentAccountId) {
+                    $query->whereHas('consignment.customer', function ($customerQuery) use ($currentAccountId) {
+                        $customerQuery->where('account_id', $currentAccountId);
+                    });
+                })
+                ->with('consignment.customer')
+                ->get()
+                ->map(function ($item) {
+                    $availableQty = $item->quantity_sent - $item->quantity_sold - $item->quantity_returned;
+
+                    if ($availableQty > 0) {
+                        return [
+                            'customer' => $item->consignment->customer->business_name ?? $item->consignment->customer->name ?? 'Unknown Customer',
+                            'customer_id' => $item->consignment->customer_id,
+                            'consignment_id' => $item->consignment_id,
+                            'quantity_sent' => $item->quantity_sent,
+                            'quantity_sold' => $item->quantity_sold,
+                            'quantity_returned' => $item->quantity_returned,
+                            'available_qty' => $availableQty,
+                            'date_consigned' => $item->consignment->issue_date ? $item->consignment->issue_date->format('d-m-Y') : 'N/A',
+                            'consignment_number' => $item->consignment->consignment_number ?? 'N/A',
+                        ];
+                    }
+
+                    return null;
+                })
+                ->filter()
+                ->values();
+
+            return response()->json($consignments);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load tyre consignment data',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getTyreIncomingStockBySku($sku, Request $request)
+    {
+        try {
+            $currentAccountId = $this->currentAccountId($request);
+            $offer = TyreAccountOffer::query()
+                ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
+                ->where('source_sku', $sku)
+                ->firstOrFail();
+
+            $warehouseCode = $request->query('warehouse');
+
+            $query = $offer->inventories()->with('warehouse');
+
+            if ($currentAccountId) {
+                $query->whereHas('warehouse', function ($warehouseQuery) use ($currentAccountId) {
+                    $warehouseQuery->where('account_id', $currentAccountId);
+                });
+            }
+
+            if ($warehouseCode) {
+                $query->whereHas('warehouse', function ($warehouseQuery) use ($warehouseCode) {
+                    $warehouseQuery->where('code', $warehouseCode);
+                });
+            }
+
+            $incomingStock = $query->get()
+                ->map(function ($inventory) {
+                    if ((int) ($inventory->eta_qty ?? 0) > 0) {
+                        return [
+                            'warehouse' => $inventory->warehouse->warehouse_name ?? 'Unknown',
+                            'warehouse_code' => $inventory->warehouse->code ?? 'N/A',
+                            'eta' => $inventory->eta ?? null,
+                            'quantity' => $inventory->eta_qty ?? 0,
+                            'notes' => $inventory->notes ?? null,
+                        ];
+                    }
+
+                    return null;
+                })
+                ->filter()
+                ->values();
+
+            return response()->json($incomingStock);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load incoming tyre stock data',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getTyreDamagedStockBySku($sku, Request $request)
+    {
+        try {
+            $currentAccountId = $this->currentAccountId($request);
+            $offer = TyreAccountOffer::query()
+                ->when($currentAccountId, fn ($query) => $query->where('account_id', $currentAccountId))
+                ->where('source_sku', $sku)
+                ->firstOrFail();
+
+            $damagedItems = TyreDamagedInventory::query()
+                ->join('warehouses as w', 'w.id', '=', 'tyre_damaged_inventories.warehouse_id')
+                ->where('tyre_damaged_inventories.tyre_account_offer_id', $offer->id)
+                ->when($currentAccountId, fn ($query) => $query->where('w.account_id', $currentAccountId))
+                ->select(
+                    'w.warehouse_name as warehouse',
+                    'w.code as warehouse_code',
+                    'tyre_damaged_inventories.quantity',
+                    'tyre_damaged_inventories.condition',
+                    'tyre_damaged_inventories.notes',
+                    'tyre_damaged_inventories.created_at'
+                )
+                ->orderByDesc('tyre_damaged_inventories.created_at')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'warehouse' => $item->warehouse,
+                        'warehouse_code' => $item->warehouse_code,
+                        'quantity' => $item->quantity,
+                        'condition' => ucfirst($item->condition),
+                        'notes' => $item->notes ?? '-',
+                        'date_recorded' => date('d-m-Y', strtotime($item->created_at)),
+                    ];
+                });
+
+            return response()->json($damagedItems);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load damaged tyre stock data',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

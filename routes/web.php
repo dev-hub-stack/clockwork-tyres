@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\ReportExportController;
+use App\Http\Controllers\Admin\TyreInventoryController;
 use App\Http\Controllers\Admin\TyreImportController;
 use App\Http\Controllers\ConsignmentPdfController;
 use App\Http\Controllers\ProductImageController;
@@ -73,12 +74,32 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('inventory.template');
     Route::get('inventory/export-csv', [InventoryController::class, 'exportCsv'])
         ->name('inventory.export-csv');
+    Route::post('tyres/inventory/save-batch', [TyreInventoryController::class, 'saveBatch'])
+        ->name('tyres.inventory.save-batch');
+    Route::post('tyres/inventory/import', [TyreInventoryController::class, 'import'])
+        ->name('tyres.inventory.import');
+    Route::post('tyres/inventory/bulk-transfer', [TyreInventoryController::class, 'bulkTransfer'])
+        ->name('tyres.inventory.bulk-transfer');
+    Route::post('tyres/inventory/add', [TyreInventoryController::class, 'addInventory'])
+        ->name('tyres.inventory.add');
+    Route::get('tyres/inventory/template', [TyreInventoryController::class, 'downloadTemplate'])
+        ->name('tyres.inventory.template');
+    Route::get('tyres/inventory/export-csv', [TyreInventoryController::class, 'exportCsv'])
+        ->name('tyres.inventory.export-csv');
     Route::get('reports/export/{report}/{format}', [ReportExportController::class, 'download'])
         ->whereIn('format', ['csv', 'pdf'])
         ->name('reports.export');
     // Grid data JSON endpoint — loaded via AJAX to avoid Livewire snapshot serialization
     Route::get('api/inventory/grid-data', [\App\Http\Controllers\Api\InventoryApiController::class, 'gridData'])
         ->name('api.inventory.grid-data');
+    Route::get('api/tyres/inventory/grid-data', [\App\Http\Controllers\Api\InventoryApiController::class, 'tyreGridData'])
+        ->name('api.tyres.inventory.grid-data');
+    Route::get('api/tyres/inventory/sku/{sku}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getTyreConsignmentsBySku'])
+        ->name('api.tyres.inventory.consignments.bySku');
+    Route::get('api/tyres/inventory/sku/{sku}/incoming', [\App\Http\Controllers\Api\InventoryApiController::class, 'getTyreIncomingStockBySku'])
+        ->name('api.tyres.inventory.incoming.bySku');
+    Route::get('api/tyres/inventory/sku/{sku}/damaged', [\App\Http\Controllers\Api\InventoryApiController::class, 'getTyreDamagedStockBySku'])
+        ->name('api.tyres.inventory.damaged.bySku');
 
     // Inventory API Routes by SKU (for inventory grid modals) - MUST BE FIRST!
     Route::get('api/inventory/sku/{sku}/consignments', [\App\Http\Controllers\Api\InventoryApiController::class, 'getConsignmentsBySku'])
