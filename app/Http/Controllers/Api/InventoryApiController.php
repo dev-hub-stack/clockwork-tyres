@@ -437,6 +437,8 @@ class InventoryApiController extends Controller
             $rows[] = [
                 'id' => $offer->id,
                 'sku' => $offer->source_sku ?? '',
+                'product_full_name' => trim(($offer->brand ?? 'N/A') . ' ' . ($offer->model ?? 'N/A')),
+                'size' => $offer->full_size ?? '',
                 'brand' => $offer->brand ?? '',
                 'model' => $offer->model ?? '',
                 'full_size' => $offer->full_size ?? '',

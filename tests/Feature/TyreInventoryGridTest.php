@@ -47,7 +47,12 @@ class TyreInventoryGridTest extends TestCase
             ->get('/admin/tyre-inventory-grid')
             ->assertOk()
             ->assertSee('Tyre Inventory Grid')
-            ->assertSee($account->name);
+            ->assertSee($account->name)
+            ->assertSee("title: 'Product Full Name'", false)
+            ->assertSee("title: 'Consignment Stock'", false)
+            ->assertDontSee("title: 'Status'", false)
+            ->assertDontSee("title: 'Retail Price'", false)
+            ->assertDontSee("title: 'Wholesale Price'", false);
     }
 
     public function test_tyre_inventory_grid_data_is_scoped_and_includes_current_account_metrics(): void
