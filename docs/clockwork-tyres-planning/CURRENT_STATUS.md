@@ -81,6 +81,12 @@ This file is the practical status snapshot for the active Clockwork Tyres build.
   - `supplier + basic`
   - `supplier + premium`
   - enterprise/custom inquiry
+- direct public business registration remains the live onboarding path:
+  - the form creates the owner user, business account, workspace customer, subscription, and onboarding record immediately
+  - free `Starter` plans activate immediately
+  - paid `Plus / Premium` plans now continue into Stripe Billing checkout
+  - paid self-serve plans use a `14-day` free trial with full paid-plan features during the `trialing` window
+  - enterprise remains manual / custom pricing
 - super admin business-account creation now reflects the same commercial language:
   - retailer `Starter / Plus`
   - wholesaler `Starter / Premium`

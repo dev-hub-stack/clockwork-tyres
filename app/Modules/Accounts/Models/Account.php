@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Account extends Model
@@ -77,6 +78,11 @@ class Account extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(AccountSubscription::class);
+    }
+
+    public function currentSubscription(): HasOne
+    {
+        return $this->hasOne(AccountSubscription::class)->latestOfMany();
     }
 
     public function customers(): HasMany
@@ -166,7 +172,11 @@ class Account extends Model
 
     public function hasPremiumSubscription(): bool
     {
-        return $this->base_subscription_plan === SubscriptionPlan::PREMIUM;
+        if ($this->base_subscription_plan !== SubscriptionPlan::PREMIUM) {
+            return false;
+        }
+
+        return $this->currentSubscription?->isBillingLive() ?? false;
     }
 
     public function hasReportsSubscription(): bool

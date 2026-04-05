@@ -17,6 +17,12 @@ readonly class AccountEntitlements
         return new self($account);
     }
 
+    public function hasActivePaidPlan(): bool
+    {
+        return $this->account->base_subscription_plan === SubscriptionPlan::PREMIUM
+            && ($this->account->currentSubscription?->isBillingLive() ?? false);
+    }
+
     public function hasWholesaleAccess(): bool
     {
         return $this->account->supportsWholesalePortal();
@@ -29,7 +35,7 @@ readonly class AccountEntitlements
         }
 
         return $this->account->isRetailEnabled()
-            && $this->account->base_subscription_plan === SubscriptionPlan::PREMIUM;
+            && $this->hasActivePaidPlan();
     }
 
     public function hasReportsAddon(): bool
@@ -55,16 +61,18 @@ readonly class AccountEntitlements
             return null;
         }
 
-        return $this->account->base_subscription_plan === SubscriptionPlan::BASIC
-            ? 3
-            : null;
+        return $this->hasActivePaidPlan()
+            ? null
+            : 3;
     }
 
-    public function canAddSupplierConnection(int $currentSupplierCount): bool
+    public function billingStatus(): ?string
     {
-        $limit = $this->supplierConnectionLimit();
+        if ($this->account->base_subscription_plan !== SubscriptionPlan::PREMIUM) {
+            return 'active';
+        }
 
-        return $limit === null || $currentSupplierCount < $limit;
+        return $this->account->currentSubscription?->status;
     }
 
     public function toArray(): array
@@ -77,6 +85,14 @@ readonly class AccountEntitlements
             'reports_customer_limit' => $this->reportsCustomerLimit(),
             'supplier_connection_limit' => $this->supplierConnectionLimit(),
             'base_subscription_plan' => $this->account->base_subscription_plan?->value,
+            'billing_status' => $this->billingStatus(),
         ];
+    }
+
+    public function canAddSupplierConnection(int $currentSupplierCount): bool
+    {
+        $limit = $this->supplierConnectionLimit();
+
+        return $limit === null || $currentSupplierCount < $limit;
     }
 }

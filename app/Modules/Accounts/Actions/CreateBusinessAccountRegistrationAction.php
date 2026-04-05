@@ -10,6 +10,7 @@ use App\Modules\Accounts\Enums\SubscriptionPlan;
 use App\Modules\Accounts\Models\Account;
 use App\Modules\Accounts\Models\AccountOnboarding;
 use App\Modules\Accounts\Models\AccountSubscription;
+use App\Modules\Accounts\Support\SubscriptionPlanCatalogResolver;
 use App\Modules\Customers\Models\Customer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,11 @@ use Illuminate\Validation\ValidationException;
 
 class CreateBusinessAccountRegistrationAction
 {
+    public function __construct(
+        private readonly SubscriptionPlanCatalogResolver $planCatalogResolver,
+    ) {
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -29,6 +35,8 @@ class CreateBusinessAccountRegistrationAction
             $subscriptionPlan = $this->resolveSubscriptionPlan((string) $payload['plan_preference']);
 
             $this->guardCombinedAccountRequiresPaidPlan($accountType, $subscriptionPlan);
+            $planCatalog = $this->planCatalogResolver->for($accountType->value, $subscriptionPlan->value);
+            $requiresCheckout = $planCatalog->requiresStripeCheckout();
 
             $owner = User::query()->create([
                 'name' => (string) $payload['business_name'],
@@ -75,13 +83,18 @@ class CreateBusinessAccountRegistrationAction
             $subscription = AccountSubscription::query()->create([
                 'account_id' => $account->id,
                 'plan_code' => $subscriptionPlan,
-                'status' => 'active',
+                'status' => $requiresCheckout ? 'pending_checkout' : 'active',
                 'reports_enabled' => false,
                 'reports_customer_limit' => null,
-                'starts_at' => now(),
+                'starts_at' => $requiresCheckout ? null : now(),
+                'trial_ends_at' => null,
+                'billing_resume_token' => $requiresCheckout ? (string) Str::uuid() : null,
                 'created_by_user_id' => $owner->id,
                 'meta' => [
                     'created_via' => 'public_business_registration',
+                    'billing_mode' => $planCatalog->billing_mode,
+                    'plan_display_name' => $planCatalog->display_name,
+                    'trial_days' => $planCatalog->trial_days,
                 ],
             ]);
 
@@ -125,9 +138,16 @@ class CreateBusinessAccountRegistrationAction
                 'subscription' => [
                     'id' => $subscription->id,
                     'plan_code' => $subscription->plan_code?->value,
-                    'plan_label' => $subscription->plan_code?->label(),
+                    'plan_label' => $planCatalog->display_name,
                     'reports_enabled' => (bool) $subscription->reports_enabled,
                     'status' => $subscription->status,
+                ],
+                'billing' => [
+                    'requires_checkout' => $requiresCheckout,
+                    'billing_mode' => $planCatalog->billing_mode,
+                    'resume_token' => $subscription->billing_resume_token,
+                    'trial_days' => $planCatalog->trial_days,
+                    'plan_display_name' => $planCatalog->display_name,
                 ],
                 'workspace_customer' => [
                     'id' => $workspaceCustomer->id,

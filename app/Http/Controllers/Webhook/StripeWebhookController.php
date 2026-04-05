@@ -3,14 +3,22 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Accounts\Support\StripeSubscriptionCheckoutService;
 use App\Modules\Orders\Models\Payment;
 use Illuminate\Http\Request;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\Event;
 use Stripe\Stripe;
+use Stripe\Subscription;
 use Stripe\Webhook;
 
 class StripeWebhookController extends Controller
 {
+    public function __construct(
+        private readonly StripeSubscriptionCheckoutService $subscriptionCheckoutService,
+    ) {
+    }
+
     public function handle(Request $request)
     {
         $payload = $request->getContent();
@@ -32,6 +40,9 @@ class StripeWebhookController extends Controller
 
         match ($event->type) {
             'charge.captured' => $this->handleChargeCaptured($event->data->object),
+            'checkout.session.completed' => $this->handleCheckoutSessionCompleted($event),
+            'customer.subscription.updated' => $this->handleSubscriptionChanged($event),
+            'customer.subscription.deleted' => $this->handleSubscriptionChanged($event),
             default => null,
         };
 
@@ -58,5 +69,34 @@ class StripeWebhookController extends Controller
                 'captured_charge_id' => $charge->id,
             ]),
         ]);
+    }
+
+    private function handleCheckoutSessionCompleted(Event $event): void
+    {
+        $session = $event->data->object;
+
+        if (! isset($session->id)) {
+            return;
+        }
+
+        $this->subscriptionCheckoutService->syncCheckoutSession((string) $session->id);
+    }
+
+    private function handleSubscriptionChanged(Event $event): void
+    {
+        $subscription = $event->data->object;
+
+        if ($subscription instanceof Subscription) {
+            $this->subscriptionCheckoutService->syncStripeSubscription($subscription);
+            return;
+        }
+
+        if (! isset($subscription->id)) {
+            return;
+        }
+
+        $this->subscriptionCheckoutService->syncStripeSubscription(
+            Subscription::retrieve((string) $subscription->id)
+        );
     }
 }

@@ -45,6 +45,10 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'wholesale' => [
+        'frontend_url' => env('WHOLESALE_FRONTEND_URL', 'http://localhost:4200'),
+    ],
+
     'postpay' => [
         'merchant_id' => env('POSTPAY_MERCHANT_ID'),
         'secret'      => env('POSTPAY_SECRET_ID'),

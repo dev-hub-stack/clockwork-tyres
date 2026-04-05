@@ -59,6 +59,11 @@ Route::post('auth/forgot',          [AuthController::class,  'forgot']);
 Route::post('auth/reset-password',  [AuthController::class,  'reset']);
 Route::post('auth/set-password',    [AuthController::class,  'setPassword']); // Invited dealer sets password
 Route::post('auth/business-register', [BusinessRegistrationController::class, 'store']);
+Route::post('auth/business-register/billing/resume', [BusinessRegistrationController::class, 'resumeCheckout']);
+Route::get(
+    'auth/business-register/billing/success',
+    [BusinessRegistrationController::class, 'checkoutSuccess']
+)->name('wholesale.auth.business-register.billing.success');
 Route::post('dealer',               [DealerController::class,'store']); // Wholesale inquiry (no account created)
 Route::post('vendor',               [DealerController::class,'store']); // Brand inquiry
 

@@ -21,6 +21,11 @@ class AccountSubscription extends Model
         'reports_customer_limit',
         'starts_at',
         'ends_at',
+        'trial_ends_at',
+        'billing_resume_token',
+        'stripe_customer_id',
+        'stripe_subscription_id',
+        'stripe_checkout_session_id',
         'meta',
         'created_by_user_id',
     ];
@@ -31,6 +36,7 @@ class AccountSubscription extends Model
         'reports_customer_limit' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'trial_ends_at' => 'datetime',
         'meta' => 'array',
     ];
 
@@ -42,5 +48,10 @@ class AccountSubscription extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function isBillingLive(): bool
+    {
+        return in_array($this->status, ['trialing', 'active'], true);
     }
 }
